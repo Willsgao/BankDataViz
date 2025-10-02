@@ -1,0 +1,14 @@
+venv/
+*.png
+*.pdf
+__pycache__/
+.venv_311
+.venv
+
+
+# frontend/.gitignore
+node_modules/
+.cache/
+dist/
+*.local
+.DS_Store
