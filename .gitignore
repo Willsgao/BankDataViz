@@ -12,7 +12,7 @@ node_modules/
 dist/
 *.local
 .DS_Store
-
+backend/data/*
 
 #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
 
