@@ -3,7 +3,7 @@
     <div class="file-panel">
       <el-upload
         class="upload-area"
-        action="http://localhost:5000/upload"
+        action="http://118.25.92.108:5000/upload"
         :show-file-list="false"
         :on-success="loadFiles"
         :before-upload="beforeUpload"
@@ -20,7 +20,7 @@
         <div v-for="fileItem in files" :key="fileItem.id" class="file-item">
           <div v-if="isPDF(fileItem.filename)" class="pdf-container">
             <iframe
-              :src="`http://localhost:5000/file/${fileItem.filename}`"
+              :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
               width="100%"
               height="700px"
               frameborder="0"
@@ -28,8 +28,8 @@
           </div>
           <el-image
             v-else
-            :src="`http://localhost:5000/file/${fileItem.filename}`"
-            :preview-src-list="[`http://localhost:5000/file/${fileItem.filename}`]"
+            :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
+            :preview-src-list="[`http://118.25.92.108:5000/file/${fileItem.filename}`]"
             fit="contain"
             style="max-height: 500px; width: 100%;"
           />
@@ -115,7 +115,7 @@ export default {
     },
     async loadFiles() {
       try {
-        const res = await axios.get('http://localhost:5000/files')
+        const res = await axios.get('http://118.25.92.108:5000/files')
         if (Array.isArray(res.data)) {
           this.files = res.data.map(item => {
             return {
@@ -142,7 +142,7 @@ export default {
     },
     async loadText() {
       try {
-        const res = await axios.get('http://localhost:5000/text')
+        const res = await axios.get('http://118.25.92.108:5000/text')
         this.content = res.data.content || res.data.text || '';
       } catch (error) {
         console.error('加载文本失败:', error)
@@ -150,7 +150,7 @@ export default {
     },
     async saveText() {
       try {
-        await axios.post('http://localhost:5000/text', { content: this.content })
+        await axios.post('http://118.25.92.108:5000/text', { content: this.content })
         this.$message.success("保存成功")
       } catch (error) {
         console.error('保存文本失败:', error)
