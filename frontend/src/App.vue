@@ -18,6 +18,7 @@
 
       <div class="file-list">
         <div v-for="fileItem in files" :key="fileItem.id" class="file-item">
+          <!-- 预览区域 -->
           <div v-if="isPDF(fileItem.filename)" class="pdf-container">
             <iframe
               :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
@@ -33,10 +34,52 @@
             fit="contain"
             style="max-height: 500px; width: 100%;"
           />
-          <div class="file-meta">
-            <div class="file-name">{{ fileItem.filename }}</div>
-            <div class="file-date">上传于：{{ formatDate(fileItem.created_at) }}</div>
-          </div>
+
+          <!-- 文件信息 + 操作按钮 -->
+            <div class="file-meta">
+              <div class="file-name">{{ fileItem.filename }}</div>
+              <div class="file-date">上传于：{{ formatDate(fileItem.created_at) }}</div>
+
+              <!-- 通用操作：删除 + 切割（每个文件都有） -->
+              <div style="margin-top: 8px;">
+                <el-button
+                  type="danger"
+                  size="mini"
+                  icon="el-icon-delete"
+                  @click="deleteFile(fileItem.filename)"
+                >删除</el-button>
+
+                <el-button
+                  size="mini"
+                  type="primary"
+                  icon="el-icon-crop"
+                  @click="cutTable(fileItem.filename)"
+                  :loading="cutLoading && !!cutLoading[fileItem.filename]"
+                  style="margin-left: 8px;"
+                >图表切割</el-button>
+              </div>
+
+              <!-- 切割结果（有就展示） -->
+              <el-collapse
+                v-if="cutResults && cutResults[fileItem.filename]"
+                style="margin-top: 10px"
+              >
+                <el-collapse-item title="查看切割子图">
+                  <div
+                    v-for="(img, idx) in cutResults[fileItem.filename]"
+                    :key="idx"
+                    style="margin-bottom: 8px"
+                  >
+                    <img :src="'data:image/png;base64,' + img" width="100%" />
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+
+
+
+
+
         </div>
       </div>
     </div>
@@ -53,6 +96,10 @@
     </div>
   </div>
 </template>
+
+
+
+
 
 <script>
 import axios from 'axios'
@@ -113,6 +160,7 @@ export default {
     isPDF(name) {
       return name && name.toLowerCase().endsWith('.pdf')
     },
+
     async loadFiles() {
       try {
         const res = await axios.get('http://118.25.92.108:5000/files')
@@ -140,6 +188,7 @@ export default {
       if (ext === 'pdf') return 'pdf';
       return ['png', 'jpg', 'jpeg', 'gif'].includes(ext) ? 'image' : 'unknown';
     },
+
     async loadText() {
       try {
         const res = await axios.get('http://118.25.92.108:5000/text')
@@ -156,7 +205,58 @@ export default {
         console.error('保存文本失败:', error)
         this.$message.error("保存失败")
       }
+    },
+
+    async deleteFile(filename) {
+      try {
+        await this.$confirm('确定删除该文件？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        await axios.delete(`http://118.25.92.108:5000/file/${filename}`)
+        this.$message.success('删除成功')
+        this.loadFiles()   // 刷新列表
+      } catch (e) {
+        if (e !== 'cancel') {
+          console.error('删除失败:', e)
+          this.$message.error('删除失败')
+        }
+      }
+    },
+
+
+
+
+    /* 图表切割 */
+    async cutTable(filename) {
+      if (this.isPDF(filename)) return
+      this.$set(this.cutLoading, filename, true)
+
+      try {
+        const res = await axios.get(
+          `http://118.25.92.108:5000/file/${filename}`,
+          { responseType: 'blob' }
+        )
+        const reader = new FileReader()
+        reader.onload = async () => {
+          const base64 = reader.result
+          const cutRes = await axios.post(
+            'http://118.25.92.108:5000/cut-table',
+            { image: base64 }
+          )
+          this.$set(this.cutResults, filename, cutRes.data.slices)
+        }
+        reader.readAsDataURL(res.data)
+      } catch (e) {
+        console.error('切割失败:', e)
+        this.$message.error('切割失败')
+      } finally {
+        this.$set(this.cutLoading, filename, false)
+      }
     }
+
+
   }
 }
 </script>

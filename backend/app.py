@@ -215,5 +215,27 @@ def get_database():
     })
 
 
+# ===== 新增：删除文件接口 =====
+@app.route('/file/<filename>', methods=['DELETE'])
+def delete_file(filename):
+    """删除单个文件 + 数据库记录"""
+    try:
+        # 1. 删数据库记录
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute("DELETE FROM files WHERE filename = ?", (filename,))
+        conn.commit()
+        conn.close()
+
+        # 2. 删硬盘文件
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        return jsonify({'message': '已删除'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
