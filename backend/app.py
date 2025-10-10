@@ -10,9 +10,11 @@
 """
 
 from flask import Flask, request, jsonify, send_from_directory
+from flask import current_app
 from flask_cors import CORS
 import os, sqlite3
 from werkzeug.utils import secure_filename
+from pathlib import Path
 
 app = Flask(__name__)
 CORS(app)
@@ -236,6 +238,97 @@ def delete_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# 放在所有 import 之后，Flask 实例之后
+from pathlib import Path
+from service.pdf_convert_service import PdfConvertService, background_convert   # 关键 1
+
+UPLOAD_FOLDER = 'static/uploads'
+PNG_OUTPUT_ROOT = 'static/pdf2pngs'          # 统一放 PNG 的根目录
+Path(PNG_OUTPUT_ROOT).mkdir(parents=True, exist_ok=True)
+
+# -------------------------------------------------
+# ① 提交转图任务（异步秒返回）
+# -------------------------------------------------
+@app.route('/api/convert-pdf/<pdf_name>', methods=['POST'])
+def api_convert_pdf(pdf_name: str):
+    """
+    把 uploads 目录下的 pdf_name 转 PNG，
+    输出到 static/pdf2pngs/<pdf_name_stem>/
+    """
+    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
+    if not pdf_path.exists():
+        return jsonify({"error": "PDF not found"}), 404
+
+    # 输出目录：与 PDF 同名文件夹
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        png_paths = PdfConvertService.convert(pdf_path, out_dir, dpi=150)
+    except Exception as e:
+        return jsonify({"error": f"convert failed: {e}"}), 500
+
+    return jsonify({
+        "total": len(png_paths),
+        "pngs":  [p.name for p in png_paths],
+        "folder": pdf_path.stem          # 前端后续调用用
+    })
+
+# -------------------------------------------------
+# ② 列出某 PDF 的所有 PNG 文件名
+# -------------------------------------------------
+@app.route('/api/png-list/<pdf_folder>')
+def api_png_list(pdf_folder: str):
+    """
+    pdf_folder 就是上一步返回的 folder 字段
+    """
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_folder
+    if not out_dir.exists():
+        return jsonify({"error": "PNG folder not found"}), 404
+    pngs = sorted(out_dir.glob("*.png"))
+    return jsonify({
+        "total": len(pngs),
+        "pngs":  [p.name for p in pngs]
+    })
+
+# -------------------------------------------------
+# ③ 单张 PNG 访问
+# -------------------------------------------------
+@app.route('/api/png/<pdf_folder>/<png_name>')
+def api_serve_png(pdf_folder: str, png_name: str):
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_folder
+    return send_from_directory(out_dir, png_name)
+
+from concurrent.futures import ThreadPoolExecutor
+import uuid
+executor = ThreadPoolExecutor(max_workers=4)
+PROGRESS = {}     # 内存进度表
+
+@app.route('/api/convert-pdf-async/<pdf_name>', methods=['POST'])
+def api_convert_pdf_async(pdf_name: str):
+    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
+    if not pdf_path.exists():
+        return jsonify({"error": "PDF not found"}), 404
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    job_id = uuid.uuid4().hex
+    # 把 PROGRESS 传进去，业务层零依赖
+    executor.submit(background_convert, pdf_path, out_dir, job_id, PROGRESS)
+    return jsonify({"jobId": job_id, "message": "任务已提交"})
+
+
+# ---------- 异步转图进度查询 ----------
+@app.route('/api/progress/<job_id>')
+def api_progress(job_id):
+    """
+    返回当前 job 的进度
+    格式：{ "state": "running" | "done" | "error", "percent": 0~100 }
+    """
+    if job_id not in PROGRESS:
+        return jsonify({"state": "unknown", "percent": 0}), 404
+    return jsonify(PROGRESS[job_id])
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

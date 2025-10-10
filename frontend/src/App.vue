@@ -3,7 +3,7 @@
     <div class="file-panel">
       <el-upload
         class="upload-area"
-        action="http://118.25.92.108:5000/upload"
+        action="http://127.0.0.1:5000/upload"
         :show-file-list="false"
         :on-success="loadFiles"
         :before-upload="beforeUpload"
@@ -21,7 +21,7 @@
           <!-- 预览区域 -->
           <div v-if="isPDF(fileItem.filename)" class="pdf-container">
             <iframe
-              :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
+              :src="`http://127.0.0.1:5000/file/${fileItem.filename}`"
               width="100%"
               height="700px"
               frameborder="0"
@@ -29,8 +29,8 @@
           </div>
           <el-image
             v-else
-            :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
-            :preview-src-list="[`http://118.25.92.108:5000/file/${fileItem.filename}`]"
+            :src="`http://127.0.0.1:5000/file/${fileItem.filename}`"
+            :preview-src-list="[`http://127.0.0.1:5000/file/${fileItem.filename}`]"
             fit="contain"
             style="max-height: 500px; width: 100%;"
           />
@@ -44,13 +44,13 @@
               <div style="margin-top: 8px;">
                 <el-button
                   type="danger"
-                  size="mini"
+                  size="small"
                   icon="el-icon-delete"
                   @click="deleteFile(fileItem.filename)"
                 >删除</el-button>
 
                 <el-button
-                  size="mini"
+                  size="small"
                   type="primary"
                   icon="el-icon-crop"
                   @click="cutTable(fileItem.filename)"
@@ -77,12 +77,57 @@
             </div>
 
 
+          <!-- 新增 -->
+          <el-button
+            v-if="isPDF(fileItem.filename)"
+            size="small"
+            type="success"
+            icon="el-icon-picture"
+            @click="convertAndPreview(fileItem.filename)"
+            :loading="!!convertingObj[fileItem.filename]"
+          >转图并预览</el-button>
 
-
+          <!-- 进度条弹窗 -->
+          <el-dialog
+            v-model="progressVisible"
+            title="转图进度"
+            width="400px"
+            :close-on-click-modal="false"
+            :show-close="false"
+          >
+            <div style="text-align:center">
+              <el-progress
+                :percentage="progressPercent"
+                :status="progressStatus"
+                :stroke-width="12"
+              />
+              <div style="margin-top:10px;color:#999">{{ progressMsg }}</div>
+            </div>
+          </el-dialog>
 
         </div>
       </div>
     </div>
+
+    <!-- 分页预览弹窗 -->
+    <el-dialog
+      v-model="previewVisible"
+      title="PDF 分页预览"
+      width="85vw"
+      top="5vh"
+      :close-on-click-modal="false"
+    >
+      <div style="height:70vh;overflow-y:auto;">
+        <el-image
+          v-for="p in previewPngs"
+          :key="p"
+          :src="`http://127.0.0.1:5000/api/png/${previewFolder}/${p}`"
+          fit="contain"
+          style="width:100%;margin-bottom:10px"
+          :preview-src-list="previewPngs.map(n=>`http://127.0.0.1:5000/api/png/${previewFolder}/${n}`)"
+        />
+      </div>
+    </el-dialog>
 
     <div class="editor-panel">
       <div class="editor-container">
@@ -106,10 +151,19 @@ import axios from 'axios'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
+// ✅ 统一设置后端基地址
+// axios.defaults.baseURL = 'http://127.0.0.1:12345/api/v1'
+
 export default {
   components: {
     QuillEditor
   },
+  computed: {
+  convertingObj() {
+    // 把响应式对象原样返回即可，Vue3 能追踪
+    return this.converting || {}
+  }
+},
   data() {
     return {
       files: [],
@@ -135,7 +189,22 @@ export default {
         },
         placeholder: '请输入内容...',
         theme: 'snow'
-      }
+      },
+
+      cutLoading: {},
+      cutResults: {},
+      converting: {},
+      previewVisible: false,
+      previewFolder: '',
+      previewPngs: [],
+
+      /* ===== 进度相关 ===== */
+      progressVisible: false,
+      progressPercent: 0,
+      progressStatus: '',  // '' | success | exception
+      progressMsg: '',
+      jobId: ''
+
     }
   },
   mounted() {
@@ -148,6 +217,13 @@ export default {
       const date = new Date(timestamp);
       return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     },
+
+    /* 新增：打开分页预览 */
+  openPagePreview(filename) {
+    this.previewPdf = filename;
+    this.showPagePreview = true;
+  },
+
     beforeUpload(file) {
       const isAllowed = ['pdf', 'png', 'jpg', 'jpeg', 'gif'].some(ext =>
         file.name.toLowerCase().endsWith(`.${ext}`)
@@ -163,7 +239,7 @@ export default {
 
     async loadFiles() {
       try {
-        const res = await axios.get('http://118.25.92.108:5000/files')
+        const res = await axios.get('http://127.0.0.1:5000/files')
         if (Array.isArray(res.data)) {
           this.files = res.data.map(item => {
             return {
@@ -191,7 +267,7 @@ export default {
 
     async loadText() {
       try {
-        const res = await axios.get('http://118.25.92.108:5000/text')
+        const res = await axios.get('http://127.0.0.1:5000/text')
         this.content = res.data.content || res.data.text || '';
       } catch (error) {
         console.error('加载文本失败:', error)
@@ -199,7 +275,7 @@ export default {
     },
     async saveText() {
       try {
-        await axios.post('http://118.25.92.108:5000/text', { content: this.content })
+        await axios.post('http://127.0.0.1:5000/text', { content: this.content })
         this.$message.success("保存成功")
       } catch (error) {
         console.error('保存文本失败:', error)
@@ -214,7 +290,7 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         })
-        await axios.delete(`http://118.25.92.108:5000/file/${filename}`)
+        await axios.delete(`http://127.0.0.1:5000/file/${filename}`)
         this.$message.success('删除成功')
         this.loadFiles()   // 刷新列表
       } catch (e) {
@@ -226,6 +302,86 @@ export default {
     },
 
 
+    // 把服务器上的文件再拉成 Blob
+    async fetchFileBlob(filename) {
+      const res = await axios.get(
+        `http://127.0.0.1:5000/file/${filename}`,
+        { responseType: 'blob' }
+      )
+      return res.data
+    },
+
+
+
+    /*******************************
+   * 带实时进度的 PDF→PNG
+       *******************************/
+      async convertAndPreview(pdfName) {
+        this.converting[pdfName] = true
+        this.progressVisible = true
+        this.progressPercent = 0
+        this.progressStatus = ''
+        this.progressMsg = '正在提交任务...'
+
+        try {
+          // 1. 提交异步任务
+          const { data } = await axios.post(`http://127.0.0.1:5000/api/convert-pdf-async/${pdfName}`);
+          this.jobId = data.jobId
+          this.progressMsg = '任务已提交，正在转图...'
+
+          // 2. 轮询进度（每 500ms 一次）
+          await this.pollProgress()
+          if (this.progressStatus === 'success') {
+            this.$message.success('转图完成！')
+            // 3. 拉 PNG 列表并打开预览
+            const { data: list } = await axios.get(`http://127.0.0.1:5000/api/png-list/${pdfName.replace(/\.pdf$/i, '')}`)
+            this.previewFolder = pdfName.replace(/\.pdf$/i, '')
+            this.previewPngs = list.pngs
+            this.progressVisible = false
+            this.previewVisible = true
+          } else if (this.progressStatus === 'exception') {
+            this.$message.error('转图失败：' + this.progressMsg)
+          }
+        } catch (e) {
+          this.$message.error('请求失败：' + (e.response?.data?.error || e.message))
+        } finally {
+          this.converting[pdfName] = false
+          delete this.converting[pdfName]
+        }
+      },
+
+      /*******************************
+       * 轮询进度，直到 100 或失败
+       *******************************/
+      pollProgress() {
+        return new Promise((resolve) => {
+          const timer = setInterval(async () => {
+            try {
+              const { data } = await axios.get(`http://127.0.0.1:5000/api/progress/${this.jobId}`)
+              const p = data.percent
+              this.progressPercent = p
+              if (p === 100) {
+                this.progressStatus = 'success'
+                this.progressMsg = '转图完成，正在加载预览...'
+                clearInterval(timer)
+                resolve()
+              } else if (p < 0) {
+                this.progressStatus = 'exception'
+                this.progressMsg = data.error || '未知错误'
+                clearInterval(timer)
+                resolve()
+              } else {
+                this.progressMsg = `正在转换第 ${data.finished} / ${data.total} 页...`
+              }
+            } catch (e) {
+              this.progressStatus = 'exception'
+              this.progressMsg = '获取进度失败'
+              clearInterval(timer)
+              resolve()
+            }
+          }, 500)
+        })
+      },
 
 
     /* 图表切割 */
@@ -235,14 +391,14 @@ export default {
 
       try {
         const res = await axios.get(
-          `http://118.25.92.108:5000/file/${filename}`,
+          `http://127.0.0.1:5000/file/${filename}`,
           { responseType: 'blob' }
         )
         const reader = new FileReader()
         reader.onload = async () => {
           const base64 = reader.result
           const cutRes = await axios.post(
-            'http://118.25.92.108:5000/cut-table',
+            'http://127.0.0.1:5000/cut-table',
             { image: base64 }
           )
           this.$set(this.cutResults, filename, cutRes.data.slices)
