@@ -35,7 +35,7 @@ def background_convert(pdf_path: Path, out_dir: Path, job_id: str, progress_dict
     """
     progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
     try:
-        images = convert_from_path(pdf_path, dpi=150)
+        images = convert_from_path(pdf_path, dpi=300)
         total = len(images)
         progress_dict[job_id]["total"] = total
         for idx, img in enumerate(images, 1):
@@ -55,7 +55,7 @@ class PdfConvertService:
     静态方法，无状态，方便单元测试与复用。
     """
 
-    DEFAULT_DPI: int = 150          # 默认分辨率
+    DEFAULT_DPI: int = 300          # 默认分辨率
     DEFAULT_FMT: str = "png"        # 只输出 PNG
 
     # -------------------- 公开接口 -------------------- #
