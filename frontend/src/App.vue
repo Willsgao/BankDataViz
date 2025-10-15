@@ -3,7 +3,7 @@
     <div class="file-panel">
       <el-upload
         class="upload-area"
-        action="http://118.25.92.108:5000/upload"
+        action="http://127.0.0.1:5000/upload"
         :show-file-list="false"
         :on-success="loadFiles"
         :before-upload="beforeUpload"
@@ -21,7 +21,7 @@
           <!-- 预览区域 -->
           <div v-if="isPDF(fileItem.filename)" class="pdf-container">
             <iframe
-              :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
+              :src="`http://127.0.0.1:5000/file/${fileItem.filename}`"
               width="100%"
               height="700px"
               frameborder="0"
@@ -29,8 +29,8 @@
           </div>
           <el-image
             v-else
-            :src="`http://118.25.92.108:5000/file/${fileItem.filename}`"
-            :preview-src-list="[`http://118.25.92.108:5000/file/${fileItem.filename}`]"
+            :src="`http://127.0.0.1:5000/file/${fileItem.filename}`"
+            :preview-src-list="[`http://127.0.0.1:5000/file/${fileItem.filename}`]"
             fit="contain"
             style="max-height: 500px; width: 100%;"
           />
@@ -121,10 +121,10 @@
         <el-image
           v-for="p in previewPngs"
           :key="p"
-          :src="`http://118.25.92.108:5000/api/png/${previewFolder}/${p}`"
+          :src="`http://127.0.0.1:5000/api/png/${previewFolder}/${p}`"
           fit="contain"
           style="width:100%;margin-bottom:10px"
-          :preview-src-list="previewPngs.map(n=>`http://118.25.92.108:5000/api/png/${previewFolder}/${n}`)"
+          :preview-src-list="previewPngs.map(n=>`http://127.0.0.1:5000/api/png/${previewFolder}/${n}`)"
         />
       </div>
     </el-dialog>
@@ -152,7 +152,7 @@ import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 // ✅ 统一设置后端基地址
-// axios.defaults.baseURL = 'http://118.25.92.108:12345/api/v1'
+// axios.defaults.baseURL = 'http://127.0.0.1:12345/api/v1'
 
 export default {
   components: {
@@ -239,7 +239,7 @@ export default {
 
     async loadFiles() {
       try {
-        const res = await axios.get('http://118.25.92.108:5000/files')
+        const res = await axios.get('http://127.0.0.1:5000/files')
         if (Array.isArray(res.data)) {
           this.files = res.data.map(item => {
             return {
@@ -267,7 +267,7 @@ export default {
 
     async loadText() {
       try {
-        const res = await axios.get('http://118.25.92.108:5000/text')
+        const res = await axios.get('http://127.0.0.1:5000/text')
         this.content = res.data.content || res.data.text || '';
       } catch (error) {
         console.error('加载文本失败:', error)
@@ -275,7 +275,7 @@ export default {
     },
     async saveText() {
       try {
-        await axios.post('http://118.25.92.108:5000/text', { content: this.content })
+        await axios.post('http://127.0.0.1:5000/text', { content: this.content })
         this.$message.success("保存成功")
       } catch (error) {
         console.error('保存文本失败:', error)
@@ -290,7 +290,7 @@ export default {
           cancelButtonText: '取消',
           type: 'warning'
         })
-        await axios.delete(`http://118.25.92.108:5000/file/${filename}`)
+        await axios.delete(`http://127.0.0.1:5000/file/${filename}`)
         this.$message.success('删除成功')
         this.loadFiles()   // 刷新列表
       } catch (e) {
@@ -305,7 +305,7 @@ export default {
     // 把服务器上的文件再拉成 Blob
     async fetchFileBlob(filename) {
       const res = await axios.get(
-        `http://118.25.92.108:5000/file/${filename}`,
+        `http://127.0.0.1:5000/file/${filename}`,
         { responseType: 'blob' }
       )
       return res.data
@@ -325,7 +325,7 @@ export default {
 
         try {
           // 1. 提交异步任务
-          const { data } = await axios.post(`http://118.25.92.108:5000/api/convert-pdf-async/${pdfName}`);
+          const { data } = await axios.post(`http://127.0.0.1:5000/api/convert-pdf-async/${pdfName}`);
           this.jobId = data.jobId
           this.progressMsg = '任务已提交，正在转图...'
 
@@ -334,7 +334,7 @@ export default {
           if (this.progressStatus === 'success') {
             this.$message.success('转图完成！')
             // 3. 拉 PNG 列表并打开预览
-            const { data: list } = await axios.get(`http://118.25.92.108:5000/api/png-list/${pdfName.replace(/\.pdf$/i, '')}`)
+            const { data: list } = await axios.get(`http://127.0.0.1:5000/api/png-list/${pdfName.replace(/\.pdf$/i, '')}`)
             this.previewFolder = pdfName.replace(/\.pdf$/i, '')
             this.previewPngs = list.pngs
             this.progressVisible = false
@@ -357,7 +357,7 @@ export default {
         return new Promise((resolve) => {
           const timer = setInterval(async () => {
             try {
-              const { data } = await axios.get(`http://118.25.92.108:5000/api/progress/${this.jobId}`)
+              const { data } = await axios.get(`http://127.0.0.1:5000/api/progress/${this.jobId}`)
               const p = data.percent
               this.progressPercent = p
               if (p === 100) {
@@ -391,14 +391,14 @@ export default {
 
       try {
         const res = await axios.get(
-          `http://118.25.92.108:5000/file/${filename}`,
+          `http://127.0.0.1:5000/file/${filename}`,
           { responseType: 'blob' }
         )
         const reader = new FileReader()
         reader.onload = async () => {
           const base64 = reader.result
           const cutRes = await axios.post(
-            'http://118.25.92.108:5000/cut-table',
+            'http://127.0.0.1:5000/cut-table',
             { image: base64 }
           )
           this.$set(this.cutResults, filename, cutRes.data.slices)
