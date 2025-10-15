@@ -9,15 +9,21 @@
 @Describe   ：后端主程序
 """
 
+import time
 from flask import Flask, request, jsonify, send_from_directory
-from flask import current_app
 from flask_cors import CORS
 import os, sqlite3
 from werkzeug.utils import secure_filename
-from pathlib import Path
 
 app = Flask(__name__)
 CORS(app)
+
+from concurrent.futures import ThreadPoolExecutor
+import atexit
+
+executor = ThreadPoolExecutor(max_workers=4)
+atexit.register(lambda executor=executor: executor.shutdown(wait=True, cancel_futures=True))
+
 
 # 配置
 UPLOAD_FOLDER = 'static/uploads'
@@ -241,7 +247,7 @@ def delete_file(filename):
 
 # 放在所有 import 之后，Flask 实例之后
 from pathlib import Path
-from service.pdf_convert_service import PdfConvertService, background_convert   # 关键 1
+from backend.service.pdf_convert_service import PdfConvertService, background_convert, background_convert_table_only   # 关键 1
 
 UPLOAD_FOLDER = 'static/uploads'
 PNG_OUTPUT_ROOT = 'static/pdf2pngs'          # 统一放 PNG 的根目录
@@ -265,8 +271,12 @@ def api_convert_pdf(pdf_name: str):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        png_paths = PdfConvertService.convert(pdf_path, out_dir, dpi=150)
+        # png_paths = PdfConvertService.convert(pdf_path, out_dir, dpi=150)
+
+        png_paths = PdfConvertService.convert_table_pages_only(pdf_path, out_dir, table_dpi=300)
+
     except Exception as e:
+        print("eeeeeeeeee:", e)
         return jsonify({"error": f"convert failed: {e}"}), 500
 
     return jsonify({
@@ -313,9 +323,12 @@ def api_convert_pdf_async(pdf_name: str):
     out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    print("&&&&&&&&&&&&&&--------------out_dir>>:", out_dir)
+    t0 = time.time()
+
+    # 直接复用全局 executor，不要再建新的池
     job_id = uuid.uuid4().hex
-    # 把 PROGRESS 传进去，业务层零依赖
-    executor.submit(background_convert, pdf_path, out_dir, job_id, PROGRESS)
+    executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
     return jsonify({"jobId": job_id, "message": "任务已提交"})
 
 
