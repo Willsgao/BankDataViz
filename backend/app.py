@@ -315,8 +315,8 @@ import uuid
 executor = ThreadPoolExecutor(max_workers=4)
 PROGRESS = {}     # 内存进度表
 
-@app.route('/api/convert-pdf-async/<pdf_name>', methods=['POST'])
-def api_convert_pdf_async(pdf_name: str):
+@app.route('/api/convert-pdf-async1/<pdf_name>', methods=['POST'])
+def api_convert_pdf_async1(pdf_name: str):
     pdf_path = Path(UPLOAD_FOLDER) / pdf_name
     if not pdf_path.exists():
         return jsonify({"error": "PDF not found"}), 404
@@ -327,6 +327,35 @@ def api_convert_pdf_async(pdf_name: str):
     t0 = time.time()
 
     # 直接复用全局 executor，不要再建新的池
+    job_id = uuid.uuid4().hex
+    executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
+    return jsonify({"jobId": job_id, "message": "任务已提交"})
+
+
+
+@app.route('/api/convert-pdf-async/<pdf_name>', methods=['POST'])
+def api_convert_pdf_async(pdf_name: str):
+    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
+    if not pdf_path.exists():
+        return jsonify({"error": "PDF not found"}), 404
+
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. 先看是否已经转换过（存在任意 png/jpg）
+    existing_imgs = [
+        p.name for p in out_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in {'.png', '.jpg', '.jpeg'}
+    ]
+    if existing_imgs:                       # 2. 已存在 → 秒返回
+        return jsonify({
+            "hitCache": True,               # 前端可根据此字段决定是否继续轮询
+            "total": len(existing_imgs),
+            "pngs": sorted(existing_imgs),
+            "folder": pdf_path.stem
+        })
+
+    # 3. 未转换 → 走原来的异步流程
     job_id = uuid.uuid4().hex
     executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
     return jsonify({"jobId": job_id, "message": "任务已提交"})
