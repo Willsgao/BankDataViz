@@ -317,38 +317,55 @@ export default {
    * 带实时进度的 PDF→PNG
        *******************************/
       async convertAndPreview(pdfName) {
-        this.converting[pdfName] = true
-        this.progressVisible = true
-        this.progressPercent = 0
-        this.progressStatus = ''
-        this.progressMsg = '正在提交任务...'
+          this.converting[pdfName] = true
+          this.progressVisible = true
+          this.progressPercent = 0
+          this.progressStatus = ''
+          this.progressMsg = '正在提交任务...'
 
-        try {
-          // 1. 提交异步任务
-          const { data } = await axios.post(`http://127.0.0.1:5000/api/convert-pdf-async/${pdfName}`);
-          this.jobId = data.jobId
-          this.progressMsg = '任务已提交，正在转图...'
+          try {
+            // 1. 提交异步任务（去掉空格）
+            const { data } = await axios.post(
+              `http://127.0.0.1:5000/api/convert-pdf-async/${pdfName}`
+            )
 
-          // 2. 轮询进度（每 500ms 一次）
-          await this.pollProgress()
-          if (this.progressStatus === 'success') {
-            this.$message.success('转图完成！')
-            // 3. 拉 PNG 列表并打开预览
-            const { data: list } = await axios.get(`http://127.0.0.1:5000/api/png-list/${pdfName.replace(/\.pdf$/i, '')}`)
-            this.previewFolder = pdfName.replace(/\.pdf$/i, '')
-            this.previewPngs = list.pngs
-            this.progressVisible = false
-            this.previewVisible = true
-          } else if (this.progressStatus === 'exception') {
-            this.$message.error('转图失败：' + this.progressMsg)
+            // 命中缓存，直接展示
+            if (data.hitCache) {
+              this.previewFolder = pdfName.replace(/\.pdf$/i, '')
+              this.previewPngs   = data.pngs
+              this.progressVisible = false
+              this.previewVisible  = true
+              this.converting[pdfName] = false
+              delete this.converting[pdfName]
+              return
+            }
+
+            this.jobId = data.jobId
+            this.progressMsg = '任务已提交，正在转图...'
+
+            // 2. 轮询进度
+            await this.pollProgress()
+            if (this.progressStatus === 'success') {
+              this.$message.success('转图完成！')
+              // 3. 拉 PNG 列表（同样去掉空格）
+              const { data: list } = await axios.get(
+                `http://127.0.0.1:5000/api/png-list/${pdfName.replace(/\.pdf$/i, '')}`
+              )
+              this.previewFolder = pdfName.replace(/\.pdf$/i, '')
+              this.previewPngs   = list.pngs
+              this.progressVisible = false
+              this.previewVisible  = true
+            } else if (this.progressStatus === 'exception') {
+              this.$message.error('转图失败：' + this.progressMsg)
+            }
+          } catch (e) {
+            this.$message.error('请求失败：' + (e.response?.data?.error || e.message))
+          } finally {
+            // 防止 hitCache 提前 return 导致按钮状态没复位
+            this.converting[pdfName] = false
+            delete this.converting[pdfName]
           }
-        } catch (e) {
-          this.$message.error('请求失败：' + (e.response?.data?.error || e.message))
-        } finally {
-          this.converting[pdfName] = false
-          delete this.converting[pdfName]
-        }
-      },
+        },
 
       /*******************************
        * 轮询进度，直到 100 或失败

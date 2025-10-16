@@ -40,15 +40,10 @@ def background_convert(pdf_path: Path, out_dir: Path, job_id: str, progress_dict
     progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
 
     try:
-<<<<<<< HEAD
-        images = convert_from_path(pdf_path, dpi=300)
-        total = len(images)
-=======
         # ---- ① 72 DPI 预览 + 找表格页 ----
         preview_imgs = convert_from_path(pdf_path, dpi=72)
         table_pages = set(detect_table_pages(pdf_path, 72))   # 返回 0-based 页码
         total = len(preview_imgs)
->>>>>>> c89066f2dff9336c97e4687225b7898ca1349e86
         progress_dict[job_id]["total"] = total
 
         # ---- ② 逐页生成：表格页 300 DPI，其余 150 DPI ----
@@ -300,7 +295,7 @@ def background_convert_table_only4(
         progress_dict[job_id]["percent"] = -1
 
 
-def background_convert_table_only(
+def background_convert_table_only5(
     pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
 ):
     from backend.service.table_page_detector import detect_table_pages
@@ -348,6 +343,56 @@ def background_convert_table_only(
         print("t5 - t0:", t5 - t0)
 
 
+
+    except Exception as e:
+        logger.exception(f"[{job_id}] stream_safe 失败")
+        progress_dict[job_id]["error"] = str(e)
+        progress_dict[job_id]["percent"] = -1
+
+
+def background_convert_table_only(
+    pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
+):
+    from backend.service.table_page_detector import detect_table_pages
+    from PIL import Image
+    import os
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
+
+    try:
+        t0 = time.time()
+        total = PdfConvertService._get_page_count(pdf_path)
+        progress_dict[job_id]["total"] = total
+        t1 = time.time()
+        print("t1 - t0:", t1 - t0)
+
+        # 预先把 72 DPI 缩图全部拿到，避免多次 poppler 调用
+        images_72 = convert_from_path(pdf_path, dpi=72)
+        images_75 = [im.copy().resize((im.width // 4, im.height // 4), Image.LANCZOS) for im in images_72]
+        table_pages = set(detect_table_pages(pdf_path, 75, images=images_75))
+        t2 = time.time()
+        print("YOLO 判表耗时:", t2 - t1, "表格页:", sorted(table_pages))
+
+        # 并发渲染：全部 300 DPI，不再降采样
+        def render_page(page_0b: int):
+            idx = page_0b + 1
+            img = convert_from_path(pdf_path, dpi=300, first_page=idx, last_page=idx)[0]
+            ext = 'png' if page_0b in table_pages else 'jpg'
+            fmt = 'PNG' if ext == 'png' else 'JPEG'
+            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.{ext}"
+            img.save(out_path, fmt, quality=95 if fmt == 'JPEG' else None)
+            return idx
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
+            futures = {exe.submit(render_page, p): p for p in range(total)}
+            for fut in as_completed(futures):
+                idx = fut.result()
+                progress_dict[job_id]["finished"] = idx
+                progress_dict[job_id]["percent"]  = round(idx / total * 100)
+
+        t5 = time.time()
+        print("总耗时:", t5 - t0)
 
     except Exception as e:
         logger.exception(f"[{job_id}] stream_safe 失败")
