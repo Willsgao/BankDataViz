@@ -13,7 +13,7 @@ dist/
 *.local
 .DS_Store
 backend/data/*
-backend/static/pdf2pngs
+backend/static/pdf2pngs/*
 
 #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
 
