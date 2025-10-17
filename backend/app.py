@@ -256,8 +256,8 @@ Path(PNG_OUTPUT_ROOT).mkdir(parents=True, exist_ok=True)
 # -------------------------------------------------
 # ① 提交转图任务（异步秒返回）
 # -------------------------------------------------
-@app.route('/api/convert-pdf/<pdf_name>', methods=['POST'])
-def api_convert_pdf(pdf_name: str):
+@app.route('/api/convert-pdf1/<pdf_name>', methods=['POST'])
+def api_convert_pdf1(pdf_name: str):
     """
     把 uploads 目录下的 pdf_name 转 PNG，
     输出到 static/pdf2pngs/<pdf_name_stem>/
@@ -333,8 +333,8 @@ def api_convert_pdf_async1(pdf_name: str):
 
 
 
-@app.route('/api/convert-pdf-async/<pdf_name>', methods=['POST'])
-def api_convert_pdf_async(pdf_name: str):
+@app.route('/api/convert-pdf-async2/<pdf_name>', methods=['POST'])
+def api_convert_pdf_async2(pdf_name: str):
     pdf_path = Path(UPLOAD_FOLDER) / pdf_name
     if not pdf_path.exists():
         return jsonify({"error": "PDF not found"}), 404
@@ -371,6 +371,54 @@ def api_progress(job_id):
     if job_id not in PROGRESS:
         return jsonify({"state": "unknown", "percent": 0}), 404
     return jsonify(PROGRESS[job_id])
+
+
+
+# -------------------------------------------------
+# ① 提交转图任务（异步秒返回）  --  REWRITTEN
+# -------------------------------------------------
+@app.route('/api/convert-pdf-async/<pdf_name>', methods=['POST'])
+def api_convert_pdf_async(pdf_name: str):
+    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
+    if not pdf_path.exists():
+        return jsonify({"error": "PDF not found"}), 404
+
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # fast cache-hit check
+    existing = [p.name for p in out_dir.glob("*.png")]
+    if existing:
+        return jsonify({"hitCache": True, "total": len(existing),
+                        "pngs": sorted(existing), "folder": pdf_path.stem})
+
+    job_id = uuid.uuid4().hex
+    executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
+    return jsonify({"jobId": job_id, "message": "任务已提交"})
+
+
+# -------------------------------------------------
+# ② 同步转图接口（可选保留） --  REWRITTEN
+# -------------------------------------------------
+@app.route('/api/convert-pdf/<pdf_name>', methods=['POST'])
+def api_convert_pdf(pdf_name: str):
+    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
+    if not pdf_path.exists():
+        return jsonify({"error": "PDF not found"}), 404
+
+    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # 直接调用流式单页版（阻塞，适合小文件）
+        from backend.service.pdf_convert_service import background_convert_table_only
+        job_id = uuid.uuid4().hex
+        background_convert_table_only(pdf_path, out_dir, job_id, PROGRESS)   # 同步执行
+        pngs = sorted(p.name for p in out_dir.glob("*.png"))
+        return jsonify({"total": len(pngs), "pngs": pngs, "folder": pdf_path.stem})
+    except Exception as e:
+        return jsonify({"error": f"convert failed: {e}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
