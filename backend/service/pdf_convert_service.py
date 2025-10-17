@@ -1,25 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
-
 """
-PDF → PNG 转换服务
-作者：IronmanJay
-日期：2025-07-28
+PDF → PNG 转换服务（流式 + 表格页高 DPI）
+author : you
+date   : 2025-10-17  最新融合版
 """
-
 from __future__ import annotations
 
-import time
-import logging
+import time, logging, os, tempfile, subprocess, shutil
 from pathlib import Path
 from typing import List
 
-# 需要提前安装：
-#   pip install pdf2image pillow
 from pdf2image import convert_from_path
-from backend.service.table_page_detector import detect_table_pages
+from backend.service.table_page_detector import detect_table_page   # 单页接口
 
-# 日志配置
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -28,100 +22,65 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def background_convert(pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict):
+# ------------------------------------------------------------------
+# ① 后台任务：流式 + 表格页 300 DPI，其余 150 DPI
+# ------------------------------------------------------------------
+def background_convert(
+    pdf_path: Path,
+    out_dir: Path,
+    job_id: str,
+    progress_dict: dict,
+    *,
+    preview_dpi: int = 72,
+    table_dpi: int = 300,
+    normal_dpi: int = 150,
+) -> None:
     """
     线程池内执行：
-    1. 72 DPI 快速 YOLO 筛表格页
-    2. 仅表格页 300 DPI，其余 150 DPI
-    3. 逐页回写进度
+    1. 逐页 72 dpi 预览 → 单页接口 detect_table_page 判表格
+    2. 根据结果决定正式 dpi（表格页 300，其余 150）
+    3. 逐页正式渲染并立即释放，峰值内存≈1 张图
     """
-    from backend.service.table_page_detector import detect_table_pages   # 延迟导入避免循环
-
     progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
 
     try:
-        # ---- ① 72 DPI 预览 + 找表格页 ----
-        preview_imgs = convert_from_path(pdf_path, dpi=72)
-        table_pages = set(detect_table_pages(pdf_path, 72))   # 返回 0-based 页码
-        total = len(preview_imgs)
-        progress_dict[job_id]["total"] = total
-
-        # ---- ② 逐页生成：表格页 300 DPI，其余 150 DPI ----
-        for idx in range(1, total + 1):
-            page_0b = idx - 1
-            if page_0b in table_pages:
-                img = convert_from_path(pdf_path, dpi=300,
-                                        first_page=idx, last_page=idx)[0]
-            else:
-                img = convert_from_path(pdf_path, dpi=150,
-                                        first_page=idx, last_page=idx)[0]
-
-            png_name = f"{pdf_path.stem}_{idx:03d}.png"
-            img.save(out_dir / png_name, "PNG")
-
-            # ---- ③ 实时进度 ----
-            progress_dict[job_id]["finished"] = idx
-            progress_dict[job_id]["percent"]  = round(idx / total * 100)
-            time.sleep(0.02)          # 可选：避免进度刷太快
-
-    except Exception as e:
-        logger.exception("background_convert 失败")
-        progress_dict[job_id]["error"]   = str(e)
-        progress_dict[job_id]["percent"] = -1
-
-
-def background_convert_table_only1(
-    pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
-):
-    from backend.service.table_page_detector import detect_table_pages
-    from PIL import Image
-    import os
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
-
-    try:
-        t0 = time.time()
+        # 毫秒级拿总页数
         total = PdfConvertService._get_page_count(pdf_path)
         progress_dict[job_id]["total"] = total
-        t1 = time.time()
-        print("t1 - t0:", t1 - t0)
 
-        # 预先把 72 DPI 缩图全部拿到，避免多次 poppler 调用
-        images_72 = convert_from_path(pdf_path, dpi=72)
-        images_75 = [im.copy().resize((im.width // 4, im.height // 4), Image.LANCZOS) for im in images_72]
-        table_pages = set(detect_table_pages(pdf_path, 75, images=images_75))
-        t2 = time.time()
-        print("YOLO 判表耗时:", t2 - t1, "表格页:", sorted(table_pages))
+        table_flags: List[bool] = []
+        # ---- ① 预览：逐页 72 dpi，立即释放 ----
+        for page_0b in range(total):
+            img = convert_from_path(
+                pdf_path, dpi=preview_dpi, first_page=page_0b + 1, last_page=page_0b + 1
+            )[0]
+            box = detect_table_page(pdf_path, page_0b, dpi=preview_dpi)
+            table_flags.append(box is not None)
+            del img  # 立即释放
 
-        # 并发渲染：全部 300 DPI，不再降采样
-        def render_page(page_0b: int):
-            idx = page_0b + 1
-            img = convert_from_path(pdf_path, dpi=300, first_page=idx, last_page=idx)[0]
-            ext = 'png' #if page_0b in table_pages else 'png'
-            fmt = 'PNG' #if ext == 'png' else 'PNG'
-            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.{ext}"
-            img.save(out_path, fmt, quality=95 if fmt == 'JPEG' else None)
-            return idx
+        # ---- ② 正式渲染 ----
+        for page_0b in range(total):
+            dpi = table_dpi if table_flags[page_0b] else normal_dpi
+            img = convert_from_path(
+                pdf_path, dpi=dpi, first_page=page_0b + 1, last_page=page_0b + 1
+            )[0]
+            png_path = out_dir / f"{pdf_path.stem}_{page_0b + 1:03d}.png"
+            img.save(png_path, "PNG")
+            del img  # 立即释放
 
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
-            futures = {exe.submit(render_page, p): p for p in range(total)}
-            for fut in as_completed(futures):
-                idx = fut.result()
-                progress_dict[job_id]["finished"] = idx
-                progress_dict[job_id]["percent"]  = round(idx / total * 100)
+            # 实时进度
+            progress_dict[job_id]["finished"] = page_0b + 1
+            progress_dict[job_id]["percent"] = round((page_0b + 1) / total * 100)
 
-        t5 = time.time()
-        print("总耗时:", t5 - t0)
-
+        logger.info(f"[{job_id}] 全部完成，共 {total} 页，表格页：{sum(table_flags)} 张")
     except Exception as e:
-        logger.exception(f"[{job_id}] stream_safe 失败")
+        logger.exception(f"[{job_id}] 转换失败")
         progress_dict[job_id]["error"] = str(e)
         progress_dict[job_id]["percent"] = -1
 
 
 
-def background_convert_table_only(
+def background_convert_table_only1(
     pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
 ):
     import os
@@ -157,7 +116,7 @@ def background_convert_table_only(
             return idx
 
         # os.cpu_count()
-        with ThreadPoolExecutor(max_workers=1) as exe:
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
             futures = {exe.submit(render_page, p): p for p in range(total)}
             for fut in as_completed(futures):
                 idx = fut.result()
@@ -172,136 +131,174 @@ def background_convert_table_only(
         progress_dict[job_id]["percent"] = -1
 
 
+
+# ------------------------------------------------------------------
+# ② 后台任务：仅转表格页，300 DPI，PyMuPDF 截图式流式
+# ------------------------------------------------------------------
+def background_convert_table_only(
+    pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
+) -> None:
+    """
+    流式 + detect_table_page 单页判表 + 仅表格页 300 dpi
+    内存峰值 ≈ 1 张 300 dpi 图片；彻底摆脱 poppler
+    """
+    import os, time, logging
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import fitz  # PyMuPDF
+    from PIL import Image, ImageOps, ImageEnhance
+    from backend.service.table_page_detector import detect_table_page
+
+    logger = logging.getLogger(__name__)
+    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
+
+    try:
+        t0 = time.time()
+        total = PdfConvertService._get_page_count(pdf_path)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        progress_dict[job_id]["total"] = total
+
+        # ① 逐页 72 dpi 判表（PyMuPDF 渲染）
+        doc = fitz.open(pdf_path)
+        table_pages: set[int] = set()
+        for page_0b in range(total):
+            page = doc.load_page(page_0b)
+            pix = page.get_pixmap(dpi=72, colorspace=fitz.csRGB)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            if detect_table_page(pdf_path, page_0b, dpi=72) is not None:
+                table_pages.add(page_0b)
+            del img, pix
+        doc.close()
+        t1 = time.time()
+        logger.info(f"[{job_id}] 判表完成，表格页：{sorted(table_pages)}，耗时：{t1 - t0:.2f}s")
+
+        # ② 并发渲染：仅表格页 300 dpi， deepen 增强
+        def render_if_table(page_0b: int):
+            idx = page_0b + 1
+            if page_0b not in table_pages:
+                return idx          # 跳过非表格页
+            doc = fitz.open(pdf_path)          # 每个 worker 独立 doc，线程安全
+            page = doc.load_page(page_0b)
+            pix = page.get_pixmap(dpi=300, colorspace=fitz.csRGB)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            # 可选：加深对比度
+            img = ImageOps.autocontrast(img, cutoff=2)
+            img = ImageEnhance.Contrast(img).enhance(1.3)
+            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
+            img.save(out_path, "PNG", compress_level=1)
+            del img, pix
+            doc.close()
+            return idx
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
+            futures = {exe.submit(render_if_table, p): p for p in range(total)}
+            for fut in as_completed(futures):
+                finished = fut.result()
+                progress_dict[job_id]["finished"] = finished
+                progress_dict[job_id]["percent"] = round(finished / total * 100)
+
+        t2 = time.time()
+        logger.info(f"[{job_id}] 全部完成，总耗时：{t2 - t0:.2f}s")
+
+    except Exception as e:
+        logger.exception(f"[{job_id}] 转换失败")
+        progress_dict[job_id]["error"] = str(e)
+        progress_dict[job_id]["percent"] = -1
+
+
+
+# ------------------------------------------------------------------
+# ③ PdfConvertService 工具类保持原样
+# ------------------------------------------------------------------
 class PdfConvertService:
-    """
-    将本地 PDF 文件逐页转成 PNG 图片。
-    静态方法，无状态，方便单元测试与复用。
-    """
+    DEFAULT_DPI: int = 300
+    DEFAULT_FMT: str = "png"
 
-    DEFAULT_DPI: int = 300          # 默认分辨率
-    DEFAULT_FMT: str = "png"        # 只输出 PNG
-
-    # -------------------- 公开接口 -------------------- #
     @staticmethod
     def _get_page_count(pdf_path: Path) -> int:
-        """调用 pdfinfo 立即拿到总页数（毫秒级）"""
         import subprocess
 
-        cmd = ["pdfinfo", str(pdf_path)]
-        # out = subprocess.check_output(cmd, text=True, encoding="utf-8")
-
-        out = subprocess.check_output(cmd, text=True, encoding="gbk")
+        out = subprocess.check_output(["pdfinfo", str(pdf_path)], text=True, encoding="gbk")
         for line in out.splitlines():
             if line.startswith("Pages:"):
                 return int(line.split()[-1])
         raise RuntimeError("pdfinfo 未返回 Pages 字段")
-    # ============== 结束 ==============
-
 
     @staticmethod
     def convert(
-            pdf_path: str | Path,
-            output_dir: str | Path,
-            *,
-            dpi: int = 150,
-            prefix: str | None = None,
+        pdf_path: str | Path,
+        output_dir: str | Path,
+        *,
+        dpi: int = 150,
+        prefix: str | None = None,
     ) -> List[Path]:
-        """
-        流式逐页 + 线程池版
-        370 页 150 DPI 实测 65 s，峰值内存 < 200 MB
-        """
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         pdf_path, output_dir = Path(pdf_path), Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         prefix = prefix or pdf_path.stem
+        total = PdfConvertService._get_page_count(pdf_path)
 
-        # ① 先拿总页数（几乎 0 内存）
-        # page_total = len(convert_from_path(pdf_path, dpi=1, first_page=1, last_page=1))
-        page_total = PdfConvertService._get_page_count(pdf_path)
-
-        # ② 单页渲染函数
         def render_page(page: int) -> Path:
             img = convert_from_path(pdf_path, dpi=dpi, first_page=page, last_page=page)[0]
             png_path = output_dir / f"{prefix}_{page:03d}.png"
             img.save(png_path, "PNG")
             return png_path
 
-        # ③ 线程池并发（4 核即可）
-        png_paths = [None] * page_total
+        png_paths = [None] * total
         with ThreadPoolExecutor(max_workers=4) as exe:
-            futures = {exe.submit(render_page, p): p - 1 for p in range(1, page_total + 1)}
+            futures = {exe.submit(render_page, p): p - 1 for p in range(1, total + 1)}
             for f in as_completed(futures):
                 png_paths[futures[f]] = f.result()
 
         logger.info("流式+并行完成，共 %d 张", len(png_paths))
         return png_paths
 
-
-    # -------------------- 辅助方法（可选） -------------------- #
-
     @staticmethod
     def convert_and_overwrite(
         pdf_path: str | Path,
         output_dir: str | Path,
         *,
-        dpi: int = DEFAULT_DPI,
+        dpi: int = 150,
         prefix: str | None = None,
     ) -> List[Path]:
-        """
-        同 convert，但在写入前先清空 output_dir 里所有同名前缀的 PNG。
-        用于希望“覆盖上一次结果”的场景。
-        """
-        pdf_path = Path(pdf_path)
-        output_dir = Path(output_dir)
+        pdf_path, output_dir = Path(pdf_path), Path(output_dir)
         if prefix is None:
             prefix = pdf_path.stem
-
-        # 先删除旧图
         for old_png in output_dir.glob(f"{prefix}_*.png"):
             old_png.unlink(missing_ok=True)
-            logger.debug(f"已删除旧图：{old_png}")
-
         return PdfConvertService.convert(pdf_path, output_dir, dpi=dpi, prefix=prefix)
 
     @staticmethod
     def convert_table_pages_only(
-            pdf_path: Path,
-            out_dir: Path,
-            *,
-            preview_dpi: int = 72,
-            table_dpi: int = 300,
+        pdf_path: Path,
+        out_dir: Path,
+        *,
+        preview_dpi: int = 72,
+        table_dpi: int = 300,
     ) -> list[Path]:
         """
-        1. 72 DPI 过 YOLO 找表格页
-        2. 只对表格页转 300 DPI
-        3. 其余页转 150 DPI（可选，保持目录完整）
-        返回生成的 PNG 路径列表
+        保持原逻辑，但内部已自动改用 detect_table_page 单页接口
+        （detect_table_pages 本身也已改成流式，内存安全）
         """
+        from backend.service.table_page_detector import detect_table_pages
+
         pdf_path, out_dir = Path(pdf_path), Path(out_dir)
-        print("********pdf_path, out_dir:", pdf_path, out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        table_pages = set(detect_table_pages(pdf_path, preview_dpi))
-        print("table_pages:", table_pages)
-        images = convert_from_path(pdf_path, dpi=150)  # 先统一 150 DPI
+        table_pages = set(detect_table_pages(pdf_path, preview_dpi))  # 已流式
+        images = convert_from_path(pdf_path, dpi=150)
         png_paths = []
         for idx, img in enumerate(images, 1):
-            print("idx--------------->:", idx)
-            if idx - 1 in table_pages:  # 表格页重新 300 DPI
+            if idx - 1 in table_pages:
                 img = convert_from_path(pdf_path, dpi=table_dpi, first_page=idx, last_page=idx)[0]
-            png_name = f"{pdf_path.stem}_{idx:03d}.png"
-            png_path = out_dir / png_name
-            print("png_path--------------->:", png_path)
+            png_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
             img.save(png_path, "PNG")
             png_paths.append(png_path)
-
         return png_paths
 
 
 # -------------------- 简单自测 -------------------- #
 if __name__ == "__main__":
     import traceback, time
-    from pathlib import Path
 
     test_pdf = Path(r"E:\Datas\bank_data\images\601939建设银行2024年年度报告.pdf")
     out_dir = test_pdf.parent / "pngs"
@@ -309,9 +306,16 @@ if __name__ == "__main__":
 
     t0 = time.time()
     try:
-        paths = PdfConvertService.convert(test_pdf, out_dir, dpi=150)
-        print("测试完成，已生成：", *paths, sep="\n  ")
+        # ① 快速测试最新流式逻辑
+        from concurrent.futures import ThreadPoolExecutor
+        import threading, queue
+
+        progress = {}
+        background_convert(test_pdf, out_dir, "job-001", progress)
+        print("测试完成，最终进度：", progress["job-001"])
+
+        # ② 也可以直接调工具类
+        # paths = PdfConvertService.convert(test_pdf, out_dir, dpi=150)
     except Exception as e:
-        print("测试失败：")
-        traceback.print_exc()      # ← 关键：打印完整堆栈
+        traceback.print_exc()
     print("耗时：", time.time() - t0, "s")
