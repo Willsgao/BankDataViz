@@ -253,37 +253,6 @@ UPLOAD_FOLDER = 'static/uploads'
 PNG_OUTPUT_ROOT = 'static/pdf2pngs'          # 统一放 PNG 的根目录
 Path(PNG_OUTPUT_ROOT).mkdir(parents=True, exist_ok=True)
 
-# -------------------------------------------------
-# ① 提交转图任务（异步秒返回）
-# -------------------------------------------------
-@app.route('/api/convert-pdf1/<pdf_name>', methods=['POST'])
-def api_convert_pdf1(pdf_name: str):
-    """
-    把 uploads 目录下的 pdf_name 转 PNG，
-    输出到 static/pdf2pngs/<pdf_name_stem>/
-    """
-    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
-    if not pdf_path.exists():
-        return jsonify({"error": "PDF not found"}), 404
-
-    # 输出目录：与 PDF 同名文件夹
-    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # png_paths = PdfConvertService.convert(pdf_path, out_dir, dpi=150)
-
-        png_paths = PdfConvertService.convert_table_pages_only(pdf_path, out_dir, table_dpi=300)
-
-    except Exception as e:
-        print("eeeeeeeeee:", e)
-        return jsonify({"error": f"convert failed: {e}"}), 500
-
-    return jsonify({
-        "total": len(png_paths),
-        "pngs":  [p.name for p in png_paths],
-        "folder": pdf_path.stem          # 前端后续调用用
-    })
 
 # -------------------------------------------------
 # ② 列出某 PDF 的所有 PNG 文件名
@@ -315,51 +284,6 @@ import uuid
 executor = ThreadPoolExecutor(max_workers=4)
 PROGRESS = {}     # 内存进度表
 
-@app.route('/api/convert-pdf-async1/<pdf_name>', methods=['POST'])
-def api_convert_pdf_async1(pdf_name: str):
-    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
-    if not pdf_path.exists():
-        return jsonify({"error": "PDF not found"}), 404
-    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    print("&&&&&&&&&&&&&&--------------out_dir>>:", out_dir)
-    t0 = time.time()
-
-    # 直接复用全局 executor，不要再建新的池
-    job_id = uuid.uuid4().hex
-    executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
-    return jsonify({"jobId": job_id, "message": "任务已提交"})
-
-
-
-@app.route('/api/convert-pdf-async2/<pdf_name>', methods=['POST'])
-def api_convert_pdf_async2(pdf_name: str):
-    pdf_path = Path(UPLOAD_FOLDER) / pdf_name
-    if not pdf_path.exists():
-        return jsonify({"error": "PDF not found"}), 404
-
-    out_dir = Path(PNG_OUTPUT_ROOT) / pdf_path.stem
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # 1. 先看是否已经转换过（存在任意 png/jpg）
-    existing_imgs = [
-        p.name for p in out_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in {'.png', '.jpg', '.jpeg'}
-    ]
-    if existing_imgs:                       # 2. 已存在 → 秒返回
-        return jsonify({
-            "hitCache": True,               # 前端可根据此字段决定是否继续轮询
-            "total": len(existing_imgs),
-            "pngs": sorted(existing_imgs),
-            "folder": pdf_path.stem
-        })
-
-    # 3. 未转换 → 走原来的异步流程
-    job_id = uuid.uuid4().hex
-    executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
-    return jsonify({"jobId": job_id, "message": "任务已提交"})
-
 
 # ---------- 异步转图进度查询 ----------
 @app.route('/api/progress/<job_id>')
@@ -380,6 +304,7 @@ def api_progress(job_id):
 @app.route('/api/convert-pdf-async/<pdf_name>', methods=['POST'])
 def api_convert_pdf_async(pdf_name: str):
     pdf_path = Path(UPLOAD_FOLDER) / pdf_name
+    print("YYYYYYYYYYYYYYY")
     if not pdf_path.exists():
         return jsonify({"error": "PDF not found"}), 404
 
@@ -393,8 +318,11 @@ def api_convert_pdf_async(pdf_name: str):
                         "pngs": sorted(existing), "folder": pdf_path.stem})
 
     job_id = uuid.uuid4().hex
+    # 先占坑，避免前端第一次轮询 404
+    PROGRESS[job_id] = {"total": 0, "finished": 0, "percent": 0}
     executor.submit(background_convert_table_only, pdf_path, out_dir, job_id, PROGRESS)
     return jsonify({"jobId": job_id, "message": "任务已提交"})
+
 
 
 # -------------------------------------------------
@@ -418,6 +346,83 @@ def api_convert_pdf(pdf_name: str):
         return jsonify({"total": len(pngs), "pngs": pngs, "folder": pdf_path.stem})
     except Exception as e:
         return jsonify({"error": f"convert failed: {e}"}), 500
+
+
+
+# 放在文件尾部，与其他 import 放一起即可
+from backend.pipeline.pipeline import Pipeline
+executor = ThreadPoolExecutor(max_workers=2)
+PROGRESS_PIPE = {}          # 简易内存进度表
+
+@app.route('/api/pipeline/<pdf_name>', methods=['POST'])
+def submit_pipeline(pdf_name: str):
+    job_id = uuid.uuid4().hex
+    PROGRESS_PIPE[job_id] = {"state": "running", "percent": 0}
+    def run():
+        try:
+            PROGRESS_PIPE[job_id]["percent"] = 20
+            path = Pipeline(pdf_name.replace('.pdf','')).run()
+            PROGRESS_PIPE[job_id] = {"state": "done", "percent": 100, "url": f"/static/pipeline_cache/{pdf_name.replace('.pdf','')}/final.xlsx"}
+        except Exception as e:
+            PROGRESS_PIPE[job_id] = {"state": "error", "percent": -1, "msg": str(e)}
+    executor.submit(run)
+    return jsonify(jobId=job_id)
+
+
+@app.route('/api/pipeline/progress/<job_id>')
+def pipe_progress(job_id: str):
+    return jsonify(PROGRESS_PIPE.get(job_id, {"state": "unknown", "percent": 0}))
+
+
+
+
+
+@app.route('/api/png/rotate/<pdf_folder>/<png_name>', methods=['POST'])
+def rotate_png(pdf_folder: str, png_name: str):
+    angle = request.json.get('angle', 90)  # 默认顺时针90度
+    png_path = Path(PNG_OUTPUT_ROOT) / pdf_folder / png_name
+    if not png_path.exists():
+        return jsonify({"error": "PNG not found"}), 404
+
+    img = Image.open(png_path)
+    rotated = img.rotate(-angle, expand=True)  # PIL逆时针为正，所以取负
+    rotated.save(png_path)
+
+    return jsonify({"message": "rotated and saved"})
+
+
+
+
+
+from flask import Blueprint, request, jsonify
+import base64, io, os
+from PIL import Image
+
+# 后端 app.py 中
+rotate_bp = Blueprint('rotate', __name__, url_prefix='/api')  # 蓝图 prefix 为 /api
+
+
+@rotate_bp.post('/save-rotated-sub/<folder>/<pngName>')
+def save_rotated_sub(folder, pngName):
+    try:
+        data = request.get_json()
+        image_b64 = data['image']  # 前端已处理前缀，无需再split
+        img_bytes = base64.b64decode(image_b64)
+        img = Image.open(io.BytesIO(img_bytes))
+
+        # 保存到与前端访问一致的目录（PNG_OUTPUT_ROOT）
+        save_dir = os.path.join(PNG_OUTPUT_ROOT, folder)  # 关键修改
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, pngName)
+        img.save(save_path, format='PNG')
+
+        return jsonify({'code': 0, 'msg': 'saved'})
+    except Exception as e:
+        return jsonify({'code': 1, 'msg': str(e)}), 500
+
+
+# 在文件末尾，app.run()之前添加
+app.register_blueprint(rotate_bp)  # 注册旋转相关的蓝图
 
 
 if __name__ == '__main__':
