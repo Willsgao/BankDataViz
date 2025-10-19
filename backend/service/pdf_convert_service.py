@@ -80,56 +80,6 @@ def background_convert(
 
 
 
-def background_convert_table_only1(
-    pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
-):
-    import os
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    from pdf2image import convert_from_path
-    import logging
-    logger = logging.getLogger(__name__)
-
-    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
-
-    try:
-
-        # print("os.cpu_count():", os.cpu_count())
-
-        # ① 毫秒级拿总页数
-        total = PdfConvertService._get_page_count(pdf_path)
-        progress_dict[job_id]["total"] = total
-
-        # ② 一次性 300 DPI 转图（使用 pdftocairo，中文兼容最好）
-        images_300 = convert_from_path(
-            pdf_path,
-            dpi=300,
-            use_pdftocairo=True,
-            fmt="png"
-        )
-
-        # ③ 并发保存 PNG
-        def render_page(page_0b: int):
-            idx = page_0b + 1
-            img = images_300[page_0b]
-            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
-            img.save(out_path, "PNG")
-            return idx
-
-        # os.cpu_count()
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
-            futures = {exe.submit(render_page, p): p for p in range(total)}
-            for fut in as_completed(futures):
-                idx = fut.result()
-                progress_dict[job_id]["finished"] = idx
-                progress_dict[job_id]["percent"] = round(idx / total * 100)
-
-        logger.info(f"[{job_id}] 全部保存完成，共 {total} 页")
-
-    except Exception as e:
-        logger.exception(f"[{job_id}] 转换失败")
-        progress_dict[job_id]["error"] = str(e)
-        progress_dict[job_id]["percent"] = -1
-
 
 
 # ------------------------------------------------------------------
