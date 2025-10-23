@@ -74,24 +74,7 @@ def batch_cut_tables(pdf_folder: str,
             remote_result = resp.json()  # {"layout":[...], "cuts":[...]}
             layout_res[png_name] = remote_result
             print("*************222:", remote_result)
-            # ❸ 包装返回
-            cuts = [
-                {
-                    "table_index": c["table_index"],
-                    "bbox": c["bbox"],
-                    "clamped_bbox": c["clamped_bbox"],
-                    "cut_png_path": c["cut_png_path"],
-                    "confidence": c["confidence"]
-                }
-                for c in remote_result.get("cuts", [])
-            ]
 
-            results.append({
-                "png_name": png_name,
-                "success": True,
-                "table_count": len(cuts),
-                "cuts": cuts
-            })
         except Exception as e:
             print("*************YYYYYY", e)
             results.append({
@@ -103,3 +86,5 @@ def batch_cut_tables(pdf_folder: str,
             })
 
     return results
+
+

@@ -14,7 +14,8 @@ dist/
 .DS_Store
 backend/data/*
 backend/static/pdf2pngs/*
-*.PP-DocLayout-M
+backend/weights/PP-DocLayout-M
+backend/weights/PP-DocLayout_plus-L
 
 #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
 
