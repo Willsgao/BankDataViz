@@ -146,8 +146,8 @@ def api_layout(pdf_folder: str, png_name: str):
 
 # ---------------- 8. 批量切割图表 版面分区 ----------------
 # @convert_bp.route('/batch-cut-table/<task_id>', methods=['POST', 'OPTIONS'])  # 显式添加 OPTIONS 方法
-@convert_bp.route('/batch-cut-table/<task_id>', methods=['POST', 'OPTIONS'])
-def batch_cut_table(task_id):
+@convert_bp.route('/batch-cut-table1/<task_id>', methods=['POST', 'OPTIONS'])
+def batch_cut_table1(task_id):
     """
     批量裁切图片中的表格
     请求体：
@@ -181,7 +181,6 @@ def batch_cut_table(task_id):
             output_root=PNG_OUTPUT_ROOT
         )
 
-        print("333333333333333")
 
         # 统计结果
         success_count = sum(1 for res in batch_results if res["success"])
@@ -200,3 +199,75 @@ def batch_cut_table(task_id):
 
     except Exception as e:
         return jsonify({"error": f"接口处理失败: {str(e)}"}), 500
+
+
+@convert_bp.route('/batch-cut-table/<task_id>', methods=['POST', 'OPTIONS'])
+def batch_cut_table(task_id):
+    """
+    批量裁切图片中的表格
+    """
+    print("11111111111")
+    # 处理跨域预检请求
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+
+    # 解析请求参数
+    try:
+        data = request.get_json()
+        pdf_folder = data.get('pdf_folder')
+        png_names = data.get('png_names', [])
+        print("22222222222:", data)
+
+        # 参数校验
+        if not pdf_folder or not isinstance(png_names, list) or len(png_names) == 0:
+            return jsonify({
+                "success": False,
+                "error": "参数错误：需提供非空的pdf_folder和png_names列表"
+            }), 400
+
+        # 调用服务层批量裁切逻辑
+        batch_result = batch_cut_tables(
+            pdf_folder=pdf_folder,
+            png_names=png_names,
+            output_root=PNG_OUTPUT_ROOT
+        )
+
+        print("444444444444444")
+        print(batch_result)
+
+        # 直接返回 batch_result
+        return jsonify(batch_result)
+
+    except Exception as e:
+        print(f"❌ 接口处理异常: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": f"接口处理失败: {str(e)}"
+        }), 500
+
+
+@convert_bp.get('/api/folder-images/<path:folder_path>')
+def api_folder_images(folder_path: str):
+    """获取文件夹中的图片列表"""
+    folder_dir = Path("static") / folder_path
+    if not folder_dir.exists():
+        return jsonify({"success": False, "error": "文件夹不存在"}), 404
+
+    images = []
+    for img_file in sorted(folder_dir.glob("*.png")):
+        images.append({
+            "name": img_file.name,
+            "url": f"/{folder_path}/{img_file.name}"
+        })
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "images": images,
+            "total": len(images)
+        }
+    })
+

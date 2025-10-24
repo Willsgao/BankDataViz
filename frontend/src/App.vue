@@ -8,6 +8,7 @@
       :converting="convertingObj"
       :convert-cache="convertCache"
       :batch-crop-loading="batchCropLoading"
+      :joined-results="joinedResults"
       @delete="deleteFile"
       @crop="cutTable"
       @convert="convertAndPreview"
@@ -40,9 +41,7 @@ import { useConvert } from '@/composables/useConvert'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRotate } from '@/composables/useRotate'
 
-
-// 先声明
-/* ---------------- 数据 ---------------- */
+// ---------------- 数据 ----------------
 const files           = ref([])
 const content         = ref('')
 const cropLoading     = ref({})
@@ -57,27 +56,27 @@ const previewVisible  = ref(false)
 const previewFolder   = ref('')
 const previewPngs     = ref([])
 
-/* ---------------- 初始化 composables ---------------- */
-// 提前初始化批量裁切工具，获取 cutTablesForPDF 函数
-const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(cutResults)
+// 关键修改：先定义 joinedResults
+const joinedResults = ref({})
 
+// ---------------- 初始化 composables ----------------
+// 关键修改：传入 joinedResults 而不是 cutResults
+const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(joinedResults)
 
-/* ---------------- 生命周期 ---------------- */
+// ---------------- 生命周期 ----------------
 onMounted(async () => {
   await loadFiles()
   content.value = await getText()
 })
 
-/* ---------------- 业务入口 ---------------- */
+// ---------------- 业务入口 ----------------
 async function loadFiles() {
   try { files.value = await getFiles() }
   catch { ElMessage.error('加载文件失败') }
 }
 
-// App.vue 中的 deleteFile 方法
 async function deleteFile(filename) {
   try {
-    // 使用 ElMessageBox.confirm 替代 ElMessage.confirm
     await ElMessageBox.confirm(
       '确定删除该文件吗？',
       '删除确认',
@@ -87,18 +86,15 @@ async function deleteFile(filename) {
         type: 'warning'
       }
     )
-    // 用户点击确认后执行删除
     await delApi(filename)
     ElMessage.success('已删除')
     await loadFiles()
   } catch (err) {
-    // 捕获用户取消操作（ElMessageBox 取消时会抛出错误）
-    if (err !== 'cancel') {  // 仅在非用户取消的情况下提示错误
+    if (err !== 'cancel') {
       ElMessage.error('删除失败：' + (err.response?.data?.error || err.message))
     }
   }
 }
-
 
 async function saveText() {
   try { await saveApi(content.value); ElMessage.success('保存成功') }
@@ -110,10 +106,8 @@ async function cutTable(filename) {
   if (zones) ElMessage.success(`已裁切 ${zones} 个表格`)
 }
 
-/* 关键：直接把 convertAndPreview 放在父级，内部直接改值 */
 async function convertAndPreview(pdfDiskName) {
-  const cacheKey = pdfDiskName.replace('.pdf', ''); // 去掉 .pdf 后缀
-  // convertCache.value[cacheKey] = list.pngs; // 键为 "test"
+  const cacheKey = pdfDiskName.replace('.pdf', '');
 
   convertingObj.value[pdfDiskName] = true
   progressVisible.value = true
@@ -121,7 +115,6 @@ async function convertAndPreview(pdfDiskName) {
   progressStatus.value = ''
   progressMsg.value = '正在检查缓存...'
 
-  /* 1. 本地缓存命中 */
   if (convertCache.value[cacheKey]) {
     previewFolder.value = pdfDiskName.replace(/\.pdf$/i, '')
     previewPngs.value   = convertCache.value[cacheKey]
@@ -132,7 +125,6 @@ async function convertAndPreview(pdfDiskName) {
     return
   }
 
-  /* 2. 后端返回已缓存 / 3. 真正转图 */
   try {
     progressMsg.value = '正在提交任务...'
     const { data } = await axios.post(`http://127.0.0.1:5000/api/convert-pdf-async/${pdfDiskName}`)
@@ -146,7 +138,6 @@ async function convertAndPreview(pdfDiskName) {
       delete convertingObj.value[pdfDiskName]
       return
     }
-    /* 3. 轮询进度 */
     progressMsg.value = '任务已提交，正在转图...'
     await pollProgress(data.jobId)
     if (progressStatus.value === 'success') {
@@ -167,13 +158,13 @@ async function convertAndPreview(pdfDiskName) {
   }
 }
 
-
-// 批量裁切时直接使用
+// 关键修改：简化 handleBatchCrop 函数
 async function handleBatchCrop(pdfDiskName) {
-  const folderKey = pdfDiskName.replace(/\.pdf$/i, '')   // 和缓存保持一致
-  await cutTablesForPDF(folderKey, convertCache.value)
+  console.log('开始批量裁切:', pdfDiskName)
+  const result = await cutTablesForPDF(pdfDiskName, convertCache.value)
+  console.log('批量裁切完成，结果:', result)
+  console.log('当前 joinedResults:', joinedResults.value)
 }
-
 
 async function pollProgress(jobId) {
   return new Promise((resolve) => {
