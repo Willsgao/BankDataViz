@@ -18,7 +18,7 @@ import sys
 class DatabaseManager:
     def __init__(self, db_path='data/database.db'):
         self.db_path = db_path
-        self.uploads_dir = 'static/uploads'
+        self.uploads_dir = '../static/uploads'
 
         # 确保所有目录存在
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -39,7 +39,7 @@ class DatabaseManager:
 
     def init_database(self):
         """
-        初始化数据库
+        初始化数据库（兼容旧库，自动补列）
         :return: 初始化是否成功
         """
         conn = self.connect()
@@ -48,44 +48,37 @@ class DatabaseManager:
 
         try:
             c = conn.cursor()
-            c.execute('''CREATE TABLE IF NOT EXISTS texts
-                         (
-                             id
-                             INTEGER
-                             PRIMARY
-                             KEY
-                             AUTOINCREMENT,
-                             content
-                             TEXT
-                         )''')
-            c.execute('''CREATE TABLE IF NOT EXISTS files
-                         (
-                             id
-                             INTEGER
-                             PRIMARY
-                             KEY
-                             AUTOINCREMENT,
-                             filename
-                             TEXT
-                             NOT
-                             NULL
-                             UNIQUE,
-                             file_type
-                             TEXT
-                             NOT
-                             NULL,
-                             created_at
-                             TIMESTAMP
-                             DEFAULT
-                             CURRENT_TIMESTAMP
-                         )''')
 
-            # 确保文本表中有且只有一条记录
+            # 1. 创建 texts 表（保持不变）
+            c.execute('''CREATE TABLE IF NOT EXISTS texts
+                         (id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                          content TEXT)''')
+
+            # 2. 创建/升级 files 表（含软删除字段）
+            c.execute('''CREATE TABLE IF NOT EXISTS files
+                         (id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                          filename     TEXT NOT NULL UNIQUE,
+                          file_type    TEXT NOT NULL,
+                          raw_filename TEXT,              -- 原始中文文件名
+                          created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          deleted      INTEGER   DEFAULT 0)''')
+                          # -- 软删除标志
+
+            # 3. 旧库兼容：依次补列
+            c.execute("PRAGMA table_info(files)")
+            cols = [col[1] for col in c.fetchall()]
+            if 'raw_filename' not in cols:
+                c.execute("ALTER TABLE files ADD COLUMN raw_filename TEXT")
+                print("✅ 已自动为旧库添加 raw_filename 字段")
+            if 'deleted' not in cols:
+                c.execute("ALTER TABLE files ADD COLUMN deleted INTEGER DEFAULT 0")
+                print("✅ 已自动为旧库添加 deleted 字段")
+
+            # 4. 文本表仅保留一条记录
             c.execute("SELECT COUNT(*) FROM texts")
             if c.fetchone()[0] == 0:
                 c.execute("INSERT INTO texts (content) VALUES (?)", ("",))
-            elif c.fetchone()[0] > 1:
-                print("⚠️ 文本表中有多条记录，将删除多余的记录")
+            else:
                 c.execute("DELETE FROM texts WHERE id > 1")
 
             conn.commit()
@@ -125,7 +118,7 @@ class DatabaseManager:
 
             # 文件记录
             print("\n===== 文件记录 =====")
-            c.execute("SELECT id, filename, file_type, created_at FROM files ORDER BY created_at DESC")
+            c.execute("SELECT id, filename, raw_filename, file_type, created_at FROM files ORDER BY created_at DESC")
             files = c.fetchall()
 
             if not files:
@@ -134,7 +127,8 @@ class DatabaseManager:
                 for file in files:
                     file_path = os.path.join(self.uploads_dir, file["filename"])
                     exists = "✅ 存在" if os.path.exists(file_path) else "❌ 缺失"
-                    print(f"ID: {file['id']}, 文件名: {file['filename']}, "
+                    display_name = file["raw_filename"] or file["filename"]  # 优先中文
+                    print(f"ID: {file['id']}, 文件名: {display_name}, "
                           f"类型: {file['file_type']}, 上传时间: {file['created_at']}, "
                           f"文件状态: {exists}")
 
@@ -145,7 +139,6 @@ class DatabaseManager:
             c.execute("SELECT COUNT(*) FROM files")
             files_count = c.fetchone()[0]
 
-            # 检查文件系统中的实际文件
             actual_files = set(os.listdir(self.uploads_dir))
             db_files = set(file["filename"] for file in files)
 

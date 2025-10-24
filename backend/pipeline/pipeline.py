@@ -29,7 +29,11 @@ class Pipeline:
         (self.root / 'all_layouts.json').write_bytes(resp.content)
 
     def step3_crop_table(self):
+<<<<<<< HEAD
         # 直接复用原来的 batch_loc_pp_layout_idx_4.py 逻辑
+=======
+        # 直接复用原来的 step1_get_table_zones.py 逻辑
+>>>>>>> 5213d8a7d7c43a4418b71095f14608a62ada1b5d
         from backend.pipeline.utils.cropper import crop_tables
         crop_tables(self.root)
 
