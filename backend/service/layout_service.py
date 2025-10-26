@@ -171,7 +171,6 @@ def batch_cut_tables(
         # 处理每个表格组
         final_joined_tables = process_table_groups(table_groups, JOINED_ROOT, pdf_folder)
 
-        # 第三步：只返回文件夹路径
         # 第三步：获取拼接文件夹中的所有图片文件
         joined_folder = JOINED_ROOT / pdf_folder
         joined_images = []

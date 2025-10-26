@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 # ① 后台任务：流式 + 表格页 300 DPI，其余 150 DPI
 # ------------------------------------------------------------------
-def background_convert(
+def background_convert11(
     pdf_path: Path,
     out_dir: Path,
     job_id: str,
@@ -78,6 +78,61 @@ def background_convert(
         progress_dict[job_id]["error"] = str(e)
         progress_dict[job_id]["percent"] = -1
 
+
+
+# ------------ 精准 + 高效 ------------
+from pathlib import Path
+import fitz, os, logging
+from concurrent.futures import ProcessPoolExecutor
+from backend.service.table_page_detector import detect_table_page
+
+logger = logging.getLogger(__name__)
+
+def background_convert(
+    pdf_path: Path,
+    out_dir: Path,
+    job_id: str,
+    progress_dict: dict,
+    *,
+    preview_dpi: int = 72,
+    table_dpi: int = 300,
+    normal_dpi: int = 150,
+) -> None:
+    """分级 DPI + PyMuPDF 多进程，既精准又高效"""
+    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
+
+    try:
+        # 1. 单进程快速判表（72 dpi 足够）
+        doc = fitz.open(pdf_path)
+        total = doc.page_count
+        progress_dict[job_id]["total"] = total
+        table_pages = {p for p in range(total)
+                       if detect_table_page(pdf_path, p, preview_dpi)}
+        doc.close()
+        logger.info(f"[{job_id}] 表格页：{sorted(table_pages)}")
+
+        # 2. 多进程渲染（每个 worker 独立打开文件，线程安全）
+        def render_one(p: int) -> None:
+            dpi = table_dpi if p in table_pages else normal_dpi
+            doc = fitz.open(pdf_path)          # 独立句柄
+            page = doc.load_page(p)
+            mat = fitz.Matrix(dpi / 72, dpi / 72)
+            pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+            out_path = out_dir / f"{pdf_path.stem}_{p+1:03d}.png"
+            pix.save(str(out_path))
+            doc.close()
+            return p
+
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as exe:
+            for p in exe.map(render_one, range(total)):
+                progress_dict[job_id]["finished"] = p + 1
+                progress_dict[job_id]["percent"] = round((p + 1) / total * 100)
+
+        logger.info(f"[{job_id}] 全部完成，共 {total} 页")
+    except Exception as e:
+        logger.exception(f"[{job_id}] 转换失败")
+        progress_dict[job_id]["error"] = str(e)
+        progress_dict[job_id]["percent"] = -1
 
 
 
@@ -138,7 +193,7 @@ def background_convert_table_only(
             del img, pix
             doc.close()
             return idx
-
+        print("os.cpu_count():", os.cpu_count())
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
             futures = {exe.submit(render_if_table, p): p for p in range(total)}
             for fut in as_completed(futures):

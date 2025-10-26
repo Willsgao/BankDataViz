@@ -13,8 +13,47 @@ export function useBatchTableCrop(joinedResults) {
     batchCropLoading.value[pdfDiskName] = true
 
     try {
-      // 检查是否已经有转换好的PNG图片
+      // ========== 新增：缓存检查逻辑 ==========
+      // 1. 先检查内存中是否有结果
+      if (joinedResults.value[pdfDiskName] && joinedResults.value[pdfDiskName].length > 0) {
+        console.log('使用内存中的裁切结果，跳过处理')
+        ElMessage.info('已使用缓存的裁切结果')
+        return {
+          success: true,
+          images: joinedResults.value[pdfDiskName],
+          total: joinedResults.value[pdfDiskName].length,
+          message: '使用缓存结果',
+          fromCache: true
+        }
+      }
+
+      // 2. 检查本地存储中是否有结果
       const cacheKey = pdfDiskName.replace('.pdf', '')
+      const storageKey = `batch_crop_${cacheKey}`
+      const cachedResult = localStorage.getItem(storageKey)
+
+      if (cachedResult) {
+        try {
+          const parsedResult = JSON.parse(cachedResult)
+          // 验证缓存是否有效（比如检查时间戳，这里简单检查是否有图片）
+          if (parsedResult.images && parsedResult.images.length > 0) {
+            console.log('使用本地存储的裁切结果')
+            // 更新内存中的结果
+            joinedResults.value[pdfDiskName] = parsedResult.images
+            ElMessage.info('已使用缓存的裁切结果')
+            return {
+              ...parsedResult,
+              fromCache: true
+            }
+          }
+        } catch (e) {
+          console.warn('解析缓存结果失败:', e)
+          localStorage.removeItem(storageKey) // 清除无效缓存
+        }
+      }
+      // ========== 缓存检查结束 ==========
+
+      // 检查是否已经有转换好的PNG图片
       const pngList = convertCache[cacheKey]
 
       if (!pngList || pngList.length === 0) {
@@ -63,6 +102,19 @@ export function useBatchTableCrop(joinedResults) {
         // 存储到 joinedResults 中
         if (imageUrls.length > 0) {
           joinedResults.value[pdfDiskName] = imageUrls
+
+          // ========== 新增：缓存到本地存储 ==========
+          const resultToCache = {
+            success: true,
+            images: imageUrls,
+            total: imageUrls.length,
+            message: response.data.message || '批量裁切完成',
+            rawResponse: response.data,
+            timestamp: Date.now() // 添加时间戳以便后续验证缓存新鲜度
+          }
+          localStorage.setItem(storageKey, JSON.stringify(resultToCache))
+          console.log('结果已缓存到本地存储')
+          // ========== 缓存结束 ==========
         }
 
         console.log('更新后的 joinedResults:', joinedResults.value)
@@ -74,7 +126,8 @@ export function useBatchTableCrop(joinedResults) {
           images: imageUrls,
           total: imageUrls.length,
           message: response.data.message || '批量裁切完成',
-          rawResponse: response.data
+          rawResponse: response.data,
+          fromCache: false // 标记这不是缓存结果
         }
       } else {
         throw new Error(response.data.message || response.data.error || '批量裁切失败')
@@ -96,7 +149,8 @@ export function useBatchTableCrop(joinedResults) {
         success: false,
         error: errorMessage,
         images: [],
-        total: 0
+        total: 0,
+        fromCache: false
       }
     } finally {
       // 清除加载状态

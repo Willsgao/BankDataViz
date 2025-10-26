@@ -1,98 +1,67 @@
 <template>
   <div class="file-list">
-    <div v-for="f in files" :key="f.id" class="file-item">
-      <!-- 原始的PDF预览 - 保持不变 -->
-      <pdf-viewer v-if="isPDF(f.filename)" :file="f" @close="emit('close', f)" />
-      <image-viewer v-else :file="f" />
+    <!-- PDF区域 -->
+    <PdfPreviewSection
+      v-if="hasPDF"
+      :pdf-files="pdfFiles"
+      :current-pdf-index="currentPdfIndex"
+      :crop-loading="cropLoading"
+      :crop-results="cropResults"
+      :converting="converting"
+      :convert-cache="convertCache"
+      :batch-crop-loading="batchCropLoading"
+      :joined-results="safeJoinedResults"
+      :llm-configured="llmConfigured"
+      :llm-loading="llmLoading"
+      :recognize-loading="recognizeLoading"
+      @switch-pdf="switchToPDF"
+      @delete="handleDelete"
+      @crop="handleCrop"
+      @convert="handleConvert"
+      @batch-crop="handleBatchCrop"
+      @clear-cache="handleClearCache"
+      @close-pdf="switchToNextPDF"
+      @preview-image="previewImage"
+      @llm-process="handleLLMProcess"
+      @single-llm-process="handleSingleLLMProcess"
+      @recognize-table="handleRecognizeTable"
+    />
 
-      <!-- 信息 & 按钮 -->
-      <div class="file-meta">
-        <div class="file-name">{{ f.filename }}</div>
-        <div class="file-date">上传于: {{ formatDate(f.created_at) }}</div>
+    <!-- 非PDF文件 -->
+    <NonPdfFilesSection
+      v-if="nonPdfFiles.length > 0"
+      :files="nonPdfFiles"
+      :crop-loading="cropLoading"
+      :crop-results="cropResults"
+      @delete="handleDelete"
+      @crop="handleCrop"
+    />
 
-        <div class="actions">
-          <el-button type="danger" size="small" icon="el-icon-delete"
-                     @click="emit('delete', f.filename)">删除</el-button>
+    <!-- 空状态 -->
+    <EmptyState v-if="files.length === 0" />
 
-          <el-button type="primary" size="small" icon="el-icon-crop"
-                     @click="emit('crop', f.filename)"
-                     :loading="!!cropLoading[f.filename]">图表切割</el-button>
+    <!-- 图片预览对话框 -->
+    <ImagePreviewDialog
+      :visible="previewDialogVisible"
+      :image="currentPreviewImage"
+      :index="currentPreviewIndex"
+      :total="currentPreviewTotal"
+      @update:visible="previewDialogVisible = $event"
+      @prev="prevImage"
+      @next="nextImage"
+    />
 
-          <el-button type="success" size="small" icon="el-icon-picture"
-                     @click="emit('convert', f.disk_name)"
-                     :loading="!!converting[f.filename]">转图并预览</el-button>
-
-          <el-button type="warning" size="small" icon="el-icon-crop"
-                     @click="emit('batchCrop', f.disk_name)"
-                     v-if="convertCache[f.disk_name.replace('.pdf', '')]"
-                     :loading="batchCropLoading[f.disk_name]"
-                     :disabled="batchCropLoading[f.disk_name]">
-            批量切表格
-          </el-button>
-        </div>
-
-        <!-- 切图结果 -->
-        <crop-result v-if="cropResults[f.filename]" :images="cropResults[f.filename]" />
-
-        <!-- 新增：批量裁切结果 - 可滚动预览的小图 -->
-        <div v-if="joinedResults[f.disk_name] && joinedResults[f.disk_name].length" class="batch-crop-result">
-          <div class="batch-header">
-            <span class="batch-title">批量裁切结果</span>
-            <span class="batch-count">共 {{ joinedResults[f.disk_name].length }} 个表格</span>
-          </div>
-
-          <div class="scroll-container">
-            <div class="images-scroll">
-              <div v-for="(imgUrl, index) in joinedResults[f.disk_name]" :key="index" class="image-card">
-                <div class="image-wrapper">
-                  <img :src="imgUrl"
-                       :alt="`表格${index + 1}`"
-                       class="thumbnail"
-                       @click="previewImage(imgUrl, index)"
-                       @load="onImageLoad"
-                       @error="onImageError" />
-                  <div class="image-overlay">
-                    <el-button size="mini" type="primary" @click="previewImage(imgUrl, index)">查看</el-button>
-                  </div>
-                </div>
-                <div class="image-info">
-                  <div class="image-name">{{ getFileName(imgUrl) }}</div>
-                  <div class="image-index">表格 {{ index + 1 }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 图片预览对话框 -->
-        <el-dialog v-model="previewDialogVisible" :title="`表格预览 (${currentPreviewIndex + 1}/${currentPreviewTotal})`" width="80%">
-          <div class="preview-content">
-            <img :src="currentPreviewImage" class="preview-image" />
-            <div class="preview-nav">
-              <el-button @click="prevImage" :disabled="currentPreviewIndex === 0">上一张</el-button>
-              <span class="preview-position">{{ currentPreviewIndex + 1 }} / {{ currentPreviewTotal }}</span>
-              <el-button @click="nextImage" :disabled="currentPreviewIndex === currentPreviewTotal - 1">下一张</el-button>
-            </div>
-          </div>
-        </el-dialog>
-
-        <!-- 调试信息 -->
-        <div v-if="joinedResults[f.disk_name]" class="debug-info">
-          <div>调试信息: {{ joinedResults[f.disk_name].length }} 个文件</div>
-          <div v-for="(url, idx) in joinedResults[f.disk_name]" :key="idx" style="font-size:10px;color:#666;">
-            {{ url }}
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import PdfViewer from './PdfViewer.vue'
-import ImageViewer from './ImageViewer.vue'
-import CropResult from './CropResult.vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { llmApi } from '@/api/llm'
+import PdfPreviewSection from './PdfPreviewSection.vue'
+import NonPdfFilesSection from './NonPdfFilesSection.vue'
+import EmptyState from './EmptyState.vue'
+import ImagePreviewDialog from './ImagePreviewDialog.vue'
 
 const props = defineProps({
   files: {
@@ -125,50 +94,71 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits([
-  'delete', 'crop', 'convert', 'batchCrop', 'close'
-])
+const emit = defineEmits(['delete', 'crop', 'convert', 'batchCrop', 'clearCache', 'openLLMConfig', 'recognize-table'])
 
-// 图片预览相关状态
+// 或者在需要的地方直接调用
+const openLLMConfig = () => {
+  // 这里可以通过 provide/inject 或者事件总线来打开配置
+}
+
+// 在事件处理部分添加
+const handleOpenLLMConfig = () => {
+  emit('open-llm-config')
+}
+
+// 计算属性
+const pdfFiles = computed(() => props.files.filter(f => isPDF(f.filename)))
+const nonPdfFiles = computed(() => props.files.filter(f => !isPDF(f.filename)))
+const hasPDF = computed(() => pdfFiles.value.length > 0)
+const safeJoinedResults = computed(() => props.joinedResults || {})
+
+// 状态
+const currentPdfIndex = ref(0)
 const previewDialogVisible = ref(false)
 const currentPreviewImage = ref('')
 const currentPreviewIndex = ref(0)
 const currentPreviewTotal = ref(0)
 const currentPreviewList = ref([])
 
-const isPDF = n => n.toLowerCase().endsWith('.pdf')
+// LLM相关状态
+const llmLoading = ref({})
+const llmConfigured = ref(false)
+// 识别相关状态
+const recognizeLoading = ref({})
 
-const formatDate = ts => {
-  if (!ts) return '未知时间'
-  const d = new Date(ts)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+// 工具函数
+const isPDF = (filename) => filename.toLowerCase().endsWith('.pdf')
+
+// 事件处理
+const handleDelete = (filename) => emit('delete', filename)
+const handleCrop = (filename) => emit('crop', filename)
+const handleConvert = (diskName) => emit('convert', diskName)
+const handleBatchCrop = (diskName) => emit('batchCrop', diskName)
+const handleClearCache = (diskName) => emit('clearCache', diskName)
+
+// PDF切换
+const switchToPDF = (pdfFile) => {
+  const index = pdfFiles.value.findIndex(f => f.id === pdfFile.id)
+  if (index !== -1) {
+    currentPdfIndex.value = index
+  }
 }
 
-// 从路径中提取文件名
-const getFileName = (path) => {
-  return path.split('/').pop() || path
+const switchToNextPDF = () => {
+  if (pdfFiles.value.length <= 1) {
+    currentPdfIndex.value = -1
+  } else {
+    currentPdfIndex.value = (currentPdfIndex.value + 1) % pdfFiles.value.length
+  }
 }
 
-// 图片加载成功
-const onImageLoad = (event) => {
-  console.log('图片加载成功:', event.target.src)
-}
-
-// 图片加载失败
-const onImageError = (event) => {
-  console.log('图片加载失败:', event.target.src)
-  event.target.style.display = 'none'
-}
-
-// 图片预览功能
+// 图片预览
 const previewImage = (imgUrl, index) => {
-  // 找到当前文件的所有图片
-  const fileKey = Object.keys(props.joinedResults).find(key =>
-    props.joinedResults[key].includes(imgUrl)
+  const fileKey = Object.keys(safeJoinedResults.value).find(key =>
+    safeJoinedResults.value[key].includes(imgUrl)
   )
-
   if (fileKey) {
-    currentPreviewList.value = props.joinedResults[fileKey]
+    currentPreviewList.value = safeJoinedResults.value[fileKey]
     currentPreviewImage.value = imgUrl
     currentPreviewIndex.value = index
     currentPreviewTotal.value = currentPreviewList.value.length
@@ -189,214 +179,198 @@ const nextImage = () => {
     currentPreviewImage.value = currentPreviewList.value[currentPreviewIndex.value]
   }
 }
+
+
+// 识别表格处理
+const handleRecognizeTable = async (tableInfo) => {
+  const loadingKey = `${tableInfo.pdfName}_${tableInfo.index}`
+  recognizeLoading.value[loadingKey] = true
+
+  try {
+    // 发射识别事件到父组件（App.vue）
+    emit('recognize-table', {
+      pdfName: tableInfo.pdfName,
+      imageUrl: tableInfo.imageUrl,
+      index: tableInfo.index,
+      tableName: tableInfo.tableName || `表格_${tableInfo.index + 1}`
+    })
+  } catch (error) {
+    console.error('识别失败:', error)
+    ElMessage.error('识别失败')
+  } finally {
+    recognizeLoading.value[loadingKey] = false
+  }
+}
+
+// LLM处理函数
+const handleLLMProcess = async (pdfDiskName) => {
+  try {
+    llmLoading.value[pdfDiskName] = true
+
+    // 检查LLM配置
+    if (!llmConfigured.value) {
+      await ElMessageBox.confirm(
+        'LLM未配置，请先配置大模型参数后再进行表格识别',
+        '提示',
+        {
+          confirmButtonText: '去配置',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+      return
+    }
+
+    // 获取裁切的图片路径
+    const imagePaths = safeJoinedResults.value[pdfDiskName].map(url => {
+      const urlObj = new URL(url)
+      return urlObj.pathname.replace('/static/', 'static/')
+    })
+
+    if (imagePaths.length === 0) {
+      ElMessage.warning('没有可用的裁切图片进行识别')
+      return
+    }
+
+    const outputDir = `./output/llm_results/${pdfDiskName.replace('.pdf', '')}`
+    const response = await llmApi.batchProcess({
+      image_paths: imagePaths,
+      output_dir: outputDir,
+      bank_name: '未知银行'
+    })
+
+    if (response.success) {
+      ElMessage.success(`表格识别完成！成功处理 ${response.data.success} 个文件`)
+    } else {
+      ElMessage.error(`表格识别失败: ${response.error}`)
+    }
+
+  } catch (error) {
+    console.error('LLM处理失败:', error)
+    ElMessage.error('LLM处理异常')
+  } finally {
+    llmLoading.value[pdfDiskName] = false
+  }
+}
+
+const handleSingleLLMProcess = async (params) => {
+  try {
+    console.log('🔍 接收到的参数:', params)
+
+    // 解析参数
+    let excelPath, index
+
+    if (typeof params === 'object' && params !== null) {
+      // 参数是对象格式
+      excelPath = params.excelPath || params.excel_path
+      index = params.index
+    } else {
+      // 参数是其他格式（兼容旧版本）
+      console.warn('⚠️ 使用旧版参数格式')
+      excelPath = params
+      index = 0 // 默认索引
+    }
+
+    console.log('🟡 解析后的Excel路径:', excelPath)
+    console.log('🟡 解析后的索引:', index)
+
+    // 参数验证
+    if (index === undefined || index === null) {
+      console.warn('⚠️ 索引参数缺失，使用默认值0')
+      index = 0
+    }
+
+    if (!excelPath) {
+      console.error('❌ Excel路径参数丢失')
+      ElMessage.error('处理错误：Excel路径丢失')
+      return
+    }
+
+    if (!llmConfigured.value) {
+      const result = await ElMessageBox.confirm(
+        'LLM未配置，请先配置大模型参数后再进行表格识别',
+        '提示',
+        {
+          confirmButtonText: '去配置',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+      if (!result) {
+        return // 用户点击取消
+      }
+      return
+    }
+
+    // 处理Excel路径转换
+    let excelUrl
+    if (excelPath.includes('static/excel_data/')) {
+      // 提取 static/excel_data/ 之后的部分
+      const staticIndex = excelPath.indexOf('static/excel_data/')
+      excelUrl = '/' + excelPath.substring(staticIndex)
+      console.log('🔧 转换后的Excel URL:', excelUrl)
+    } else if (excelPath.startsWith('http')) {
+      // 已经是URL格式
+      excelUrl = excelPath
+    } else {
+      // 其他情况，直接使用
+      excelUrl = excelPath
+    }
+
+    console.log('📤 发送excel-data-received事件，数据:', {
+      excelUrl: excelUrl,
+      tableName: `表格${index + 1}`,
+      fromCache: true
+    })
+
+    emit('excel-data-received', {
+      excelUrl: excelUrl,
+      tableName: `表格${index + 1}`,
+      fromCache: true
+    })
+
+    console.log('📤 事件发送完成')
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('💥 单张LLM处理失败:', error)
+      console.error('💥 错误详情:', error.response?.data || error.message)
+      ElMessage.error('单张表格识别异常: ' + (error.response?.data?.error || error.message))
+    }
+  }
+}
+
+
+// 检查LLM配置状态
+const checkLLMStatus = async () => {
+  try {
+    const response = await llmApi.getStatus()
+    if (response.success) {
+      llmConfigured.value = response.data.client_configured
+    }
+  } catch (error) {
+    console.error('检查LLM状态失败:', error)
+  }
+}
+
+// 监听器
+watch(pdfFiles, (newPdfs) => {
+  if (newPdfs.length > 0 && currentPdfIndex.value >= newPdfs.length) {
+    currentPdfIndex.value = 0
+  }
+})
+
+onMounted(() => {
+  checkLLMStatus()
+})
 </script>
 
 <style scoped>
 .file-list {
   flex: 1;
   overflow-y: auto;
-  padding-right: 10px;
-  max-height: calc(100vh - 170px);
-}
-.file-item {
-  margin-bottom: 20px;
-  border: 1px solid #eee;
-  padding: 10px;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-.file-meta {
-  margin-top: 10px;
-  text-align: center;
-}
-.file-name {
-  color: #333;
-  font-weight: bold;
-  font-size: 14px;
-}
-.file-date {
-  color: #888;
-  font-size: 12px;
-}
-.actions {
-  margin-top: 8px;
   display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-/* 新增：批量裁切结果样式 */
-.batch-crop-result {
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid #e8f4fd;
-  border-radius: 8px;
-  background: #f7fbff;
-}
-
-.batch-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.batch-title {
-  font-weight: bold;
-  color: #1890ff;
-  font-size: 14px;
-}
-
-.batch-count {
-  color: #52c41a;
-  font-size: 12px;
-}
-
-.scroll-container {
-  overflow-x: auto;
-  padding: 8px 0;
-}
-
-.images-scroll {
-  display: flex;
-  gap: 16px;
-  padding: 4px;
-}
-
-.image-card {
-  flex: 0 0 auto;
-  width: 180px;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
-  overflow: hidden;
-  background: white;
-  transition: all 0.3s ease;
-}
-
-.image-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
-
-.image-wrapper {
-  position: relative;
-  width: 100%;
-  height: 120px;
-  overflow: hidden;
-  background: #f5f5f5;
-}
-
-.thumbnail {
-  width: 100%;
+  flex-direction: column;
   height: 100%;
-  object-fit: contain;
-  cursor: pointer;
-  transition: transform 0.3s ease;
-}
-
-.thumbnail:hover {
-  transform: scale(1.05);
-}
-
-.image-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.image-wrapper:hover .image-overlay {
-  opacity: 1;
-}
-
-.image-info {
-  padding: 8px;
-  text-align: center;
-}
-
-.image-name {
-  font-size: 11px;
-  color: #666;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-
-.image-index {
-  font-size: 12px;
-  color: #1890ff;
-  font-weight: 500;
-}
-
-/* 图片预览对话框样式 */
-.preview-content {
-  text-align: center;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 60vh;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
-}
-
-.preview-nav {
-  margin-top: 16px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-}
-
-.preview-position {
-  color: #666;
-  font-size: 14px;
-}
-
-.debug-info {
-  margin-top: 8px;
-  padding: 8px;
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #856404;
-}
-
-/* 滚动条样式 */
-.scroll-container::-webkit-scrollbar {
-  height: 6px;
-}
-
-.scroll-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.scroll-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-.scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .actions {
-    flex-direction: column;
-    align-items: center;
-  }
 }
 </style>

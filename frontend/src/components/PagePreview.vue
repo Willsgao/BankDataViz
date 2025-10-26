@@ -46,12 +46,12 @@ export default {
   },
   computed: {
     pdfUrl() {
-      return `http://118.25.92.108:5000/file/${this.pdfName}`
+      return `http://127.0.0.1:5000/file/${this.pdfName}`
     },
     pngUrl() {
       if (!this.pngs.length) return ''
       const png = this.pngs[this.currentPage - 1]
-      return `http://118.25.92.108:5000/png/${this.pdfName.replace('.pdf','')}/${png}`
+      return `http://127.0.0.1:5000/png/${this.pdfName.replace('.pdf','')}/${png}`
     },
   },
   async mounted() {

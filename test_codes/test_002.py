@@ -25,7 +25,7 @@ if not os.path.exists(FONT_LOCAL):
 pdfmetrics.registerFont(TTFont("SourceHanSans", FONT_LOCAL))
 
 # ===== 1. 生成数据 =====
-def build_data(n=60):
+def build_data(n=80):
     fake = Faker('zh_CN')
     data = {"序号": list(range(1, n+1)),
             "学生姓名": [fake.name() for _ in range(n)],
@@ -41,7 +41,7 @@ def build_data(n=60):
 
 
 # ===== 2. 生成 PDF =====
-def make_pdf(table_data, filename="英语作文评分表3.pdf"):
+def make_pdf(table_data, filename="英语作文评分表4.pdf"):
     pagesize = (A4[1], A4[0])  # 横向
     doc = SimpleDocTemplate(filename, pagesize=pagesize,
                             topMargin=1.5 * cm, bottomMargin=1.5 * cm,
@@ -82,5 +82,5 @@ def make_pdf(table_data, filename="英语作文评分表3.pdf"):
     print(f"✅ 中文无乱码 PDF 已生成：{os.path.abspath(filename)}")
 
 if __name__ == "__main__":
-    data = build_data(60)
+    data = build_data(75)
     make_pdf(data)
