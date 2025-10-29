@@ -352,14 +352,15 @@ const handleSingleLLMProcess = async (imgUrl, index) => {
       bank_name: '未知银行'
     })
 
-    const response = await llmApi.processImage({
+    // 先尝试普通表格识别
+    const response = await llmApi.processNonFinancialTable({
       image_path: imagePath,
       output_path: outputPath,
       sheet_name: `表格${index + 1}`,
       bank_name: '未知银行'
     })
 
-    console.log('✅ processImage完整响应:', response)
+    console.log('✅ processNonFinancialTable完整响应:', response)
 
     if (response.success) {
       const message = response.from_cache ?
@@ -367,27 +368,56 @@ const handleSingleLLMProcess = async (imgUrl, index) => {
         `表格${index + 1}识别完成！`
       ElMessage.success(message)
 
-      if (response.excel_path) {
+      if (response.excel_url) {
         console.log('📤 发射 single-llm-process 事件:', {
-          excelPath: response.excel_path,
+          excelUrl: response.excel_url,
           index: index
         })
-        // ✅ 将两个参数合并成一个对象传递
+
         emit('single-llm-process', {
-          excelPath: response.excel_path,
+          excelUrl: response.excel_url,
           index: index
         })
       }
     } else {
-      const errorMsg = response.error || '未知错误'
-      console.error('❌ API返回失败:', errorMsg)
-      ElMessage.error(`表格${index + 1}识别失败: ${errorMsg}`)
+      // 如果普通表格识别失败，尝试财务表格识别
+      console.log('🔄 普通表格识别失败，尝试财务表格识别')
+      const financialResponse = await llmApi.processImage({
+        image_path: imagePath,
+        output_path: outputPath,
+        sheet_name: `表格${index + 1}`,
+        bank_name: '未知银行'
+      })
+
+      console.log('✅ 财务表格识别响应:', financialResponse)
+
+      if (financialResponse.success) {
+        const message = financialResponse.from_cache ?
+          `已加载表格${index + 1}的现有数据` :
+          `表格${index + 1}识别完成！`
+        ElMessage.success(message)
+
+        if (financialResponse.excel_url) {
+          emit('single-llm-process', {
+            excelUrl: financialResponse.excel_url,
+            index: index
+          })
+        }
+      } else {
+        // 显示详细的错误信息
+        const errorMsg = response.error || response.message || financialResponse.error || '未知错误'
+        console.error('❌ 所有识别方法都失败:', {
+          普通表格错误: response.error,
+          财务表格错误: financialResponse.error
+        })
+        ElMessage.error(`表格${index + 1}识别失败: ${errorMsg}`)
+      }
     }
 
   } catch (error) {
     console.error('💥 单张LLM处理失败:', error)
-    console.error('💥 错误详情:', error.response?.data || error.message)
-    ElMessage.error('单张表格识别异常: ' + (error.response?.data?.error || error.message))
+    const errorDetail = error.response?.data?.error || error.message || '未知错误'
+    ElMessage.error('单张表格识别异常: ' + errorDetail)
   } finally {
     singleLlmLoading.value[index] = false
   }

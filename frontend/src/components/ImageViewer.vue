@@ -8,6 +8,8 @@
 </template>
 
 <script setup>
+import { getBackendUrl } from '@/utils/config'
+
 const props = defineProps({ file: Object })
-const imgUrl = `http://127.0.0.1:5000/file/${props.file.filename}`
+const imgUrl = getBackendUrl(`/file/${props.file.filename}`)
 </script>

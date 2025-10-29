@@ -18,7 +18,9 @@
 
 <script setup>
 const props = defineProps({ file: Object })
-const pdfUrl = `http://127.0.0.1:5000/file/${props.file.filename}`
+import { getBackendUrl } from '@/utils/config'
+
+const pdfUrl = getBackendUrl(`/file/${props.file.filename}`)
 defineEmits(['close'])
 </script>
 

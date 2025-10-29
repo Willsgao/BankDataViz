@@ -1,0 +1,34 @@
+{
+  "project": {
+    "name": "DocuVista",
+    "version": "1.0.0"
+  },
+  "servers": {
+    "backend": {
+      "host": "127.0.0.1",
+      "port": 5000,
+      "baseUrl": "http://127.0.0.1:5000"
+    },
+    "frontend": {
+      "host": "localhost",
+      "port": 8080,
+      "baseUrl": "http://localhost:8080"
+    }
+  },
+  "api": {
+    "prefix": "/api",
+    "staticPrefix": "/static",
+    "uploadPrefix": "/upload"
+  },
+  "paths": {
+    "uploadFolder": "static/uploads",
+    "excelDataFolder": "static/excel_data",
+    "joinedTablesFolder": "static/joined_tables",
+    "pngOutputFolder": "static/png_output"
+  },
+  "llm": {
+    "defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+    "defaultModelId": "doubao-1-5-vision-pro-250328",
+    "maxTokens": 4000
+  }
+}

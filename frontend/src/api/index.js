@@ -1,16 +1,29 @@
+// frontend/src/api/index.js
 import axios from 'axios'
+import { getBackendUrl } from '@/utils/config'
 
-
+// 创建axios实例 - 使用纯后端地址，不包含 /api
 export const http = axios.create({
-  baseURL: 'http://127.0.0.1:5000',
+  baseURL: getBackendUrl(),  // http://127.0.0.1:5000
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' }
+  withCredentials: true
 })
+
+// 在配置初始化后更新baseURL的函数
+export const updateApiBaseUrl = async () => {
+  try {
+    const { initConfig, getBackendUrl } = await import('@/utils/config')
+    await initConfig()
+    http.defaults.baseURL = getBackendUrl()  // 更新为纯后端地址
+    console.log('API baseURL updated:', http.defaults.baseURL)
+  } catch (error) {
+    console.error('Failed to update API baseURL:', error)
+  }
+}
 
 // 请求拦截器
 http.interceptors.request.use(
   config => {
-    // 可以在这里添加token等
     return config
   },
   error => {
@@ -25,17 +38,8 @@ http.interceptors.response.use(
   },
   error => {
     console.error('API 错误：', error.response?.data || error.message)
-
-    // 统一错误处理
-    if (error.response?.status === 401) {
-      // 处理未授权
-      console.error('未授权访问')
-    } else if (error.response?.status === 500) {
-      console.error('服务器内部错误')
-    } else if (error.code === 'ECONNABORTED') {
-      console.error('请求超时')
-    }
-
-    return Promise.reject(error)
+    return Promise.Reject(error)
   }
 )
+
+export default http

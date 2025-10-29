@@ -41,11 +41,15 @@ const availableModels = ref([
   }
 ])
 
-// 表单数据
+// 在 data 部分添加
+const tableType = ref('financial') // 默认金融表格
+
+// 在表单数据中添加表格类型
 const form = reactive({
   base_url: '',
   api_key: '',
   model_id: '',
+  table_type: 'financial', // 新增：表格类型
   prompts: {
     assessment: '',
     simple: '',
@@ -53,6 +57,7 @@ const form = reactive({
     complex: ''
   }
 })
+
 
 // 计算属性
 const canTestConnection = computed(() => {
@@ -157,7 +162,46 @@ const resetToDefaultPrompts = () => {
   }
 }
 
-// 测试连接
+
+// 修改网络检查方法，避免401错误
+const checkNetworkStatus = async () => {
+  try {
+    const testUrl = form.base_url || defaultConfig.base_url
+    console.log('🌐 测试网络连接到:', testUrl)
+
+    // 使用更简单的网络检查，避免API验证
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5秒超时
+
+    try {
+      // 尝试连接，但不验证响应状态
+      await fetch(testUrl, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      return true
+    } catch (error) {
+      clearTimeout(timeoutId)
+      // 即使是401错误也说明网络是通的
+      if (error.name === 'AbortError') {
+        console.log('🌐 网络连接超时')
+        return false
+      }
+      // 其他错误（包括401）都认为网络是通的
+      console.log('🌐 网络连接测试完成（可能有认证错误，但网络通畅）')
+      return true
+    }
+  } catch (error) {
+    console.log('🌐 网络连接测试异常:', error)
+    return false
+  }
+}
+
+
+
+// 修改测试连接方法
 const testConnection = async () => {
   try {
     testing.value = true
@@ -169,48 +213,73 @@ const testConnection = async () => {
       base_url: configMode.value === 'default' ? defaultConfig.base_url : form.base_url
     }
 
-    // 检查API密钥是否是示例值
-    if (form.api_key === defaultConfig.api_key_example) {
-      ElMessage.warning('请使用真实的API密钥进行测试')
+    console.log('🔧 测试连接详细参数:', testData)
+
+    // 基础验证
+    if (!testData.api_key || testData.api_key === defaultConfig.api_key_example) {
+      ElMessage.warning('请填写有效的API密钥')
       testing.value = false
       return
     }
 
+    if (!testData.base_url) {
+      ElMessage.warning('请填写基础URL')
+      testing.value = false
+      return
+    }
+
+    // 检查网络连接
+    ElMessage.info('正在测试网络连接...')
+    const networkOk = await checkNetworkStatus()
+    if (!networkOk) {
+      ElMessage.warning('网络连接异常，请检查网络设置')
+    }
+
+    // 进行API测试
+    ElMessage.info('正在测试API连接...')
     const response = await llmApi.testConnection(testData)
 
-    if (response.data) {
+    if (response.success) {
       testResult.value = {
-        success: response.data.success,
-        message: response.data.success ? '连接测试成功！' : response.data.error
+        success: true,
+        message: '连接测试成功！'
       }
-
-      if (response.data.success) {
-        ElMessage.success('连接测试成功！')
-      } else {
-        ElMessage.error(`连接测试失败: ${response.data.error}`)
+      ElMessage.success('🎉 连接测试成功！')
+    } else {
+      testResult.value = {
+        success: false,
+        message: response.error || '连接测试失败'
       }
+      ElMessage.error(`❌ 连接测试失败: ${response.error}`)
     }
   } catch (error) {
+    console.error('❌ 测试连接异常:', error)
     testResult.value = {
       success: false,
       message: `测试异常: ${error.message}`
     }
-    ElMessage.error(`连接测试异常: ${error.message}`)
+    ElMessage.error(`💥 连接测试异常: ${error.message}`)
   } finally {
     testing.value = false
   }
 }
 
-// 保存配置
+// 修复保存配置方法
 const saveConfig = async () => {
   try {
+    // 如果是自定义模式，需要验证表单
     if (configMode.value === 'custom') {
-      // 自定义配置需要验证表单
-      await formRef.value.validate()
+      try {
+        await formRef.value.validate()
+      } catch (validationError) {
+        console.log('❌ 表单验证失败:', validationError)
+        ElMessage.warning('请完善配置信息')
+        return
+      }
     }
 
     // 检查API密钥是否是示例值
-    if (form.api_key === defaultConfig.api_key_example) {
+    if (form.api_key === defaultConfig.api_key_example || !form.api_key) {
       ElMessage.warning('请使用真实的API密钥，不要使用示例值')
       return
     }
@@ -221,8 +290,14 @@ const saveConfig = async () => {
     const configData = {
       api_key: form.api_key,
       base_url: configMode.value === 'default' ? defaultConfig.base_url : form.base_url,
-      model_id: configMode.value === 'default' ? defaultConfig.model_id : form.model_id
+      model_id: configMode.value === 'default' ? defaultConfig.model_id : form.model_id,
+      table_type: form.table_type || 'financial'
     }
+
+    console.log('💾 保存配置数据:', {
+      ...configData,
+      api_key: '***' // 不打印真实的API密钥
+    })
 
     // 只有在自定义模式下且用户输入了提示词时才发送提示词
     if (configMode.value === 'custom') {
@@ -238,22 +313,25 @@ const saveConfig = async () => {
       }
     }
 
-    console.log('保存配置:', {
-      mode: configMode.value,
-      ...configData,
-      api_key: '***' // 不打印真实的API密钥
-    })
-
+    // 调用配置API
     const response = await llmApi.configure(configData)
+    console.log('🔧 配置API响应:', response)
 
-    if (response.data && response.data.success) {
-      ElMessage.success(`配置保存成功！（${configMode.value === 'default' ? '默认配置' : '自定义配置'}）`)
+    if (response && response.success) {
+      ElMessage.success(`🎉 配置保存成功！（${configMode.value === 'default' ? '默认配置' : '自定义配置'}）`)
       visible.value = false
       emit('configured')
+
+      // 重新加载状态
+      await loadCurrentConfig()
     } else {
-      ElMessage.error(`配置保存失败: ${response.data?.error || '未知错误'}`)
+      const errorMsg = response?.error || response?.message || '未知错误'
+      console.error('❌ 配置保存失败:', errorMsg)
+      ElMessage.error(`配置保存失败: ${errorMsg}`)
     }
+
   } catch (error) {
+    console.error('💥 配置保存异常:', error)
     if (error.errors) {
       ElMessage.warning('请完善配置信息')
     } else {
@@ -263,6 +341,8 @@ const saveConfig = async () => {
     saving.value = false
   }
 }
+
+
 
 // 关闭对话框
 const handleClose = () => {

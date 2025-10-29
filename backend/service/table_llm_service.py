@@ -182,6 +182,37 @@ class TableLLMService:
         else:
             return AssessmentResult(complexity="否", reason="无法识别复杂度", is_financial_table=False)
 
+
+
+    def _log_to_database(self, image_path: str, bank_name: str, table_name: str,
+                         complexity: str, processing_mode: str, status: str,
+                         output_file: str, sheet_name: str, processing_time: float) -> int:
+        """记录处理信息到数据库"""
+        if not self.enable_db_logging:
+            return -1
+
+        try:
+            # 检查数据库管理器是否有该方法，如果没有则跳过
+            if hasattr(self.db_manager, 'save_processing_record'):
+                record_data = {
+                    'image_path': image_path,
+                    'bank_name': bank_name,
+                    'table_name': table_name,
+                    'complexity': complexity,
+                    'processing_mode': processing_mode,
+                    'status': status,
+                    'output_file': output_file,
+                    'sheet_name': sheet_name,
+                    'processing_time': processing_time
+                }
+                return self.db_manager.save_processing_record(record_data)
+            else:
+                logger.warning("DatabaseManager does not have save_processing_record method")
+                return -1
+        except Exception as e:
+            logger.error(f"数据库记录失败: {e}")
+            return -1
+
     async def process_table_pipeline(self, image_path: str, out_file: str, sheet_name: str,
                                      bank_name: str, file_name: str,
                                      excel_config: ExcelSaveConfig = None) -> ProcessingResult:
@@ -194,9 +225,7 @@ class TableLLMService:
 
         try:
             # 使用已有的标识创建Excel存储文件夹
-            # 从 image_path 提取标识：类似 d0586abf1323dbfd80a926ce1e2d5676
-            folder_name = Path(image_path).stem.split('_')[0]  # 取第一个下划线前的部分
-
+            folder_name = Path(image_path).stem.split('_')[0]
             excel_base_dir = Path("static/excel_data")
             excel_dir = excel_base_dir / folder_name
             excel_dir.mkdir(parents=True, exist_ok=True)
@@ -218,16 +247,19 @@ class TableLLMService:
             logger.info(f"复杂度评估结果: {complexity_level}")
 
             if not complexity_result.is_financial_table:
+                # 如果是非财务表格，返回特殊状态
                 result = ProcessingResult(
-                    status="skip",
+                    status="non_financial",
                     complexity=complexity_level,
                     mode="",
-                    assessment_reason=complexity_result.reason
+                    assessment_reason=complexity_result.reason,
+                    table_name="",
+                    table_type="financial"
                 )
                 # 记录到数据库
                 if self.enable_db_logging:
                     record_id = self._log_to_database(
-                        image_path, bank_name, "", complexity_level, "", "skip",
+                        image_path, bank_name, "", complexity_level, "", "non_financial",
                         out_file, sheet_name, time.time() - start_time
                     )
                 return result
@@ -263,7 +295,8 @@ class TableLLMService:
                 complexity=complexity_level,
                 mode=processing_mode,
                 assessment_reason=complexity_result.reason,
-                table_name=table_name
+                table_name=table_name,
+                table_type="financial"
             )
 
         except Exception as e:
@@ -295,29 +328,6 @@ class TableLLMService:
                 mode="error",
                 assessment_reason=str(e),
                 table_name=table_name,
-                error_message=str(e)
+                error_message=str(e),
+                table_type="financial"
             )
-
-    def _log_to_database(self, image_path: str, bank_name: str, table_name: str,
-                         complexity: str, processing_mode: str, status: str,
-                         output_file: str, sheet_name: str, processing_time: float) -> int:
-        """记录处理信息到数据库"""
-        if not self.enable_db_logging:
-            return -1
-
-        try:
-            record_data = {
-                'image_path': image_path,
-                'bank_name': bank_name,
-                'table_name': table_name,
-                'complexity': complexity,
-                'processing_mode': processing_mode,
-                'status': status,
-                'output_file': output_file,
-                'sheet_name': sheet_name,
-                'processing_time': processing_time
-            }
-            return self.db_manager.save_processing_record(record_data)
-        except Exception as e:
-            logger.error(f"数据库记录失败: {e}")
-            return -1

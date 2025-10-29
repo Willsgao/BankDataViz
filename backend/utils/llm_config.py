@@ -43,3 +43,35 @@ PROMPT_NAMES = {
     "standard": "STANDARD_PROMPT",
     "complex": "COMPLEX_PROMPT"
 }
+
+
+# llm_config.py 中增加以下内容
+
+# 在 COMPLEXITY_MODE_MAPPING 后面添加
+TABLE_TYPE_MODE_MAPPING = {
+    "financial": {
+        "极简单": "simple",
+        "简单": "simple",
+        "中等-紧凑型": "standard",
+        "中等-扩展型": "standard",
+        "复杂": "complex",
+        "极复杂": "complex"
+    },
+    "non_financial": {
+        "极简单": "non_financial",
+        "简单": "non_financial",
+        "中等-紧凑型": "non_financial",
+        "中等-扩展型": "non_financial",
+        "复杂": "non_financial",
+        "极复杂": "non_financial"
+    }
+}
+
+# 在 PROMPT_NAMES 中添加
+PROMPT_NAMES = {
+    "assessment": "ASSESSMENT_PROMPT",
+    "simple": "STANDARD_PROMPT",
+    "standard": "STANDARD_PROMPT",
+    "complex": "COMPLEX_PROMPT",
+    "non_financial": "NON_FINANCIAL_PROMPT"  # 新增
+}

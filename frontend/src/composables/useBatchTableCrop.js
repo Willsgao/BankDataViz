@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { getApiUrl } from '@/utils/config'
 
 export function useBatchTableCrop(joinedResults) {
   const batchCropLoading = ref({})
@@ -64,7 +65,8 @@ export function useBatchTableCrop(joinedResults) {
 
       // 使用正确的后端接口
       const taskId = uuidv4()
-      const response = await axios.post(`http://127.0.0.1:5000/api/batch-cut-table/${taskId}`, {
+      const response = await axios.post(getApiUrl(`/batch-cut-table/${taskId}`),
+      {
         pdf_folder: cacheKey,
         png_names: pngList
       })
