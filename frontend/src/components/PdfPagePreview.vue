@@ -17,7 +17,7 @@
     <!-- 仅当前页大图 -->
     <div style="height:70vh;overflow-y:auto;text-align:center">
       <img
-        :src="`http://127.0.0.1:5000/api/png/${folder}/${pngs[page-1]}`"
+        :src="getPngUrl(folder, pngs[page-1])"
         style="max-width:100%;max-height:80vh;box-shadow:0 0 8px rgba(0,0,0,.2)"
       />
     </div>
@@ -26,6 +26,13 @@
 
 <script setup>
 import { ref, watch, toRef } from 'vue'
+
+import { getBackendUrl } from '@/utils/config'
+
+// 定义获取PNG URL的方法
+const getPngUrl = (folder, pngName) => {
+  return getBackendUrl(`/api/png/${folder}/${pngName}`)
+}
 
 const props = defineProps({
   visible: Boolean,

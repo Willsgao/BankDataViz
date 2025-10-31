@@ -10,6 +10,43 @@ DATABASE = 'data/database.db'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 
+# constants.py 中增加以下内容
+
+# 在 ALLOWED_EXTENSIONS 后面添加
+NON_FINANCIAL_PROMPT = """
+【角色】通用表格数据提取专家
+
+# 核心任务
+准确识别和提取各种类型的非金融表格数据，包括但不限于：产品清单、人员名单、统计报表、信息表格等
+
+# 处理规则
+1. 直接提取所有可见的表格数据
+2. 保持原始表格的行列结构
+3. 基础数据清洗和格式统一
+
+# 数据提取要求
+- 提取所有表头信息作为列标题
+- 提取所有数据行，保持原有顺序
+- 空白单元格标记为 "-"
+- 数值处理：删除千位符，括号转负号
+- 文本内容：原样保留，不做金融术语转换
+
+# 输出格式
+<non_financial_data>
+```csv
+序号|表头1|表头2|表头3|表头4
+1|数据A1|数据A2|数据A3|数据A4
+2|数据B1|数据B2|数据B3|数据B4
+3|数据C1|数据C2|数据C3|数据C4
+</non_financial_data>
+"""
+
+# 在 PROMPT_NAMES 后面添加表格类型配置
+TABLE_TYPES = {
+    "financial": "financial",  # 金融表格
+    "non_financial": "non_financial"  # 普通表格
+}
+
 ASSESSMENT_PROMPT = """
 【角色】财务表格复杂度五级评估专家
 

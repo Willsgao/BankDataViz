@@ -1,3 +1,4 @@
+<!-- App.vue -->
 <template>
   <div class="app-layout">
     <!-- 左侧：PDF预览和文件操作区域 -->
@@ -22,11 +23,18 @@
       />
     </div>
 
-    <!-- 右侧：富文本编辑器 -->
+    <!-- 右侧：Excel数据展示区域 -->
     <div class="right-panel">
-      <div class="editor-header">
+      <div class="panel-header">
         <div class="header-title">
-          {{ currentExcelData ? `表格数据 - ${currentExcelData.tableName}` : '文本编辑器' }}
+          <span v-if="currentExcelData">
+            <i class="el-icon-document"></i>
+            表格数据 - {{ currentExcelData.tableName }}
+          </span>
+          <span v-else>
+            <i class="el-icon-document"></i>
+            表格数据查看器
+          </span>
         </div>
         <div class="header-actions">
           <el-button
@@ -47,30 +55,35 @@
             保存Excel
           </el-button>
           <el-button
-            type="success"
-            @click="saveText"
-            icon="el-icon-check"
+            type="info"
+            @click="exportAllData"
+            icon="el-icon-download"
             size="small"
+            :disabled="!currentExcelData"
           >
-            保存文本
+            导出数据
           </el-button>
         </div>
       </div>
 
       <!-- Excel数据展示区域 -->
-      <div v-if="currentExcelData" class="excel-preview-section">
+      <div class="excel-content" v-if="currentExcelData">
         <ExcelDataViewer
           :excel-data="currentExcelData"
           @update:content="updateExcelContent"
+          @close="currentExcelData = null"
         />
       </div>
 
-      <!-- 原有的富文本编辑器 -->
-      <editor-panel
-        v-model="content"
-        @save="saveText"
-        :class="{ 'half-height': currentExcelData }"
-      />
+      <!-- 空状态 -->
+      <div v-else class="empty-state">
+        <el-empty description="暂无表格数据">
+          <div class="empty-tips">
+            <p>请从左侧选择图片并点击"识别"按钮</p>
+            <p>或对PDF文件进行批量裁切后识别表格</p>
+          </div>
+        </el-empty>
+      </div>
     </div>
 
     <!-- 其他组件 -->
@@ -89,10 +102,11 @@ import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import { getBackendUrl, getStaticUrl } from '@/utils/config'
+
 // 组件导入
 import FileUpload from '@/components/FileUpload.vue'
 import FileList from '@/components/FileList.vue'
-import EditorPanel from '@/components/EditorPanel.vue'
 import ProgressDialog from '@/components/ProgressDialog.vue'
 import PdfPagePreview from '@/components/PdfPagePreview.vue'
 import ExcelDataViewer from '@/components/ExcelDataViewer.vue'
@@ -110,7 +124,6 @@ import { useConvert } from '@/composables/useConvert'
 
 // ---------------- 数据声明 ----------------
 const files = ref([])
-const content = ref('')
 const cropLoading = ref({})
 const cutResults = ref({})
 const convertCache = ref({})
@@ -132,7 +145,6 @@ const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(joinedResults)
 // ---------------- 生命周期 ----------------
 onMounted(async () => {
   await loadFiles()
-  content.value = await getText()
 })
 
 // ---------------- 业务函数 ----------------
@@ -162,15 +174,6 @@ async function deleteFile(filename) {
     if (err !== 'cancel') {
       ElMessage.error('删除失败：' + (err.response?.data?.error || err.message))
     }
-  }
-}
-
-async function saveText() {
-  try {
-    await saveApi(content.value);
-    ElMessage.success('保存成功')
-  } catch {
-    ElMessage.error('保存失败')
   }
 }
 
@@ -232,6 +235,11 @@ const saveExcelData = async () => {
   }
 }
 
+const exportAllData = async () => {
+  if (!currentExcelData.value) return
+  ElMessage.info('导出功能开发中...')
+}
+
 const updateExcelContent = (newData) => {
   if (currentExcelData.value) {
     currentExcelData.value.data = newData
@@ -268,7 +276,7 @@ async function convertAndPreview(pdfDiskName) {
 
   try {
     progressMsg.value = '正在提交任务...'
-    const { data } = await axios.post(`http://127.0.0.1:5000/api/convert-pdf-async/${pdfDiskName}`)
+    const { data } = await axios.post(getBackendUrl(`/api/convert-pdf-async/${pdfDiskName}`))
     if (data.hitCache) {
       convertCache.value[cacheKey] = data.pngs
       previewFolder.value = pdfDiskName.replace(/\.pdf$/i, '')
@@ -335,11 +343,12 @@ async function handleBatchCrop(pdfDiskName) {
         if (imgPath.startsWith('http')) {
           return imgPath
         } else if (imgPath.startsWith('joined_tables/')) {
-          return `http://127.0.0.1:5000/${imgPath}`
+          return getBackendUrl(`/${imgPath}`)
         } else if (imgPath.startsWith('static/')) {
-          return `http://127.0.0.1:5000/${imgPath.replace('static/', '')}`
+          return getBackendUrl(`/${imgPath.replace('static/', '')}`)
+
         } else {
-          return `http://127.0.0.1:5000/static/${imgPath}`
+          return getStaticUrl(imgPath)
         }
       })
 
@@ -373,7 +382,8 @@ async function pollProgress(jobId) {
   return new Promise((resolve) => {
     const timer = setInterval(async () => {
       try {
-        const { data } = await axios.get(`http://127.0.0.1:5000/api/progress/${jobId}`)
+        const { data } = await axios.get(getBackendUrl(`/api/progress/${jobId}`))
+
         progressPercent.value = data.percent
         if (data.percent === 100) {
           progressStatus.value = 'success'
@@ -398,32 +408,9 @@ async function pollProgress(jobId) {
   })
 }
 
+// ---------------- Excel数据处理 ----------------
+import { llmApi } from '@/api/llm'
 
-// 在 App.vue 的 script 部分修改识别函数
-import { llmApi } from '@/api/llm'  // 确保导入llmApi
-
-// 构建Excel文件路径
-const buildExcelPath = async (tableInfo) => {
-  // 从图片URL提取哈希目录名（如 d0586abf1323dbfd80a926ce1e2d5676）
-  const imageUrl = tableInfo.imageUrl
-  console.log('原始图片URL:', imageUrl)
-
-  const hashMatch = imageUrl.match(/static\/joined_tables\/([a-f0-9]+)/)
-  const hashDir = hashMatch ? hashMatch[1] : 'default'
-
-  console.log('提取的哈希目录:', hashDir)
-  console.log('表格索引:', tableInfo.index)
-
-  // 构建Excel路径：static/excel_data/{hash}/single_{index}.xlsx
-  const excelPath = `static/excel_data/${hashDir}/single_${tableInfo.index + 1}.xlsx`
-  console.log('构建的Excel路径:', excelPath)
-
-  return excelPath
-}
-
-
-
-// 在 App.vue 中
 const handleExcelDataReceived = async (excelInfo) => {
   try {
     console.log('🎯 App.vue 收到 excel-data-received 事件:', excelInfo)
@@ -438,17 +425,46 @@ const handleExcelDataReceived = async (excelInfo) => {
 
     // 调用API读取Excel内容
     const response = await llmApi.getExcelContent(excelInfo.excelUrl)
-    console.log('✅ getExcelContent响应:', response)
+    console.log('🔍 getExcelContent 完整响应:', response)
 
-    if (response.success) {
-      console.log('📊 Excel数据成功加载:', response.data)
-      // 显示在富文本编辑器中
-      displayTableInEditor(response.data, excelInfo.tableName)
-      ElMessage.success('表格数据加载成功')
+    // 详细分析响应结构
+    console.log('🔍 response 类型:', typeof response)
+    console.log('🔍 response 键:', Object.keys(response || {}))
+    console.log('🔍 response.success:', response?.success)
+    console.log('🔍 response.data:', response?.data)
+    console.log('🔍 response.data 类型:', typeof response?.data)
+    console.log('🔍 response.data 键:', response?.data ? Object.keys(response.data) : 'null')
+
+    // 根据调试信息调整逻辑
+    let excelData = null
+
+    if (response?.success && response.data) {
+      console.log('✅ 使用新格式数据')
+      excelData = response.data
+    } else if (response?.data?.success && response.data.data) {
+      console.log('✅ 使用旧格式数据')
+      excelData = response.data.data
+    } else if (response?.sheets) {
+      console.log('✅ 直接使用response作为数据')
+      excelData = response
     } else {
-      console.error('❌ getExcelContent失败:', response.error)
-      ElMessage.error('加载表格数据失败: ' + response.error)
+      console.error('❌ 无法识别的数据格式')
+      ElMessage.error('数据格式错误')
+      return
     }
+
+    console.log('📊 最终Excel数据:', excelData)
+
+    // 设置完整的Excel数据
+    currentExcelData.value = {
+      ...excelData,
+      tableName: excelInfo.tableName || '未命名表格',
+      excelUrl: excelInfo.excelUrl,
+      lastUpdated: new Date().toISOString()
+    }
+
+    console.log('🎉 设置后的currentExcelData:', currentExcelData.value)
+    ElMessage.success(`表格数据加载成功，共 ${currentExcelData.value.sheets?.length || 0} 个工作表`)
 
   } catch (error) {
     console.error('💥 处理Excel数据失败:', error)
@@ -456,194 +472,16 @@ const handleExcelDataReceived = async (excelInfo) => {
   }
 }
 
-
-// 确保 displayTableInEditor 函数存在
-const displayTableInEditor = (tableData, tableName) => {
-  console.log('🖊️ 显示表格数据:', tableData)
-
-  if (!tableData || !tableData.headers || !tableData.data) {
-    console.error('❌ 表格数据格式错误')
-    return
-  }
-
-  // 将表格数据转换为Markdown格式
-  const markdownTable = convertToMarkdown(tableData, tableName)
-  console.log('📄 生成的Markdown:', markdownTable)
-
-  // 在现有内容后追加表格
-  const separator = '\n\n---\n\n'
-  content.value += separator + markdownTable
-
-  // 滚动到编辑器底部
-  setTimeout(() => {
-    const editor = document.querySelector('.editor-panel')
-    if (editor) {
-      editor.scrollTop = editor.scrollHeight
-    }
-  }, 100)
-}
-
-
-// 表格数据转Markdown
-const convertToMarkdown = (tableData, tableName) => {
-  const { headers, data } = tableData
-
-  let markdown = `## ${tableName}\n\n`
-
-  // 表头
-  markdown += '| ' + headers.join(' | ') + ' |\n'
-
-  // 分隔线
-  markdown += '|' + headers.map(() => '---').join('|') + '|\n'
-
-  // 数据行
-  data.forEach(row => {
-    const rowData = headers.map(header => row[header] || '')
-    markdown += '| ' + rowData.join(' | ') + ' |\n'
-  })
-
-  return markdown
-}
-
-
-// 处理Excel URL接收
-const handleExcelUrlReceived = async (excelInfo) => {
-  try {
-    console.log('收到Excel信息:', excelInfo)
-
-    // 调用API读取Excel内容
-    const response = await llmApi.getExcelContent(excelInfo.excelUrl)
-
-    if (response.success) {
-      // 显示在富文本编辑器中
-      displayTableInEditor(response.data, excelInfo.tableName)
-      ElMessage.success('表格数据加载成功')
-    } else {
-      ElMessage.error('加载表格数据失败: ' + response.error)
-    }
-
-  } catch (error) {
-    console.error('处理Excel数据失败:', error)
-    ElMessage.error('加载Excel数据失败: ' + error.message)
-  }
-}
-
-// 从Excel URL获取数据的函数
-const fetchExcelData = async (excelUrl) => {
-  try {
-    // 调用后端API读取Excel内容
-    const response = await llmApi.getExcelData(excelUrl)
-
-    if (response.success) {
-      return response.data
-    } else {
-      throw new Error(response.error || '读取Excel失败')
-    }
-  } catch (error) {
-    console.error('获取Excel数据失败:', error)
-    throw error
-  }
-}
-
-
-// 在 App.vue 的 script 部分修改识别函数
-const handleRecognizeTable = async (tableInfo) => {
-  const loadingKey = `${tableInfo.pdfName}_${tableInfo.index}`
-
-  // 添加加载状态管理（需要在data中定义）
-  if (!recognizeLoading.value) {
-    recognizeLoading.value = {}
-  }
-  recognizeLoading.value[loadingKey] = true
-
-  try {
-    console.log('开始识别流程，tableInfo:', tableInfo)
-
-    // 1. 构建预期的Excel文件路径
-    const excelPath = await buildExcelPath(tableInfo)
-    console.log('构建的Excel路径:', excelPath)
-
-    // 2. 检查Excel文件是否存在
-    console.log('开始检查Excel数据...')
-    const existingData = await checkExcelData(excelPath)
-    console.log('检查结果:', existingData ? '存在' : '不存在')
-
-    if (existingData) {
-      // 3. 如果存在，直接显示在富文本编辑器中
-      console.log('使用现有数据:', existingData)
-      displayTableInEditor(existingData, tableInfo.tableName)
-      ElMessage.success('已加载现有表格数据')
-    } else {
-      // 4. 如果不存在，调用大模型识别
-      console.log('调用大模型识别...')
-      const recognizedData = await recognizeWithLLM(tableInfo, excelPath)
-      console.log('识别完成:', recognizedData)
-      displayTableInEditor(recognizedData, tableInfo.tableName)
-      ElMessage.success('表格识别完成')
-    }
-  } catch (error) {
-    console.error('表格识别失败:', error)
-    ElMessage.error('表格识别失败: ' + error.message)
-  } finally {
-    recognizeLoading.value[loadingKey] = false
-  }
-}
-
-// 检查Excel数据是否存在
-const checkExcelData = async (excelPath) => {
-  try {
-    console.log('调用检查Excel接口，路径:', excelPath)
-    const response = await llmApi.checkExcel(excelPath)
-    console.log('检查Excel响应:', response.data)
-
-    if (response.data.success) {
-      return response.data.exists ? response.data.excelData : null
-    } else {
-      console.error('检查Excel接口返回失败:', response.data.error)
-      return null
-    }
-  } catch (error) {
-    console.error('检查Excel数据失败:', error)
-    // 如果检查失败，也返回null，让流程继续走识别
-    return null
-  }
-}
-
-// 调用大模型识别
-const recognizeWithLLM = async (tableInfo, excelPath) => {
-  try {
-    const response = await llmApi.recognizeTable({
-      imageUrl: tableInfo.imageUrl,
-      excelPath: excelPath,
-      tableName: tableInfo.tableName,
-      index: tableInfo.index
-    })
-
-    if (response.data.success) {
-      return response.data.recognizedData
-    } else {
-      throw new Error(response.data.error || '识别失败')
-    }
-  } catch (error) {
-    console.error('大模型识别失败:', error)
-    throw error
-  }
-}
-
-
-
-
-
 </script>
 
 <style scoped>
-/* 样式保持不变 */
 .app-layout {
   display: flex;
   height: 100vh;
   gap: 16px;
   padding: 16px;
   background: #f5f5f5;
+  overflow: hidden;
 }
 
 .left-panel {
@@ -668,7 +506,7 @@ const recognizeWithLLM = async (tableInfo, excelPath) => {
   overflow: hidden;
 }
 
-.editor-header {
+.panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -682,6 +520,9 @@ const recognizeWithLLM = async (tableInfo, excelPath) => {
   font-weight: 600;
   color: #303133;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .header-actions {
@@ -689,15 +530,30 @@ const recognizeWithLLM = async (tableInfo, excelPath) => {
   gap: 8px;
 }
 
-.excel-preview-section {
-  border-bottom: 1px solid #e4e7ed;
-  background: #f8f9fa;
-  max-height: 40%;
-  overflow: auto;
+.excel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-:deep(.half-height) {
-  max-height: 60%;
-  min-height: 200px;
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.empty-tips {
+  text-align: center;
+  color: #909399;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.empty-tips p {
+  margin: 4px 0;
 }
 </style>
