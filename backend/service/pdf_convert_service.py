@@ -83,12 +83,12 @@ def background_convert11(
 # ------------ 精准 + 高效 ------------
 from pathlib import Path
 import fitz, os, logging
-from concurrent.futures import ProcessPoolExecutor
 from backend.service.table_page_detector import detect_table_page
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
-def background_convert(
+def background_convert1(
     pdf_path: Path,
     out_dir: Path,
     job_id: str,
@@ -140,7 +140,7 @@ def background_convert(
 # ------------------------------------------------------------------
 # ② 后台任务：仅转表格页，300 DPI，PyMuPDF 截图式流式
 # ------------------------------------------------------------------
-def background_convert_table_only(
+def background_convert_table_only1(
     pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
 ) -> None:
     """
@@ -195,6 +195,155 @@ def background_convert_table_only(
             return idx
         print("os.cpu_count():", os.cpu_count())
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
+            futures = {exe.submit(render_if_table, p): p for p in range(total)}
+            for fut in as_completed(futures):
+                finished = fut.result()
+                progress_dict[job_id]["finished"] = finished
+                progress_dict[job_id]["percent"] = round(finished / total * 100)
+
+        t2 = time.time()
+        logger.info(f"[{job_id}] 全部完成，总耗时：{t2 - t0:.2f}s")
+
+    except Exception as e:
+        logger.exception(f"[{job_id}] 转换失败")
+        progress_dict[job_id]["error"] = str(e)
+        progress_dict[job_id]["percent"] = -1
+
+
+def background_convert(
+        pdf_path: Path,
+        out_dir: Path,
+        job_id: str,
+        progress_dict: dict,
+        *,
+        preview_dpi: int = 72,
+        table_dpi: int = 300,
+        normal_dpi: int = 200,  # 提高普通页DPI
+) -> None:
+    """分级 DPI + 优化的渲染，确保清晰不变黑"""
+    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
+
+    try:
+        # 1. 单进程快速判表（72 dpi 足够）
+        doc = fitz.open(pdf_path)
+        total = doc.page_count
+        progress_dict[job_id]["total"] = total
+        table_pages = {p for p in range(total)
+                       if detect_table_page(pdf_path, p, preview_dpi)}
+        doc.close()
+        logger.info(f"[{job_id}] 表格页：{sorted(table_pages)}")
+
+        # 2. 多进程渲染（优化渲染参数）
+        def render_one(p: int) -> None:
+            dpi = table_dpi if p in table_pages else normal_dpi
+            doc = fitz.open(pdf_path)  # 独立句柄
+            page = doc.load_page(p)
+            mat = fitz.Matrix(dpi / 72, dpi / 72)
+
+            # 关键优化：使用正确的渲染参数避免黑色
+            pix = page.get_pixmap(
+                matrix=mat,
+                colorspace="rgb",  # 使用字符串而非fitz.csRGB
+                alpha=False  # 禁用alpha通道
+            )
+
+            out_path = out_dir / f"{pdf_path.stem}_{p + 1:03d}.png"
+            pix.save(str(out_path))
+            doc.close()
+            return p
+
+        with ProcessPoolExecutor(max_workers=min(os.cpu_count(), 4)) as exe:
+            for p in exe.map(render_one, range(total)):
+                progress_dict[job_id]["finished"] = p + 1
+                progress_dict[job_id]["percent"] = round((p + 1) / total * 100)
+
+        logger.info(f"[{job_id}] 全部完成，共 {total} 页")
+    except Exception as e:
+        logger.exception(f"[{job_id}] 转换失败")
+        progress_dict[job_id]["error"] = str(e)
+        progress_dict[job_id]["percent"] = -1
+
+
+def background_convert_table_only(
+        pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
+) -> None:
+    """
+    优化版：确保清晰不变黑，保持高性能
+    """
+    import os, time, logging
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import fitz  # PyMuPDF
+    from PIL import Image, ImageEnhance
+    from backend.service.table_page_detector import detect_table_page
+
+    logger = logging.getLogger(__name__)
+    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
+
+    try:
+        t0 = time.time()
+        total = PdfConvertService._get_page_count(pdf_path)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        progress_dict[job_id]["total"] = total
+
+        # ① 逐页 72 dpi 判表（优化渲染参数）
+        doc = fitz.open(pdf_path)
+        table_pages: set[int] = set()
+        for page_0b in range(total):
+            page = doc.load_page(page_0b)
+            pix = page.get_pixmap(
+                dpi=72,
+                colorspace="rgb",  # 使用字符串
+                alpha=False  # 禁用alpha通道
+            )
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            if detect_table_page(pdf_path, page_0b, dpi=72) is not None:
+                table_pages.add(page_0b)
+            del img, pix
+        doc.close()
+        t1 = time.time()
+        logger.info(f"[{job_id}] 判表完成，表格页：{sorted(table_pages)}，耗时：{t1 - t0:.2f}s")
+
+        # ② 并发渲染：优化的图像处理
+        def render_if_table(page_0b: int):
+            idx = page_0b + 1
+            if page_0b not in table_pages:
+                return idx  # 跳过非表格页
+
+            doc = fitz.open(pdf_path)  # 每个 worker 独立 doc，线程安全
+            page = doc.load_page(page_0b)
+
+            # 使用优化的渲染参数
+            pix = page.get_pixmap(
+                dpi=300,
+                colorspace="rgb",  # 使用字符串
+                alpha=False  # 禁用alpha通道
+            )
+
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+            # 优化的图像增强（避免过度处理导致变黑）
+            # 轻微提高对比度，但限制增强幅度
+            try:
+                # 先检查图像是否过暗
+                brightness = ImageEnhance.Brightness(img).enhance(1.05)  # 轻微提亮
+                # 适度增强对比度
+                enhanced_img = ImageEnhance.Contrast(brightness).enhance(1.15)
+                img = enhanced_img
+            except Exception:
+                # 如果增强失败，使用原图
+                pass
+
+            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
+
+            # 使用高质量PNG保存
+            img.save(out_path, "PNG", compress_level=3)  # 平衡质量和文件大小
+
+            del img, pix
+            doc.close()
+            return idx
+
+        print("os.cpu_count():", os.cpu_count())
+        with ThreadPoolExecutor(max_workers=min(os.cpu_count(), 6)) as exe:
             futures = {exe.submit(render_if_table, p): p for p in range(total)}
             for fut in as_completed(futures):
                 finished = fut.result()

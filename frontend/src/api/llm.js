@@ -39,6 +39,7 @@ const processImage = async (data) => {
   }
 }
 
+
 export const llmApi = {
   // LLM配置相关
   configure: async (data) => {
@@ -102,6 +103,8 @@ export const llmApi = {
       }
     }
   },
+
+
 
   // 获取可用模型
   getAvailableModels: async () => {
@@ -182,5 +185,8 @@ export const llmApi = {
         message: error.message
       }
     }
-  }
+  },
+
+  // 只添加这个缺失的 API
+  batchProcessNonFinancial: (data) => http.post('/api/llm/batch-process-non-financial', data)
 }

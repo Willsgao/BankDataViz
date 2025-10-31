@@ -5,7 +5,7 @@ import { getBackendUrl } from '@/utils/config'
 // 创建axios实例 - 使用纯后端地址，不包含 /api
 export const http = axios.create({
   baseURL: getBackendUrl(),  // http://127.0.0.1:5000
-  timeout: 30000,
+  timeout: 100000,
   withCredentials: true
 })
 
@@ -38,8 +38,9 @@ http.interceptors.response.use(
   },
   error => {
     console.error('API 错误：', error.response?.data || error.message)
-    return Promise.Reject(error)
+    return Promise.reject(error)
   }
 )
 
 export default http
+

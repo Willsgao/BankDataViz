@@ -61,11 +61,14 @@
           v-if="hasBatchResults"
           :pdf="currentPDF"
           :images="joinedResults[currentPDF.disk_name] || []"
+          :table-type="tableType"
           @preview-image="$emit('preview-image', $event)"
           @llm-process="$emit('llm-process', $event)"
           @single-llm-process="$emit('single-llm-process', $event)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
         />
+
+
       </div>
 
       <!-- 其他PDF列表 -->
@@ -132,6 +135,10 @@ const props = defineProps({
   joinedResults: {
     type: Object,
     default: () => ({})
+  },
+   tableType: {
+    type: String,
+    default: 'financial'
   }
 })
 

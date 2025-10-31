@@ -40,6 +40,8 @@
         配置LLM
       </el-button>
 
+
+      <!-- ⭐⭐⭐ 大模型表格识别按钮 - 添加 loading 状态 ⭐⭐⭐ -->
       <el-button
         type="success"
         size="small"
@@ -48,8 +50,9 @@
         :loading="batchLlmLoading"
         :disabled="!llmConfigured || batchLlmLoading"
       >
-        大模型表格识别
+        {{ batchLlmLoading ? '处理中...' : '大模型表格识别' }}
       </el-button>
+
 
       <el-button
         type="info"
@@ -86,7 +89,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
 import ImageCard from './ImageCard.vue'
@@ -99,6 +102,11 @@ const props = defineProps({
   images: {
     type: Array,
     default: () => []
+  },
+  // ⭐⭐⭐ 添加表格类型属性 ⭐⭐⭐
+  tableType: {
+    type: String,
+    default: 'financial'
   }
 })
 
@@ -115,6 +123,44 @@ const llmConfigured = ref(true)
 const jumpIndex = ref('')
 const scrollContainer = ref(null)
 const imageCards = ref([])
+
+
+// BatchCropResults.vue
+const processWithLocalImages = async () => {
+  try {
+    // 从本地存储或props获取裁切结果
+    const cropResults = props.cropResults || JSON.parse(localStorage.getItem('batchCropResults') || '[]')
+
+    if (!cropResults.length) {
+      console.warn('⚠️ 没有找到裁切结果')
+      return
+    }
+
+    const processingResults = []
+
+    for (const result of cropResults) {
+      if (result.image && result.success) {
+        // 使用本地图片数据直接处理
+        const recognitionResult = await llmApi.recognizeTable({
+          image_data: result.image, // 本地图片数据
+          table_type: 'non_financial',
+          use_local: true // 标记使用本地数据
+        })
+
+        processingResults.push({
+          original: result,
+          recognition: recognitionResult
+        })
+      }
+    }
+
+    console.log('✅ 本地处理完成:', processingResults)
+    emit('processingComplete', processingResults)
+
+  } catch (error) {
+    console.error('❌ 本地处理失败:', error)
+  }
+}
 
 // 跳转到指定图片
 const jumpToImage = async () => {
@@ -185,108 +231,102 @@ const extractImageName = (imgUrl) => {
   }
 }
 
-// 修改 checkLLMStatus 函数
+
+
+// 如果有表格类型选择器，也需要添加 tableType
+const tableType = ref('financial') // 默认金融表格
+
+// LLM配置状态检查函数
 const checkLLMStatus = async () => {
   try {
-    console.log('跳过 LLM 状态检查，直接启用按钮')
-    llmConfigured.value = true
+    console.log('🔄 BatchCropResults 检查LLM配置状态...')
+    const response = await llmApi.getStatus()
+    console.log('🔍 BatchCropResults LLM状态响应:', response)
+
+    if (response.success) {
+      llmConfigured.value = response.data.client_configured
+      console.log(`✅ BatchCropResults LLM配置状态: ${llmConfigured.value ? '已配置' : '未配置'}`)
+    } else {
+      console.error('❌ BatchCropResults 获取LLM状态失败:', response.error)
+      llmConfigured.value = false
+    }
   } catch (error) {
-    console.error('LLM状态检查失败:', error)
-    llmConfigured.value = true
+    console.error('💥 BatchCropResults 检查LLM状态失败:', error)
+    llmConfigured.value = false
   }
 }
 
-// 批量LLM处理
+
 const handleBatchLLMProcess = async () => {
   try {
+    console.log('🔄 BatchCropResults - 开始批量LLM处理')
+    console.log('🔄 BatchCropResults - 接收到的表格类型:', props.tableType)
+
+    // 检查LLM配置状态
+    await checkLLMStatus()
+    console.log('🔍 BatchCropResults LLM配置状态:', llmConfigured.value)
+
+    if (!llmConfigured.value) {
+      console.log('❌ BatchCropResults - LLM未配置，弹出配置对话框')
+      const result = await ElMessageBox.confirm(
+        'LLM未配置，请先配置大模型参数后才能进行批量表格识别',
+        '提示',
+        {
+          confirmButtonText: '去配置',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+
+      if (result) {
+        emit('open-config')
+      }
+      return
+    }
+
+    // ⭐⭐⭐ 关键：开始处理时设置 loading 状态 ⭐⭐⭐
     batchLlmLoading.value = true
 
-    // 先检查LLM配置状态
-    const isConfigured = await checkAndConfigureLLM()
-    if (!isConfigured) {
-      return
+    console.log('🔄 BatchCropResults - 准备处理的图片数量:', props.images.length)
+
+    // 传递表格类型信息
+    const batchParams = {
+      imageCount: props.images.length,
+      outputDir: `static/excel_data/${props.pdf.disk_name.replace('.pdf', '')}`,
+      pdfName: props.pdf.disk_name,
+      tableType: props.tableType
     }
 
-    // 获取裁切的图片路径
-    const imagePaths = props.images.map(url => {
-      if (url.startsWith('http')) {
-        const urlObj = new URL(url)
-        return urlObj.pathname.replace('/static/', 'static/')
-      }
-      return url
-    }).filter(path => path)
+    console.log('🔄 BatchCropResults - 开始批量LLM处理:', batchParams)
 
-    console.log('准备处理的图片路径:', imagePaths)
-
-    if (imagePaths.length === 0) {
-      ElMessage.warning('没有可用的裁切图片进行识别')
-      return
-    }
-
-    // 构建输出目录
-    const pdfStem = props.pdf.disk_name.replace('.pdf', '')
-    const outputDir = `./output/llm_results/${pdfStem}`
-
-    console.log('开始批量LLM处理:', {
-      imageCount: imagePaths.length,
-      outputDir,
-      pdfName: props.pdf.disk_name
-    })
-
-    const response = await llmApi.batchProcess({
-      image_paths: imagePaths,
-      output_dir: outputDir,
-      bank_name: '未知银行'
-    })
-
-    console.log('LLM批量处理响应:', response)
-
-    if (response.data && response.data.success) {
-      const resultData = response.data.data || response.data
-      ElMessage.success(`表格识别完成！成功处理 ${resultData.success || 0} 个文件`)
-
-      emit('llm-process', {
-        pdfDiskName: props.pdf.disk_name,
-        result: resultData,
-        success: true
-      })
-    } else {
-      const errorMsg = response.data?.error || response.error || '未知错误'
-      ElMessage.error(`表格识别失败: ${errorMsg}`)
-
-      emit('llm-process', {
-        pdfDiskName: props.pdf.disk_name,
-        error: errorMsg,
-        success: false
-      })
-    }
+    // 调用父组件的批量处理
+    emit('llm-process', batchParams)
 
   } catch (error) {
-    console.error('LLM处理失败:', error)
+    console.error('💥 BatchCropResults - 批量LLM处理失败:', error)
+    ElMessage.error('批量表格识别异常: ' + (error.response?.data?.error || error.message))
 
-    if (error !== 'cancel') {
-      let errorMsg = 'LLM处理异常'
-
-      if (error.response) {
-        errorMsg = `服务器错误: ${error.response.status} - ${error.response.data?.error || error.response.statusText}`
-      } else if (error.request) {
-        errorMsg = '网络连接错误，请检查网络连接'
-      } else {
-        errorMsg = `处理异常: ${error.message}`
-      }
-
-      ElMessage.error(errorMsg)
-
-      emit('llm-process', {
-        pdfDiskName: props.pdf.disk_name,
-        error: errorMsg,
-        success: false
-      })
-    }
-  } finally {
+    // ⭐⭐⭐ 错误时也要重置 loading 状态 ⭐⭐⭐
     batchLlmLoading.value = false
   }
+  // ⭐⭐⭐ 注意：这里不设置 finally，因为 loading 状态需要在父组件处理完成后重置 ⭐⭐⭐
 }
+
+
+
+// 监听配置完成事件
+const onLLMConfigured = () => {
+  console.log('🎯 BatchCropResults 收到配置完成事件')
+  checkLLMStatus()
+}
+
+
+// 监听父组件处理完成的事件
+const handleProcessingComplete = () => {
+  batchLlmLoading.value = false
+  console.log('✅ 批量处理完成，重置按钮状态')
+}
+
 
 // 检查和配置LLM的函数
 const checkAndConfigureLLM = async () => {

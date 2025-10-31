@@ -20,12 +20,6 @@ logger = logging.getLogger(__name__)
 
 # llm_routes.py
 from flask import Blueprint, request, jsonify, send_from_directory
-import asyncio
-import logging
-from pathlib import Path
-
-llm_bp = Blueprint('llm', __name__)
-logger = logging.getLogger(__name__)
 
 # llm_routes.py
 from flask import Blueprint, request, jsonify
@@ -33,7 +27,9 @@ import asyncio
 import logging
 from pathlib import Path
 
-
+# 全局处理器实例
+_table_processor_instance = None
+_non_financial_table_service = None
 
 
 def validate_required_params(data, required_fields):
@@ -147,117 +143,6 @@ async def _process_single_image(data):
         }
 
 
-async def _batch_process_images(data):
-    """批量处理图片的异步函数"""
-    try:
-        # 验证必要参数
-        is_valid, error_msg = validate_required_params(
-            data, ['image_paths', 'output_dir']
-        )
-        if not is_valid:
-            return {
-                "success": False,
-                "error": error_msg
-            }
-
-        image_paths = data.get('image_paths', [])
-        output_dir = data.get('output_dir')
-        bank_name = data.get('bank_name', '未知银行')
-        output_file = data.get('output_file', 'batch_processing_results.xlsx')
-
-        # 检查图片文件
-        missing_images = []
-        for img_path in image_paths:
-            if not Path(img_path).exists():
-                missing_images.append(img_path)
-
-        if missing_images:
-            return {
-                "success": False,
-                "error": f"以下图片文件不存在: {missing_images}"
-            }
-
-        processor = get_table_processor()
-
-        if not processor.llm_client:
-            return {
-                "success": False,
-                "error": "请先配置LLM客户端"
-            }
-
-        # 使用已有的标识创建Excel存储文件夹
-        # 从第一个图片路径提取标识：类似 d0586abf1323dbfd80a926ce1e2d5676
-        if image_paths:
-            folder_name = Path(image_paths[0]).stem.split('_')[0]  # 取第一个下划线前的部分
-        else:
-            folder_name = "unknown_batch"
-
-        excel_base_dir = Path("static/excel_data")
-        excel_dir = excel_base_dir / folder_name
-        excel_dir.mkdir(parents=True, exist_ok=True)
-
-        # 重新构建输出路径
-        excel_filename = Path(output_file).name
-        new_output_file = excel_dir / excel_filename
-        output_file = str(new_output_file)
-
-        print(f"批量处理Excel文件将保存到: {output_file}")
-
-        # 批量处理 - 需要实现批量处理方法
-        results = []
-        success_count = 0
-
-        for i, image_path in enumerate(image_paths):
-            try:
-                sheet_name = f"sheet_{i + 1}"
-                file_name = Path(image_path).stem
-
-                result = await processor.process_table_pipeline(
-                    image_path=image_path,
-                    out_file=output_file,  # 所有结果保存到同一个文件
-                    sheet_name=sheet_name,
-                    bank_name=bank_name,
-                    file_name=file_name
-                )
-
-                results.append({
-                    "image_path": image_path,
-                    "status": result.status,
-                    "complexity": result.complexity,
-                    "table_name": result.table_name,
-                    "sheet_name": sheet_name
-                })
-
-                if result.status == "success":
-                    success_count += 1
-
-            except Exception as e:
-                logger.error(f"处理图片失败 {image_path}: {str(e)}")
-                results.append({
-                    "image_path": image_path,
-                    "status": "error",
-                    "error": str(e)
-                })
-
-        logger.info(f"批量处理完成 - 总数: {len(image_paths)}, 成功: {success_count}")
-
-        return {
-            "success": True,
-            "data": {
-                "total": len(image_paths),
-                "success": success_count,
-                "failed": len(image_paths) - success_count,
-                "results": results,
-                "output_file": output_file
-            }
-        }
-
-    except Exception as e:
-        logger.error(f"批量处理失败: {str(e)}")
-        return {
-            "success": False,
-            "error": f"批量处理失败: {str(e)}"
-        }
 
 
 async def _test_connection_internal(data):
@@ -364,28 +249,6 @@ def test_connection():
         }), 500
 
 
-@llm_bp.route('/llm/batch-process', methods=['POST'])
-def batch_process_images():
-    """批量处理图片"""
-    try:
-        data = request.get_json()
-
-        if not data:
-            return jsonify({
-                "success": False,
-                "error": "请求体不能为空"
-            }), 400
-
-        result = asyncio.run(_batch_process_images(data))
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"异步处理错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"异步处理错误: {str(e)}"
-        }), 500
-
-
 
 
 
@@ -444,7 +307,6 @@ def health_check():
             "success": False,
             "error": f"健康检查失败: {str(e)}"
         }), 500
-
 
 
 @llm_bp.route('/llm/recognize-table', methods=['POST'])
@@ -529,17 +391,26 @@ def recognize_table():
         # 2. 如果Excel不存在，进行LLM识别
         print("🔄 Excel文件不存在，开始LLM识别流程")
 
-        # 从图片URL提取图片路径
-        if image_url.startswith('http://127.0.0.1:5000/'):
-            image_path = image_url.replace('http://127.0.0.1:5000/', '')
-        elif image_url.startswith('http://localhost:5000/'):
-            image_path = image_url.replace('http://localhost:5000/', '')
-        else:
-            image_path = image_url
+        # ⭐⭐⭐ 关键修改：改进图片路径提取逻辑 ⭐⭐⭐
+        image_path = image_url
 
-        # 确保是相对路径
-        if image_path.startswith('/'):
-            image_path = image_path[1:]
+        # 处理各种URL格式
+        if image_url.startswith('http://'):
+            # 提取域名后的路径部分
+            from urllib.parse import urlparse
+            parsed_url = urlparse(image_url)
+            image_path = parsed_url.path  # 获取路径部分，如 /static/joined_tables/...
+
+            # 去掉开头的斜杠
+            if image_path.startswith('/'):
+                image_path = image_path[1:]
+
+            print(f"✅ 从URL提取路径: {image_path}")
+
+        elif image_url.startswith('/'):
+            # 如果是以/开头的绝对路径，去掉开头的斜杠
+            image_path = image_url[1:]
+            print(f"✅ 处理绝对路径: {image_path}")
 
         print(f"处理图片路径: {image_path}")
 
@@ -550,11 +421,24 @@ def recognize_table():
             static_path = Path("static") / image_path
             if static_path.exists():
                 image_full_path = static_path
+                print(f"✅ 在static目录找到图片: {static_path}")
             else:
-                return jsonify({
-                    "success": False,
-                    "error": f"图片文件不存在: {image_path}"
-                }), 404
+                # 尝试直接在当前目录查找
+                current_dir_path = Path.cwd() / image_path
+                if current_dir_path.exists():
+                    image_full_path = current_dir_path
+                    print(f"✅ 在当前目录找到图片: {current_dir_path}")
+                else:
+                    print(f"❌ 图片文件不存在，尝试的路径:")
+                    print(f"   - {image_full_path}")
+                    print(f"   - {static_path}")
+                    print(f"   - {current_dir_path}")
+                    return jsonify({
+                        "success": False,
+                        "error": f"图片文件不存在: {image_path}"
+                    }), 404
+
+        print(f"✅ 最终使用的图片路径: {image_full_path}")
 
         # 确保Excel目录存在
         excel_full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -801,128 +685,6 @@ def get_excel_data():
             "error": f"读取Excel数据失败: {str(e)}"
         }), 500
 
-
-@llm_bp.route('/llm/get-excel-content', methods=['GET'])
-def get_excel_content():
-    """读取Excel文件内容并返回结构化数据"""
-    try:
-        excel_url = request.args.get('excel_url')
-        print(f"📖 读取Excel内容: {excel_url}")
-
-        if not excel_url:
-            return jsonify({
-                "success": False,
-                "error": "缺少excel_url参数"
-            }), 400
-
-        # 支持多种URL格式
-        file_path = None
-
-        if excel_url.startswith('/api/excel-data/'):
-            file_path = excel_url.replace('/api/excel-data/', 'static/excel_data/')
-        elif excel_url.startswith('/static/excel_data/'):
-            file_path = excel_url.replace('/static/excel_data/', 'static/excel_data/')
-        else:
-            return jsonify({
-                "success": False,
-                "error": f"无效的Excel URL格式: {excel_url}"
-            }), 400
-
-        full_path = Path(file_path)
-        if not full_path.is_absolute():
-            full_path = Path.cwd() / file_path
-
-        print(f"Excel文件完整路径: {full_path}")
-
-        if not full_path.exists():
-            return jsonify({
-                "success": False,
-                "error": f"Excel文件不存在: {file_path}"
-            }), 404
-
-        # 读取Excel文件
-        import openpyxl
-        workbook = openpyxl.load_workbook(full_path)
-
-        # 获取所有工作表
-        sheet_data = []
-
-        for sheet_name in workbook.sheetnames:
-            worksheet = workbook[sheet_name]
-
-            # 转换为JSON数据
-            headers = []
-            data_rows = []
-
-            # 查找数据开始行（跳过空行和标题行）
-            data_start_row = 1
-            max_col = worksheet.max_column
-
-            # 读取表头（第一行有数据的行）
-            for row in range(1, worksheet.max_row + 1):
-                row_has_data = False
-                for col in range(1, max_col + 1):
-                    cell_value = worksheet.cell(row=row, column=col).value
-                    if cell_value and str(cell_value).strip():
-                        row_has_data = True
-                        break
-
-                if row_has_data:
-                    # 这一行有数据，作为表头
-                    for col in range(1, max_col + 1):
-                        cell_value = worksheet.cell(row=row, column=col).value
-                        headers.append(str(cell_value) if cell_value is not None else f"列{col}")
-                    data_start_row = row + 1
-                    break
-
-            # 读取数据行
-            for row in range(data_start_row, worksheet.max_row + 1):
-                row_data = {}
-                has_data = False
-
-                for col, header in enumerate(headers, 1):
-                    if col > max_col:
-                        break
-                    cell_value = worksheet.cell(row=row, column=col).value
-                    if cell_value is not None and str(cell_value).strip():
-                        has_data = True
-                    row_data[header] = str(cell_value) if cell_value is not None else ""
-
-                if has_data:  # 只添加有数据的行
-                    data_rows.append(row_data)
-
-            sheet_data.append({
-                "sheetName": sheet_name,
-                "headers": headers,
-                "data": data_rows,
-                "rowCount": len(data_rows),
-                "colCount": len(headers)
-            })
-
-        # 确保返回标准结构
-        result = {
-            "success": True,
-            "data": {
-                "filePath": str(full_path),
-                "sheets": sheet_data,
-                "totalSheets": len(sheet_data)
-            }
-        }
-
-        print(f"✅ 返回数据: 共{len(sheet_data)}个工作表")
-        for sheet in sheet_data:
-            print(f"  工作表 '{sheet['sheetName']}': {sheet['rowCount']}行 {sheet['colCount']}列")
-
-        return jsonify(result)
-
-    except Exception as e:
-        logger.error(f"读取Excel内容失败: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            "success": False,
-            "error": f"读取Excel内容失败: {str(e)}"
-        }), 500
 
 
 # 在 llm_routes.py 中添加以下内容
@@ -1500,3 +1262,454 @@ def process_non_financial_table():
             "error": f"普通表格处理错误: {str(e)}",
             "message": f"处理异常: {str(e)}"
         }), 500
+
+
+# 在 llm_routes.py 中添加（如果还没有的话）
+@llm_bp.route('/excel-data/<path:excel_path>')
+def serve_excel_data(excel_path):
+    """提供Excel文件数据访问"""
+    try:
+        # 构建完整的文件路径
+        file_path = Path("static/excel_data") / excel_path
+
+        if not file_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"Excel文件不存在: {excel_path}"
+            }), 404
+
+        # 返回文件
+        return send_from_directory('static/excel_data', excel_path)
+
+    except Exception as e:
+        logger.error(f"提供Excel文件失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"文件访问失败: {str(e)}"
+        }), 500
+
+
+
+
+@llm_bp.route('/llm/get-excel-content', methods=['GET'])
+def get_excel_content():
+    """读取Excel文件内容并返回结构化数据"""
+    try:
+        excel_url = request.args.get('excel_url')
+        print(f"📖 读取Excel内容: {excel_url}")
+
+        if not excel_url:
+            return jsonify({
+                "success": False,
+                "error": "缺少excel_url参数"
+            }), 400
+
+        # 只接受相对路径格式
+        if excel_url.startswith('http'):
+            return jsonify({
+                "success": False,
+                "error": f"无效的Excel URL格式，请使用相对路径: {excel_url}"
+            }), 400
+
+        file_path = None
+
+        if excel_url.startswith('/api/excel-data/'):
+            # 格式: /api/excel-data/{folder}/{filename}
+            relative_path = excel_url.replace('/api/excel-data/', '')
+            file_path = Path("static/excel_data") / relative_path
+        elif excel_url.startswith('/static/excel_data/'):
+            # 格式: /static/excel_data/{folder}/{filename}
+            relative_path = excel_url.replace('/static/excel_data/', '')
+            file_path = Path("static/excel_data") / relative_path
+        else:
+            return jsonify({
+                "success": False,
+                "error": f"不支持的Excel URL格式: {excel_url}"
+            }), 400
+
+        full_path = Path(file_path)
+        if not full_path.is_absolute():
+            full_path = Path.cwd() / file_path
+
+        print(f"Excel文件完整路径: {full_path}")
+
+        if not full_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"Excel文件不存在: {file_path}"
+            }), 404
+
+        # 读取Excel文件内容...
+        # 读取Excel文件
+        import openpyxl
+        workbook = openpyxl.load_workbook(full_path)
+
+        # 获取所有工作表
+        sheet_data = []
+
+        for sheet_name in workbook.sheetnames:
+            worksheet = workbook[sheet_name]
+
+            # 转换为JSON数据
+            headers = []
+            data_rows = []
+
+            # 查找数据开始行（跳过空行和标题行）
+            data_start_row = 1
+            max_col = worksheet.max_column
+
+            # 读取表头（第一行有数据的行）
+            for row in range(1, worksheet.max_row + 1):
+                row_has_data = False
+                for col in range(1, max_col + 1):
+                    cell_value = worksheet.cell(row=row, column=col).value
+                    if cell_value and str(cell_value).strip():
+                        row_has_data = True
+                        break
+
+                if row_has_data:
+                    # 这一行有数据，作为表头
+                    for col in range(1, max_col + 1):
+                        cell_value = worksheet.cell(row=row, column=col).value
+                        headers.append(str(cell_value) if cell_value is not None else f"列{col}")
+                    data_start_row = row + 1
+                    break
+
+            # 读取数据行
+            for row in range(data_start_row, worksheet.max_row + 1):
+                row_data = {}
+                has_data = False
+
+                for col, header in enumerate(headers, 1):
+                    if col > max_col:
+                        break
+                    cell_value = worksheet.cell(row=row, column=col).value
+                    if cell_value is not None and str(cell_value).strip():
+                        has_data = True
+                    row_data[header] = str(cell_value) if cell_value is not None else ""
+
+                if has_data:  # 只添加有数据的行
+                    data_rows.append(row_data)
+
+            sheet_data.append({
+                "sheetName": sheet_name,
+                "headers": headers,
+                "data": data_rows,
+                "rowCount": len(data_rows),
+                "colCount": len(headers)
+            })
+
+        # 确保返回标准结构
+        result = {
+            "success": True,
+            "data": {
+                "filePath": str(full_path),
+                "sheets": sheet_data,
+                "totalSheets": len(sheet_data)
+            }
+        }
+
+        print(f"✅ 返回数据: 共{len(sheet_data)}个工作表")
+        for sheet in sheet_data:
+            print(f"  工作表 '{sheet['sheetName']}': {sheet['rowCount']}行 {sheet['colCount']}列")
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"读取Excel内容失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"读取Excel内容失败: {str(e)}"
+        }), 500
+
+
+@llm_bp.route('/llm/batch-process', methods=['POST'])
+def batch_process_images():
+    """批量处理图片 - 金融表格"""
+    try:
+        data = request.get_json()
+        data['table_type'] = 'financial'  # 明确指定表格类型
+        return _handle_batch_process(data)
+    except Exception as e:
+        logger.error(f"金融表格批量处理错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"金融表格批量处理错误: {str(e)}"
+        }), 500
+
+
+
+
+async def _batch_process_images(data):
+    """批量处理图片的异步函数"""
+    try:
+        # 验证必要参数
+        is_valid, error_msg = validate_required_params(
+            data, ['image_paths', 'output_dir']
+        )
+        if not is_valid:
+            return {
+                "success": False,
+                "error": error_msg
+            }
+
+        image_paths = data.get('image_paths', [])
+        output_dir = data.get('output_dir')
+        bank_name = data.get('bank_name', '未知银行')
+        table_type = data.get('table_type', 'financial')  # 获取表格类型
+        output_file = data.get('output_file', 'batch_processing_results.xlsx')
+
+
+        print("table_typetable_type:", table_type)
+
+
+        # 检查图片文件
+        missing_images = []
+        for img_path in image_paths:
+            if not Path(img_path).exists():
+                missing_images.append(img_path)
+
+        if missing_images:
+            return {
+                "success": False,
+                "error": f"以下图片文件不存在: {missing_images}"
+            }
+
+        processor = get_table_processor()
+
+        if not processor.llm_client:
+            return {
+                "success": False,
+                "error": "请先配置LLM客户端"
+            }
+
+        # 使用已有的标识创建Excel存储文件夹
+        if image_paths:
+            folder_name = Path(image_paths[0]).stem.split('_')[0]
+        else:
+            folder_name = "unknown_batch"
+
+        excel_base_dir = Path("static/excel_data")
+        excel_dir = excel_base_dir / folder_name
+        excel_dir.mkdir(parents=True, exist_ok=True)
+
+        # 根据表格类型构建不同的文件名
+        if table_type == 'non_financial':
+            excel_filename = f"non_financial_batch_{folder_name}.xlsx"
+        else:
+            excel_filename = f"financial_batch_{folder_name}.xlsx"
+
+        new_output_file = excel_dir / excel_filename
+        output_file = str(new_output_file)
+
+        print(f"批量处理Excel文件将保存到: {output_file}")
+        print(f"表格类型: {table_type}")
+
+        # 批量处理 - 根据表格类型选择不同的处理方法
+        results = []
+        success_count = 0
+
+        for i, image_path in enumerate(image_paths):
+            try:
+                sheet_name = f"表格_{i + 1}"
+                file_name = Path(image_path).stem
+
+                print(f"🔄 处理第 {i + 1}/{len(image_paths)} 张图片，类型: {table_type}")
+
+                if table_type == 'non_financial':
+                    # 调用普通表格处理方法
+                    print(f"🔄 调用普通表格处理: {image_path}")
+                    result = await _process_single_non_financial_table({
+                        'image_path': image_path,
+                        'output_path': output_file,
+                        'sheet_name': sheet_name,
+                        'bank_name': bank_name,
+                        'file_name': file_name,
+                        'table_index': i
+                    })
+                else:
+                    # 调用金融表格处理方法
+                    print(f"🔄 调用金融表格处理: {image_path}")
+                    result = await processor.process_table_pipeline(
+                        image_path=image_path,
+                        out_file=output_file,
+                        sheet_name=sheet_name,
+                        bank_name=bank_name,
+                        file_name=file_name
+                    )
+
+                if table_type == 'non_financial':
+                    # 普通表格的结果处理
+                    if result.get('success'):
+                        results.append({
+                            "image_path": image_path,
+                            "status": "success",
+                            "table_name": sheet_name,
+                            "sheet_name": sheet_name,
+                            "excel_url": result.get('excel_url')
+                        })
+                        success_count += 1
+                        print(f"✅ 普通表格处理成功: {image_path}")
+                    else:
+                        results.append({
+                            "image_path": image_path,
+                            "status": "error",
+                            "error": result.get('error', '处理失败')
+                        })
+                        print(f"❌ 普通表格处理失败: {image_path} - {result.get('error')}")
+                else:
+                    # 金融表格的结果处理
+                    results.append({
+                        "image_path": image_path,
+                        "status": result.status,
+                        "complexity": result.complexity,
+                        "table_name": result.table_name,
+                        "sheet_name": sheet_name
+                    })
+
+                    if result.status == "success":
+                        success_count += 1
+                        print(f"✅ 金融表格处理成功: {image_path}")
+                    else:
+                        print(f"❌ 金融表格处理失败: {image_path}")
+
+            except Exception as e:
+                logger.error(f"处理图片失败 {image_path}: {str(e)}")
+                results.append({
+                    "image_path": image_path,
+                    "status": "error",
+                    "error": str(e)
+                })
+                print(f"💥 处理异常: {image_path} - {str(e)}")
+
+        logger.info(f"批量处理完成 - 类型: {table_type}, 总数: {len(image_paths)}, 成功: {success_count}")
+
+        # 构建返回的Excel URL
+        excel_url = convert_to_excel_url(output_file)
+
+        return {
+            "success": True,
+            "data": {
+                "total": len(image_paths),
+                "success": success_count,
+                "failed": len(image_paths) - success_count,
+                "results": results,
+                "output_file": output_file,
+                "excel_url": excel_url,
+                "table_type": table_type
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"批量处理失败: {str(e)}")
+        return {
+            "success": False,
+            "error": f"批量处理失败: {str(e)}"
+        }
+
+
+async def _process_single_non_financial_table(process_data):
+    """处理单个普通表格"""
+    try:
+        image_path = process_data['image_path']
+        output_path = process_data['output_path']
+        sheet_name = process_data['sheet_name']
+        bank_name = process_data['bank_name']
+        file_name = process_data['file_name']
+        table_index = process_data.get('table_index', 0)
+
+        print(f"处理普通表格 #{table_index}: {image_path}")
+
+        # 调用普通表格识别的核心逻辑
+        result = await _process_non_financial_table(process_data)
+
+        if result.get('success'):
+            # 转换为统一的URL格式
+            excel_url = convert_to_excel_url(output_path)
+            result['excel_url'] = excel_url
+
+        return result
+
+    except Exception as e:
+        logger.error(f"处理普通表格失败 {process_data['image_path']}: {str(e)}")
+        return {
+            "success": False,
+            "error": f"处理失败: {str(e)}"
+        }
+
+
+def convert_to_excel_url(file_path):
+    """将文件路径转换为Excel URL"""
+    file_path = file_path.replace('\\', '/')
+
+    if 'static/excel_data/' in file_path:
+        # 提取相对路径部分
+        parts = file_path.split('static/excel_data/')
+        if len(parts) > 1:
+            return f"/api/excel-data/{parts[1]}"
+
+    # 回退方案
+    file_name = Path(file_path).name
+    folder_name = Path(file_path).parent.name
+    return f"/api/excel-data/{folder_name}/{file_name}"
+
+
+
+@llm_bp.route('/llm/batch-process', methods=['POST'], endpoint='batch_process_financial')
+def batch_process_financial_images():
+    """批量处理图片 - 金融表格"""
+    try:
+        data = request.get_json()
+        # 明确设置为金融表格，不依赖前端传递的table_type
+        data['table_type'] = 'financial'
+        print(f"🔵 金融表格批量处理 - 强制设置表格类型: financial")
+        return _handle_batch_process(data)
+    except Exception as e:
+        logger.error(f"金融表格批量处理错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"金融表格批量处理错误: {str(e)}"
+        }), 500
+
+
+@llm_bp.route('/llm/batch-process-non-financial', methods=['POST'], endpoint='batch_process_non_financial')
+def batch_process_non_financial_images():
+    """批量处理图片 - 普通表格"""
+    try:
+        data = request.get_json()
+        # 明确设置为普通表格，不依赖前端传递的table_type
+        data['table_type'] = 'non_financial'
+        print(f"🟢 普通表格批量处理 - 强制设置表格类型: non_financial")
+        return _handle_batch_process(data)
+    except Exception as e:
+        logger.error(f"普通表格批量处理错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"普通表格批量处理错误: {str(e)}"
+        }), 500
+
+
+def _handle_batch_process(data):
+    """统一的批量处理入口"""
+    try:
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "请求体不能为空"
+            }), 400
+
+        # 添加调试信息
+        table_type = data.get('table_type', 'unknown')
+        print(f"🔄 批量处理入口 - 表格类型: {table_type}")
+
+        result = asyncio.run(_batch_process_images(data))
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"批量处理错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"批量处理错误: {str(e)}"
+        }), 500
+

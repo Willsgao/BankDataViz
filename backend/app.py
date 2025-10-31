@@ -5,7 +5,7 @@ DocuVista 主入口
 只负责：注册蓝图 + 启动
 """
 
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from backend.api.upload import upload_bp
 from backend.api.file import file_bp
@@ -22,19 +22,11 @@ app = Flask(__name__)
 db_mgr = DatabaseManager()
 db_mgr.init_database()
 
-# 在 app.py 中添加静态文件访问
-from flask import send_from_directory
-
-@app.route('/static/excel_data/<path:filename>')
-def serve_excel_file(filename):
-    """提供Excel文件访问"""
-    return send_from_directory('static/excel_data', filename)
-
-
-
+# 全局处理器实例
+_table_processor_instance = None
+_non_financial_table_service = None
 
 # ----------- CORS配置 -----------
-# 只保留这一行CORS配置，删除所有手动设置
 CORS(
     app,
     origins=["http://localhost:8080", "http://127.0.0.1:8080"],
@@ -42,6 +34,12 @@ CORS(
     allow_headers=["*"],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
 )
+
+# ----------- 静态文件服务路由 -----------
+@app.route('/static/excel_data/<path:filename>')
+def serve_excel_file(filename):
+    """提供Excel文件访问"""
+    return send_from_directory('static/excel_data', filename)
 
 # ----------- 注册蓝图 -----------
 app.register_blueprint(llm_bp, url_prefix='/api')

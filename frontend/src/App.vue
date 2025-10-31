@@ -250,8 +250,14 @@ const openLLMConfig = () => {
   llmConfigRef.value?.open()
 }
 
-const onLLMConfigured = () => {
-  ElMessage.success('LLM配置已更新，现在可以识别表格了！')
+
+const onLLMConfigured = (success = true) => {
+  console.log('🎯 App.vue: LLM配置完成', success)
+  if (success) {
+    ElMessage.success('LLM配置已更新，现在可以识别表格了！')
+    // 触发子组件重新检查状态
+    // 这里可以通过 ref 调用子组件的方法，或者依赖事件传递
+  }
 }
 
 // ---------------- 其他函数 ----------------
@@ -408,6 +414,31 @@ async function pollProgress(jobId) {
   })
 }
 
+
+// App.vue 中的 setup 函数或 methods
+const handleRecognizeTable = async (tableData) => {
+  try {
+    console.log('🔄 开始识别表格:', tableData)
+
+    // 使用本地存储的裁切结果
+    const result = await llmApi.recognizeTable({
+      image_data: tableData.image, // 使用本地图片数据
+      table_type: tableData.type || 'non_financial',
+      use_local_cache: true // 使用本地缓存
+    })
+
+    console.log('✅ 表格识别结果:', result)
+    return result
+  } catch (error) {
+    console.error('❌ 表格识别失败:', error)
+    return {
+      success: false,
+      error: '表格识别失败',
+      message: error.message
+    }
+  }
+}
+
 // ---------------- Excel数据处理 ----------------
 import { llmApi } from '@/api/llm'
 
@@ -423,17 +454,26 @@ const handleExcelDataReceived = async (excelInfo) => {
 
     console.log('📝 开始调用getExcelContent API，URL:', excelInfo.excelUrl)
 
-    // 调用API读取Excel内容
-    const response = await llmApi.getExcelContent(excelInfo.excelUrl)
-    console.log('🔍 getExcelContent 完整响应:', response)
+    // 使用配置处理URL
+    let finalExcelUrl = excelInfo.excelUrl
 
-    // 详细分析响应结构
-    console.log('🔍 response 类型:', typeof response)
-    console.log('🔍 response 键:', Object.keys(response || {}))
-    console.log('🔍 response.success:', response?.success)
-    console.log('🔍 response.data:', response?.data)
-    console.log('🔍 response.data 类型:', typeof response?.data)
-    console.log('🔍 response.data 键:', response?.data ? Object.keys(response.data) : 'null')
+    // 确保是相对路径
+    if (finalExcelUrl.startsWith('http')) {
+      console.error('❌ 错误的URL格式，应该是相对路径:', finalExcelUrl)
+      ElMessage.error('URL格式错误')
+      return
+    }
+
+    // 确保以 /api/excel-data/ 开头
+    if (finalExcelUrl.includes('/static/excel_data/')) {
+      finalExcelUrl = finalExcelUrl.replace('/static/excel_data/', '/api/excel-data/')
+    }
+
+    console.log('🔧 最终Excel API URL:', finalExcelUrl)
+
+    // 调用API读取Excel内容
+    const response = await llmApi.getExcelContent(finalExcelUrl)
+    console.log('🔍 getExcelContent 完整响应:', response)
 
     // 根据调试信息调整逻辑
     let excelData = null
@@ -459,7 +499,8 @@ const handleExcelDataReceived = async (excelInfo) => {
     currentExcelData.value = {
       ...excelData,
       tableName: excelInfo.tableName || '未命名表格',
-      excelUrl: excelInfo.excelUrl,
+      excelUrl: finalExcelUrl,
+      originalExcelPath: excelInfo.excelUrl,
       lastUpdated: new Date().toISOString()
     }
 

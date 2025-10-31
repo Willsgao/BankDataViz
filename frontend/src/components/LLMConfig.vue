@@ -319,11 +319,17 @@ const saveConfig = async () => {
 
     if (response && response.success) {
       ElMessage.success(`🎉 配置保存成功！（${configMode.value === 'default' ? '默认配置' : '自定义配置'}）`)
-      visible.value = false
-      emit('configured')
 
-      // 重新加载状态
+      // 重要：确保配置状态更新
       await loadCurrentConfig()
+
+      // 重要：延迟关闭对话框，确保状态已更新
+      setTimeout(() => {
+        visible.value = false
+        // 重要：触发配置完成事件，让父组件知道配置已更新
+        emit('configured', true)
+      }, 500)
+
     } else {
       const errorMsg = response?.error || response?.message || '未知错误'
       console.error('❌ 配置保存失败:', errorMsg)
@@ -342,15 +348,16 @@ const saveConfig = async () => {
   }
 }
 
-
-
-// 关闭对话框
+// 修改关闭对话框方法，确保状态正确
 const handleClose = () => {
   visible.value = false
   resetForm()
   testResult.value = null
   configMode.value = 'default'
+  // 触发配置完成事件（可能是取消）
+  emit('configured', false)
 }
+
 
 // 重置表单
 const resetForm = () => {
