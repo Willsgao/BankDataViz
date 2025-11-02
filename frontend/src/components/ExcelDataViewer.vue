@@ -42,17 +42,20 @@
 
       <!-- 表格容器 -->
       <div class="table-container" ref="tableContainer">
-        <el-table
-          :data="currentSheet.data"
-          border
-          stripe
-          style="width: 100%"
-          :height="tableHeight"
-          empty-text="暂无数据"
-          :max-height="tableMaxHeight"
-          size="small"
-          v-loading="loading"
-        >
+          <el-table
+            :data="paginatedData"
+            border
+            stripe
+            style="width: 100%"
+            :height="tableHeight"
+            empty-text="暂无数据"
+            :max-height="tableMaxHeight"
+            size="small"
+            v-loading="loading"
+            :row-key="getRowKey"
+            :lazy="currentSheet?.rowCount > 1000"
+          >
+
           <el-table-column
             v-for="(header, index) in currentSheet.headers"
             :key="index"
@@ -78,18 +81,19 @@
       </div>
 
       <!-- 分页信息（如果数据量大） -->
-      <div class="table-footer" v-if="currentSheet.rowCount > 50">
-        <div class="pagination-info">
-          显示 1-{{ Math.min(currentSheet.rowCount, 50) }} 条，共 {{ currentSheet.rowCount }} 条数据
+        <div class="table-footer" v-if="currentSheet?.rowCount > pageSize">
+          <div class="pagination-info">
+            显示 {{ ((currentPage - 1) * pageSize) + 1 }}-{{ Math.min(currentPage * pageSize, currentSheet.rowCount) }} 条，共 {{ currentSheet.rowCount }} 条数据
+          </div>
+          <el-pagination
+            small
+            layout="prev, pager, next"
+            :total="currentSheet.rowCount"
+            :page-size="pageSize"
+            :current-page="currentPage"
+            @current-change="handlePageChange"
+          />
         </div>
-        <el-pagination
-          small
-          layout="prev, pager, next"
-          :total="currentSheet.rowCount"
-          :page-size="50"
-          @current-change="handlePageChange"
-        />
-      </div>
     </div>
 
     <div class="viewer-actions">
@@ -118,14 +122,17 @@
 
         <div class="fullscreen-table-container">
           <el-table
-            :data="currentSheet?.data"
+            :data="paginatedData"
             border
             stripe
             style="width: 100%"
             height="100%"
             empty-text="暂无数据"
             size="small"
+            :row-key="getRowKey"
+            :lazy="currentSheet?.rowCount > 1000"
           >
+
             <el-table-column
               v-for="(header, index) in currentSheet?.headers || []"
               :key="index"
@@ -157,6 +164,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 
+
 const props = defineProps({
   excelData: {
     type: Object,
@@ -172,6 +180,10 @@ const loading = ref(false)
 const tableContainer = ref(null)
 const tableHeight = ref('auto')
 const tableMaxHeight = ref(500)
+
+
+
+
 
 // 设置默认激活的工作表
 if (props.excelData.sheets && props.excelData.sheets.length > 0) {
@@ -196,22 +208,23 @@ const getColumnWidth = (header) => {
   return Math.max(baseWidth, headerLength * 10)
 }
 
-// 自动计算列宽
+// 替换现有的 getAutoWidth 函数
 const getAutoWidth = (header, data) => {
   if (!data || data.length === 0) return getColumnWidth(header)
 
   const headerLength = header ? header.length : 0
   let maxContentLength = headerLength
 
-  // 检查前20行数据，找到最长的内容
-  data.slice(0, 20).forEach(row => {
-    const content = row[header] || ''
+  // 检查数据，找到最长的内容
+  data.forEach(row => {
+    const content = String(row[header] || '')
     if (content.length > maxContentLength) {
       maxContentLength = content.length
     }
   })
 
-  return Math.max(80, Math.min(300, maxContentLength * 8))
+  // 限制最小和最大宽度
+  return Math.max(80, Math.min(400, maxContentLength * 8 + 20))
 }
 
 // 计算表格高度
@@ -250,14 +263,15 @@ const handleKeydown = (event) => {
   }
 }
 
-// 处理分页
+// 替换原来的 handlePageChange 函数
 const handlePageChange = (page) => {
+  currentPage.value = page
   loading.value = true
-  // 模拟分页加载
+
+  // 模拟加载延迟（实际项目中可能是真实的API调用）
   setTimeout(() => {
     loading.value = false
-    ElMessage.info(`切换到第 ${page} 页`)
-  }, 300)
+  }, 200)
 }
 
 // 导出工作表
@@ -327,6 +341,34 @@ onUnmounted(() => {
     document.body.style.overflow = ''
   }
 })
+
+// 新增：分页相关变量
+const currentPage = ref(1)
+const pageSize = ref(50)
+
+// 新增：分页数据计算
+const paginatedData = computed(() => {
+  if (!currentSheet.value || !currentSheet.value.data) return []
+
+  const startIndex = (currentPage.value - 1) * pageSize.value
+  const endIndex = startIndex + pageSize.value
+  return currentSheet.value.data.slice(startIndex, endIndex)
+})
+
+// 新增：行键生成函数
+const getRowKey = (row) => {
+  // 如果有唯一标识字段就用，否则生成综合键
+  if (row.id) return row.id
+  if (row.key) return row.key
+
+  // 否则基于行内容生成唯一键（不使用 Buffer）
+  const content = Object.values(row).join('|')
+  // 使用 btoa 替代 Buffer
+  const base64 = btoa(encodeURIComponent(content))
+  return base64 + Math.random().toString(36).substr(2, 5)
+}
+
+
 </script>
 
 

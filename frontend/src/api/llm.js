@@ -21,6 +21,45 @@ const processNonFinancialTable = async (data) => {
   }
 }
 
+
+// 获取可视化分析数据
+const getVisualizationData = async (excelUrl) => {
+  try {
+    console.log('🔄 获取可视化分析数据:', excelUrl)
+
+    const response = await http.get('/api/llm/visualization-data', {
+      params: {
+        excel_url: excelUrl
+      }
+    })
+
+    return response.data
+  } catch (error) {
+    console.error('❌ 获取可视化数据失败:', error)
+    return {
+      success: false,
+      error: '获取可视化数据失败',
+      message: error.message
+    }
+  }
+}
+
+
+const getTaskResult = async (taskId) => {
+  try {
+    console.log('🔍 查询任务结果:', taskId)
+    const response = await http.get(`/api/llm/task-result/${taskId}`)
+    return response.data
+  } catch (error) {
+    console.error('❌ 查询任务结果失败:', error)
+    return {
+      success: false,
+      error: '查询任务结果失败',
+      message: error.message
+    }
+  }
+}
+
 // 金融表格识别 - 修复版本
 const processImage = async (data) => {
   try {
@@ -35,6 +74,26 @@ const processImage = async (data) => {
       success: false,
       error: '处理失败',
       message: error.response?.data?.error || error.message
+    }
+  }
+}
+
+
+
+
+// 导出可视化报告
+const exportVisualizationReport = async (data) => {
+  try {
+    console.log('🔄 导出可视化报告:', data)
+
+    const response = await http.post('/api/visualization/export', data)
+    return response.data
+  } catch (error) {
+    console.error('❌ 导出可视化报告失败:', error)
+    return {
+      success: false,
+      error: '导出可视化报告失败',
+      message: error.message
     }
   }
 }
@@ -58,6 +117,12 @@ export const llmApi = {
 
   processNonFinancialTable,
   processImage,
+
+  getTaskResult,
+
+  getVisualizationData,
+
+  exportVisualizationReport,
 
   // 批量处理
   batchProcess: async (data) => {
@@ -122,23 +187,33 @@ export const llmApi = {
   },
 
   // 获取Excel内容
-  getExcelContent: async (excelUrl) => {
-    try {
-      console.log('🔄 llm.js getExcelContent 请求:', excelUrl)
-      const response = await http.get('/api/llm/get-excel-content', {
-        params: { excel_url: excelUrl }
-      })
-      console.log('🔍 llm.js 原始响应:', response)
-      return response.data
-    } catch (error) {
-      console.error('❌ llm.js getExcelContent 错误:', error)
-      return {
-        success: false,
-        error: '获取Excel内容失败',
-        message: error.message
-      }
+getExcelContent: async (excelUrl) => {
+  try {
+    console.log('🔄 llm.js getExcelContent 请求:', excelUrl)
+
+    // ⭐⭐⭐ 确保URL是干净的，没有多余参数 ⭐⭐⭐
+    let cleanUrl = excelUrl
+    if (cleanUrl.includes('?')) {
+      cleanUrl = cleanUrl.split('?')[0]
+      console.log('🔧 清理时间戳后的URL:', cleanUrl)
     }
-  },
+
+    const response = await http.get('/api/llm/get-excel-content', {
+      params: {
+        excel_url: cleanUrl
+      }
+    })
+    console.log('🔍 llm.js 原始响应:', response)
+    return response.data
+  } catch (error) {
+    console.error('❌ llm.js getExcelContent 错误:', error)
+    return {
+      success: false,
+      error: '获取Excel内容失败',
+      message: error.message
+    }
+  }
+},
 
   // 识别表格
   recognizeTable: async (data) => {
@@ -188,5 +263,21 @@ export const llmApi = {
   },
 
   // 只添加这个缺失的 API
-  batchProcessNonFinancial: (data) => http.post('/api/llm/batch-process-non-financial', data)
+    batchProcessNonFinancial: async (data) => {
+      try {
+        console.log('🔄 batchProcessNonFinancial 请求:', data)
+        const response = await http.post('/api/llm/batch-process-non-financial', data)
+        console.log('✅ batchProcessNonFinancial 响应:', response.data)
+
+        // ⭐⭐⭐ 关键修复：无论success是true还是false，都返回完整响应 ⭐⭐⭐
+        return response.data
+      } catch (error) {
+        console.error('❌ batchProcessNonFinancial 错误:', error)
+        return {
+          success: false,
+          error: '批量处理失败',
+          message: error.response?.data?.error || error.message
+        }
+      }
+    }
 }

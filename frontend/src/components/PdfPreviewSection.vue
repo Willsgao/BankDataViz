@@ -58,16 +58,18 @@
 
         <!-- 批量裁切结果 -->
         <BatchCropResults
-          v-if="hasBatchResults"
+          v-if="currentPDF"
           :pdf="currentPDF"
-          :images="joinedResults[currentPDF.disk_name] || []"
+          :images="safeJoinedResults[currentPDF.disk_name] || []"
           :table-type="tableType"
-          @preview-image="$emit('preview-image', $event)"
+          :llm-loading="llmLoading"
+          @open-config="$emit('open-llm-config')"
+          @preview-image="$emit('preview-image', $event, $event.index)"
           @llm-process="$emit('llm-process', $event)"
           @single-llm-process="$emit('single-llm-process', $event)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
+          @force-reset-loading="handleForceResetLoading"
         />
-
 
       </div>
 
@@ -136,15 +138,29 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
-   tableType: {
+  tableType: {
     type: String,
     default: 'financial'
+  },
+  llmLoading: {
+    type: Object,
+    default: () => ({})
   }
 })
 
 const emit = defineEmits([
-  'switch-pdf', 'delete', 'crop', 'convert', 'batch-crop',
-  'clear-cache', 'close-pdf', 'preview-image', 'llm-process', 'single-llm-process'
+  'switch-pdf',
+  'delete',
+  'crop',
+  'convert',
+  'batch-crop',
+  'clear-cache',
+  'close-pdf',
+  'preview-image',
+  'llm-process',
+  'single-llm-process',
+  'open-llm-config',
+  'update:llmLoading'
 ])
 
 // 折叠状态
@@ -158,15 +174,28 @@ const toggleCollapse = () => {
 // 计算属性
 const currentPDF = computed(() => props.pdfFiles[props.currentPdfIndex] || null)
 const otherPDFs = computed(() => props.pdfFiles.filter((_, index) => index !== props.currentPdfIndex))
-const hasBatchResults = computed(() => {
-  return currentPDF.value &&
-         props.joinedResults[currentPDF.value.disk_name] &&
-         props.joinedResults[currentPDF.value.disk_name].length > 0
+
+// 安全访问 joinedResults
+const safeJoinedResults = computed(() => {
+  return props.joinedResults || {}
 })
 
 // 工具函数
 const hasBatchCropResults = (pdfDiskName) => {
-  return props.joinedResults[pdfDiskName] && props.joinedResults[pdfDiskName].length > 0
+  return pdfDiskName &&
+         props.joinedResults &&
+         props.joinedResults[pdfDiskName] &&
+         props.joinedResults[pdfDiskName].length > 0
+}
+
+const handleForceResetLoading = (data) => {
+  console.log('🔄 PdfPreviewSection 收到强制重置请求:', data)
+  if (data.pdfName && props.llmLoading) {
+    // 通知父组件更新 loading 状态
+    const updatedLoading = { ...props.llmLoading }
+    delete updatedLoading[data.pdfName]
+    emit('update:llmLoading', updatedLoading)
+  }
 }
 
 // 监听批量裁切完成，自动展开

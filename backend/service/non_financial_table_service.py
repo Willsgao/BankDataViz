@@ -56,12 +56,70 @@ class NonFinancialTableService:
 
         return min(max_tokens, MAX_TOKENS_CONFIG["max_limit"])
 
+    async def extract_table_name_from_image(self, image_data: bytes) -> str:
+        """直接从图片中提炼表格名"""
+        try:
+            table_name_prompt = """
+请仔细分析这张图片中的表格，根据表格的标题、表头内容和数据特征，提炼一个准确描述表格主题的名称。
+
+要求：
+1. 名称要具体反映表格的核心业务内容（如：销售业绩报表、人员信息表、库存清单等）
+2. 长度控制在5-12个汉字
+3. 避免使用"表格"、"数据"、"信息"等泛泛词语
+4. 要体现表格的实际用途和业务场景
+5. 如果表格有明确标题，请基于标题优化
+
+示例：
+- 销售业绩报表 → "销售业绩统计"
+- 员工基本信息 → "员工信息登记"
+- 产品库存清单 → "产品库存明细"
+- 月度费用支出 → "月度费用统计"
+
+请直接返回表格名称，不要添加任何解释。
+"""
+
+            response = await self.llm_client.chat.completions.create(
+                model=self.model_id,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": table_name_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{image_data}"}
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=50,
+                temperature=0.1,
+            )
+
+            table_name = response.choices[0].message.content.strip()
+
+            # 清理返回结果
+            table_name = re.sub(r'[“”"\'《》]', '', table_name)  # 去除引号等符号
+            table_name = re.sub(r'^(表格名称|名称|表名)[：:]?\s*', '', table_name)  # 去除前缀
+            table_name = table_name.strip()
+
+            # 验证表格名质量
+            if len(table_name) < 2 or len(table_name) > 20:
+                table_name = "业务数据表"
+
+            logger.info(f"提炼的表格名: {table_name}")
+            return table_name
+
+        except Exception as e:
+            logger.error(f"从图片提炼表格名失败: {e}")
+            return "业务数据表"
+
     async def process_table(self, image_data: bytes, img_size: int,
-                            bank_name: str, table_name: str = "普通表格") -> Tuple[pd.DataFrame, str]:
+                            bank_name: str, table_name: str) -> Tuple[pd.DataFrame, str]:
         """处理普通表格数据"""
         max_tokens = self._calculate_max_tokens(img_size)
 
-        logger.info(f"处理普通表格 - max_tokens: {max_tokens}")
+        logger.info(f"处理普通表格 - max_tokens: {max_tokens}, 表格名: {table_name}")
 
         response = await self.llm_client.chat.completions.create(
             model=self.model_id,
@@ -104,10 +162,14 @@ class NonFinancialTableService:
 
         except Exception as e:
             logger.error(f"解析普通表格响应失败: {e}")
-            return self.data_processor.create_error_dataframe(e), table_name
+            # 错误情况下也添加表格名列
+            error_df = self.data_processor.create_error_dataframe(e)
+            if not error_df.empty:
+                error_df["表格名"] = table_name
+            return error_df, table_name
 
     def _convert_csv_to_dataframe(self, csv_data: str, table_name: str) -> Tuple[pd.DataFrame, str]:
-        """将CSV数据转换为DataFrame"""
+        """将CSV数据转换为DataFrame - 添加表格名列"""
         try:
             lines = csv_data.strip().split('\n')
             if len(lines) < 2:
@@ -116,13 +178,25 @@ class NonFinancialTableService:
             # 解析表头
             headers = [h.strip() for h in lines[0].split('|')]
 
+            # 添加"表格名"列到表头
+            headers.append("表格名")
+
             # 解析数据行
             data = []
             for line in lines[1:]:
                 if line.strip():
                     row_data = [cell.strip() for cell in line.split('|')]
-                    if len(row_data) == len(headers):
+                    if len(row_data) == len(headers) - 1:  # 减去新增的表格名列
+                        # 为每一行添加表格名
+                        row_data.append(table_name)
                         data.append(row_data)
+                    elif len(row_data) == len(headers):
+                        # 如果已经有表格名列，保持原样
+                        data.append(row_data)
+                    else:
+                        # 列数不匹配，跳过该行或处理异常
+                        print(f"⚠️ 数据行列数不匹配: 期望{len(headers)}列，实际{len(row_data)}列")
+                        continue
 
             # 创建DataFrame
             df = pd.DataFrame(data, columns=headers)
@@ -130,10 +204,13 @@ class NonFinancialTableService:
 
         except Exception as e:
             logger.error(f"CSV转换失败: {e}")
-            return self.data_processor.create_error_dataframe(e), table_name
+            error_df = self.data_processor.create_error_dataframe(e)
+            if not error_df.empty:
+                error_df["表格名"] = table_name
+            return error_df, table_name
 
     def _parse_plain_table_data(self, content: str, table_name: str) -> Tuple[pd.DataFrame, str]:
-        """解析普通表格数据"""
+        """解析普通表格数据 - 添加表格名列"""
         try:
             # 简单的表格数据解析逻辑
             lines = content.strip().split('\n')
@@ -147,7 +224,24 @@ class NonFinancialTableService:
             if len(data_lines) > 0:
                 # 第一行作为表头
                 headers = data_lines[0]
-                data = data_lines[1:] if len(data_lines) > 1 else []
+                # 添加"表格名"列到表头
+                headers.append("表格名")
+
+                data = []
+                # 处理数据行
+                for row_data in data_lines[1:] if len(data_lines) > 1 else []:
+                    # 为每一行添加表格名
+                    if len(row_data) == len(headers) - 1:  # 减去新增的表格名列
+                        row_data.append(table_name)
+                        data.append(row_data)
+                    elif len(row_data) == len(headers):
+                        # 如果已经有表格名列，保持原样
+                        data.append(row_data)
+                    else:
+                        # 列数不匹配，跳过该行或处理异常
+                        print(f"⚠️ 数据行列数不匹配: 期望{len(headers)}列，实际{len(row_data)}列")
+                        continue
+
                 df = pd.DataFrame(data, columns=headers)
                 return df, table_name
             else:
@@ -155,12 +249,15 @@ class NonFinancialTableService:
 
         except Exception as e:
             logger.error(f"解析普通表格数据失败: {e}")
-            return self.data_processor.create_error_dataframe(e), table_name
+            error_df = self.data_processor.create_error_dataframe(e)
+            if not error_df.empty:
+                error_df["表格名"] = table_name
+            return error_df, table_name
 
     async def process_table_pipeline(self, image_path: str, out_file: str, sheet_name: str,
                                      bank_name: str, file_name: str,
                                      excel_config: ExcelSaveConfig = None) -> ProcessingResult:
-        """完整的普通表格处理流程"""
+        """完整的普通表格处理流程 - 包含表格名提炼"""
         start_time = time.time()
         record_id = None
 
@@ -185,14 +282,31 @@ class NonFinancialTableService:
             image_data, img_size = self.image_utils.encode_image(image_path)
             logger.info(f"图片大小: {img_size} 像素")
 
-            # 直接处理表格，跳过复杂度评估
-            table_name = f"普通表格_{file_name}"
+            # 第一步：提炼表格名
+            extracted_table_name = await self.extract_table_name_from_image(image_data)
+            logger.info(f"提炼的表格名: {extracted_table_name}")
+
+            # 第二步：处理表格数据
             res_df, final_table_name = await self.process_table(
-                image_data, img_size, bank_name, table_name
+                image_data, img_size, bank_name, extracted_table_name  # 使用提炼的表格名
             )
 
+            # 检查 DataFrame 是否为空
+            if res_df is None or res_df.empty:
+                logger.warning(f"处理得到的 DataFrame 为空: {image_path}")
+                # 创建空的错误 DataFrame
+                res_df = self.data_processor.create_error_dataframe(Exception("表格识别结果为空"))
+                # 确保错误 DataFrame 也有表格名列
+                if not res_df.empty:
+                    res_df["表格名"] = extracted_table_name
+
+            # 第三步：确保表格名列存在（双重保险）
+            if not res_df.empty and "表格名" not in res_df.columns:
+                res_df["表格名"] = extracted_table_name
+                print(f"✅ 已添加表格名列: {extracted_table_name}")
+
             # 保存结果
-            map_name = f"{final_table_name}_non_financial"
+            map_name = f"{extracted_table_name}_non_financial"
             success = self.excel_storage.save_dataframe(
                 res_df, out_file, sheet_name, map_name,
                 image_data=image_path, config=excel_config
@@ -203,7 +317,7 @@ class NonFinancialTableService:
             # 记录到数据库
             if self.enable_db_logging:
                 record_id = self._log_to_database(
-                    image_path, bank_name, final_table_name,
+                    image_path, bank_name, extracted_table_name,  # 使用提炼的表格名
                     "non_financial", "success" if success else "error",
                     out_file, sheet_name, processing_time
                 )
@@ -213,8 +327,10 @@ class NonFinancialTableService:
                 complexity="普通表格",
                 mode="non_financial",
                 assessment_reason="普通表格模式",
-                table_name=final_table_name,
-                table_type="non_financial"
+                table_name=extracted_table_name,  # 使用提炼的表格名
+                table_type="non_financial",
+                df=res_df,
+                error_message="" if success else "保存失败"
             )
 
         except Exception as e:
@@ -224,14 +340,18 @@ class NonFinancialTableService:
             # 记录错误到数据库
             if self.enable_db_logging:
                 record_id = self._log_to_database(
-                    image_path, bank_name, "", "error", "error",
+                    image_path, bank_name, "处理失败", "error", "error",
                     out_file, sheet_name, processing_time
                 )
                 if record_id > 0:
                     self.db_manager.save_error_log(record_id, e)
 
             res_df = self.data_processor.create_error_dataframe(e)
-            table_name = f"普通表格报错_{file_name}"
+            table_name = f"表格处理失败_{file_name}"
+
+            # 确保错误 DataFrame 也有表格名列
+            if not res_df.empty:
+                res_df["表格名"] = table_name
 
             # 保存错误结果
             map_name = f"{table_name}_error"
@@ -247,7 +367,8 @@ class NonFinancialTableService:
                 assessment_reason=str(e),
                 table_name=table_name,
                 error_message=str(e),
-                table_type="non_financial"
+                table_type="non_financial",
+                df=res_df
             )
 
     def _log_to_database(self, image_path: str, bank_name: str, table_name: str,

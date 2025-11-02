@@ -1,95 +1,5 @@
-<template>
-  <div class="batch-crop-result">
-    <div class="batch-header">
-      <span class="batch-title">批量裁切结果</span>
-      <span class="batch-count">共 {{ images.length }} 个表格</span>
-    </div>
-
-    <!-- 新增：跳转输入框 -->
-    <div class="jump-control" v-if="images.length > 0">
-      <el-input
-        v-model="jumpIndex"
-        type="number"
-        placeholder="输入表格序号"
-        :min="1"
-        :max="images.length"
-        size="small"
-        style="width: 120px; margin-right: 8px;"
-        @keyup.enter="jumpToImage"
-      />
-      <el-button
-        type="primary"
-        size="small"
-        @click="jumpToImage"
-        :disabled="!jumpIndex || jumpIndex < 1 || jumpIndex > images.length"
-      >
-        跳转
-      </el-button>
-      <span class="jump-hint">可输入 1-{{ images.length }} 之间的数字</span>
-    </div>
-
-    <div class="batch-actions">
-      <!-- 配置按钮 -->
-      <el-button
-        v-if="!llmConfigured"
-        type="warning"
-        size="small"
-        icon="el-icon-setting"
-        @click="openConfig"
-      >
-        配置LLM
-      </el-button>
-
-
-      <!-- ⭐⭐⭐ 大模型表格识别按钮 - 添加 loading 状态 ⭐⭐⭐ -->
-      <el-button
-        type="success"
-        size="small"
-        icon="el-icon-cpu"
-        @click="handleBatchLLMProcess"
-        :loading="batchLlmLoading"
-        :disabled="!llmConfigured || batchLlmLoading"
-      >
-        {{ batchLlmLoading ? '处理中...' : '大模型表格识别' }}
-      </el-button>
-
-
-      <el-button
-        type="info"
-        size="small"
-        icon="el-icon-delete"
-        @click="$emit('clear-cache', pdf.disk_name)"
-        title="清除裁切缓存"
-        :disabled="batchLlmLoading"
-      >
-        清除缓存
-      </el-button>
-    </div>
-
-    <div class="scroll-container">
-      <!-- 在 BatchCropResults.vue 的 images-scroll 部分 -->
-        <div class="images-scroll" ref="scrollContainer">
-          <ImageCard
-            v-for="(imgUrl, index) in images"
-            :key="index"
-            :image="imgUrl"
-            :index="index"
-            :image-name="extractImageName(imgUrl)"
-            :llm-configured="llmConfigured"
-            :llm-loading="singleLlmLoading[index]"
-            :ref="el => { if (el) imageCards[index] = el }"
-            @preview="$emit('preview-image', $event, index)"
-            @llm-process="handleSingleLLMProcess($event, index)"
-          />
-        </div>
-
-
-    </div>
-  </div>
-</template>
-
 <script setup>
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, nextTick, computed, watch } from 'vue'  // ⭐⭐⭐ 添加 watch 导入 ⭐⭐⭐
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
 import ImageCard from './ImageCard.vue'
@@ -103,14 +13,17 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  // ⭐⭐⭐ 添加表格类型属性 ⭐⭐⭐
   tableType: {
     type: String,
     default: 'financial'
+  },
+  llmLoading: {  // ⭐⭐⭐ 添加 llmLoading prop ⭐⭐⭐
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['open-config', 'preview-image', 'llm-process', 'single-llm-process', 'clear-cache'])
+const emit = defineEmits(['open-config', 'preview-image', 'llm-process', 'single-llm-process', 'clear-cache', 'force-reset-loading', 'task-completed'])
 
 // LLM相关状态
 const batchLlmLoading = ref(false)
@@ -125,42 +38,42 @@ const scrollContainer = ref(null)
 const imageCards = ref([])
 
 
-// BatchCropResults.vue
-const processWithLocalImages = async () => {
-  try {
-    // 从本地存储或props获取裁切结果
-    const cropResults = props.cropResults || JSON.parse(localStorage.getItem('batchCropResults') || '[]')
 
-    if (!cropResults.length) {
-      console.warn('⚠️ 没有找到裁切结果')
-      return
-    }
+// 监听父组件传递的 llmLoading 状态
+watch(() => props.llmLoading, (newVal) => {
+  console.log('🔄 BatchCropResults 收到 llmLoading 状态变化:', {
+    newVal,
+    pdfName: props.pdf.disk_name,
+    currentState: batchLlmLoading.value
+  })
 
-    const processingResults = []
+  // ⭐⭐⭐ 关键：同步父组件的 loading 状态 ⭐⭐⭐
+  if (props.pdf?.disk_name && newVal[props.pdf.disk_name] !== undefined) {
+    batchLlmLoading.value = newVal[props.pdf.disk_name]
+    console.log('✅ BatchCropResults 同步 loading 状态:', batchLlmLoading.value)
+  }
+}, { immediate: true, deep: true })
 
-    for (const result of cropResults) {
-      if (result.image && result.success) {
-        // 使用本地图片数据直接处理
-        const recognitionResult = await llmApi.recognizeTable({
-          image_data: result.image, // 本地图片数据
-          table_type: 'non_financial',
-          use_local: true // 标记使用本地数据
-        })
+// 修改 resetLoadingState 函数（如果存在的话）
+const resetLocalLoading = () => {
+  console.log('🔄 BatchCropResults 本地重置 loading')
+  batchLlmLoading.value = false
+}
 
-        processingResults.push({
-          original: result,
-          recognition: recognitionResult
-        })
-      }
-    }
 
-    console.log('✅ 本地处理完成:', processingResults)
-    emit('processingComplete', processingResults)
 
-  } catch (error) {
-    console.error('❌ 本地处理失败:', error)
+
+// 监听任务完成事件
+const handleTaskCompleted = (data) => {
+  console.log('🎯 BatchCropResults 收到任务完成事件:', data)
+  if (data.pdfName === props.pdf.disk_name) {
+    batchLlmLoading.value = false
+    console.log('✅ BatchCropResults 重置loading状态')
   }
 }
+
+
+
 
 // 跳转到指定图片
 const jumpToImage = async () => {
@@ -207,7 +120,6 @@ const openConfig = () => {
   emit('open-config')
 }
 
-
 // 新增：从图片URL中提取表格名称
 const extractImageName = (imgUrl) => {
   try {
@@ -231,11 +143,6 @@ const extractImageName = (imgUrl) => {
   }
 }
 
-
-
-// 如果有表格类型选择器，也需要添加 tableType
-const tableType = ref('financial') // 默认金融表格
-
 // LLM配置状态检查函数
 const checkLLMStatus = async () => {
   try {
@@ -256,11 +163,15 @@ const checkLLMStatus = async () => {
   }
 }
 
-
+// 在 BatchCropResults.vue 中
 const handleBatchLLMProcess = async () => {
   try {
+
     console.log('🔄 BatchCropResults - 开始批量LLM处理')
-    console.log('🔄 BatchCropResults - 接收到的表格类型:', props.tableType)
+
+    // ⭐⭐⭐ 立即设置本地 loading 状态 ⭐⭐⭐
+    batchLlmLoading.value = true
+    console.log('🔄 设置 batchLlmLoading = true')
 
     // 检查LLM配置状态
     await checkLLMStatus()
@@ -281,11 +192,10 @@ const handleBatchLLMProcess = async () => {
       if (result) {
         emit('open-config')
       }
+      // ⭐⭐⭐ 配置取消时重置 loading ⭐⭐⭐
+      batchLlmLoading.value = false
       return
     }
-
-    // ⭐⭐⭐ 关键：开始处理时设置 loading 状态 ⭐⭐⭐
-    batchLlmLoading.value = true
 
     console.log('🔄 BatchCropResults - 准备处理的图片数量:', props.images.length)
 
@@ -305,62 +215,18 @@ const handleBatchLLMProcess = async () => {
   } catch (error) {
     console.error('💥 BatchCropResults - 批量LLM处理失败:', error)
     ElMessage.error('批量表格识别异常: ' + (error.response?.data?.error || error.message))
-
-    // ⭐⭐⭐ 错误时也要重置 loading 状态 ⭐⭐⭐
+    // ⭐⭐⭐ 出错时重置 loading ⭐⭐⭐
     batchLlmLoading.value = false
   }
-  // ⭐⭐⭐ 注意：这里不设置 finally，因为 loading 状态需要在父组件处理完成后重置 ⭐⭐⭐
 }
 
 
-
-// 监听配置完成事件
-const onLLMConfigured = () => {
-  console.log('🎯 BatchCropResults 收到配置完成事件')
-  checkLLMStatus()
-}
-
-
-// 监听父组件处理完成的事件
-const handleProcessingComplete = () => {
+// 添加手动重置按钮用于调试
+const forceReset = () => {
+  console.log('🔄 手动强制重置 loading 状态')
   batchLlmLoading.value = false
-  console.log('✅ 批量处理完成，重置按钮状态')
-}
-
-
-// 检查和配置LLM的函数
-const checkAndConfigureLLM = async () => {
-  try {
-    const statusResponse = await llmApi.getStatus()
-    if (statusResponse.data && statusResponse.data.success) {
-      const status = statusResponse.data.data
-
-      if (status.client_configured) {
-        console.log('LLM已配置，可以开始处理')
-        return true
-      }
-    }
-
-    const result = await ElMessageBox.confirm(
-      'LLM未配置，请先配置大模型参数后才能进行表格识别',
-      '提示',
-      {
-        confirmButtonText: '去配置',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-
-    if (result) {
-      emit('open-config')
-    }
-    return false
-
-  } catch (error) {
-    console.error('检查LLM状态失败:', error)
-    ElMessage.error('检查LLM配置失败')
-    return false
-  }
+  // 同时通知父组件
+  emit('force-reset-loading', { pdfName: props.pdf.disk_name })
 }
 
 const handleSingleLLMProcess = async (imgUrl, index) => {
@@ -403,21 +269,43 @@ const handleSingleLLMProcess = async (imgUrl, index) => {
     console.log('✅ processNonFinancialTable完整响应:', response)
 
     if (response.success) {
+      // ⭐⭐⭐ 修复：正确处理新的返回格式 ⭐⭐⭐
+      let excelUrl = ''
+
+      // 检查新的批量处理格式
+      if (response.data && response.data.excel_url) {
+        excelUrl = response.data.excel_url
+        console.log('📄 从data.excel_url获取Excel URL:', excelUrl)
+      }
+      // 检查旧的单个处理格式
+      else if (response.excel_url) {
+        excelUrl = response.excel_url
+        console.log('📄 从excel_url获取Excel URL:', excelUrl)
+      }
+      // 检查results数组中的URL
+      else if (response.data && response.data.results && response.data.results[0] && response.data.results[0].excel_url) {
+        excelUrl = response.data.results[0].excel_url
+        console.log('📄 从results数组获取Excel URL:', excelUrl)
+      }
+
       const message = response.from_cache ?
         `已加载表格${index + 1}的现有数据` :
         `表格${index + 1}识别完成！`
       ElMessage.success(message)
 
-      if (response.excel_url) {
+      if (excelUrl) {
         console.log('📤 发射 single-llm-process 事件:', {
-          excelUrl: response.excel_url,
+          excelUrl: excelUrl,
           index: index
         })
 
         emit('single-llm-process', {
-          excelUrl: response.excel_url,
+          excelUrl: excelUrl,
           index: index
         })
+      } else {
+        console.warn('⚠️ 无法找到Excel URL，响应结构:', response)
+        ElMessage.warning('处理完成但无法获取Excel文件路径')
       }
     } else {
       // 如果普通表格识别失败，尝试财务表格识别
@@ -432,16 +320,30 @@ const handleSingleLLMProcess = async (imgUrl, index) => {
       console.log('✅ 财务表格识别响应:', financialResponse)
 
       if (financialResponse.success) {
+        // ⭐⭐⭐ 同样修复财务表格的URL获取逻辑 ⭐⭐⭐
+        let excelUrl = ''
+
+        if (financialResponse.data && financialResponse.data.excel_url) {
+          excelUrl = financialResponse.data.excel_url
+        } else if (financialResponse.excel_url) {
+          excelUrl = financialResponse.excel_url
+        } else if (financialResponse.data && financialResponse.data.results && financialResponse.data.results[0] && financialResponse.data.results[0].excel_url) {
+          excelUrl = financialResponse.data.results[0].excel_url
+        }
+
         const message = financialResponse.from_cache ?
           `已加载表格${index + 1}的现有数据` :
           `表格${index + 1}识别完成！`
         ElMessage.success(message)
 
-        if (financialResponse.excel_url) {
+        if (excelUrl) {
           emit('single-llm-process', {
-            excelUrl: financialResponse.excel_url,
+            excelUrl: excelUrl,
             index: index
           })
+        } else {
+          console.warn('⚠️ 财务表格无法找到Excel URL，响应结构:', financialResponse)
+          ElMessage.warning('处理完成但无法获取Excel文件路径')
         }
       } else {
         // 显示详细的错误信息
@@ -464,10 +366,120 @@ const handleSingleLLMProcess = async (imgUrl, index) => {
 }
 
 
+// 添加 mounted 调试
 onMounted(() => {
+  console.log('🔍 BatchCropResults 初始化状态:', {
+    llmLoadingProp: props.llmLoading,
+    pdfName: props.pdf.disk_name
+  })
   checkLLMStatus()
 })
+
+
 </script>
+
+<template>
+  <div class="batch-crop-result">
+    <div class="batch-header">
+      <span class="batch-title">批量裁切结果</span>
+      <span class="batch-count">共 {{ images.length }} 个表格</span>
+    </div>
+
+    <!-- 新增：跳转输入框 -->
+    <div class="jump-control" v-if="images.length > 0">
+      <el-input
+        v-model="jumpIndex"
+        type="number"
+        placeholder="输入表格序号"
+        :min="1"
+        :max="images.length"
+        size="small"
+        style="width: 120px; margin-right: 8px;"
+        @keyup.enter="jumpToImage"
+      />
+      <el-button
+        type="primary"
+        size="small"
+        @click="jumpToImage"
+        :disabled="!jumpIndex || jumpIndex < 1 || jumpIndex > images.length"
+      >
+        跳转
+      </el-button>
+      <span class="jump-hint">可输入 1-{{ images.length }} 之间的数字</span>
+    </div>
+
+    <div class="batch-actions">
+      <!-- 配置按钮 -->
+      <el-button
+        v-if="!llmConfigured"
+        type="warning"
+        size="small"
+        icon="el-icon-setting"
+        @click="openConfig"
+      >
+        配置LLM
+      </el-button>
+
+      <!-- 大模型表格识别按钮 -->
+      <el-button
+        type="success"
+        size="small"
+        icon="el-icon-cpu"
+        @click="handleBatchLLMProcess"
+        :loading="batchLlmLoading"
+        :disabled="!llmConfigured || batchLlmLoading"
+      >
+        {{ batchLlmLoading ? '处理中...' : '大模型表格识别' }}
+      </el-button>
+
+
+      <!-- 调试信息显示 -->
+      <div v-if="batchLlmLoading" class="debug-info">
+        <span>状态: {{ batchLlmLoading ? '处理中' : '就绪' }}</span>
+        <span>PDF: {{ pdf?.disk_name }}</span>
+      </div>
+
+      <!-- 调试用重置按钮 -->
+      <el-button
+        v-if="batchLlmLoading"
+        type="warning"
+        size="small"
+        icon="el-icon-refresh"
+        @click="forceReset"
+      >
+        强制重置
+      </el-button>
+
+      <el-button
+        type="info"
+        size="small"
+        icon="el-icon-delete"
+        @click="$emit('clear-cache', pdf.disk_name)"
+        title="清除裁切缓存"
+        :disabled="batchLlmLoading"
+      >
+        清除缓存
+      </el-button>
+    </div>
+
+    <div class="scroll-container">
+      <div class="images-scroll" ref="scrollContainer">
+        <ImageCard
+          v-for="(imgUrl, index) in images"
+          :key="index"
+          :image="imgUrl"
+          :index="index"
+          :image-name="extractImageName(imgUrl)"
+          :llm-configured="llmConfigured"
+          :llm-loading="singleLlmLoading[index]"
+          :ref="el => { if (el) imageCards[index] = el }"
+          @preview="$emit('preview-image', $event, index)"
+          @llm-process="handleSingleLLMProcess($event, index)"
+        />
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .batch-crop-result {
@@ -497,7 +509,6 @@ onMounted(() => {
   font-size: 12px;
 }
 
-/* 新增：跳转控制区域样式 */
 .jump-control {
   display: flex;
   align-items: center;
@@ -531,7 +542,6 @@ onMounted(() => {
   padding: 4px;
 }
 
-/* 新增：高亮卡片样式 */
 :deep(.highlight-card) {
   box-shadow: 0 0 0 2px #1890ff !important;
   transition: box-shadow 0.3s ease;

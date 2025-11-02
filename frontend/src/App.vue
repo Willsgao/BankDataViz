@@ -37,32 +37,70 @@
           </span>
         </div>
         <div class="header-actions">
-          <el-button
-            type="primary"
-            @click="openLLMConfig"
-            icon="el-icon-cpu"
-            size="small"
-          >
-            LLM配置
-          </el-button>
-          <el-button
-            type="success"
-            @click="saveExcelData"
-            icon="el-icon-document"
-            size="small"
-            :disabled="!currentExcelData"
-          >
-            保存Excel
-          </el-button>
-          <el-button
-            type="info"
-            @click="exportAllData"
-            icon="el-icon-download"
-            size="small"
-            :disabled="!currentExcelData"
-          >
-            导出数据
-          </el-button>
+          <!-- 第一排按钮 -->
+          <div class="action-row first-row">
+            <el-button
+              type="danger"
+              @click="manuallyTriggerExcelUpdate"
+              icon="el-icon-magic-stick"
+              size="small"
+              title="手动触发Excel更新（调试用）"
+            >
+              调试更新
+            </el-button>
+
+            <el-button
+              type="warning"
+              @click="forceRefreshExcel"
+              icon="el-icon-refresh"
+              size="small"
+              :disabled="!currentExcelData"
+              title="强制刷新Excel数据"
+            >
+              强制刷新
+            </el-button>
+
+            <el-button
+              type="primary"
+              @click="openVisualization"
+              icon="el-icon-data-analysis"
+              size="small"
+              :disabled="!currentExcelData"
+              title="可视化分析表格数据"
+            >
+              可视化分析
+            </el-button>
+          </div>
+
+          <!-- 第二排按钮 -->
+          <div class="action-row second-row">
+            <el-button
+              type="primary"
+              @click="openLLMConfig"
+              icon="el-icon-cpu"
+              size="small"
+            >
+              LLM配置
+            </el-button>
+            <el-button
+              type="success"
+              @click="saveExcelData"
+              icon="el-icon-document"
+              size="small"
+              :disabled="!currentExcelData"
+            >
+              保存Excel
+            </el-button>
+            <el-button
+              type="info"
+              @click="exportAllData"
+              icon="el-icon-download"
+              size="small"
+              :disabled="!currentExcelData"
+            >
+              导出数据
+            </el-button>
+          </div>
         </div>
       </div>
 
@@ -94,14 +132,21 @@
       :pngs="previewPngs"
     />
     <LLMConfig ref="llmConfigRef" @configured="onLLMConfigured" />
+    <!-- 在 App.vue 的 template 中确保这样使用 -->
+    <VisualizationPanel
+      :visible="visualizationVisible"
+      @update:visible="visualizationVisible = $event"
+      :excel-data="currentExcelData"
+      :key="visualizationKey"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+
+import { ref, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
 import { getBackendUrl, getStaticUrl } from '@/utils/config'
 
 // 组件导入
@@ -122,6 +167,27 @@ import { useCrop } from '@/composables/useCrop'
 import { useBatchTableCrop } from '@/composables/useBatchTableCrop'
 import { useConvert } from '@/composables/useConvert'
 
+
+// 在 script setup 部分添加
+import VisualizationPanel from '@/components/VisualizationPanel.vue'
+
+// 在数据声明中添加
+const visualizationVisible = ref(false)
+const visualizationKey = ref(0)
+
+// 添加打开可视化方法
+const openVisualization = () => {
+  if (!currentExcelData.value) {
+    ElMessage.warning('请先加载表格数据')
+    return
+  }
+
+  visualizationKey.value++
+  visualizationVisible.value = true
+  console.log('📊 打开可视化分析:', currentExcelData.value)
+}
+
+
 // ---------------- 数据声明 ----------------
 const files = ref([])
 const cropLoading = ref({})
@@ -139,6 +205,9 @@ const currentExcelData = ref(null)
 const llmConfigRef = ref()
 const joinedResults = ref({})
 
+// 添加WebSocket状态
+const websocketStatus = ref('disconnected')
+
 // ---------------- 初始化 composables ----------------
 const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(joinedResults)
 
@@ -146,6 +215,33 @@ const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(joinedResults)
 onMounted(async () => {
   await loadFiles()
 })
+
+// ⭐⭐⭐ 添加强制刷新方法 ⭐⭐⭐
+const forceRefreshExcel = async () => {
+  if (currentExcelData.value) {
+    try {
+      ElMessage.info('正在强制刷新Excel数据...')
+
+      // 保存当前数据信息
+      const excelInfo = {
+        excelUrl: currentExcelData.value.originalExcelPath || currentExcelData.value.excelUrl,
+        tableName: currentExcelData.value.tableName,
+        tableType: currentExcelData.value.tableType || 'unknown'
+      }
+
+      console.log('🔄 强制刷新Excel数据:', excelInfo)
+
+      // 重新调用处理函数
+      await handleExcelDataReceived(excelInfo)
+
+    } catch (error) {
+      console.error('强制刷新失败:', error)
+      ElMessage.error('强制刷新失败: ' + error.message)
+    }
+  } else {
+    ElMessage.warning('没有可刷新的Excel数据')
+  }
+}
 
 // ---------------- 业务函数 ----------------
 async function loadFiles() {
@@ -439,8 +535,15 @@ const handleRecognizeTable = async (tableData) => {
   }
 }
 
+// 在 App.vue 的 script setup 中添加
+const manuallyTriggerExcelUpdate = () => {
+  console.log('🔄 手动触发Excel更新')
+  // 这里可以留空，或者调用实际的更新逻辑
+}
+
 // ---------------- Excel数据处理 ----------------
 import { llmApi } from '@/api/llm'
+const excelViewerKey = ref(0)
 
 const handleExcelDataReceived = async (excelInfo) => {
   try {
@@ -448,63 +551,85 @@ const handleExcelDataReceived = async (excelInfo) => {
 
     if (!excelInfo.excelUrl) {
       console.error('❌ 没有收到excelUrl')
-      ElMessage.error('缺少Excel文件路径')
       return
     }
 
-    console.log('📝 开始调用getExcelContent API，URL:', excelInfo.excelUrl)
+    // 强制清除当前数据
+    console.log('🔄 强制清除当前数据')
+    currentExcelData.value = null
+    excelViewerKey.value++
 
-    // 使用配置处理URL
+    // 等待UI完全更新
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // 处理URL路径
     let finalExcelUrl = excelInfo.excelUrl
-
-    // 确保是相对路径
-    if (finalExcelUrl.startsWith('http')) {
-      console.error('❌ 错误的URL格式，应该是相对路径:', finalExcelUrl)
-      ElMessage.error('URL格式错误')
-      return
-    }
-
-    // 确保以 /api/excel-data/ 开头
     if (finalExcelUrl.includes('/static/excel_data/')) {
       finalExcelUrl = finalExcelUrl.replace('/static/excel_data/', '/api/excel-data/')
     }
 
-    console.log('🔧 最终Excel API URL:', finalExcelUrl)
+    // 移除查询参数
+    if (finalExcelUrl.includes('?')) {
+      finalExcelUrl = finalExcelUrl.split('?')[0]
+    }
+
+    console.log('🔄 调用getExcelContent:', finalExcelUrl)
 
     // 调用API读取Excel内容
     const response = await llmApi.getExcelContent(finalExcelUrl)
     console.log('🔍 getExcelContent 完整响应:', response)
 
-    // 根据调试信息调整逻辑
-    let excelData = null
-
-    if (response?.success && response.data) {
-      console.log('✅ 使用新格式数据')
-      excelData = response.data
-    } else if (response?.data?.success && response.data.data) {
-      console.log('✅ 使用旧格式数据')
-      excelData = response.data.data
-    } else if (response?.sheets) {
-      console.log('✅ 直接使用response作为数据')
-      excelData = response
-    } else {
-      console.error('❌ 无法识别的数据格式')
-      ElMessage.error('数据格式错误')
+    if (response.success === false) {
+      console.error('❌ API调用失败:', response.error)
       return
     }
 
-    console.log('📊 最终Excel数据:', excelData)
-
-    // 设置完整的Excel数据
-    currentExcelData.value = {
-      ...excelData,
-      tableName: excelInfo.tableName || '未命名表格',
-      excelUrl: finalExcelUrl,
-      originalExcelPath: excelInfo.excelUrl,
-      lastUpdated: new Date().toISOString()
+    let excelData = null
+    if (response.data && response.data.sheets) {
+      excelData = response.data
+    } else if (response.sheets) {
+      excelData = response
+    } else {
+      console.error('❌ 无法识别的数据格式')
+      return
     }
 
-    console.log('🎉 设置后的currentExcelData:', currentExcelData.value)
+    console.log('📊 获取到的Excel数据结构:', {
+      sheets: excelData.sheets?.length,
+      hasData: !!excelData.data,
+      hasHeaders: !!excelData.headers,
+      filePath: excelData.filePath
+    })
+
+    // ⭐⭐⭐ 关键修复：确保数据格式正确 ⭐⭐⭐
+    const newExcelData = {
+      // 基础信息
+      tableName: excelInfo.tableName || '未命名表格',
+      excelUrl: finalExcelUrl,
+      tableType: excelInfo.tableType || 'unknown',
+      lastUpdated: new Date().toISOString(),
+
+      // Excel数据
+      sheets: excelData.sheets || [],
+      data: excelData.data || [],
+      headers: excelData.headers || [],
+      filePath: excelData.filePath || '',
+      totalSheets: excelData.totalSheets || (excelData.sheets ? excelData.sheets.length : 0)
+    }
+
+    console.log('🎉 新Excel数据对象:', newExcelData)
+
+    // ⭐⭐⭐ 强制重新渲染 ⭐⭐⭐
+    currentExcelData.value = null
+    await nextTick()
+
+    currentExcelData.value = newExcelData
+    excelViewerKey.value++
+
+    console.log('✅ Excel数据更新完成，当前数据:', currentExcelData.value)
+    console.log('✅ 工作表数量:', currentExcelData.value.sheets?.length)
+
     ElMessage.success(`表格数据加载成功，共 ${currentExcelData.value.sheets?.length || 0} 个工作表`)
 
   } catch (error) {
@@ -597,4 +722,58 @@ const handleExcelDataReceived = async (excelInfo) => {
 .empty-tips p {
   margin: 4px 0;
 }
+
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e4e7ed;
+  background: #fafafa;
+  flex-shrink: 0;
+  min-height: 80px;
+}
+
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.header-title {
+  font-weight: 600;
+  color: #303133;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .header-actions {
+    align-items: stretch;
+  }
+
+  .action-row {
+    justify-content: center;
+  }
+}
+
 </style>

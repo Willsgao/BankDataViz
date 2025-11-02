@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 """
 DocuVista 主入口
-只负责：注册蓝图 + 启动
 """
 
 from flask import Flask, send_from_directory
@@ -13,6 +12,16 @@ from backend.api.convert import convert_bp
 from backend.api.text import text_bp
 from backend.api.llm_routes import llm_bp
 
+# 在 app.py 中添加（如果使用Flask）
+from backend.api.visualization_api import visualization_bp
+
+
+
+# 或者在 main.py 中（如果使用其他框架）
+
+# ⭐⭐⭐ 新增：导入WebSocket模块 ⭐⭐⭐
+from backend.api.websocket_routes import websocket_bp, init_websocket
+
 from backend.models.database_manager import DatabaseManager
 
 # ----------- 初始化 Flask -----------
@@ -21,6 +30,9 @@ app = Flask(__name__)
 # ----------- 初始化数据库 -----------
 db_mgr = DatabaseManager()
 db_mgr.init_database()
+
+# ⭐⭐⭐ 新增：初始化WebSocket ⭐⭐⭐
+init_websocket(app)
 
 # 全局处理器实例
 _table_processor_instance = None
@@ -47,6 +59,11 @@ app.register_blueprint(upload_bp)
 app.register_blueprint(file_bp)
 app.register_blueprint(convert_bp, url_prefix='/api')
 app.register_blueprint(text_bp)
+app.register_blueprint(visualization_bp)
+
+
+# ⭐⭐⭐ 新增：注册WebSocket蓝图 ⭐⭐⭐
+app.register_blueprint(websocket_bp)
 
 # ----------- 启动 -----------
 if __name__ == '__main__':

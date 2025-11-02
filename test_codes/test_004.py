@@ -161,7 +161,7 @@ def make_all_classes_single_pdf(class_num=5, class_names=None, students_per_clas
 
     if students_per_class is None:
         # 每个班级随机45-50人
-        students_per_class = [random.randint(45, 50) for _ in class_names]
+        students_per_class = [random.randint(25, 28) for _ in class_names]
 
     print(f"📊 开始生成 {len(class_names)} 个班级的评分表到单一PDF...")
 
@@ -412,7 +412,7 @@ def make_continuation_pdf_with_header(table_data, class_name="高二班级",
 # ----------------- 主程序入口 -----------------
 if __name__ == "__main__":
     # 方法1: 生成所有班级到单一PDF（默认3个班，每班45-50人）
-    make_all_classes_single_pdf(3, filename="英语读后续写评分表_多班级_7.pdf")
+    make_all_classes_single_pdf(5, filename="英语读后续写评分表_多班级_8.pdf")
 
     # 方法2: 自定义班级名称和学生人数
     # custom_classes = ['高二(1)班', '高二(2)班', '高二(3)班', '实验班', '重点班']
