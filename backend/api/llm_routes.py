@@ -168,34 +168,9 @@ def check_llm_config_route():
     return jsonify(result)
 
 
-# 表格处理路由
-@llm_bp.route('/llm/process-image', methods=['POST'])
-def process_table_image():
-    """处理单张表格图片"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                "success": False,
-                "error": "请求体不能为空",
-                "message": "请求体不能为空"
-            }), 400
 
-        # 调用对应的服务函数
-        print("单张图片:", )
-        result = asyncio.run(_process_single_image(data))
-        print("单张图片result:", result)
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"处理表格图片错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"处理表格图片错误: {str(e)}",
-            "message": f"处理异常: {str(e)}"
-        }), 500
-
-@llm_bp.route('/llm/process-non-financial-table', methods=['POST'])
-def process_non_financial_table():
+@llm_bp.route('/llm/process-non-financial-table1', methods=['POST'])
+def process_non_financial_table1():
     """处理普通表格"""
     try:
         data = request.get_json()
@@ -374,4 +349,148 @@ def batch_process_financial_images_route():
         return jsonify({
             "success": False,
             "error": f"金融表格批量处理错误: {str(e)}"
+        }), 500
+
+
+
+
+from pathlib import Path
+
+
+def _check_excel_exists(image_path: str, output_path: str) -> tuple[bool, str]:
+    """
+    检查Excel文件是否已存在
+    返回: (是否存在, Excel文件路径)
+    """
+    try:
+        # 构建完整的Excel文件路径
+        excel_path = Path(output_path)
+
+        # 如果输出路径是相对路径，转换为绝对路径
+        if not excel_path.is_absolute():
+            # 基于图片路径推断Excel路径
+            image_dir = Path(image_path).parent
+            excel_path = image_dir / output_path
+
+        # 确保路径存在
+        excel_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 检查文件是否存在
+        if excel_path.exists():
+            # 返回相对路径用于URL访问
+            relative_path = str(excel_path.relative_to(Path.cwd()))
+            return True, relative_path
+
+        return False, str(excel_path)
+
+    except Exception as e:
+        logger.error(f"检查Excel文件存在性失败: {e}")
+        return False, output_path
+
+
+# 修改单张图片处理函数
+@llm_bp.route('/llm/process-image', methods=['POST'])
+def process_table_image():
+    """处理单张表格图片 - 添加Excel存在性检查"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "请求体不能为空",
+                "message": "请求体不能为空"
+            }), 400
+
+        # 提取参数
+        image_path = data.get('image_path')
+        output_path = data.get('output_path')
+        sheet_name = data.get('sheet_name', 'Sheet1')
+        bank_name = data.get('bank_name', '未知银行')
+
+        # 检查Excel是否已存在
+        excel_exists, final_excel_path = _check_excel_exists(image_path, output_path)
+
+        if excel_exists:
+            logger.info(f"Excel文件已存在，直接返回: {final_excel_path}")
+            # 构建可访问的URL
+            excel_url = f"/static/excel_data/{Path(final_excel_path).name}"
+
+            return jsonify({
+                "success": True,
+                "from_cache": True,
+                "excel_url": excel_url,
+                "message": "已加载现有Excel文件",
+                "file_path": final_excel_path
+            })
+
+        # 如果不存在，继续正常处理
+        print("单张图片处理请求:", data)
+        result = asyncio.run(_process_single_image(data))
+        print("单张图片处理结果:", result)
+
+        # 确保结果中包含from_cache字段
+        if "from_cache" not in result:
+            result["from_cache"] = False
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"处理表格图片错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"处理表格图片错误: {str(e)}",
+            "message": f"处理异常: {str(e)}"
+        }), 500
+
+
+# 修改普通表格处理函数
+@llm_bp.route('/llm/process-non-financial-table', methods=['POST'])
+def process_non_financial_table():
+    """处理普通表格 - 添加Excel存在性检查"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "请求体不能为空",
+                "message": "请求体不能为空"
+            }), 400
+
+        # 提取参数
+        image_path = data.get('image_path')
+        output_path = data.get('output_path')
+        sheet_name = data.get('sheet_name', 'Sheet1')
+        bank_name = data.get('bank_name', '未知机构')
+
+        # 检查Excel是否已存在
+        excel_exists, final_excel_path = _check_excel_exists(image_path, output_path)
+
+        if excel_exists:
+            logger.info(f"普通表格Excel文件已存在，直接返回: {final_excel_path}")
+            # 构建可访问的URL
+            excel_url = f"/static/excel_data/{Path(final_excel_path).name}"
+
+            return jsonify({
+                "success": True,
+                "from_cache": True,
+                "excel_url": excel_url,
+                "message": "已加载现有Excel文件",
+                "file_path": final_excel_path
+            })
+
+        # 如果不存在，继续正常处理
+        result = asyncio.run(_process_non_financial_table(data))
+
+        # 确保结果中包含from_cache字段
+        if "from_cache" not in result:
+            result["from_cache"] = False
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"处理普通表格错误: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"处理普通表格错误: {str(e)}",
+            "message": f"处理异常: {str(e)}"
         }), 500
