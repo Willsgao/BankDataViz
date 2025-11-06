@@ -1,16 +1,13 @@
-import { layoutDetect } from '@/api/layout'
-import { fetchFileBlob } from '@/api/file'
+import { layoutDetect, fetchFileBlob } from '@/api/layout'
 import { ElMessage } from 'element-plus'
 
 export async function useCrop(filename, loadingRef, resultRef) {
   loadingRef.value[filename] = true
-  try {
-    const folder = filename.replace(/\.(png|jpe?g|gif)$/i, '')
+  try {    const folder = filename.replace(/\.(png|jpe?g|gif)$/i, '')
     const { table_zones } = await layoutDetect(folder, filename)
     if (!table_zones.length) {
       ElMessage.info('未检测到表格区域')
-      return { zones: 0 }
-    }
+      return { zones: 0 }    }
     const blob = await fetchFileBlob(filename)
     const base64 = await blobToBase64(blob)
     const { data } = await fetch('/cut-table', {

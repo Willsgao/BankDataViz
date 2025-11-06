@@ -5,6 +5,7 @@ import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 import App from './App.vue'
+import router from './router'
 import { initConfig } from '@/utils/config'
 import { updateApiBaseUrl } from '@/api/index'
 
@@ -27,7 +28,12 @@ const initApp = async () => {
     }
 
     app.use(ElementPlus)
+    app.use(router)
     app.mount('#app')
+
+    app.config.errorHandler = (err) => {
+    console.error('Vue error:', err)
+  }
 
     console.log('App mounted successfully')
   } catch (error) {

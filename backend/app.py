@@ -14,14 +14,12 @@ from backend.api.llm_routes import llm_bp
 
 # 在 app.py 中添加（如果使用Flask）
 from backend.api.visualization_api import visualization_bp
+from backend.init_file_mapping import init_existing_files_mapping
 
 
-
-# 或者在 main.py 中（如果使用其他框架）
 
 # ⭐⭐⭐ 新增：导入WebSocket模块 ⭐⭐⭐
 from backend.api.websocket_routes import websocket_bp, init_websocket
-
 from backend.models.database_manager import DatabaseManager
 
 # ----------- 初始化 Flask -----------
@@ -65,6 +63,10 @@ app.register_blueprint(visualization_bp)
 # ⭐⭐⭐ 新增：注册WebSocket蓝图 ⭐⭐⭐
 app.register_blueprint(websocket_bp)
 
-# ----------- 启动 -----------
+
+
+# 在 app.py 的启动部分调用
 if __name__ == '__main__':
+    # 初始化文件映射
+    init_existing_files_mapping()
     app.run(debug=True, host='0.0.0.0', port=5000)

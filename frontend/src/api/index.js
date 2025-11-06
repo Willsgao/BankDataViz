@@ -2,6 +2,14 @@
 import axios from 'axios'
 import { getBackendUrl } from '@/utils/config'
 
+// API统一导出 - 新增这行
+export * from './file'
+export * from './convert'
+export * from './layout'
+export * from './llm'
+export * from './text'
+
+
 // 创建axios实例 - 使用纯后端地址，不包含 /api
 export const http = axios.create({
   baseURL: getBackendUrl(),  // http://127.0.0.1:5000
