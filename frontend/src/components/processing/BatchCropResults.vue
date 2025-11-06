@@ -2,7 +2,8 @@
 import { ref, onMounted, nextTick, computed, watch } from 'vue'  // ⭐⭐⭐ 添加 watch 导入 ⭐⭐⭐
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
-import ImageCard from './ImageCard.vue'
+
+import ImageCard from '@/components/common/ImageCard.vue'
 
 const props = defineProps({
   pdf: {

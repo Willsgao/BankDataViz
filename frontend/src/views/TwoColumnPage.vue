@@ -65,11 +65,13 @@ import axios from 'axios'
 
 // 组件导入
 import TwoColumnLayout from '@/layouts/TwoColumnLayout.vue'
-import ProgressDialog from '@/components/ProgressDialog.vue'
-import PdfPagePreview from '@/components/PdfPagePreview.vue'
-import ExcelDataViewer from '@/components/ExcelDataViewer.vue'
-import LLMConfig from '@/components/LLMConfig.vue'
-import VisualizationPanel from '@/components/VisualizationPanel.vue'
+
+import LLMConfig from '@/components/common/LLMConfig.vue'
+import PdfPagePreview from '@/components/pdf/PdfPagePreview.vue'
+import ExcelDataViewer from '@/components/table/ExcelViewer.vue'
+import ProgressDialog from '@/components/processing/ProgressDialog.vue'
+import VisualizationPanel from '@/components/pdf/VisualizationPanel.vue'
+
 
 // API导入
 import { getFiles, deleteFile as delApi } from '@/api/file'

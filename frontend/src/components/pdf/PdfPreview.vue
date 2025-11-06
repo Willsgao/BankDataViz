@@ -101,9 +101,10 @@
 import { computed, ref, watch } from 'vue'
 import PdfViewer from './PdfViewer.vue'
 import PdfControls from './PdfControls.vue'
-import BatchCropResults from './BatchCropResults.vue'
-import OtherPdfsList from './OtherPdfsList.vue'
-import CropResult from './CropResult.vue'
+
+import BatchCropResults from '@/components/processing/BatchCropResults.vue'
+import OtherPdfsList from '@/components/pdf/OtherPdfsList.vue'
+import CropResult from '@/components/processing/CropResult.vue'
 
 const props = defineProps({
   pdfFiles: {

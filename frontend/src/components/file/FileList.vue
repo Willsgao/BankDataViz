@@ -73,10 +73,11 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
 import { getBackendUrl, getStaticUrl, getFullUrl, getConfig } from '@/utils/config'  // 导入统一配置
-import PdfPreviewSection from './PdfPreviewSection.vue'
-import NonPdfFilesSection from './NonPdfFilesSection.vue'
-import EmptyState from './EmptyState.vue'
-import ImagePreviewDialog from './ImagePreviewDialog.vue'
+
+import PdfPreviewSection from '@/components/pdf/PdfPreview.vue'
+import NonPdfFilesSection from '@/components/file/NonPdfFilesSection.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import ImagePreviewDialog from '@/components/common/ImagePreviewDialog.vue'
 
 
 // WebSocket 相关状态

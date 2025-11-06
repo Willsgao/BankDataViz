@@ -52,7 +52,7 @@ export default {
     pngUrl() {
       if (!this.pngs.length) return ''
       const png = this.pngs[this.currentPage - 1]
-      return getBackendUrl('/png/${this.pdfName.replace('.pdf','')}/${png}')
+      return getBackendUrl(`/png/${this.pdfName.replace('.pdf', '')}/${png}`)
     },
   },
   async mounted() {

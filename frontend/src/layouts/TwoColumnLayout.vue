@@ -88,9 +88,9 @@
 
 <script setup>
 // 导入组件
-import FileUpload from '@/components/FileUpload.vue'
-import FileList from '@/components/FileList.vue'
-import ExcelDataViewer from '@/components/ExcelDataViewer.vue'
+import FileUpload from '@/components/file/FileUpload.vue'
+import FileList from '@/components/file/FileList.vue'
+import ExcelDataViewer from '@/components/table/ExcelViewer.vue'
 
 // 定义props - 所有需要从父组件传递的数据
 defineProps({

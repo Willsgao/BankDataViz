@@ -25,8 +25,9 @@
 
 <script setup>
 import { computed } from 'vue'
-import ImageViewer from './ImageViewer.vue'
-import CropResult from './CropResult.vue'
+
+import ImageViewer from '@/components/common/ImageViewer.vue'
+import CropResult from '@/components/processing/CropResult.vue'
 
 const props = defineProps({
   files: {
