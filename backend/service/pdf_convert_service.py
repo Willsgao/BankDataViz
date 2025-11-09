@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import List
 
 from pdf2image import convert_from_path
-from backend.service.table_page_detector import detect_table_page   # 单页接口
 
 logging.basicConfig(
     level=logging.INFO,

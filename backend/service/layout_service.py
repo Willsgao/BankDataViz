@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import List, Dict, Union, Tuple
 
 DEFAULT_CONFIDENCE_THRESHOLD = 0.5
-REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:59537/layout"
+# REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:59537/layout"
+REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:37987/layout"
 
 from backend.service.table_cutter import (
     cut_final_tables,

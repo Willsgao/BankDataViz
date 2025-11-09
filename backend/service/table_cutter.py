@@ -1,140 +1,302 @@
-# table_cutter.py (彻底修复版)
+# table_cutter.py (优化版 - 保留跨页拼接和标题补充功能)
 
 import re
 import json
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union, Any
 from PIL import Image
 
 
-def resort_boxes(boxes: List[Dict]) -> List[Dict]:
-    """对检测框进行排序：先Y后X"""
-    return sorted(boxes, key=lambda b: (b["coordinate"][1], b["coordinate"][0]))
+class TableCutter:
+    def __init__(self, tol: int = 3):
+        self.tol = tol
 
+    # ----------------------------------------------------
+    # 从 rebuild_sub_images_idx_6.py 移植的核心功能
+    # ----------------------------------------------------
+    @staticmethod
+    def resort_boxes(boxes: List[Dict]) -> List[Dict]:
+        """对检测框进行排序：先Y后X"""
+        return sorted(boxes, key=lambda b: (b["coordinate"][1], b["coordinate"][0]))
 
-def is_contained(inner: List[float], outer: List[float], tol: int = 3) -> bool:
-    """判断inner是否被outer包含（带容差）"""
-    return (outer[0] - tol <= inner[0] and
-            outer[1] - tol <= inner[1] and
-            inner[2] <= outer[2] + tol and
-            inner[3] <= outer[3] + tol)
+    @staticmethod
+    def replace_null_in_object(obj: Any) -> Any:
+        """仅替换字典中的 null 值，不处理数组"""
+        if isinstance(obj, dict):
+            return {
+                k: "" if v is None else TableCutter.replace_null_in_object(v)
+                for k, v in obj.items()
+            }
+        elif isinstance(obj, list):
+            return [TableCutter.replace_null_in_object(item) for item in obj]
+        else:
+            return obj
 
+    @staticmethod
+    def get_resorted_level_info(input_info: Dict) -> Dict:
+        """重新排序布局信息"""
+        new_input_info = {}
+        for idx, info in input_info.items():
+            idx_info = info.get('res', {})
+            boxes = idx_info.get('boxes', [])
+            input_path = idx_info.get('input_path', '')
+            sorted_boxes = TableCutter.resort_boxes(boxes)
+            res = {
+                'input_path': input_path,
+                'boxes': sorted_boxes
+            }
+            new_input_info[idx] = res
+        return new_input_info
 
-def filter_nested_tables(boxes: List[Dict], tol: int = 3) -> List[int]:
-    """过滤嵌套表格，返回需要保留的索引"""
-    table_indices = [i for i, box in enumerate(boxes) if box.get("label") == "table"]
-    keep_indices = []
+    @staticmethod
+    def get_new_info(json_file: Union[str, Path]) -> Dict:
+        """从JSON文件获取处理后的布局信息"""
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
 
-    for i, idx in enumerate(table_indices):
-        current_coord = boxes[idx]["coordinate"]
-        is_nested = False
+        cleaned_data = TableCutter.replace_null_in_object(data)
+        return TableCutter.get_resorted_level_info(cleaned_data)
 
-        for j, other_idx in enumerate(table_indices):
-            if i == j:
+    @staticmethod
+    def is_contained(inner: List[float], outer: List[float], tol: int = 3) -> bool:
+        """判断inner是否被outer包含（带容差）"""
+        return (
+                outer[0] - tol <= inner[0] and
+                outer[1] - tol <= inner[1] and
+                inner[2] <= outer[2] + tol and
+                inner[3] <= outer[3] + tol
+        )
+
+    @staticmethod
+    def filter_nested_tables(boxes: List[Dict], tol: int = 3) -> List[int]:
+        """过滤嵌套表格，返回需要保留的索引"""
+        table_indices = [i for i, box in enumerate(boxes) if box.get("label") == "table"]
+        keep_indices = []
+
+        for i, idx in enumerate(table_indices):
+            current_coord = boxes[idx]["coordinate"]
+            is_nested = False
+
+            for j, other_idx in enumerate(table_indices):
+                if i == j:
+                    continue
+                other_coord = boxes[other_idx]["coordinate"]
+                if TableCutter.is_contained(current_coord, other_coord, tol):
+                    is_nested = True
+                    break
+
+            if not is_nested:
+                keep_indices.append(idx)
+
+        return keep_indices
+
+    def merge_adjacent_tables(self, boxes: List[Dict]) -> None:
+        """合并相邻的表格（同页纵向合并）- 从原代码移植"""
+        last_table_idx = -1
+
+        for i, box in enumerate(boxes):
+            if box.get("label") != "table":
                 continue
-            other_coord = boxes[other_idx]["coordinate"]
-            if is_contained(current_coord, other_coord, tol):
-                is_nested = True
-                break
 
-        if not is_nested:
-            keep_indices.append(idx)
+            # 检查与前一个表格之间的内容
+            between_range = range(last_table_idx + 1, i)
+            if between_range and all(boxes[k].get("label") == "text" for k in between_range):
+                # 调整当前表格的上边界以包含中间的文本
+                min_upper = min(boxes[k]["coordinate"][1] for k in between_range)
+                box["coordinate"][1] = min_upper
 
-    return keep_indices
+            last_table_idx = i
+
+    def enhanced_cut_tables_with_context(
+            self,
+            img_path: Union[str, Path],
+            layout_json: Dict,
+            out_dir: Union[str, Path],
+            confidence_threshold: float = 0.5,
+            sub_name: str = ""
+    ) -> List[Path]:
+        """
+        增强版表格切割：保留标题和上下文，支持跨页拼接判断
+        """
+        img_path = Path(img_path)
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"📁 增强切割到目录: {out_dir}")
+
+        # 打开原图
+        original_image = Image.open(img_path)
+        stem_name = img_path.stem
+
+        # 从JSON中提取检测框
+        boxes = (layout_json.get("res", {}).get("boxes", []) or
+                 layout_json.get("layout", []))
+
+        # 过滤出置信度达标的元素
+        valid_boxes = [
+            box for box in boxes
+            if box.get("score", 0.0) >= confidence_threshold
+        ]
+
+        print(f"检测到 {len(valid_boxes)} 个有效元素")
+
+        # 过滤嵌套表格
+        table_indices = [i for i, box in enumerate(valid_boxes) if box.get("label") == "table"]
+        kept_table_indices = self.filter_nested_tables(valid_boxes, self.tol)
+        print(f"过滤嵌套后保留 {len(kept_table_indices)} 个表格")
+
+        # 合并相邻表格
+        self.merge_adjacent_tables(valid_boxes)
+
+        saved_paths = []
+        table_count = 0
+        pre_last_state = 0  # 用于跨页拼接判断
+
+        # 处理每个保留的表格
+        for i, table_idx in enumerate(kept_table_indices, 1):
+            table_box = valid_boxes[table_idx]
+            coordinates = table_box["coordinate"]
+
+            # 查找表格上方的标题和文本
+            title_boxes = self.find_above_titles_and_text(valid_boxes, table_idx, coordinates)
+
+            # 调整表格区域以包含标题
+            extended_coords = self.extend_table_with_titles(coordinates, title_boxes)
+
+            x1, y1, x2, y2 = map(round, extended_coords)
+
+            # 生成文件名（包含跨页信息）
+            is_last_table = self.is_last_table_on_page(valid_boxes, table_idx)
+            filename = self.generate_table_filename(stem_name, i, is_last_table, pre_last_state, sub_name)
+
+            save_path = out_dir / filename
+
+            # 从原图裁剪扩展后的表格区域
+            table_image = original_image.crop((x1, y1, x2, y2))
+            table_image.save(save_path)
+            saved_paths.append(save_path)
+
+            print(f"✅ 保存增强表格 {i}: {filename} (包含{len(title_boxes)}个标题/文本)")
+
+            # 更新跨页状态
+            if is_last_table:
+                pre_last_state = 1
+
+        print(f"🎯 原图 {stem_name} 共保存 {len(saved_paths)} 个增强表格")
+        return saved_paths
+
+    def find_above_titles_and_text(self, boxes: List[Dict], table_idx: int, table_coords: List[float]) -> List[Dict]:
+        """查找表格上方的标题和文本元素"""
+        table_x1, table_y1, table_x2, table_y2 = table_coords
+        title_boxes = []
+
+        # 查找表格上方的元素
+        for i, box in enumerate(boxes):
+            if i >= table_idx:  # 只检查表格之前的元素
+                continue
+
+            label = box.get("label", "")
+            coords = box.get("coordinate", [])
+            if len(coords) < 4:
+                continue
+
+            box_x1, box_y1, box_x2, box_y2 = coords
+
+            # 检查元素是否在表格上方且宽度与表格对齐
+            if (box_y2 <= table_y1 and
+                    self.is_horizontally_aligned(box_x1, box_x2, table_x1, table_x2) and
+                    label in ["title", "text"]):
+                title_boxes.append(box)
+
+        return title_boxes
+
+    def is_horizontally_aligned(self, box_x1: float, box_x2: float, table_x1: float, table_x2: float,
+                                tolerance: float = 50) -> bool:
+        """检查元素是否与表格水平对齐"""
+        return (abs(box_x1 - table_x1) < tolerance and abs(box_x2 - table_x2) < tolerance)
+
+    def extend_table_with_titles(self, table_coords: List[float], title_boxes: List[Dict]) -> List[float]:
+        """扩展表格区域以包含标题"""
+        if not title_boxes:
+            return table_coords
+
+        table_x1, table_y1, table_x2, table_y2 = table_coords
+        min_y = table_y1
+
+        # 找到最上方的标题
+        for title in title_boxes:
+            title_y1 = title["coordinate"][1]
+            if title_y1 < min_y:
+                min_y = title_y1
+
+        # 扩展表格上边界
+        extended_coords = [table_x1, min_y, table_x2, table_y2]
+        return extended_coords
+
+    def is_last_table_on_page(self, boxes: List[Dict], table_idx: int) -> bool:
+        """判断是否为页面上的最后一个表格"""
+        table_indices = [i for i, box in enumerate(boxes) if box.get("label") == "table"]
+        return table_idx == table_indices[-1] if table_indices else False
+
+    def generate_table_filename(self, stem_name: str, table_index: int, is_last: bool, pre_last_state: int,
+                                sub_name: str = "") -> str:
+        """生成表格文件名（包含跨页信息）"""
+        if sub_name:
+            base_name = f"{sub_name}_{table_index:03d}"
+        else:
+            base_name = f"{stem_name}_table_{table_index:03d}"
+
+        if is_last:
+            base_name += "_last"
+        elif pre_last_state and table_index == 1:
+            base_name += "_0"
+
+        return f"{base_name}.png"
+
+    def process_pdf_tables(
+            self,
+            json_file: Union[str, Path],
+            ori_path: Union[str, Path],
+            subs_save_path: Union[str, Path],
+            join_save_path: Union[str, Path],
+            sub_name: str = ""
+    ) -> None:
+        """
+        处理PDF的所有表格（保留原逻辑）
+        """
+        sorted_info = self.get_new_info(json_file)
+
+        subs_save_path = Path(subs_save_path)
+        join_save_path = Path(join_save_path)
+        subs_save_path.mkdir(parents=True, exist_ok=True)
+        join_save_path.mkdir(parents=True, exist_ok=True)
+
+        pre_last_state = 0
+
+        for idx, idx_info in sorted_info.items():
+            # 创建子目录
+            sub_idx_dir = subs_save_path / idx
+            sub_idx_dir.mkdir(exist_ok=True)
+
+            # 原始图片路径
+            sub_idx_name = Path(ori_path) / f"{idx}.png"
+
+            if not sub_idx_name.exists():
+                print(f"⚠️ 跳过不存在的图片: {sub_idx_name}")
+                continue
+
+            # 增强版表格切割
+            saved_tables = self.enhanced_cut_tables_with_context(
+                sub_idx_name,
+                idx_info,
+                sub_idx_dir,
+                sub_name=idx
+            )
+
+            print(f"📄 页面 {idx} 处理完成，保存 {len(saved_tables)} 个表格")
 
 
-def merge_adjacent_tables(boxes: List[Dict]) -> None:
-    """合并相邻的表格（同页纵向合并）"""
-    last_table_idx = -1
-
-    for i, box in enumerate(boxes):
-        if box.get("label") != "table":
-            continue
-
-        # 检查与前一个表格之间的内容
-        between_range = range(last_table_idx + 1, i)
-        if between_range and all(boxes[k].get("label") == "text" for k in between_range):
-            # 调整当前表格的上边界以包含中间的文本
-            min_upper = min(boxes[k]["coordinate"][1] for k in between_range)
-            box["coordinate"][1] = min_upper
-
-        last_table_idx = i
-
-
-
-
-def should_join_with_prev(current_page_dir: Path) -> Optional[Path]:
-    """
-    判断当前页是否需要与前一页拼接
-    """
-    current_dir_name = current_page_dir.name
-
-    # 提取当前页码
-    current_page_num = extract_page_num_from_dir(current_dir_name)
-    if current_page_num is None or current_page_num <= 1:
-        return None
-
-    # 构建前一页目录名
-    prev_page_num = current_page_num - 1
-    base_name = current_dir_name.rsplit('_', 1)[0]
-    prev_dir_name = f"{base_name}_{prev_page_num:03d}"
-    prev_page_dir = current_page_dir.parent / prev_dir_name
-
-    if not prev_page_dir.exists():
-        return None
-
-    # 获取前一页的最后一张表格和当前页的第一张表格
-    prev_tables = sorted(prev_page_dir.glob("*_table_*.png"))
-    current_tables = sorted(current_page_dir.glob("*_table_*.png"))
-
-    if not prev_tables or not current_tables:
-        return None
-
-    last_prev_table = prev_tables[-1]
-    first_current_table = current_tables[0]
-
-    # 检查拼接条件：前一页表格名包含"last"，当前页表格是第一个
-    prev_table_idx = extract_table_index(last_prev_table.name)
-    current_table_idx = extract_table_index(first_current_table.name)
-
-    # 简单逻辑：如果索引连续且前一页是最后一个，当前页是第一个，则拼接
-    if (prev_table_idx is not None and current_table_idx is not None and
-            current_table_idx == prev_table_idx + 1):
-        return last_prev_table
-
-    return None
-
-
-def save_joined_table(prev_table_path: Path, current_table_path: Path, output_dir: Path, pdf_folder: str = "") -> Path:
-    """保存拼接后的表格"""
-    # 读取图片
-    prev_img = Image.open(prev_table_path)
-    current_img = Image.open(current_table_path)
-
-    # 纵向拼接
-    widths, heights = zip(*(img.size for img in [prev_img, current_img]))
-    total_height = sum(heights)
-    max_width = max(widths)
-
-    joined_image = Image.new(prev_img.mode, (max_width, total_height))
-    joined_image.paste(prev_img, (0, 0))
-    joined_image.paste(current_img, (0, prev_img.height))
-
-    # 构建输出路径
-    if pdf_folder:
-        output_dir = output_dir / pdf_folder
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # 使用前一页的文件名作为输出文件名
-    output_path = output_dir / prev_table_path.name
-
-    # 保存拼接结果
-    joined_image.save(output_path)
-
-    print(f"✅ 表格拼接完成: {output_path}")
-    return output_path
-
-
+# 导出函数
 def extract_page_num_from_dir(dir_name: str) -> Optional[int]:
     """从目录名提取页码"""
     match = re.search(r'_(\d{3})$', dir_name)
@@ -143,7 +305,7 @@ def extract_page_num_from_dir(dir_name: str) -> Optional[int]:
 
 def extract_table_index(filename: str) -> Optional[int]:
     """从文件名提取表格索引"""
-    match = re.search(r'_table_(\d+)', filename)
+    match = re.search(r'_table_?(\d+)', filename) or re.search(r'_(\d{3})(?:_last|_0)?\.png', filename)
     return int(match.group(1)) if match else None
 
 
@@ -153,102 +315,7 @@ def extract_page_num(filename: str) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
-def enhanced_group_tables_by_index(all_page_tables: Dict) -> Dict[int, List[Tuple[str, Path]]]:
-    """增强版：基于内容连续性的表格分组"""
-    table_groups = {}
-
-    # 按页码排序
-    sorted_pages = sorted(all_page_tables.items(), key=lambda x: x[1].get('page_num', 0))
-
-    current_table_idx = 1
-    prev_page_tables = []
-
-    for png_name, page_info in sorted_pages:
-        current_tables = page_info.get('tables', [])
-        current_page_num = page_info.get('page_num', 0)
-
-        # 对当前页表格排序
-        current_tables_sorted = sorted(current_tables, key=lambda x: extract_table_index(x.name) or 0)
-
-        for table_path in current_tables_sorted:
-            # 检查是否应该与前一页的表格关联
-            should_join = False
-
-            if prev_page_tables:
-                last_prev_table = prev_page_tables[-1]
-                # 基于表格位置和内容的连续性判断
-                if is_likely_continuous(last_prev_table, table_path, current_page_num):
-                    should_join = True
-
-            if should_join and table_groups.get(current_table_idx):
-                # 添加到现有表格组
-                table_groups[current_table_idx].append((png_name, table_path))
-            else:
-                # 创建新的表格组
-                current_table_idx += 1
-                table_groups[current_table_idx] = [(png_name, table_path)]
-
-        prev_page_tables = current_tables_sorted
-
-    return table_groups
-
-
-def is_likely_continuous(prev_table: Path, current_table: Path, current_page_num: int) -> bool:
-    """判断两个表格是否可能连续"""
-    try:
-        # 1. 检查文件名索引连续性
-        prev_idx = extract_table_index(prev_table.name)
-        curr_idx = extract_table_index(current_table.name)
-
-        if prev_idx is not None and curr_idx is not None:
-            if curr_idx == 1 and prev_idx >= 1:  # 当前页第一个表格可能是前一页的延续
-                return True
-
-        # 2. 检查图片内容连续性（简单版：检查表格顶部位置）
-        prev_img = Image.open(prev_table)
-        curr_img = Image.open(current_table)
-
-        # 如果前一页表格在页面底部，当前页表格在页面顶部，则可能连续
-        prev_bottom_ratio = get_bottom_position_ratio(prev_table)
-        curr_top_ratio = get_top_position_ratio(current_table)
-
-        if prev_bottom_ratio > 0.8 and curr_top_ratio < 0.2:  # 前一页底部，当前页顶部
-            return True
-
-        # 3. 检查表格结构相似性（列数、宽度等）
-        if have_similar_structure(prev_img, curr_img):
-            return True
-
-    except Exception as e:
-        print(f"连续性检测出错: {e}")
-
-    return False
-
-
-def get_bottom_position_ratio(table_path: Path) -> float:
-    """获取表格在原始页面中的底部位置比例"""
-    # 需要从布局信息中获取表格在原始页面的位置
-    # 这里需要您补充从layout_json中获取表格原始位置信息的逻辑
-    return 0.0
-
-
-def get_top_position_ratio(table_path: Path) -> float:
-    """获取表格在原始页面中的顶部位置比例"""
-    # 同样需要从布局信息中获取
-    return 0.0
-
-
-def have_similar_structure(img1: Image.Image, img2: Image.Image) -> bool:
-    """简单判断两个表格结构是否相似"""
-    # 比较宽度、列数等特征
-    width1, height1 = img1.size
-    width2, height2 = img2.size
-
-    # 宽度相似且都是表格结构
-    width_ratio = min(width1, width2) / max(width1, width2)
-    return width_ratio > 0.8  # 宽度相似度阈值
-
-
+# 兼容性函数
 def cut_final_tables(
         img_path: Union[str, Path],
         layout_json: Dict,
@@ -256,76 +323,16 @@ def cut_final_tables(
         confidence_threshold: float = 0.5,
         tol: int = 3
 ) -> List[Path]:
-    """
-    修复版：确保同一原图的所有切割图都在同一个目录
-    """
-    img_path = Path(img_path)
-    out_dir = Path(out_dir)
-
-    # 关键修复：直接使用指定的输出目录，不创建子目录
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"📁 切割到统一目录: {out_dir}")
-
-    # 打开原图
-    original_image = Image.open(img_path)
-    stem_name = img_path.stem  # 如：057bde4fe7fe351b24eb4d8b2b489c44_001
-
-    # 从JSON中提取表格检测框
-    boxes = (layout_json.get("res", {}).get("boxes", []) or
-             layout_json.get("layout", []))
-
-    # 过滤出置信度达标的表格
-    tables = [
-        box for box in boxes
-        if box.get("label") == "table" and box.get("score", 0.0) >= confidence_threshold
-    ]
-
-    print(f"检测到 {len(tables)} 个表格")
-
-    # 过滤嵌套表格
-    kept_indices = filter_nested_tables(tables, tol)
-    print(f"过滤嵌套后保留 {len(kept_indices)} 个表格")
-
-    saved_paths = []
-
-    # 一次性切割并保存到统一目录
-    for i, table_idx in enumerate(kept_indices, 1):
-        table = tables[table_idx]
-        coordinates = table["coordinate"]
-        x1, y1, x2, y2 = map(round, coordinates)
-
-        # 生成文件名：包含原图名称确保唯一性
-        filename = f"{stem_name}_table_{i}.png"
-        save_path = out_dir / filename
-
-        # 严格检查是否已存在
-        if save_path.exists():
-            print(f"⚠️ 文件已存在，跳过保存: {save_path}")
-            saved_paths.append(save_path)
-            continue
-
-        # 从原图裁剪表格区域
-        table_image = original_image.crop((x1, y1, x2, y2))
-
-        # 保存图片
-        table_image.save(save_path)
-        saved_paths.append(save_path)
-
-        print(f"✅ 保存表格 {i}: {filename}")
-
-    print(f"🎯 原图 {stem_name} 共保存 {len(saved_paths)} 个表格到统一目录")
-    return saved_paths
+    """兼容性函数"""
+    cutter = TableCutter(tol=tol)
+    return cutter.enhanced_cut_tables_with_context(
+        img_path, layout_json, out_dir, confidence_threshold
+    )
 
 
-
-
-
-# 导出所有需要的函数
 __all__ = [
+    'TableCutter',
     'cut_final_tables',
-    'should_join_with_prev',
-    'save_joined_table',
     'extract_page_num_from_dir',
     'extract_table_index',
     'extract_page_num',
