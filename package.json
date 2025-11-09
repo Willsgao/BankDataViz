@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "echarts": "^6.0.0",
-    "vue-router": "^4.6.3",
-
-"vue-router": "^4.0.0"
-  }
-}
