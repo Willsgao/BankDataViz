@@ -67,14 +67,18 @@ export const initConfig = async () => {
     configPromise = loadConfig().then(projectConfig => {
       config = projectConfig
 
+      // 添加空值检查
+      const servers = config.servers || getDefaultConfig().servers
+      const apiConfig = config.api || getDefaultConfig().api
+
       // 计算衍生配置
       config.backend = {
-        ...config.servers.backend,
-        apiBaseUrl: `${config.servers.backend.baseUrl}${config.api.prefix}`,
-        staticBaseUrl: `${config.servers.backend.baseUrl}${config.api.staticPrefix}`
+        ...servers.backend,
+        apiBaseUrl: `${servers.backend.baseUrl}${apiConfig.prefix}`,
+        staticBaseUrl: `${servers.backend.baseUrl}${apiConfig.staticPrefix}`
       }
 
-      config.frontend = config.servers.frontend
+      config.frontend = servers.frontend
       return config
     })
   }

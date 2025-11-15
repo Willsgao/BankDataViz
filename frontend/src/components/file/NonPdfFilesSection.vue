@@ -9,8 +9,9 @@
         <div class="file-date">上传于: {{ formatDate(file.created_at) }}</div>
 
         <div class="actions">
+          <!-- 修改这里：传递完整的文件对象 -->
           <el-button type="danger" size="small" icon="el-icon-delete"
-                     @click="$emit('delete', file.filename)">删除</el-button>
+                     @click="$emit('delete', file)">删除</el-button>
 
           <el-button type="primary" size="small" icon="el-icon-crop"
                      @click="$emit('crop', file.filename)"

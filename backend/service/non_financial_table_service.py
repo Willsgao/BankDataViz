@@ -257,7 +257,7 @@ class NonFinancialTableService:
     async def process_table_pipeline(self, image_path: str, out_file: str, sheet_name: str,
                                      bank_name: str, file_name: str,
                                      excel_config: ExcelSaveConfig = None) -> ProcessingResult:
-        """完整的普通表格处理流程 - 包含表格名提炼"""
+        """完整的普通表格处理流程 - 修复Excel路径生成"""
         start_time = time.time()
         record_id = None
 
@@ -267,7 +267,11 @@ class NonFinancialTableService:
         try:
             # 使用已有的标识创建Excel存储文件夹
             folder_name = Path(image_path).stem.split('_')[0]
-            excel_base_dir = Path("static/excel_data")
+
+            # ⭐⭐⭐ 修复：使用常量导入的路径 ⭐⭐⭐
+            from backend.utils.constants import MAIN_ROOT, EXCEL_OUTPUT_ROOT
+
+            excel_base_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT
             excel_dir = excel_base_dir / folder_name
             excel_dir.mkdir(parents=True, exist_ok=True)
 
@@ -288,19 +292,17 @@ class NonFinancialTableService:
 
             # 第二步：处理表格数据
             res_df, final_table_name = await self.process_table(
-                image_data, img_size, bank_name, extracted_table_name  # 使用提炼的表格名
+                image_data, img_size, bank_name, extracted_table_name
             )
 
             # 检查 DataFrame 是否为空
             if res_df is None or res_df.empty:
                 logger.warning(f"处理得到的 DataFrame 为空: {image_path}")
-                # 创建空的错误 DataFrame
                 res_df = self.data_processor.create_error_dataframe(Exception("表格识别结果为空"))
-                # 确保错误 DataFrame 也有表格名列
                 if not res_df.empty:
                     res_df["表格名"] = extracted_table_name
 
-            # 第三步：确保表格名列存在（双重保险）
+            # 第三步：确保表格名列存在
             if not res_df.empty and "表格名" not in res_df.columns:
                 res_df["表格名"] = extracted_table_name
                 print(f"✅ 已添加表格名列: {extracted_table_name}")
@@ -314,10 +316,18 @@ class NonFinancialTableService:
 
             processing_time = time.time() - start_time
 
+            # ⭐⭐⭐ 关键修复：确保生成有效的 Excel URL ⭐⭐⭐
+            excel_url = ""
+            if success and Path(out_file).exists():
+                # 生成前端可访问的URL
+                from backend.llm_services.utils import convert_to_excel_url
+                excel_url = convert_to_excel_url(out_file)
+                print(f"✅ 生成的Excel URL: {excel_url}")
+
             # 记录到数据库
             if self.enable_db_logging:
                 record_id = self._log_to_database(
-                    image_path, bank_name, extracted_table_name,  # 使用提炼的表格名
+                    image_path, bank_name, extracted_table_name,
                     "non_financial", "success" if success else "error",
                     out_file, sheet_name, processing_time
                 )
@@ -327,10 +337,12 @@ class NonFinancialTableService:
                 complexity="普通表格",
                 mode="non_financial",
                 assessment_reason="普通表格模式",
-                table_name=extracted_table_name,  # 使用提炼的表格名
+                table_name=extracted_table_name,
                 table_type="non_financial",
                 df=res_df,
-                error_message="" if success else "保存失败"
+                error_message="" if success else "保存失败",
+                # ⭐⭐⭐ 新增：返回Excel URL ⭐⭐⭐
+                excel_url=excel_url if success else ""
             )
 
         except Exception as e:
@@ -349,7 +361,6 @@ class NonFinancialTableService:
             res_df = self.data_processor.create_error_dataframe(e)
             table_name = f"表格处理失败_{file_name}"
 
-            # 确保错误 DataFrame 也有表格名列
             if not res_df.empty:
                 res_df["表格名"] = table_name
 
@@ -368,8 +379,10 @@ class NonFinancialTableService:
                 table_name=table_name,
                 error_message=str(e),
                 table_type="non_financial",
-                df=res_df
+                df=res_df,
+                excel_url=""
             )
+
 
     def _log_to_database(self, image_path: str, bank_name: str, table_name: str,
                          processing_mode: str, status: str,

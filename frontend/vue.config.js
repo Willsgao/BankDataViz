@@ -5,11 +5,26 @@ const path = require('path')
 module.exports = defineConfig({
   lintOnSave: false,
   devServer: {
+    port: 8080,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
-        pathRewrite: { '^/api': '' }
+        secure: false,
+        pathRewrite: {
+          '^/api': '/api'  // 明确指定路径重写
+        },
+        logLevel: 'debug'  // 添加调试日志
+      },
+      '/file': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/convert': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
       }
     }
   },
@@ -21,25 +36,9 @@ module.exports = defineConfig({
         '@composables': path.resolve(__dirname, 'src/composables'),
         '@api': path.resolve(__dirname, 'src/api'),
         '@utils': path.resolve(__dirname, 'src/utils'),
-        '@layouts': path.resolve(__dirname, 'src/layouts'),  // 修正路径
-        '@views': path.resolve(__dirname, 'src/views')       // 添加views别名
+        '@layouts': path.resolve(__dirname, 'src/layouts'),
+        '@views': path.resolve(__dirname, 'src/views')
       }
     }
-  },
-  // 添加构建过程日志
-  chainWebpack: config => {
-    config.plugin('define').tap(args => {
-      args[0]['process.env'].NODE_ENV = JSON.stringify(process.env.NODE_ENV)
-      return args
-    })
-
-    // 添加文件处理日志
-    config.module
-      .rule('vue')
-      .use('vue-loader')
-      .tap(options => {
-        console.log('Vue loader processing files...')
-        return options
-      })
   }
 })

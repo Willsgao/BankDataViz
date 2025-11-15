@@ -139,89 +139,84 @@
     </template>
 
     <template #right>
-      <div class="excel-content-container">
-        <div class="section-header">
-          <div class="header-left">
-            <h3>Excel表格内容</h3>
-            <div v-if="selectedSheet" class="header-info">
-              <el-tag type="primary">{{ selectedSheet.name }}</el-tag>
-              <span v-if="excelData.length > 0" class="data-count">
-                共 {{ excelData.length }} 行数据
-              </span>
+        <div class="excel-content-container">
+          <div class="section-header">
+            <div class="header-left">
+              <h3>Excel表格内容</h3>
+              <div v-if="selectedSheet" class="header-info">
+                <el-tag type="primary">{{ selectedSheet.name }}</el-tag>
+                <span v-if="excelData.length > 0" class="data-count">
+                  共 {{ excelData.length }} 行数据
+                </span>
+              </div>
+            </div>
+            <div class="header-actions">
+              <el-button
+                type="primary"
+                size="small"
+                :disabled="!selectedSheet || excelData.length === 0"
+                @click="showAnalysisDialog = true"
+              >
+                <el-icon><DataAnalysis /></el-icon>
+                数据可视化分析
+              </el-button>
             </div>
           </div>
-          <div class="header-actions">
-            <el-button
-              type="primary"
-              size="small"
-              :disabled="!selectedSheet || excelData.length === 0"
-              @click="showAnalysisDialog = true"
-            >
-              <el-icon><DataAnalysis /></el-icon>
-              数据可视化分析
-            </el-button>
+
+          <!-- 修改这里：添加条件渲染和错误处理 -->
+          <div class="excel-content">
+            <div v-if="!selectedSheet" class="placeholder">
+              <el-icon><Grid /></el-icon>
+              <p>请选择表格查看内容</p>
+            </div>
+            <div v-else-if="loadingExcel" class="loading-state">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              加载表格数据中...
+            </div>
+            <div v-else-if="excelData.length === 0" class="empty-state">
+              <p>表格为空</p>
+            </div>
+            <div v-else class="handsontable-container">
+              <!-- 添加 v-if 确保数据存在 -->
+              <HandsontableExcelViewer
+                ref="excelViewer"
+                v-if="excelData.length > 0 && selectedSheet"
+                :excel-data="excelData"
+                :sheet-name="selectedSheet.name"
+                :pdf-id="selectedPdf?.id"
+                :excel-file-name="selectedExcelFile"
+                key="excel-viewer"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- 原有的表格内容保持不变 -->
-        <div class="excel-content">
-          <div v-if="!selectedSheet" class="placeholder">
-            <el-icon><Grid /></el-icon>
-            <p>请选择表格查看内容</p>
-          </div>
-          <div v-else-if="loadingExcel" class="loading-state">
-            <el-icon class="is-loading"><Loading /></el-icon>
-            加载表格数据中...
-          </div>
-          <div v-else-if="excelData.length === 0" class="empty-state">
-            <p>表格为空</p>
-          </div>
-          <div v-else class="excel-table-container">
-            <el-table
-              :data="excelData"
-              border
-              stripe
-              height="100%"
-              style="width: 100%"
-              empty-text="暂无数据"
-            >
-              <el-table-column
-                v-for="column in tableColumns"
-                :key="column.prop"
-                :prop="column.prop"
-                :label="column.label"
-                :min-width="column.width || 120"
-                show-overflow-tooltip
-              >
-                <template #default="scope">
-                  <span>{{ scope.row[column.prop] }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 替换为独立的数据分析组件 -->
-      <DataAnalysisDialog
-        v-model="showAnalysisDialog"
-        :excel-data="excelData"
-        :sheet-name="selectedSheet?.name || ''"
-      />
-    </template>
+        <!-- 数据分析对话框 -->
+        <DataAnalysisDialog
+          v-model="showAnalysisDialog"
+          :excel-data="excelData"
+          :sheet-name="selectedSheet?.name || ''"
+        />
+      </template>
 
 
   </ThreeColumnLayout>
 </template>
 
 <script setup>
+
+
+// 导入 Handsontable Excel 查看器
+import HandsontableExcelViewer from '@/components/excel/HandsontableExcelViewer.vue'
+
+
 import ThreeColumnLayout from '@/layouts/ThreeColumnLayout.vue'
 import { Document, Loading, Download, Close, Grid, DataAnalysis } from '@element-plus/icons-vue'
+import { getApiUrl, getBackendUrl } from '@/utils/config'
 import { ref, inject, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
-
-// 导入独立的数据分析组件
+// 导入数据分析组件
 import DataAnalysisDialog from '@/components/analysis/DataAnalysisDialog.vue'
 
 
@@ -418,7 +413,9 @@ const selectPdf = async (pdf) => {
     if (!fileId) {
       // 如果没有ID，尝试通过文件名查找
       console.log('PDF没有ID，尝试通过文件名查找:', pdf.name)
-      const fileResponse = await fetch(`/api/search-pdf?keyword=${encodeURIComponent(pdf.name)}`)
+      // const fileResponse = await fetch(`/api/search-pdf?keyword=${encodeURIComponent(pdf.name)}`)
+      const fileResponse = await fetch(getApiUrl(`/search-pdf?keyword=${encodeURIComponent(pdf.name)}`))
+
       if (fileResponse.ok) {
         const fileData = await fileResponse.json()
         const matchedFile = fileData.files.find(f => f.name === pdf.name)
@@ -431,7 +428,8 @@ const selectPdf = async (pdf) => {
 
     if (fileId) {
       // 通过文件ID获取PDF内容
-      pdfUrl.value = `/api/file-by-id/${fileId}`
+      // pdfUrl.value = `/api/file-by-id/${fileId}`
+      pdfUrl.value = getBackendUrl(`/file-by-id/${fileId}`)
       console.log('设置PDF预览URL:', pdfUrl.value)
 
       // 根据PDF ID获取对应的Excel sheet列表
@@ -458,7 +456,8 @@ const loadExcelSheets = async (pdfId) => {
   excelFiles.value = []
 
   try {
-    const response = await fetch(`/api/excel-sheets/${pdfId}`)
+    // const response = await fetch(`/api/excel-sheets/${pdfId}`)
+    const response = await fetch(getApiUrl(`/excel-sheets/${pdfId}`))
     console.log('Excel sheets API响应状态:', response.status)
 
     if (response.ok) {
@@ -503,7 +502,8 @@ const loadAllClassData = async (excelFileName) => {
   try {
     const pdfId = selectedPdf.value.id
     // 首先获取目录信息
-    const directoryResponse = await fetch(`/api/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/目录`)
+    // const directoryResponse = await fetch(`/api/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/目录`)
+    const directoryResponse = await fetch(getApiUrl(`/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/目录`))
 
     if (!directoryResponse.ok) {
       throw new Error('无法加载目录数据')
@@ -522,7 +522,8 @@ const loadAllClassData = async (excelFileName) => {
     // 并行加载所有班级数据
     const classDataPromises = classSheets.map(async (classItem) => {
       try {
-        const response = await fetch(`/api/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(classItem.sheetName)}`)
+        // const response = await fetch(`/api/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(classItem.sheetName)}`)
+        const response = await fetch(getApiUrl(`/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(classItem.sheetName)}`))
         if (response.ok) {
           const data = await response.json()
           return {
@@ -595,10 +596,12 @@ const loadExcelData = async (sheetName, excelFileName) => {
 
   try {
     const pdfId = selectedPdf.value.id
-    const apiUrl = `/api/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(sheetName)}`
+
+    const apiUrl = getApiUrl(`/excel-data/${pdfId}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(sheetName)}`)
     console.log('请求Excel数据API:', apiUrl)
 
     const response = await fetch(apiUrl)
+    console.log('请求Excel数据API:', apiUrl)
     console.log('Excel数据API响应状态:', response.status)
 
     if (response.ok) {
@@ -640,6 +643,14 @@ const generateTableColumns = (data) => {
 }
 
 
+// 在 script setup 中添加这个函数
+const getPageFromSheetName = (sheetName) => {
+  const pageMatch = sheetName.match(/P(\d+)_/)
+  if (pageMatch && pageMatch[1]) {
+    return parseInt(pageMatch[1])
+  }
+  return null
+}
 
 
 // 下载PDF文件
@@ -1025,6 +1036,15 @@ const downloadPdf = async (pdf) => {
 .sheet-item .el-tag {
   margin-left: auto;
   flex-shrink: 0;
+}
+
+
+.handsontable-container {
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 </style>

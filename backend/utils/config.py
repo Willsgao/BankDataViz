@@ -8,6 +8,25 @@ import os
 import json
 from pathlib import Path
 
+# 导入常量配置
+try:
+    from .constants import (
+        MAIN_ROOT,
+        UPLOAD_FOLDER,
+        PNG_OUTPUT_ROOT,
+        EXCEL_OUTPUT_ROOT,
+        DATABASE,
+        ALLOWED_EXTENSIONS
+    )
+except ImportError:
+    # 如果导入失败，使用默认值
+    MAIN_ROOT = os.getcwd()
+    UPLOAD_FOLDER = 'backend/static/uploads'
+    PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
+    EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
+    DATABASE = 'backend/data/database.db'
+    ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+
 
 class Config:
     """配置类"""
@@ -88,20 +107,23 @@ class Config:
         self.STATIC_PREFIX = os.getenv('STATIC_PREFIX', self._config['api']['staticPrefix'])
         self.UPLOAD_PREFIX = os.getenv('UPLOAD_PREFIX', self._config['api']['uploadPrefix'])
 
-        # 文件路径配置
-        self.UPLOAD_FOLDER = self._config['paths']['uploadFolder']
-        self.EXCEL_DATA_FOLDER = self._config['paths']['excelDataFolder']
+        # 文件路径配置 - 从 constants.py 导入
+        self.UPLOAD_FOLDER = UPLOAD_FOLDER
+        self.EXCEL_DATA_FOLDER = EXCEL_OUTPUT_ROOT
         self.JOINED_TABLES_FOLDER = self._config['paths']['joinedTablesFolder']
-        self.PNG_OUTPUT_ROOT = self._config['paths']['pngOutputFolder']
-        self.MAIN_ROOT = Path(__file__).parent.parent
+        self.PNG_OUTPUT_ROOT = PNG_OUTPUT_ROOT
+        self.MAIN_ROOT = Path(MAIN_ROOT)
 
         # LLM配置
         self.LLM_DEFAULT_BASE_URL = self._config['llm']['defaultBaseUrl']
         self.LLM_DEFAULT_MODEL_ID = self._config['llm']['defaultModelId']
         self.LLM_MAX_TOKENS = self._config['llm']['maxTokens']
 
-        # 数据库配置
-        self.DATABASE_PATH = 'backend/data/files.db'
+        # 数据库配置 - 从 constants.py 导入
+        self.DATABASE_PATH = DATABASE
+
+        # 允许的文件扩展名
+        self.ALLOWED_EXTENSIONS = ALLOWED_EXTENSIONS
 
     @property
     def backend_api_base_url(self):

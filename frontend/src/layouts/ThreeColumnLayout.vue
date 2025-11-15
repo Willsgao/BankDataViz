@@ -400,4 +400,8 @@ onMounted(() => {
 .three-column-layout > * {
   min-width: 0;
 }
+
+
+
+
 </style>

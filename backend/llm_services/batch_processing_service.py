@@ -13,12 +13,25 @@ from backend.llm_services.utils import validate_required_params, convert_to_exce
 from backend.llm_services.task_management_service import _send_websocket_notification, logger
 from backend.llm_services.single_table_service import _process_single_non_financial_table
 
+from backend.utils.constants import MAIN_ROOT
+
 
 # 异步批量处理图片
 def _batch_process_images_sync(data, task_id):
     """同步批量处理函数"""
+    # 预置最终状态，保证 finally 里一定有值
+    final_status = "error"
+    final_data   = {"error": "未知处理结果"}
+
+    # ⬇️ 任务一创建就存进去，确保轮询能查到
+    state_manager.set_task_result(task_id, {
+        "status": "running",
+        "data": {},
+        "completed_at": None
+    })
+
     try:
-        # 使用状态管理器设置状态
+        # 1. 设置初始状态
         state_manager.set_processing_status(task_id, {
             "status": "processing",
             "progress": 0,
@@ -29,44 +42,65 @@ def _batch_process_images_sync(data, task_id):
         })
 
         print(f"🔄 开始同步批量处理 - 任务ID: {task_id}")
-
-        # 发送任务开始通知
         _send_websocket_notification(task_id, 'started', {
             'message': '任务已开始处理',
             'total': len(data.get('image_paths', []))
         })
 
-        # 同步调用批量处理逻辑
+        # 2. 执行业务逻辑
         result = asyncio.run(_batch_process_images(data, task_id))
-
         print(f"🔄 批量处理完成，结果: {result.get('success')}")
 
-        # 更新状态
+        # 3. 根据结果分支更新状态
         if result.get('processing_completed', False) or result.get('success', False):
+            final_status = "completed"
+            final_data   = result.get('data', {})
+
+            excel_url = final_data.get('excel_url')
+            print("data_payload.get('excel_url')::::", excel_url)
+
             state_manager.set_processing_status(task_id, {
                 "status": "completed",
                 "progress": 100,
-                "message": result.get('data', {}).get('message', '处理完成'),
+                "message": final_data.get('message', '处理完成'),
+                "excel_url": excel_url,
+                "success_count": final_data.get('success', 0),
+                "failed_count": final_data.get('failed', 0),
+                "total": final_data.get('total', 0),
+                "table_type": final_data.get('table_type', 'non_financial'),
                 "completion_time": time.time()
             })
-            _send_websocket_notification(task_id, 'completed', result.get('data', {}))
+            _send_websocket_notification(task_id, 'completed', final_data)
+
         else:
+            final_status = "error"
+            final_data   = {"error": result.get('error', '处理失败')}
             state_manager.set_processing_status(task_id, {
                 "status": "error",
-                "message": result.get('error', '处理失败'),
+                "message": final_data["error"],
                 "error_time": time.time()
             })
-            _send_websocket_notification(task_id, 'error', error_message=result.get('error'))
+            _send_websocket_notification(task_id, 'error', error_message=final_data["error"])
 
     except Exception as e:
         logger.error(f"批量处理异常: {str(e)}")
+        final_status = "error"
+        final_data   = {"error": str(e)}
         state_manager.set_processing_status(task_id, {
             "status": "error",
-            "message": f"处理异常: {str(e)}",
+            "message": str(e),
             "error_time": time.time()
         })
         _send_websocket_notification(task_id, 'error', error_message=str(e))
 
+    finally:
+        # 🔚 无论成功、失败、抛异常，都存结果供轮询接口查询
+        state_manager.set_task_result(task_id, {
+            "status": final_status,
+            "data": final_data,
+            "completed_at": time.time()
+        })
+        print(f"✅ 任务结果已存入状态管理器 - 任务ID: {task_id}, 状态: {final_status}")
 
 def _handle_batch_process(data, task_id):
     """统一的批量处理入口"""
@@ -91,47 +125,14 @@ def _handle_batch_process(data, task_id):
         }), 500
 
 
-async def _batch_process_images(data, task_id):
-    """批量处理主逻辑"""
-    try:
-        # 初始化和验证
-        validation_result = await _validate_batch_processing_input(data, task_id)
-        print("validation_result:", validation_result)
-        if not validation_result["success"]:
-            return validation_result
-
-        processor = validation_result["processor"]
-        table_type = validation_result["table_type"]
-        image_paths = validation_result["image_paths"]
-
-        # 准备输出文件
-        output_file = await _prepare_output_file(data, image_paths, table_type)
-
-        print("output_fileoutput_file:", output_file, table_type)
-
-        # 更新任务状态
-        _update_processing_status_start(task_id, image_paths, table_type, output_file)
-
-        # 执行批量处理
-        processing_results = await _execute_batch_processing(
-            task_id, image_paths, output_file, table_type, processor, data
-        )
-
-        # 生成结果报告
-        final_result = await _generate_processing_report(
-            task_id, processing_results, output_file, table_type
-        )
-
-        return final_result
-
-    except Exception as e:
-        return await _handle_batch_processing_error(task_id, e)
-
 
 async def _validate_batch_processing_input(data, task_id):
-    """验证批量处理输入参数"""
+    """验证批量处理输入参数 - 添加详细调试"""
     table_type = data.get('table_type', 'financial')
     print(f"🔄 批量处理开始 - 类型: {table_type}")
+
+    # 打印前端传递的所有数据
+    print(f"📋 前端传递的数据: {data}")
 
     # 获取处理器
     processor = state_manager.get_appropriate_processor(table_type)
@@ -153,9 +154,10 @@ async def _validate_batch_processing_input(data, task_id):
 
     # 验证图片文件
     image_paths = data.get('image_paths', [])
+    print(f"🖼️ 前端传递的图片路径列表: {image_paths}")
+
     valid_image_paths, missing_images = _validate_image_paths(image_paths)
 
-    # if missing_images:
     if not valid_image_paths:
         error_msg = f"以下图片文件不存在: {missing_images}"
         return _create_error_response(task_id, error_msg)
@@ -170,30 +172,43 @@ async def _validate_batch_processing_input(data, task_id):
     }
 
 
+# 在 _validate_image_paths 函数中添加目录结构检查
 def _validate_image_paths(image_paths):
-    """验证图片路径是否存在"""
+    """验证图片路径是否存在 - 使用常量路径"""
     valid_image_paths = []
     missing_images = []
 
+    # 从常量导入路径
+    from backend.utils.constants import MAIN_ROOT, JOINED_TABLES_ROOT
+
     for img_path in image_paths:
-        img_full_path = Path(img_path)
-        if not img_full_path.exists():
-            # 尝试在static目录下查找
-            static_path = Path("static") / img_path
-            if static_path.exists():
-                valid_image_paths.append(str(static_path))
-                print(f"✅ 在static目录找到图片: {static_path}")
-            else:
-                # 尝试直接在当前目录查找
-                current_dir_path = Path.cwd() / img_path
-                if current_dir_path.exists():
-                    valid_image_paths.append(str(current_dir_path))
-                    print(f"✅ 在当前目录找到图片: {current_dir_path}")
-                else:
-                    missing_images.append(img_path)
-                    print(f"❌ 图片文件不存在: {img_path}")
+        # 清理路径
+        img_path = img_path.lstrip('/')
+
+        # 使用常量构建正确的路径
+        # 前端传递的是 static/joined_tables/...，实际应该是 backend/static/joined_tables/...
+        if img_path.startswith('static/joined_tables/'):
+            # 提取相对路径部分
+            relative_path = img_path.replace('static/joined_tables/', '')
+            full_path = Path(MAIN_ROOT) / JOINED_TABLES_ROOT / relative_path
+        elif img_path.startswith('joined_tables/'):
+            # 如果已经是 joined_tables/ 开头
+            relative_path = img_path.replace('joined_tables/', '')
+            full_path = Path(MAIN_ROOT) / JOINED_TABLES_ROOT / relative_path
         else:
-            valid_image_paths.append(img_path)
+            # 其他情况，直接使用完整路径
+            full_path = Path(MAIN_ROOT) / JOINED_TABLES_ROOT / img_path
+
+        print(f"🔍 原始路径: {img_path}")
+        print(f"🔍 完整路径: {full_path}")
+        print(f"🔍 路径是否存在: {full_path.exists()}")
+
+        if full_path.exists():
+            valid_image_paths.append(str(full_path))
+            print(f"✅ 找到图片: {full_path}")
+        else:
+            missing_images.append(img_path)
+            print(f"❌ 图片文件不存在: {full_path}")
 
     return valid_image_paths, missing_images
 
@@ -261,72 +276,6 @@ def _update_processing_status_start(task_id, image_paths, table_type, output_fil
 
 
 
-async def _execute_batch_processing(task_id, image_paths, output_file, table_type, processor, data):
-    """执行批量处理"""
-    results = []
-    success_count = 0
-    failed_count = 0
-    bank_name = data.get('bank_name', '未知银行')
-
-    # ⭐⭐⭐ 确保输出目录存在 ⭐⭐⭐
-    output_path = Path(output_file)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    for i, image_path in enumerate(image_paths):
-        try:
-            # 更新进度
-            await _update_processing_progress(task_id, i, len(image_paths), image_path)
-
-            # 处理单张图片
-            result = await _process_single_image_in_batch(
-                image_path, output_file, table_type, processor, bank_name, i
-            )
-
-            if result["success"]:
-                success_count += 1
-                if result.get("is_non_financial"):
-                    print(f"🟡 识别为非金融表格: {Path(image_path).name} - {result.get('assessment_reason', '')}")
-                else:
-                    # ⭐⭐⭐ 检查 DataFrame 是否成功保存 ⭐⭐⭐
-                    df_info = "无数据"
-                    if result.get("df") is not None:
-                        df_info = f"形状: {result['df'].shape}, 列数: {len(result['df'].columns)}"
-                    print(f"✅ 金融表格处理成功: {Path(image_path).name} - DataFrame: {df_info}")
-            else:
-                failed_count += 1
-                print(f"❌ 金融表格处理失败: {Path(image_path).name} - {result.get('error_message', '')}")
-
-            results.append(result)
-
-        except Exception as e:
-            error_result = _create_single_image_error_result(image_path, str(e))
-            results.append(error_result)
-            failed_count += 1
-            logger.error(f"处理图片失败 {image_path}: {str(e)}")
-
-    # ⭐⭐⭐ 最终检查Excel文件是否生成 ⭐⭐⭐
-    if output_path.exists():
-        print(f"✅ 批量处理完成，Excel文件已生成: {output_file}")
-        try:
-            # 验证Excel文件内容
-            import pandas as pd
-            excel_data = pd.read_excel(output_file, sheet_name=None)
-            sheet_count = len(excel_data)
-            print(f"📊 Excel文件包含 {sheet_count} 个工作表")
-            for sheet_name, df in excel_data.items():
-                print(f"   - {sheet_name}: {df.shape[0]}行 x {df.shape[1]}列")
-        except Exception as e:
-            print(f"⚠️ 读取Excel文件失败: {e}")
-    else:
-        print(f"❌ 批量处理完成，但Excel文件未生成: {output_file}")
-
-    return {
-        "results": results,
-        "success_count": success_count,
-        "failed_count": failed_count,
-        "total_count": len(image_paths)
-    }
-
 
 async def _update_processing_progress(task_id, current_index, total_count, image_path):
     """更新处理进度"""
@@ -346,137 +295,6 @@ async def _update_processing_progress(task_id, current_index, total_count, image
     })
 
 
-
-async def _process_single_image_in_batch(image_path, output_file, table_type, processor, bank_name, index):
-    """处理批量中的单张图片"""
-    sheet_name = f"表格_{index + 1}"
-    file_name = Path(image_path).stem
-
-    print(f"🔄 处理第 {index + 1} 张图片: {Path(image_path).name}")
-
-    if table_type == 'non_financial':
-        # ⭐⭐⭐ 直接返回扁平化结果 ⭐⭐⭐
-        return await _process_single_non_financial_table({
-            'image_path': image_path,
-            'output_path': output_file,
-            'sheet_name': sheet_name,
-            'bank_name': bank_name,
-            'file_name': file_name,
-            'table_index': index
-        })
-    else:
-        return await _process_financial_table(processor, image_path, output_file, sheet_name, bank_name, file_name)
-
-
-
-def _ensure_dataframe_saved_to_excel(df, output_file, sheet_name, table_name):
-    """确保 DataFrame 数据被保存到 Excel 文件"""
-    try:
-        if df is None or df.empty:
-            print(f"⚠️ DataFrame 为空，跳过保存: {sheet_name}")
-            return False
-
-        output_path = Path(output_file)
-
-        # 如果文件不存在，直接保存
-        if not output_path.exists():
-            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
-            print(f"✅ 创建新Excel文件并保存工作表: {sheet_name}")
-            return True
-
-        # 如果文件存在，更新或添加工作表
-        try:
-            with pd.ExcelWriter(output_file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
-            print(f"✅ 更新现有Excel文件的工作表: {sheet_name}")
-            return True
-        except Exception as e:
-            print(f"❌ 更新Excel失败，尝试覆盖模式: {e}")
-            # 如果追加模式失败，尝试直接覆盖
-            try:
-                with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                    # 先读取现有的所有工作表
-                    existing_sheets = pd.read_excel(output_file, sheet_name=None)
-                    # 重新保存所有工作表，替换目标工作表
-                    for existing_sheet_name, existing_df in existing_sheets.items():
-                        if existing_sheet_name == sheet_name:
-                            existing_df = df  # 替换为目标数据
-                        existing_df.to_excel(writer, sheet_name=existing_sheet_name, index=False)
-                    # 如果工作表不存在，添加新工作表
-                    if sheet_name not in existing_sheets:
-                        df.to_excel(writer, sheet_name=sheet_name, index=False)
-                print(f"✅ 使用覆盖模式保存工作表: {sheet_name}")
-                return True
-            except Exception as e2:
-                print(f"❌ 覆盖模式也失败: {e2}")
-                return False
-
-    except Exception as e:
-        print(f"❌ 保存DataFrame到Excel失败: {e}")
-        return False
-
-async def _process_financial_table(processor, image_path, output_file, sheet_name, bank_name, file_name):
-    """处理金融表格"""
-    try:
-        result = await processor.process_table_pipeline(
-            image_path=image_path,
-            out_file=output_file,
-            sheet_name=sheet_name,
-            bank_name=bank_name,
-            file_name=file_name
-        )
-
-        print(f"🔍 金融表格处理结果: {result}")
-        print(f"🔍 处理状态: {getattr(result, 'status', '无状态')}")
-
-        status = getattr(result, 'status', 'unknown')
-        df_data = getattr(result, 'df', None)
-
-        if status == "success":
-            # 金融表格处理成功
-            is_success = True
-            status_text = "成功"
-
-            # ⭐⭐⭐ 关键修改：确保 DataFrame 被保存到 Excel ⭐⭐⭐
-            if df_data is not None and not df_data.empty:
-                print(f"✅ 获取到金融表格 DataFrame 数据，形状: {df_data.shape}")
-                # 确保数据被保存到 Excel
-                _ensure_dataframe_saved_to_excel(df_data, output_file, sheet_name, result.table_name)
-            else:
-                print("⚠️ 金融表格没有获取到 DataFrame 数据")
-
-        elif status == "non_financial":
-            # 非金融表格
-            is_success = True
-            status_text = "非金融表格"
-            print(f"🔄 识别为非金融表格，跳过处理")
-
-        else:
-            # 处理失败
-            is_success = False
-            status_text = "失败"
-            print(f"❌ 表格处理失败: {getattr(result, 'error_message', '未知错误')}")
-
-        return {
-            "image_path": image_path,
-            "status": status,
-            "status_text": status_text,
-            "complexity": getattr(result, 'complexity', 'unknown'),
-            "table_name": getattr(result, 'table_name', '未知'),
-            "sheet_name": sheet_name,
-            "error_message": getattr(result, 'error_message', ''),
-            "assessment_reason": getattr(result, 'assessment_reason', ''),
-            "success": is_success,
-            "is_non_financial": status == "non_financial",
-            "df": df_data  # 返回 DataFrame 数据
-        }
-
-    except Exception as process_error:
-        print(f"💥 金融表格处理异常: {str(process_error)}")
-        import traceback
-        traceback.print_exc()
-        return _create_single_image_error_result(image_path, f"处理异常: {str(process_error)}")
 
 
 def _create_single_image_error_result(image_path, error_msg):
@@ -746,8 +564,6 @@ async def _handle_batch_processing_error(task_id, error):
     }
 
 
-# 在 batch_processing_service.py 中添加
-
 async def _analyze_processed_data(self, task_id: str, processing_results: Dict, output_file: str):
     """分析处理后的表格数据"""
     try:
@@ -828,6 +644,318 @@ async def _save_analysis_results(self, analysis_results: List[Dict], output_file
     except Exception as e:
         logger.error(f"保存分析结果失败: {e}")
         return ""
+
+
+
+
+
+async def _batch_process_images(data, task_id):
+    """批量处理主逻辑"""
+    try:
+        # 初始化和验证
+        validation_result = await _validate_batch_processing_input(data, task_id)
+        print("validation_result:", validation_result)
+        if not validation_result["success"]:
+            return validation_result
+
+        processor = validation_result["processor"]
+        table_type = validation_result["table_type"]
+        image_paths = validation_result["image_paths"]
+
+        # ⭐⭐⭐ 关键修复：确保缓存检查被正确调用 ⭐⭐⭐
+        print("🔄 开始批量缓存检查...")
+        cache_check_result = await _check_batch_cache(data, image_paths, table_type, task_id)
+
+        print("*******cache_check_result*********")
+        print(cache_check_result)
+
+        if cache_check_result and cache_check_result.get("success"):
+            print("✅ 从批量缓存返回数据，跳过LLM调用")
+            return cache_check_result
+        else:
+            print("🔄 没有找到完整缓存，继续处理")
+
+        # 准备输出文件
+        output_file = await _prepare_output_file(data, image_paths, table_type)
+
+        print("output_fileoutput_file:", output_file, table_type)
+
+        # 更新任务状态
+        _update_processing_status_start(task_id, image_paths, table_type, output_file)
+
+        # 执行批量处理
+        processing_results = await _execute_batch_processing(
+            task_id, image_paths, output_file, table_type, processor, data
+        )
+
+        # 生成结果报告
+        final_result = await _generate_processing_report(
+            task_id, processing_results, output_file, table_type
+        )
+
+        return final_result
+
+    except Exception as e:
+        return await _handle_batch_processing_error(task_id, e)
+
+
+async def _check_batch_cache(data, image_paths, table_type, task_id):
+    """批量缓存检查 - 超简版"""
+    try:
+        output_file = await _prepare_output_file(data, image_paths, table_type)
+        output_path = Path(output_file)
+
+        if not output_path.exists():
+            return None
+
+        # ⭐⭐⭐ 只要文件存在且大于1KB就认为缓存有效 ⭐⭐⭐
+        if output_path.stat().st_size > 1024:
+            excel_url = convert_to_excel_url(output_file)
+            return {
+                "success": True,
+                "data": {
+                    "total": len(image_paths),
+                    "success": len(image_paths),
+                    "failed": 0,
+                    "non_financial": len(image_paths),
+                    "results": [
+                        {
+                            "image_path": image_path,
+                            "status": "success",
+                            "status_text": "从缓存加载",
+                            "table_name": f"表格_{i + 1}",
+                            "sheet_name": f"表格_{i + 1}",
+                            "success": True,
+                            "is_non_financial": True,
+                            "excel_url": excel_url
+                        }
+                        for i, image_path in enumerate(image_paths)
+                    ],
+                    "output_file": output_file,
+                    "excel_url": excel_url,
+                    "table_type": "non_financial",
+                    "processing_completed": True,
+                    "message": f"从缓存加载 {len(image_paths)} 个表格",
+                    "excel_saved": True,
+                    "from_cache": True
+                },
+                "task_id": task_id,
+                "processing_completed": True,
+                "from_cache": True
+            }
+        return None
+
+    except Exception:
+        return None
+
+
+async def _execute_batch_processing(task_id, image_paths, output_file, table_type, processor, data):
+    """执行批量处理 - 修复文件写入问题"""
+    results = []
+    success_count = 0
+    failed_count = 0
+    bank_name = data.get('bank_name', '未知银行')
+
+    # ⭐⭐⭐ 关键修复：确保输出目录存在 ⭐⭐⭐
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # ⭐⭐⭐ 关键修复：如果输出文件已存在，先备份再处理 ⭐⭐⭐
+    if output_path.exists():
+        try:
+            import shutil
+            backup_file = output_path.with_suffix('.backup.xlsx')
+            shutil.copy2(output_path, backup_file)
+            print(f"✅ 已备份现有文件: {backup_file}")
+
+            # 删除原文件，重新创建
+            output_path.unlink()
+            print(f"✅ 已删除原文件，准备重新创建: {output_file}")
+        except Exception as e:
+            print(f"❌ 备份文件失败: {e}")
+
+    # 创建新的Excel文件
+    try:
+        from backend.service.excel_storage_service import ExcelStorageService
+        excel_service = ExcelStorageService()
+        excel_service.create_new_excel(output_file)
+        print(f"✅ 创建新Excel文件: {output_file}")
+    except Exception as e:
+        print(f"❌ 创建Excel文件失败: {e}")
+        return {
+            "results": [],
+            "success_count": 0,
+            "failed_count": len(image_paths),
+            "total_count": len(image_paths)
+        }
+
+    for i, image_path in enumerate(image_paths):
+        try:
+            # 更新进度
+            await _update_processing_progress(task_id, i, len(image_paths), image_path)
+
+            # 处理单张图片
+            result = await _process_single_image_in_batch(
+                image_path, output_file, table_type, processor, bank_name, i
+            )
+
+            if result["success"]:
+                success_count += 1
+                print(f"✅ 处理成功: {Path(image_path).name}")
+            else:
+                failed_count += 1
+                print(f"❌ 处理失败: {Path(image_path).name} - {result.get('error_message', '')}")
+
+            results.append(result)
+
+        except Exception as e:
+            error_result = _create_single_image_error_result(image_path, str(e))
+            results.append(error_result)
+            failed_count += 1
+            logger.error(f"处理图片失败 {image_path}: {str(e)}")
+
+    # 最终检查Excel文件
+    if output_path.exists():
+        print(f"✅ 批量处理完成，Excel文件已生成: {output_file}")
+        # 验证Excel文件内容
+        try:
+            import pandas as pd
+            excel_data = pd.read_excel(output_file, sheet_name=None)
+            sheet_count = len(excel_data)
+            print(f"📊 Excel文件包含 {sheet_count} 个工作表")
+            for sheet_name, df in excel_data.items():
+                print(f"   - {sheet_name}: {df.shape[0]}行 x {df.shape[1]}列")
+        except Exception as e:
+            print(f"⚠️ 读取Excel文件失败: {e}")
+    else:
+        print(f"❌ 批量处理完成，但Excel文件未生成: {output_file}")
+
+    return {
+        "results": results,
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "total_count": len(image_paths)
+    }
+
+
+async def _process_single_image_in_batch(image_path, output_file, table_type, processor, bank_name, index):
+    """处理批量中的单张图片"""
+    sheet_name = f"表格_{index + 1}"
+    file_name = Path(image_path).stem
+
+    print(f"🔄 处理第 {index + 1} 张图片: {Path(image_path).name}")
+
+    if table_type == 'non_financial':
+        # ⭐⭐⭐ 关键修复：传递索引信息用于调试 ⭐⭐⭐
+        result = await _process_single_non_financial_table({
+            'image_path': image_path,
+            'output_path': output_file,
+            'sheet_name': sheet_name,
+            'bank_name': bank_name,
+            'file_name': file_name,
+            'table_index': index
+        })
+
+        # ⭐⭐⭐ 添加详细的结果检查 ⭐⭐⭐
+        print(f"🔍 批量处理结果检查 - 图片{index + 1}:")
+        print(f"   - 成功: {result.get('success')}")
+        print(f"   - 表格名: {result.get('table_name', '未获取')}")
+        print(f"   - 状态: {result.get('status', '未知')}")
+
+        return result
+    else:
+        return await _process_financial_table(processor, image_path, output_file, sheet_name, bank_name, file_name)
+
+
+def _ensure_dataframe_saved_to_excel(df, output_file, sheet_name, table_name):
+    """确保 DataFrame 数据被保存到 Excel 文件"""
+    try:
+        if df is None or df.empty:
+            print(f"⚠️ DataFrame 为空，跳过保存: {sheet_name}")
+            return False
+
+        output_path = Path(output_file)
+
+        # 使用ExcelStorageService进行保存
+        from backend.service.excel_storage_service import ExcelStorageService
+        excel_service = ExcelStorageService()
+
+        # 如果文件不存在，先创建
+        if not output_path.exists():
+            excel_service.create_new_excel(output_file)
+            print(f"✅ 创建新Excel文件: {output_file}")
+
+        # 保存数据
+        save_success = excel_service.save_dataframe(
+            df=df,
+            excel_path=output_file,
+            sheet_name=sheet_name,
+            map_name=table_name
+        )
+
+        if save_success:
+            print(f"✅ 成功保存工作表: {sheet_name}")
+            return True
+        else:
+            print(f"❌ 保存工作表失败: {sheet_name}")
+            return False
+
+    except Exception as e:
+        print(f"❌ 保存DataFrame到Excel失败: {e}")
+        return False
+
+
+async def _process_financial_table(processor, image_path, output_file, sheet_name, bank_name, file_name):
+    """处理金融表格"""
+    try:
+        result = await processor.process_table_pipeline(
+            image_path=image_path,
+            out_file=output_file,
+            sheet_name=sheet_name,
+            bank_name=bank_name,
+            file_name=file_name
+        )
+
+        print(f"🔍 金融表格处理结果: {result}")
+        print(f"🔍 处理状态: {getattr(result, 'status', '无状态')}")
+
+        status = getattr(result, 'status', 'unknown')
+        df_data = getattr(result, 'df', None)
+
+        # ⭐⭐⭐ 关键修复：确保DataFrame被保存到Excel ⭐⭐⭐
+        if status == "success" and df_data is not None and not df_data.empty:
+            print(f"✅ 获取到金融表格 DataFrame 数据，形状: {df_data.shape}")
+            # 立即保存DataFrame到Excel
+            save_success = _ensure_dataframe_saved_to_excel(df_data, output_file, sheet_name,
+                                                            getattr(result, 'table_name', sheet_name))
+            if not save_success:
+                print(f"❌ 保存DataFrame到Excel失败: {sheet_name}")
+        else:
+            print(f"⚠️ 没有获取到DataFrame数据: {sheet_name}")
+
+        # 返回结果
+        return {
+            "image_path": image_path,
+            "status": status,
+            "status_text": "成功" if status == "success" else "失败",
+            "complexity": getattr(result, 'complexity', 'unknown'),
+            "table_name": getattr(result, 'table_name', '未知'),
+            "sheet_name": sheet_name,
+            "error_message": getattr(result, 'error_message', ''),
+            "assessment_reason": getattr(result, 'assessment_reason', ''),
+            "success": status == "success",
+            "is_non_financial": status == "non_financial",
+            "df": df_data
+        }
+
+    except Exception as process_error:
+        print(f"💥 金融表格处理异常: {str(process_error)}")
+        import traceback
+        traceback.print_exc()
+        return _create_single_image_error_result(image_path, f"处理异常: {str(process_error)}")
+
+
+
 
 
 

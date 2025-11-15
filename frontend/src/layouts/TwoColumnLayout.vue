@@ -19,7 +19,10 @@
         @open-llm-config="$emit('openLLMConfig')"
         @image-selected="$emit('handleImageSelected', $event)"
         @recognize-table="$emit('handleRecognizeTable', $event)"
-        @excel-data-received="$emit('handleExcelDataReceived', $event)"
+        @excel-data-received="(data) => {
+          console.log('🧩 TwoColumnLayout 收到并转发 excel-data-received:', data);
+          $emit('handleExcelDataReceived', data);
+        }"
       />
     </div>
 

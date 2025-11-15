@@ -329,11 +329,17 @@ const handleWebSocketMessage = (data, taskId, pdfDiskName) => {
 
     case 'task_progress':
       console.log(`📊 收到后端进度更新: ${data.progress}% - ${data.message}`)
-      // 可以在这里更新进度条
-      if (data.progress % 20 === 0) { // 每20%显示一次进度
+      /* ① 实时写进度，界面就能动了 */
+      if (pdfDiskName && llmLoading.value[pdfDiskName]) {
+        llmLoading.value[pdfDiskName].progress = data.progress || 0
+      }
+
+      /* ② 如果仍想保留轻提示，把 20% 判断留下即可 */
+      if (data.progress % 20 === 0) {
         ElMessage.info(`处理进度: ${data.progress}% - ${data.message}`)
       }
       break
+
 
     case 'task_started':
       console.log('🚀 收到后端任务开始通知')
@@ -442,7 +448,28 @@ const recognizeLoading = ref({})
 const isPDF = (filename) => filename.toLowerCase().endsWith('.pdf')
 
 // 事件处理
-const handleDelete = (filename) => emit('delete', filename)
+const handleDelete = (file) => {
+  console.log('🔍 FileList - 删除文件:', file)
+
+  // 确保传递的是文件对象而不是字符串
+  if (typeof file === 'string') {
+    // 如果是字符串，找到对应的文件对象
+    const fileObj = props.files.find(f =>
+      f.disk_name === file || f.filename === file
+    )
+    if (fileObj) {
+      console.log('🎯 找到文件对象:', fileObj)
+      emit('delete', fileObj)
+    } else {
+      console.error('❌ 未找到对应的文件对象:', file)
+      ElMessage.error('文件信息错误')
+    }
+  } else {
+    // 如果是文件对象，直接传递
+    emit('delete', file)
+  }
+}
+
 const handleCrop = (filename) => emit('crop', filename)
 const handleConvert = (diskName) => emit('convert', diskName)
 const handleBatchCrop = (diskName) => emit('batchCrop', diskName)
@@ -616,7 +643,8 @@ const handleRecognizeNonFinancialTable = async (tableInfo) => {
       output_path: outputPath,
       sheet_name: tableInfo.tableName || `普通表格_${tableInfo.index + 1}`,
       bank_name: '未知机构',
-      file_name: `table_${tableInfo.index + 1}`
+      file_name: `table_${tableInfo.index + 1}`,
+      table_type: 'non_financial'
     })
 
     console.log('普通表格识别响应:', response)
@@ -645,28 +673,32 @@ const handleRecognizeNonFinancialTable = async (tableInfo) => {
   }
 }
 
+
 const handleLLMProcess = async (params) => {
-  let pdfDiskName = ''
-  let taskId = ''
+  console.log('🔍 进入 handleLLMProcess，参数:', params);
+
+  let pdfDiskName = '';
 
   try {
     // 解析参数
-    if (typeof params === 'object' && params !== null) {
-      pdfDiskName = params.pdfName || params.pdfDiskName
-    } else {
-      pdfDiskName = params
+    pdfDiskName = (typeof params === 'object' && params !== null)
+      ? (params.pdfName || params.pdfDiskName)
+      : params;
+
+    if (!pdfDiskName) {
+      throw new Error('缺少PDF文件名参数');
     }
 
-    console.log('🔄 开始批量LLM处理:', { params, pdfDiskName })
+    console.log('🎯 处理PDF文件:', pdfDiskName);
 
     // 设置 loading 状态
-    llmLoading.value[pdfDiskName] = true
+    llmLoading.value[pdfDiskName] = { loading: true, progress: 0 };
 
     // 检查LLM配置状态
-    await checkLLMStatus()
+    await checkLLMStatus();
 
     if (!llmConfigured.value) {
-      const result = await ElMessageBox.confirm(
+      const go = await ElMessageBox.confirm(
         'LLM未配置，请先配置大模型参数后才能进行批量表格识别',
         '提示',
         {
@@ -674,100 +706,248 @@ const handleLLMProcess = async (params) => {
           cancelButtonText: '取消',
           type: 'warning'
         }
-      )
+      ).catch(() => null);
 
-      if (result) {
-        emit('openLLMConfig')
+      if (go) {
+        emit('openLLMConfig');
       }
-      llmLoading.value[pdfDiskName] = false
-      return
+      resetLoadingState(pdfDiskName);
+      return;
     }
 
     // 获取裁切的图片路径
-    const imageResults = safeJoinedResults.value[pdfDiskName]
-    if (!imageResults || imageResults.length === 0) {
-      ElMessage.warning('没有可用的裁切图片进行识别')
-      llmLoading.value[pdfDiskName] = false
-      return
+    const images = safeJoinedResults.value[pdfDiskName];
+    console.log('🔍 图片数组:', images);
+
+    if (!images || images.length === 0) {
+      ElMessage.warning('没有可用的裁切图片进行识别');
+      resetLoadingState(pdfDiskName);
+      return;
     }
 
+    const config = getConfig();
+
     // 转换图片路径
-    const imagePaths = imageResults.map(url => {
-      let processedUrl = url
+    const imagePaths = images.map(url => {
+      let processedUrl = url;
+
+      // 移除完整的URL部分，只保留相对路径
       if (processedUrl.startsWith('http')) {
         try {
-          const urlObj = new URL(processedUrl)
-          processedUrl = urlObj.pathname
+          const urlObj = new URL(processedUrl);
+          processedUrl = urlObj.pathname;
         } catch (error) {
-          processedUrl = processedUrl.replace(/^https?:\/\/[^/]+/, '')
+          processedUrl = processedUrl.replace(/^https?:\/\/[^/]+/, '');
         }
       }
+
+      // 移除基础URL部分
       if (processedUrl.startsWith(config.backend.baseUrl)) {
-        processedUrl = processedUrl.replace(config.backend.baseUrl, '')
+        processedUrl = processedUrl.replace(config.backend.baseUrl, '');
       }
-      processedUrl = processedUrl.replace(/^\//, '')
-      return processedUrl
-    })
+
+      // 确保不以斜杠开头
+      processedUrl = processedUrl.replace(/^\//, '');
+
+      return processedUrl;
+    });
+
+    console.log('🔧 处理后的图片路径:', imagePaths);
 
     // 构建PDF特定的输出目录
-    const pdfStem = pdfDiskName.replace('.pdf', '')
-    const outputDir = `static/excel_data/${pdfStem}`
+    const pdfStem = pdfDiskName.replace('.pdf', '');
+    const outputDir = `static/excel_data/${pdfStem}`;
 
-    // 根据表格类型选择API
-    const currentTableType = params.tableType || tableType.value
+    // 根据表格类型选择API和数据
+    const currentTableType = params.tableType || tableType.value;
     const apiCall = currentTableType === 'financial'
       ? llmApi.batchProcess
-      : llmApi.batchProcessNonFinancial
+      : llmApi.batchProcessNonFinancial;
 
-    console.log('🔄 批量识别 - 表格类型:', currentTableType)
-
-    // 构建请求数据
     const requestData = {
       image_paths: imagePaths,
       output_dir: outputDir,
       bank_name: currentTableType === 'financial' ? '未知银行' : '未知机构',
       table_type: currentTableType
+    };
+
+    console.log('🔄 批量识别请求数据:', {
+      tableType: currentTableType,
+      imageCount: imagePaths.length,
+      outputDir: outputDir,
+      requestData: requestData
+    });
+
+    ElMessage.info(`开始${currentTableType === 'financial' ? '金融' : '普通'}表格批量识别，请等待处理完成...`);
+
+    // ⭐⭐⭐ 关键修复：直接使用 API 返回的数据 ⭐⭐⭐
+    const responseData = await apiCall(requestData);
+    console.log('🔍 API 返回的数据:', responseData);
+
+    // ⭐⭐⭐ 处理普通表格的同步响应 ⭐⭐⭐
+    if (currentTableType === 'non_financial') {
+      console.log('🔄 处理普通表格同步响应');
+
+      // 检查响应格式
+      const excelUrl = responseData?.excel_url;
+
+      if (excelUrl) {
+        console.log('✅ 普通表格同步处理完成，Excel URL:', excelUrl);
+
+        let cleanExcelUrl = excelUrl;
+        if (cleanExcelUrl.includes('?')) {
+          cleanExcelUrl = cleanExcelUrl.split('?')[0];
+        }
+
+        // 确保URL格式正确
+        if (!cleanExcelUrl.startsWith('http') && !cleanExcelUrl.startsWith('/')) {
+          cleanExcelUrl = '/' + cleanExcelUrl;
+        }
+
+        console.log('📤 发送excel-data-received事件:', {
+          excelUrl: cleanExcelUrl,
+          pdfDiskName: pdfDiskName
+        });
+
+        emit('excel-data-received', {
+          excelUrl: cleanExcelUrl,
+          tableName: `普通表格批量结果 - ${pdfDiskName}`,
+          fromCache: responseData?.from_cache || false,
+          tableType: 'non_financial'
+        });
+
+        resetLoadingState(pdfDiskName);
+        ElMessage.success('普通表格批量处理完成！');
+        return;
+      } else {
+        console.warn('⚠️ 普通表格响应中没有找到excel_url:', responseData);
+        throw new Error('普通表格处理失败：未返回Excel文件路径');
+      }
     }
 
-    console.log('🔄 批量识别 - 请求数据:', requestData)
+    // ⭐⭐⭐ 处理金融表格的异步响应 ⭐⭐⭐
+    if (currentTableType === 'financial') {
+      const taskId = responseData?.task_id;
 
-    ElMessage.info('开始批量表格识别，请等待处理完成...')
-
-    // 调用API开始处理
-    const response = await apiCall(requestData)
-    console.log('🔍 批量识别 - API响应:', response)
-
-    // 获取任务ID
-    taskId = response.task_id
-
-    // ⭐⭐⭐ 关键修复：改进响应处理逻辑 ⭐⭐⭐
-    if (response && response.task_id) {
-      // 如果有task_id，说明任务已提交，不管success是true还是false
-      taskId = response.task_id
-      console.log('🎯 获取到任务ID:', taskId)
-
-      // 启动轮询检查任务结果
-      startSimplePolling(taskId, pdfDiskName, currentTableType)
-
-    } else if (response && response.success === false) {
-      // 如果明确失败且没有task_id
-      console.error('❌ API调用明确失败:', response.error)
-      resetLoadingState(pdfDiskName)
-      ElMessage.error(`表格识别失败: ${response.error}`)
-
-    } else {
-      // 其他情况
-      console.warn('⚠️ 无法处理API响应:', response)
-      resetLoadingState(pdfDiskName)
-      ElMessage.error('处理失败：未知响应格式')
+      if (taskId) {
+        console.log('🎯 获取到任务ID，开始轮询:', taskId);
+        startSimplePolling(taskId, pdfDiskName, currentTableType);
+        return;
+      } else {
+        console.warn('⚠️ 金融表格响应中没有找到task_id:', responseData);
+        throw new Error('金融表格处理失败：未返回任务ID');
+      }
     }
+
+    // 无法识别的响应格式
+    console.warn('⚠️ 无法识别的响应格式:', responseData);
+    throw new Error('未知的响应格式，请检查后端API');
 
   } catch (error) {
-    console.error('💥 批量LLM处理失败:', error)
-    ElMessage.error('批量表格识别异常: ' + (error.response?.data?.error || error.message))
-    resetLoadingState(pdfDiskName)
+    console.error('💥 批量处理失败:', error);
+
+    let errorMessage = error.message || '处理异常';
+    if (error.response?.data?.error) {
+      errorMessage = error.response.data.error;
+    } else if (error.data?.error) {
+      errorMessage = error.data.error;
+    }
+
+    ElMessage.error(`批量表格识别失败: ${errorMessage}`);
+
+    // 确保重置loading状态
+    resetLoadingState(pdfDiskName);
   }
 }
+
+
+
+const handleLLMProcess111 = async (params) => {
+
+    console.log('🔍 进入 handleLLMProcess，参数:', params);
+
+
+  try {
+    const pdfDiskName = (typeof params === 'object' && params !== null)
+      ? (params.pdfName || params.pdfDiskName)
+      : params;
+
+
+    llmLoading.value[pdfDiskName] = { loading: true, progress: 0 }   // 0%
+    await checkLLMStatus();
+    if (!llmConfigured.value) {
+      const go = await ElMessageBox.confirm(
+        'LLM 未配置，请先配置大模型参数',
+        '提示', { confirmButtonText: '去配置', cancelButtonText: '取消', type: 'warning' }
+      ).catch(() => null);
+      if (go) emit('openLLMConfig');
+      return;
+    }
+
+    const images = safeJoinedResults.value[pdfDiskName];
+    console.log('🔍 图片数组:', images);
+    if (!images?.length) {
+      ElMessage.warning('没有可用的裁切图片');
+      return;
+    }
+
+    const config = getConfig();
+
+    const imagePaths = images.map(url => {
+      // 去掉域名，只留 /static/joined_tables/...
+      return url.replace('http://localhost:5000', '');
+    });
+
+    const type = params.tableType || tableType.value;
+    const data = {
+      image_paths: imagePaths,
+      output_dir: `static/excel_data/${pdfDiskName.replace('.pdf', '')}`,
+      bank_name: type === 'financial' ? '未知银行' : '未知机构',
+      table_type: type
+    };
+
+
+    ElMessage.info('开始批量表格识别…');
+    // ⬇️⬇️⬇️ 先拿到原始响应，再打印，再解构
+    const response = await (type === 'financial'
+      ? llmApi.batchProcess
+      : llmApi.batchProcessNonFinancial)(data);
+
+    console.log('🔍 原始响应:', response);          // ← 必须看到这一行
+
+    /* ===== 非金融一次性完成兜底 ===== */
+    if (type === 'non_financial' && response?.data?.excel_url) {
+      emit('excel-data-received', {
+        excelUrl : response.data.excel_url,
+        tableName: `普通表格批量结果 - ${pdfDiskName}`,
+        fromCache: response.data.from_cache || false,
+        tableType: 'non_financial'
+      });
+      return;   // 不再往下走轮询
+    }
+    /* ================================= */
+
+    if (!response || typeof response !== 'object') {
+      throw new Error('后端返回为空或格式错误');
+    }
+    const { task_id } = response;
+    if (!task_id) throw new Error('接口未返回任务 ID');
+
+    startSimplePolling(task_id, pdfDiskName, type);
+
+  } catch (e) {
+    console.error('💥 批量处理失败:', e);
+    ElMessage.error(e.message || '处理异常');
+  } finally {
+    resetLoadingState(
+      (typeof params === 'object' && params !== null)
+        ? (params.pdfName || params.pdfDiskName)
+        : params
+    );
+  }
+}
+
+
 
 
 const startSimplePolling = (taskId, pdfDiskName, tableType) => {
@@ -834,6 +1014,20 @@ const startSimplePolling = (taskId, pdfDiskName, tableType) => {
         }
 
         console.log('⏳ 任务处理中...')
+        console.log('📋 原始轮询结果:', response)
+        // ⭐ 取进度
+        const progress = response.data.progress ?? response.data.data?.progress ?? 0
+        console.log('📊 任务状态详情:', { status: response.data.status, progress })
+
+        // ⭐ 把进度写进响应式对象，驱动进度条
+        if (pdfDiskName) {
+          llmLoading.value[pdfDiskName] = {
+            loading: true,
+            progress: progress
+          }
+        }
+
+
 
       } else if (response && response.success === false) {
         // 如果查询任务结果失败
@@ -1167,23 +1361,25 @@ const handleSingleLLMProcess = async (params) => {
 
 
 
-// 检查LLM配置状态 - 修改为更可靠的方法
+// FileList.vue 中的 checkLLMStatus 函数
 const checkLLMStatus = async () => {
   try {
     console.log('🔄 检查LLM配置状态...')
     const response = await llmApi.getStatus()
     console.log('🔍 LLM状态响应:', response)
 
-    if (response.success) {
-      llmConfigured.value = response.data.client_configured
+    if (response && response.success !== undefined) {
+      llmConfigured.value = response.data?.client_configured || false
       console.log(`✅ LLM配置状态: ${llmConfigured.value ? '已配置' : '未配置'}`)
     } else {
-      console.error('❌ 获取LLM状态失败:', response.error)
+      console.error('❌ 获取LLM状态失败: 响应格式错误', response)
       llmConfigured.value = false
+      // 这里不显示错误消息，因为可能是后端路由不存在
     }
   } catch (error) {
     console.error('💥 检查LLM状态失败:', error)
     llmConfigured.value = false
+    // 这里不显示错误消息，因为可能是后端路由不存在
   }
 }
 
@@ -1206,7 +1402,12 @@ watch(pdfFiles, (newPdfs) => {
 })
 
 onMounted(() => {
-  checkLLMStatus()
+  // 延迟检查LLM状态，避免与其他初始化冲突
+  setTimeout(() => {
+    checkLLMStatus().catch(error => {
+      console.warn('LLM状态检查失败（可能是后端未实现）:', error)
+    })
+  }, 1000)
 })
 
 // 监听配置对话框事件

@@ -53,6 +53,7 @@
 import { useRoute, useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { ref, provide } from 'vue'
+import { getApiUrl } from '@/utils/config'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,7 +73,8 @@ const handleSearch = async () => {
   isSearching.value = true
   try {
     // 调用搜索API - 修改为正确的接口路径
-    const response = await fetch(`/api/search-pdf?keyword=${encodeURIComponent(searchKeyword.value)}`)
+    // const response = await fetch(`/api/search-pdf?keyword=${encodeURIComponent(searchKeyword.value)}`)
+    const response = await fetch(getApiUrl(`/search-pdf?keyword=${encodeURIComponent(searchKeyword.value)}`))
     if (response.ok) {
       const data = await response.json()
       searchResults.value = data.files || []

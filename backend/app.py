@@ -5,7 +5,6 @@ DocuVista 主入口
 """
 
 from flask import Flask, send_from_directory
-from flask_cors import CORS
 from backend.api.upload import upload_bp
 from backend.api.file import file_bp
 from backend.api.convert import convert_bp
@@ -16,11 +15,10 @@ from backend.api.llm_routes import llm_bp
 from backend.api.visualization_api import visualization_bp
 from backend.init_file_mapping import init_existing_files_mapping
 
-
-
 # ⭐⭐⭐ 新增：导入WebSocket模块 ⭐⭐⭐
 from backend.api.websocket_routes import websocket_bp, init_websocket
 from backend.models.database_manager import DatabaseManager
+
 
 # ----------- 初始化 Flask -----------
 app = Flask(__name__)
@@ -36,20 +34,8 @@ init_websocket(app)
 _table_processor_instance = None
 _non_financial_table_service = None
 
-# ----------- CORS配置 -----------
-CORS(
-    app,
-    origins=["http://localhost:8080", "http://127.0.0.1:8080"],
-    supports_credentials=True,
-    allow_headers=["*"],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-)
-
 # ----------- 静态文件服务路由 -----------
-@app.route('/static/excel_data/<path:filename>')
-def serve_excel_file(filename):
-    """提供Excel文件访问"""
-    return send_from_directory('static/excel_data', filename)
+# 删除这里的重复定义，或者保留一个
 
 # ----------- 注册蓝图 -----------
 app.register_blueprint(llm_bp, url_prefix='/api')
@@ -59,11 +45,43 @@ app.register_blueprint(convert_bp, url_prefix='/api')
 app.register_blueprint(text_bp)
 app.register_blueprint(visualization_bp)
 
-
 # ⭐⭐⭐ 新增：注册WebSocket蓝图 ⭐⭐⭐
 app.register_blueprint(websocket_bp)
 
+from pathlib import Path
+from flask import send_from_directory
+from backend.utils.constants import MAIN_ROOT, PNG_OUTPUT_ROOT
 
+# 统一的静态文件路由配置 - 只保留这一部分
+app.add_url_rule(
+    '/static/converted/<path:filename>',
+    'converted_png',
+    lambda filename: send_from_directory(
+        Path(MAIN_ROOT) /  PNG_OUTPUT_ROOT,
+        filename
+    )
+)
+
+app.add_url_rule(
+    '/static/joined_tables/<path:filename>',
+    'joined_tables',
+    lambda filename: send_from_directory(
+        Path(MAIN_ROOT) / 'backend' / 'static' / 'joined_tables',
+        filename
+    )
+)
+
+app.add_url_rule(
+    '/static/excel_data/<path:filename>',
+    'serve_excel_file',
+    lambda filename: send_from_directory(
+        Path(MAIN_ROOT) / 'backend' / 'static' / 'excel_data',
+        filename
+    )
+)
+
+# ----------- 移除 app.py 中的 CORS 配置 -----------
+# CORS 配置将在 backend_run.py 中统一处理
 
 # 在 app.py 的启动部分调用
 if __name__ == '__main__':

@@ -49,11 +49,19 @@ def get_task_result(task_id):
 
         if state_manager.task_exists(task_id):
             result = state_manager.get_task_result(task_id)
+
+            # ⭐ 新增：处理中任务把进度带回去
+            if result.get("status") == "running":
+                status_obj = state_manager.get_processing_status(task_id) or {}
+                result["progress"] = status_obj.get("progress", 0)
+
             print(f"✅ 找到任务结果: {result}")
             return {
                 "success": True,
                 "data": result
             }
+
+
         else:
             print(f"❌ 任务不存在: {task_id}")
             return {

@@ -1,140 +1,123 @@
+<script setup>
+import { computed } from 'vue'
+import { getStaticUrl, getFullUrl } from '@/utils/config'
 
-<template>
-  <div class="page-preview">
-    <!-- 左侧 PDF -->
-    <div class="pdf-pane">
-      <iframe
-        :src="pdfUrl"
-        width="100%"
-        height="100%"
-        frameborder="0"
-        @load="onPdfLoad"
-        ref="pdfIframe"
-      ></iframe>
-    </div>
+const props = defineProps({
+  visible: Boolean,
+  folder: String,
+  pngs: Array
+})
 
-    <!-- 右侧当前页 PNG -->
-    <div class="png-pane">
-      <div class="nav-bar">
-        <span>第 {{ currentPage }} / {{ totalPages }} 页</span>
-        <el-button size="mini" @click="$emit('close')">关闭</el-button>
-      </div>
-      <img
-        v-if="pngUrl"
-        :src="pngUrl"
-        style="width: 100%; box-shadow: 0 0 8px rgba(0,0,0,.2)"
-      />
-      <div v-else class="placeholder">滚动 PDF 查看对应 PNG</div>
-    </div>
-  </div>
-</template>
+const emit = defineEmits(['update:visible'])
 
-<script>
-import axios from 'axios'
-import { getBackendUrl, getApiUrl, getStaticUrl } from '@/utils/config'
+// 使用计算属性解决只读问题
+const localVisible = computed({
+  get: () => props.visible,
+  set: (value) => emit('update:visible', value)
+})
 
-export default {
-  props: {
-    pdfName: String,                     // 514001.pdf
-  },
-  data() {
-    return {
-      totalPages: 0,
-      pngs: [],        // ["514001_001.png", ...]
-      currentPage: 1,
-      observer: null,
+// 处理 PDF 名称
+const pdfName = computed(() => {
+  if (!props.folder) return ''
+  return props.folder.replace ? props.folder.replace(/\.pdf$/i, '') : props.folder
+})
+
+// 构建图片 URL - 使用配置工具
+const imageUrls = computed(() => {
+  if (!props.pngs || !Array.isArray(props.pngs)) return []
+
+  return props.pngs.map(png => {
+    if (!png) return ''
+
+    // 使用配置工具构建 URL
+    if (png.startsWith('http')) {
+      return png  // 已经是完整 URL
+    } else if (png.startsWith('/')) {
+      return getFullUrl(png)  // 使用配置的完整路径
+    } else {
+      const folder = props.folder || ''
+      // 使用静态资源 URL 构建工具
+      return getStaticUrl(`converted/${folder}/${png}`)
     }
-  },
-  computed: {
-    pdfUrl() {
-      return getBackendUrl('/file/${this.pdfName}')
-    },
-    pngUrl() {
-      if (!this.pngs.length) return ''
-      const png = this.pngs[this.currentPage - 1]
-      return getBackendUrl(`/png/${this.pdfName.replace('.pdf', '')}/${png}`)
-    },
-  },
-  async mounted() {
-    const { data } = await axios.get(`/pages/${this.pdfName.replace('.pdf','')}`)
-    this.totalPages = data.total
-    this.pngs = data.pngs
-    this.$nextTick(this.listenScroll)
-  },
-  beforeDestroy() {
-    this.observer?.disconnect()
-  },
-  methods: {
-    onPdfLoad() {
-      // PDF 加载完成后注入滚动监听脚本
-      const iframe = this.$refs.pdfIframe
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow.document
-        this.observer = new doc.defaultView.IntersectionObserver(
-          (entries) => {
-            entries.forEach(en => {
-              if (en.isIntersecting) {
-                // 简单策略：第 N 个可见页 => currentPage = N
-                const idx = Array.from(doc.querySelectorAll('div.page'))
-                  .findIndex(p => p === en.target)
-                if (idx >= 0) this.currentPage = idx + 1
-              }
-            })
-          },
-          { root: doc.body, threshold: 0.5 }
-        )
-        doc.querySelectorAll('div.page').forEach(p => this.observer.observe(p))
-      } catch (e) {
-        // 跨域时无法访问 iframe 内容，降级方案：定时器 + 滚动高度估算
-        let lastTop = 0
-        const timer = setInterval(() => {
-          try {
-            const top = iframe.contentWindow?.pageYOffset || 0
-            if (Math.abs(top - lastTop) > 5) {
-              lastTop = top
-              // 按页高估算
-              const pageH = doc.body.scrollHeight / this.totalPages
-              this.currentPage = Math.min(
-                Math.ceil(top / pageH) || 1,
-                this.totalPages
-              )
-            }
-          } catch {
-            clearInterval(timer)
-          }
-        }, 300)
-      }
-    },
-  },
+  })
+})
+
+// 图片加载错误处理
+const handleImageError = (index) => {
+  console.error(`图片加载失败: ${props.pngs?.[index]}`)
+  console.error(`构建的URL: ${imageUrls.value[index]}`)
+}
+
+// 关闭对话框
+const handleClose = () => {
+  localVisible.value = false
 }
 </script>
 
+<template>
+  <el-dialog
+    v-model="localVisible"
+    title="PDF页面预览"
+    width="90%"
+    top="5vh"
+    @close="handleClose"
+  >
+    <div class="pdf-preview-container">
+      <div
+        v-for="(url, index) in imageUrls"
+        :key="index"
+        class="page-item"
+      >
+        <div class="page-number">第 {{ index + 1 }} 页</div>
+        <img
+          v-if="url"
+          :src="url"
+          :alt="`Page ${index + 1}`"
+          class="page-image"
+          @error="handleImageError(index)"
+        />
+        <div v-else class="image-error">图片加载失败</div>
+      </div>
+    </div>
+
+    <template #footer>
+      <el-button @click="handleClose">关闭</el-button>
+    </template>
+  </el-dialog>
+</template>
+
 <style scoped>
-.page-preview {
-  display: flex;
-  height: 100%;
+.pdf-preview-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
 }
-.pdf-pane {
-  flex: 1;
-  border-right: 1px solid #e6e6e6;
+
+.page-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 8px;
+  background: #fafafa;
 }
-.png-pane {
-  width: 50%;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
+
+.page-number {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #606266;
 }
-.nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+
+.page-image {
+  width: 100%;
+  height: auto;
+  display: block;
 }
-.placeholder {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #909399;
+
+.image-error {
+  text-align: center;
+  color: #f56c6c;
+  padding: 20px;
 }
 </style>

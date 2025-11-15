@@ -1,14 +1,47 @@
 # -*- coding:utf-8 -*-
 
 import os
+from pathlib import Path
+
 MAIN_ROOT = os.getcwd()
 print("MAIN_ROOT:, MAIN_ROOT", MAIN_ROOT)
-UPLOAD_FOLDER = 'static/uploads'
-PNG_OUTPUT_ROOT = 'static/pdf2pngs'
-EXCEL_OUTPUT_ROOT = 'static/excel_data'
-DATABASE = 'data/database.db'
+
+# 静态文件路径配置
+UPLOAD_FOLDER = r'backend/static/uploads'
+PNG_OUTPUT_ROOT = r'backend/static/pdf2pngs'
+EXCEL_OUTPUT_ROOT = r'backend/static/excel_data'
+JOINED_TABLES_ROOT = r'backend/static/joined_tables'
+DATABASE = r'backend/data/database.db'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
+# ⭐⭐⭐ 新增：完整的静态文件路径常量 ⭐⭐⭐
+# 使用Path对象确保跨平台兼容性
+STATIC_DIR = Path(MAIN_ROOT) / "backend" / "static"
+EXCEL_DATA_DIR = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT
+UPLOAD_DIR = Path(MAIN_ROOT) / UPLOAD_FOLDER
+PNG_OUTPUT_DIR = Path(MAIN_ROOT) / PNG_OUTPUT_ROOT
+JOINED_TABLES_DIR = Path(MAIN_ROOT) / JOINED_TABLES_ROOT
+DATABASE_PATH = Path(MAIN_ROOT) / DATABASE
+
+# ⭐⭐⭐ 新增：API路由路径常量 ⭐⭐⭐
+API_EXCEL_DATA_PREFIX = "/api/excel-data"
+API_STATIC_PREFIX = "/api/static"
+STATIC_CONVERTED_PREFIX = "/static/converted"
+
+# ⭐⭐⭐ 新增：文件夹路径常量 ⭐⭐⭐
+CONVERTED_IMAGES_DIR = PNG_OUTPUT_DIR  # 转换后的图片目录
+LAYOUT_OUTPUT_DIR = STATIC_DIR / "layout_output"  # 版面分析输出目录
+CROPPED_TABLES_DIR = STATIC_DIR / "cropped_tables"  # 裁剪表格目录
+
+# 在 constants.py 中添加
+EXCEL_DATA_URL_PREFIX = "/api/excel-data"
+EXCEL_DATA_RELATIVE_PATH = "static/excel_data"
+
+# 确保所有目录存在
+for directory in [STATIC_DIR, EXCEL_DATA_DIR, UPLOAD_DIR, PNG_OUTPUT_DIR,
+                  JOINED_TABLES_DIR, LAYOUT_OUTPUT_DIR, CROPPED_TABLES_DIR]:
+    directory.mkdir(parents=True, exist_ok=True)
+    print(f"✅ 确保目录存在: {directory}")
 
 # constants.py 中增加以下内容
 

@@ -120,15 +120,48 @@ onMounted(async () => {
 async function loadFiles() {
   try {
     files.value = await getFiles()
-    console.log('📁 加载的文件列表:', files.value) // 添加调试日志
+    console.log('📁 加载的文件列表:', files.value)
+
+    // 检查文件URL是否可访问
+    if (files.value.length > 0) {
+      const firstFile = files.value[0]
+      console.log('🔗 第一个文件的下载URL:', `/api/file/${firstFile.disk_name}`)
+
+      // 测试文件访问
+      try {
+        const testResponse = await fetch(`/api/file-info/${firstFile.disk_name}`)
+        console.log('✅ 文件访问测试:', testResponse.ok)
+      } catch (error) {
+        console.error('❌ 文件访问测试失败:', error)
+      }
+    }
   } catch (error) {
     console.error('加载文件失败:', error)
     ElMessage.error('加载文件失败')
   }
 }
 
-async function deleteFile(filename) {
+
+async function deleteFile(file) {
   try {
+    console.log('🔍 删除文件函数被调用，参数:', file)
+
+    // 检查参数类型并获取正确的文件名
+    let filenameToDelete
+    if (typeof file === 'string') {
+      filenameToDelete = file
+    } else if (file && file.disk_name) {
+      filenameToDelete = file.disk_name
+    } else if (file && file.filename) {
+      filenameToDelete = file.filename
+    } else {
+      console.error('❌ 无效的文件参数:', file)
+      ElMessage.error('文件信息无效')
+      return
+    }
+
+    console.log('🎯 实际要删除的文件名:', filenameToDelete)
+
     await ElMessageBox.confirm(
       '确定删除该文件吗？',
       '删除确认',
@@ -138,24 +171,30 @@ async function deleteFile(filename) {
         type: 'warning'
       }
     )
-    await delApi(filename)
+
+    await delApi(filenameToDelete)
     ElMessage.success('已删除')
     await loadFiles()
   } catch (err) {
     if (err !== 'cancel') {
+      console.error('❌ 删除失败:', err)
       ElMessage.error('删除失败：' + (err.response?.data?.error || err.message))
     }
   }
 }
+
 
 async function cutTable(filename) {
   const { zones } = await useCrop(filename, cropLoading, cutResults)
   if (zones) ElMessage.success(`已裁切 ${zones} 个表格`)
 }
 
-async function convertAndPreview(pdfDiskName) {
-  const cacheKey = pdfDiskName.replace('.pdf', '')
 
+
+async function convertAndPreview(pdfDiskName) {
+  console.log('🔄 开始转图预览，文件名:', pdfDiskName)
+
+  const cacheKey = pdfDiskName.replace('.pdf', '')
   convertingObj.value[pdfDiskName] = true
   progressVisible.value = true
   progressPercent.value = 0
@@ -174,7 +213,12 @@ async function convertAndPreview(pdfDiskName) {
 
   try {
     progressMsg.value = '正在提交任务...'
-    const { data } = await axios.post(getBackendUrl(`/api/convert-pdf-async/${pdfDiskName}`))
+
+    // 使用相对路径，让代理处理
+    console.log('🔗 调用转图API:', `/api/convert-pdf-async/${pdfDiskName}`)
+
+    const { data } = await axios.post(`/api/convert-pdf-async/${pdfDiskName}`)
+
     if (data.hitCache) {
       convertCache.value[cacheKey] = data.pngs
       previewFolder.value = pdfDiskName.replace(/\.pdf$/i, '')
@@ -185,8 +229,10 @@ async function convertAndPreview(pdfDiskName) {
       delete convertingObj.value[pdfDiskName]
       return
     }
+
     progressMsg.value = '任务已提交，正在转图...'
     await pollProgress(data.jobId)
+
     if (progressStatus.value === 'success') {
       const list = await getPngList(pdfDiskName.replace(/\.pdf$/i, ''))
       convertCache.value[cacheKey] = list.pngs
@@ -198,12 +244,15 @@ async function convertAndPreview(pdfDiskName) {
       ElMessage.error('转图失败：' + progressMsg.value)
     }
   } catch (e) {
-    ElMessage.error('请求失败：' + (e.response?.data?.error || e.message))
+    console.error('❌ 转图请求失败:', e)
+    ElMessage.error('转图请求失败：' + (e.response?.data?.error || e.message))
   } finally {
     convertingObj.value[pdfDiskName] = false
     delete convertingObj.value[pdfDiskName]
   }
 }
+
+
 
 async function handleBatchCrop(pdfDiskName) {
   console.log('开始批量裁切:', pdfDiskName)
@@ -341,9 +390,7 @@ async function handleExcelDataReceived(excelInfo) {
     await new Promise(resolve => setTimeout(resolve, 100))
 
     let finalExcelUrl = excelInfo.excelUrl
-    if (finalExcelUrl.includes('/static/excel_data/')) {
-      finalExcelUrl = finalExcelUrl.replace('/static/excel_data/', '/api/excel-data/')
-    }
+
 
     if (finalExcelUrl.includes('?')) {
       finalExcelUrl = finalExcelUrl.split('?')[0]

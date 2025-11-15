@@ -10,10 +10,9 @@ class AssessmentResult(BaseModel):
     is_financial_table: bool = True
 
 
-# 在 backend/schemas/table_schemas.py 中确保 ProcessingResult 有 df 字段
 class ProcessingResult:
     def __init__(self, status: str, complexity: str, mode: str, assessment_reason: str,
-                 table_name: str, table_type: str, df: pd.DataFrame = None, error_message: str = ""):
+                 table_name: str, table_type: str, df: pd.DataFrame = None, error_message: str = "", excel_url: str = ""):
         self.status = status
         self.complexity = complexity
         self.mode = mode
@@ -22,6 +21,8 @@ class ProcessingResult:
         self.table_type = table_type
         self.df = df  # ⭐⭐⭐ 确保有这个字段 ⭐⭐⭐
         self.error_message = error_message
+        self.excel_url = excel_url  # 添加 excel_url 字段，默认为空字符串
+
 
 class TableData(BaseModel):
     bank_name: str

@@ -124,20 +124,26 @@ export const llmApi = {
 
   exportVisualizationReport,
 
-  // 批量处理
-  batchProcess: async (data) => {
-    try {
-      const response = await http.post('/api/llm/batch-process', data)
-      return response.data
-    } catch (error) {
-      console.error('❌ batchProcess 错误:', error)
-      return {
-        success: false,
-        error: '批量处理失败',
-        message: error.message
+
+  // 确保所有 API 方法都返回完整的响应对象
+    batchProcess: async (data) => {
+      try {
+        console.log('🔄 batchProcess 请求:', data)
+        const response = await http.post('/api/llm/batch-process', data)
+        console.log('✅ batchProcess 完整响应:', response)
+        return response
+      } catch (error) {
+        console.error('❌ batchProcess 错误:', error)
+        return {
+          data: {
+            success: false,
+            error: '批量处理失败',
+            message: error.response?.data?.error || error.message
+          }
+        }
       }
-    }
-  },
+    },
+
 
   // 测试连接
   testConnection: async (data) => {
@@ -154,20 +160,23 @@ export const llmApi = {
     }
   },
 
-  // 获取状态
-  getStatus: async () => {
-    try {
-      const response = await http.get('/api/llm/status')
-      return response.data
-    } catch (error) {
-      console.error('❌ getStatus 错误:', error)
-      return {
-        success: false,
-        error: '获取状态失败',
-        message: error.message
-      }
+  // @/api/llm.js 中的 getStatus 函数
+getStatus: async () => {
+  try {
+    console.log('🔄 获取LLM状态...')
+    const response = await http.get('/api/llm/status')
+    console.log('✅ LLM状态响应:', response)
+    return response
+  } catch (error) {
+    console.error('❌ 获取LLM状态失败:', error)
+    // 确保返回一个有效的错误对象
+    return {
+      success: false,
+      error: '获取状态失败',
+      message: error.response?.data?.error || error.message || '未知错误'
     }
-  },
+  }
+},
 
 
 
@@ -262,22 +271,32 @@ getExcelContent: async (excelUrl) => {
     }
   },
 
-  // 只添加这个缺失的 API
-    batchProcessNonFinancial: async (data) => {
-      try {
-        console.log('🔄 batchProcessNonFinancial 请求:', data)
-        const response = await http.post('/api/llm/batch-process-non-financial', data)
-        console.log('✅ batchProcessNonFinancial 响应:', response.data)
 
-        // ⭐⭐⭐ 关键修复：无论success是true还是false，都返回完整响应 ⭐⭐⭐
-        return response.data
-      } catch (error) {
-        console.error('❌ batchProcessNonFinancial 错误:', error)
-        return {
-          success: false,
-          error: '批量处理失败',
-          message: error.response?.data?.error || error.message
-        }
-      }
+  // 修复后的 batchProcessNonFinancial 方法
+  batchProcessNonFinancial: async (data) => {
+  try {
+    console.log('🔄 batchProcessNonFinancial 请求:', data)
+
+    console.log('🔍 开始发送HTTP请求...')
+
+    const response = await http.post('/api/llm/batch-process-non-financial', data)
+
+    console.log('🔍 完整响应对象:', response)
+    console.log('🔍 响应对象类型:', typeof response)
+    console.log('🔍 响应对象键:', Object.keys(response))
+
+    // 关键修复：直接返回整个响应对象
+    // 因为后端返回的已经是数据本身，不是包装的axios响应
+    console.log('✅ 直接返回响应对象')
+    return response
+
+  } catch (error) {
+    console.error('❌ HTTP请求失败:', error)
+    return {
+      success: false,
+      error: '批量处理失败'
     }
+  }
+}
+
 }

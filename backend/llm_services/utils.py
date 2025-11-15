@@ -3,8 +3,8 @@
 import time
 from pathlib import Path
 
-import logging
-
+# ⭐⭐⭐ 新增：导入路径常量 ⭐⭐⭐
+from backend.utils.constants import EXCEL_DATA_URL_PREFIX, EXCEL_DATA_RELATIVE_PATH, EXCEL_DATA_DIR
 
 def validate_required_params(data, required_fields):
     """验证必要参数 - 函数体不变"""
@@ -17,39 +17,58 @@ def validate_required_params(data, required_fields):
 def convert_to_excel_url(file_path):
     """将文件路径转换为Excel URL"""
     file_path = file_path.replace('\\', '/')
-
     print(f"🔧 转换Excel路径: {file_path}")
 
+    # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
+    # 初始化相对路径
+    relative_path = ""
+
     # 处理各种可能的路径格式
-    if 'static/excel_data/' in file_path:
+    excel_data_marker = f"{EXCEL_DATA_RELATIVE_PATH}/"
+    if excel_data_marker in file_path:
         # 提取相对路径部分
-        parts = file_path.split('static/excel_data/')
+        parts = file_path.split(excel_data_marker)
         if len(parts) > 1:
             relative_path = parts[1]
-            return f"/api/excel-data/{relative_path}"
 
     # 如果路径已经是相对路径
-    if file_path.startswith('static/excel_data/'):
-        relative_path = file_path.replace('static/excel_data/', '')
-        return f"/api/excel-data/{relative_path}"
+    elif file_path.startswith(excel_data_marker):
+        relative_path = file_path.replace(excel_data_marker, '')
 
-    # 回退方案：从路径中提取文件夹和文件名
-    path_obj = Path(file_path)
-    if path_obj.parts:
-        # 查找 static/excel_data 在路径中的位置
+    else:
+        # 从路径对象中提取
+        path_obj = Path(file_path)
+
+        # 查找 excel_data 在路径中的位置
         try:
-            excel_data_index = path_obj.parts.index('static') + 1
-            if excel_data_index < len(path_obj.parts):
-                relative_parts = path_obj.parts[excel_data_index:]
-                relative_path = '/'.join(relative_parts)
-                return f"/api/excel-data/{relative_path}"
-        except ValueError:
+            if 'excel_data' in path_obj.parts:
+                excel_data_index = path_obj.parts.index('excel_data')
+                if excel_data_index + 1 < len(path_obj.parts):
+                    relative_parts = path_obj.parts[excel_data_index + 1:]
+                    relative_path = '/'.join(relative_parts)
+        except (ValueError, IndexError):
             pass
 
-    # 最终回退：直接使用文件名
-    file_name = Path(file_path).name
-    folder_name = Path(file_path).parent.name
-    return f"/api/excel-data/{folder_name}/{file_name}"
+        # 如果上述方法都没找到，使用回退方案
+        if not relative_path:
+            # ⭐⭐⭐ 修复：使用常量路径进行相对路径计算 ⭐⭐⭐
+            try:
+                relative_path = str(Path(file_path).relative_to(EXCEL_DATA_DIR))
+                relative_path = relative_path.replace('\\', '/')
+            except ValueError:
+                # 如果不在EXCEL_DATA_DIR下，使用文件名
+                file_name = Path(file_path).name
+                folder_name = Path(file_path).parent.name
+                relative_path = f"{folder_name}/{file_name}"
+
+    # 清理路径（移除开头的斜杠）
+    relative_path = relative_path.lstrip('/')
+
+    # ⭐⭐⭐ 修复：使用常量URL前缀 ⭐⭐⭐
+    excel_url = f"{EXCEL_DATA_URL_PREFIX}/{relative_path}"
+    print(f"✅ 生成的Excel URL: {excel_url}")
+
+    return excel_url
 
 
 def ensure_excel_file_exists(file_path, processing_results=None):
@@ -107,6 +126,12 @@ def create_empty_excel_file(file_path, processing_results=None):
     except Exception as e:
         print(f"❌ 创建空Excel文件失败: {str(e)}")
         return False
+
+
+
+
+
+
 
 
 def export_processing_results_to_excel(file_path, results_data):

@@ -2,8 +2,32 @@
 
 from pathlib import Path
 from flask import request, jsonify, send_from_directory
+from backend.utils.constants import EXCEL_DATA_DIR
 
 from backend.llm_services.task_management_service import logger
+
+def serve_excel_data(excel_path):
+    """提供Excel文件数据访问"""
+    try:
+        # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
+        file_path = EXCEL_DATA_DIR / excel_path
+
+        if not file_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"Excel文件不存在: {excel_path}"
+            }), 404
+
+        # ⭐⭐⭐ 修复：使用正确的目录和文件名 ⭐⭐⭐
+        return send_from_directory(EXCEL_DATA_DIR, excel_path)
+
+    except Exception as e:
+        logger.error(f"提供Excel文件失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"文件访问失败: {str(e)}"
+        }), 500
+
 
 def check_excel_internal():
     """检查Excel文件是否存在"""
@@ -153,30 +177,6 @@ def get_excel_data_internal():
             "error": f"读取Excel数据失败: {str(e)}"
         }), 500
 
-
-def serve_excel_data(excel_path):
-    """提供Excel文件数据访问"""
-    try:
-        # 构建完整的文件路径
-        file_path = Path("static/excel_data") / excel_path
-
-        if not file_path.exists():
-            return jsonify({
-                "success": False,
-                "error": f"Excel文件不存在: {excel_path}"
-            }), 404
-
-        # 返回文件
-        return send_from_directory('static/excel_data', excel_path)
-
-    except Exception as e:
-        logger.error(f"提供Excel文件失败: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"文件访问失败: {str(e)}"
-        }), 500
-
-
 def get_excel_content_internal(excel_url):
     """读取Excel文件内容并返回结构化数据 - 修复版本"""
     try:
@@ -199,43 +199,35 @@ def get_excel_content_internal(excel_url):
         file_path = None
 
         if excel_url.startswith('/api/excel-data/'):
+            # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
             # 格式: /api/excel-data/{folder}/{filename}
             relative_path = excel_url.replace('/api/excel-data/', '')
-            file_path = Path("static/excel_data") / relative_path
+            file_path = EXCEL_DATA_DIR / relative_path
             print(f"🔍 转换路径1: {file_path}")
         elif excel_url.startswith('/static/excel_data/'):
+            # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
             # 格式: /static/excel_data/{folder}/{filename}
             relative_path = excel_url.replace('/static/excel_data/', '')
-            file_path = Path("static/excel_data") / relative_path
+            file_path = EXCEL_DATA_DIR / relative_path
             print(f"🔍 转换路径2: {file_path}")
         else:
             # 直接使用路径
             file_path = Path(excel_url)
             print(f"🔍 直接使用路径: {file_path}")
 
-        # 确保是绝对路径
-        if not file_path.is_absolute():
-            file_path = Path.cwd() / file_path
-
+        # ⭐⭐⭐ 修复：不再需要转换为绝对路径，因为EXCEL_DATA_DIR已经是绝对路径 ⭐⭐⭐
         print(f"🔍 最终文件路径: {file_path}")
         print(f"🔍 文件是否存在: {file_path.exists()}")
 
         if not file_path.exists():
-            # 尝试在static目录下查找
-            static_path = Path("static") / file_path
-            if static_path.exists():
-                file_path = static_path
-                print(f"✅ 在static目录找到文件: {static_path}")
-            else:
-                print(f"❌ 文件不存在，尝试的路径:")
-                print(f"   - {file_path}")
-                print(f"   - {static_path}")
-                return {
-                    "success": False,
-                    "error": f"Excel文件不存在: {file_path}"
-                }
+            print(f"❌ 文件不存在，尝试的路径:")
+            print(f"   - {file_path}")
+            return {
+                "success": False,
+                "error": f"Excel文件不存在: {file_path}"
+            }
 
-        # 读取Excel文件内容...
+        # 读取Excel文件内容
         import openpyxl
         print("&****************file_path&&:", file_path)
 

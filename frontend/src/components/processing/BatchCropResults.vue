@@ -18,13 +18,13 @@ const props = defineProps({
     type: String,
     default: 'financial'
   },
-  llmLoading: {  // ⭐⭐⭐ 添加 llmLoading prop ⭐⭐⭐
-    type: Boolean,
-    default: false
+  llmLoading: {
+    type:  Object,
+    default: () => ({})
   }
 })
 
-const emit = defineEmits(['open-config', 'preview-image', 'llm-process', 'single-llm-process', 'clear-cache', 'force-reset-loading', 'task-completed'])
+const emit = defineEmits(['open-config', 'preview-image', 'llm-process', 'single-llm-process', 'clear-cache', 'force-reset-loading', 'task-completed', 'update:llmLoading' ])
 
 // LLM相关状态
 const batchLlmLoading = ref(false)
@@ -144,28 +144,32 @@ const extractImageName = (imgUrl) => {
   }
 }
 
-// LLM配置状态检查函数
+// 在 BatchCropResults.vue 中修复错误处理
 const checkLLMStatus = async () => {
   try {
-    console.log('🔄 BatchCropResults 检查LLM配置状态...')
+    console.log('🔄 BatchCropResults 检查LLM状态...')
     const response = await llmApi.getStatus()
-    console.log('🔍 BatchCropResults LLM状态响应:', response)
 
-    if (response.success) {
-      llmConfigured.value = response.data.client_configured
-      console.log(`✅ BatchCropResults LLM配置状态: ${llmConfigured.value ? '已配置' : '未配置'}`)
+    if (response && typeof response === 'object') {
+      if (response.success) {
+        llmConfigured.value = response.data?.client_configured || false
+        console.log(`✅ BatchCropResults LLM状态: ${llmConfigured.value ? '已配置' : '未配置'}`)
+      } else {
+        console.warn('⚠️ LLM状态检查返回失败:', response.error)
+        llmConfigured.value = false
+      }
     } else {
-      console.error('❌ BatchCropResults 获取LLM状态失败:', response.error)
+      console.warn('⚠️ LLM状态响应格式异常:', response)
       llmConfigured.value = false
     }
   } catch (error) {
-    console.error('💥 BatchCropResults 检查LLM状态失败:', error)
+    console.warn('⚠️ BatchCropResults 检查LLM状态异常（可能是后端路由不存在）:', error.message)
     llmConfigured.value = false
   }
 }
 
 // 在 BatchCropResults.vue 中
-const handleBatchLLMProcess = async () => {
+const handleBatchLLMProcess11 = async () => {
   try {
 
     console.log('🔄 BatchCropResults - 开始批量LLM处理')
@@ -221,6 +225,32 @@ const handleBatchLLMProcess = async () => {
   }
 }
 
+
+// 更新本 PDF 的 loading / progress 并同步给父组件
+const setLLMLoading = (loading, progress = 0) => {
+  const newVal = {
+    ...props.llmLoading,
+    [props.pdf.disk_name]: { loading, progress }
+  }
+  emit('update:llmLoading', newVal)
+}
+
+const handleBatchLLMProcess = async () => {
+  setLLMLoading(true, 0)          // 开始
+  try {
+    await checkLLMStatus()
+    if (!llmConfigured.value) {
+      setLLMLoading(false, 0)     // 用户取消
+      return
+    }
+    emit('llm-process', {
+      pdfName: props.pdf.disk_name,
+      tableType: props.tableType
+    })
+  } catch (e) {
+    setLLMLoading(false, 0)       // 异常结束
+  }
+}
 
 // 添加手动重置按钮用于调试
 const forceReset = () => {
@@ -422,16 +452,24 @@ onMounted(() => {
       </el-button>
 
       <!-- 大模型表格识别按钮 -->
-      <el-button
-        type="success"
-        size="small"
-        icon="el-icon-cpu"
-        @click="handleBatchLLMProcess"
-        :loading="batchLlmLoading"
-        :disabled="!llmConfigured || batchLlmLoading"
-      >
-        {{ batchLlmLoading ? '处理中...' : '大模型表格识别' }}
-      </el-button>
+        <el-button
+          type="success"
+          size="small"
+          icon="el-icon-cpu"
+          @click="handleBatchLLMProcess"
+          :loading="llmLoading[pdf.disk_name]?.loading || false"
+          :disabled="!llmConfigured || (llmLoading[pdf.disk_name]?.loading || false)"
+        >
+          {{ llmLoading[pdf.disk_name]?.loading ? '处理中...' : '大模型表格识别' }}
+        </el-button>
+
+        <!-- 实时进度条 -->
+        <el-progress
+          v-if="llmLoading[pdf.disk_name]?.loading"
+          :percentage="llmLoading[pdf.disk_name].progress || 0"
+          :stroke-width="6"
+          style="width:120px;margin-left:8px"
+        />
 
 
       <!-- 调试信息显示 -->

@@ -77,6 +77,10 @@ def concat_images_vertically(img_paths: List[Path], out_path: Path) -> Path:
     return out_path
 
 
+
+
+
+
 def batch_cut_tables(
         pdf_folder: str,
         png_names: List[str],
@@ -84,18 +88,25 @@ def batch_cut_tables(
         confidence_threshold: float = 0.5
 ):
     """
-    修复版本：严格遵循相邻图片拼接逻辑，避免错误拼接
+    修正路径：joined_tables 应该在 static 下面，而不是在 pdf2pngs 里面
     """
     try:
         output_root = Path(output_root)
         layout_res = {}
 
-        # 目录常量
-        JOINED_ROOT = Path("static/joined_tables")
-        CROP_ROOT = Path("static/cropped_tables")
-        LAYOUT_ROOT = Path("static/layout_result")
+        print(f"🔍 输出根目录: {output_root}")
 
-        crop_out_root = CROP_ROOT / pdf_folder
+        # 修正路径：joined_tables 应该在 static 目录下
+        # 获取 static 目录的父目录
+        static_parent = output_root.parent  # backend/static/pdf2pngs -> backend/static
+        JOINED_ROOT = static_parent / "joined_tables" / pdf_folder
+        CROP_ROOT = static_parent / "cropped_tables" / pdf_folder
+        LAYOUT_ROOT = static_parent / "layout_result" / pdf_folder
+
+        print(f"🔍 拼接目录: {JOINED_ROOT}")
+        print(f"🔍 裁切目录: {CROP_ROOT}")
+
+        crop_out_root = CROP_ROOT
         crop_out_root.mkdir(parents=True, exist_ok=True)
 
         # 按页码排序处理
@@ -173,13 +184,16 @@ def batch_cut_tables(
         final_joined_tables = process_table_groups(table_groups, JOINED_ROOT, pdf_folder)
 
         # 第三步：获取拼接文件夹中的所有图片文件
-        joined_folder = JOINED_ROOT / pdf_folder
+        joined_folder = JOINED_ROOT
         joined_images = []
         if joined_folder.exists():
             # 获取所有PNG文件并按名称排序
             for img_file in sorted(joined_folder.glob("*.png")):
+                # 修正路径：返回正确的相对路径
+                # 格式：joined_tables/<pdf_folder>/<filename>
                 relative_path = f"joined_tables/{pdf_folder}/{img_file.name}"
                 joined_images.append(relative_path)
+                print(f"✅ 找到表格文件: {relative_path}")
 
         # 构建最终返回结果
         final_response = {
@@ -187,22 +201,19 @@ def batch_cut_tables(
             "message": f"批量处理完成，成功生成 {len(joined_images)} 个表格文件",
             "data": {
                 "total": len(joined_images),
-                "joined": joined_images,  # 返回具体的文件路径列表
-                "joined_tables_folder": str(joined_folder.absolute())  # 新增：绝对路径地址
+                "joined": joined_images,
+                "joined_tables_folder": str(joined_folder.absolute())
             },
             "details": {
                 "pdf_folder": pdf_folder,
                 "processed_pages": len(sorted_pngs),
                 "total_tables": len(final_joined_tables),
-                "absolute_path": str(joined_folder.absolute())  # 或者在details中也放一份
+                "absolute_path": str(joined_folder.absolute())
             }
         }
 
         print(f"\n🎉 处理完成!")
         print(f"最终生成 {len(joined_images)} 个表格文件")
-        print(f"拼接图片列表: {joined_images}")
-
-        print("final_response:", final_response)
 
         return final_response
 
@@ -216,6 +227,7 @@ def batch_cut_tables(
             "error": f"处理失败: {str(e)}",
             "message": "批量裁切处理异常"
         }
+
 
 
 def strict_adjacent_grouping(all_page_tables: Dict) -> Dict[int, List[Tuple[str, Path]]]:
@@ -336,7 +348,7 @@ def strict_adjacent_grouping(all_page_tables: Dict) -> Dict[int, List[Tuple[str,
 
 def process_table_groups(table_groups: Dict[int, List[Tuple[str, Path]]],
                          join_root: Path, pdf_folder: str) -> Dict[int, Path]:
-    """处理表格组，进行拼接和最终保存"""
+    """处理表格组，进行拼接和最终保存 - 修正路径嵌套问题"""
     final_tables = {}
 
     for table_idx, table_list in table_groups.items():
@@ -348,7 +360,8 @@ def process_table_groups(table_groups: Dict[int, List[Tuple[str, Path]]],
         if len(table_list) == 1:
             # 单页表格，直接复制
             _, table_path = table_list[0]
-            final_path = join_root / pdf_folder / table_path.name
+            # 修正：不要再加 pdf_folder，join_root 已经包含了
+            final_path = join_root / table_path.name  # ✅ 正确！
             final_path.parent.mkdir(parents=True, exist_ok=True)
 
             if not final_path.exists():
@@ -362,7 +375,8 @@ def process_table_groups(table_groups: Dict[int, List[Tuple[str, Path]]],
         else:
             # 多页表格，需要拼接
             image_paths = [table_path for _, table_path in table_list]
-            final_path = join_root / pdf_folder / f"table_{table_idx}_joined.png"
+            # 修正：不要再加 pdf_folder，join_root 已经包含了
+            final_path = join_root / f"table_{table_idx}_joined.png"  # ✅ 正确！
             final_path.parent.mkdir(parents=True, exist_ok=True)
 
             if not final_path.exists():
@@ -374,8 +388,6 @@ def process_table_groups(table_groups: Dict[int, List[Tuple[str, Path]]],
             final_tables[table_idx] = final_path
 
     return final_tables
-
-
 
 
 # 保持向后兼容的导出

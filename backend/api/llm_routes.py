@@ -62,6 +62,7 @@ from backend.llm_services.utils import (
     convert_to_excel_url
 )
 
+from backend.utils.constants import EXCEL_DATA_DIR, STATIC_DIR
 
 # 路由定义部分保持不变，只是函数实现移到服务模块
 @llm_bp.route('/llm/test-connection', methods=['POST'])
@@ -128,10 +129,7 @@ def get_excel_data():
     result = get_excel_data_internal(excel_url)
     return jsonify(result)
 
-@llm_bp.route('/excel-data/<path:excel_path>')
-def serve_excel_data_route(excel_path):
-    """提供Excel文件数据访问"""
-    return serve_excel_data(excel_path)
+
 
 @llm_bp.route('/llm/get-excel-content', methods=['GET'])
 def get_excel_content():
@@ -169,32 +167,10 @@ def check_llm_config_route():
 
 
 
-@llm_bp.route('/llm/process-non-financial-table1', methods=['POST'])
-def process_non_financial_table1():
-    """处理普通表格"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                "success": False,
-                "error": "请求体不能为空",
-                "message": "请求体不能为空"
-            }), 400
-
-        # 调用对应的服务函数
-        result = asyncio.run(_process_non_financial_table(data))
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"处理普通表格错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"处理普通表格错误: {str(e)}",
-            "message": f"处理异常: {str(e)}"
-        }), 500
 
 # 批量处理路由
-@llm_bp.route('/llm/batch-process', methods=['POST'])
-def batch_process_images_route():
+@llm_bp.route('/llm/batch-process1', methods=['POST'])
+def batch_process_images_route1():
     """批量处理图片 - 立即返回任务ID"""
     try:
         data = request.get_json()
@@ -239,159 +215,59 @@ def batch_process_images_route():
             "error": f"批量处理错误: {str(e)}"
         }), 500
 
+
+import threading
+@llm_bp.route('/llm/batch-process', methods=['POST'])
+def batch_process_financial():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体不能为空"}), 400
+
+    data['table_type'] = 'financial'
+    task_id = str(uuid.uuid4())
+
+    threading.Thread(target=_batch_process_images_sync, args=(data, task_id), daemon=True).start()
+    print("🔍 后端返回任务ID:", task_id)
+    return jsonify({"task_id": task_id}), 200
+
+
 @llm_bp.route('/llm/batch-process-non-financial', methods=['POST'])
-def batch_process_non_financial_images_route():
-    """批量处理普通表格 - 同步处理"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                "success": False,
-                "error": "请求体不能为空"
-            }), 400
+def batch_process_non_financial():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "请求体不能为空"}), 400
 
-        # 强制设置表格类型
-        data['table_type'] = 'non_financial'
-        print(f"🔄 普通表格批量处理 - 图片数量: {len(data.get('image_paths', []))}")
+    data['table_type'] = 'non_financial'
+    task_id = str(uuid.uuid4())
 
-        # 立即生成任务ID并返回
-        task_id = str(uuid.uuid4())
+    # 同步跑完（里面已 set_task_result）
+    _batch_process_images_sync(data, task_id)
 
-        # ⭐⭐⭐ 同步调用 ⭐⭐⭐
-        _batch_process_images_sync(data, task_id)
+    # 立即拿结果
+    result = get_task_result(task_id)
+    if result["success"]:
+        inner_data = result["data"]["data"]
+        return_data = {
+            "excel_url": inner_data.get("excel_url", ""),
+            "from_cache": inner_data.get("from_cache", False),
+            "table_type": "non_financial"
+        }
+        print(f"🚀 实际 return 结构: {return_data}")  # ← 新增
+        return jsonify(return_data), 200
 
-        print(f"🎯 同步处理完成，任务ID: {task_id}")
-
-        # 返回处理结果状态
-        status = PROCESSING_STATUS.get(task_id, {})
-        if status.get('status') == 'completed':
-            return jsonify({
-                "success": True,
-                "task_id": task_id,
-                "data": {
-                    "total": status.get('total', 0),
-                    "success": status.get('success_count', 0),
-                    "failed": status.get('failed_count', 0),
-                    "excel_url": status.get('excel_url'),
-                    "table_type": 'non_financial'
-                },
-                "message": "批量处理完成",
-                "status": "completed"
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "task_id": task_id,
-                "error": status.get('message', '处理失败'),
-                "status": "error"
-            })
-
-    except Exception as e:
-        logger.error(f"普通表格批量处理错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"普通表格批量处理错误: {str(e)}"
-        }), 500
-
-@llm_bp.route('/llm/batch-process', methods=['POST'], endpoint='batch_process_financial')
-def batch_process_financial_images_route():
-    """批量处理金融表格"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                "success": False,
-                "error": "请求体不能为空"
-            }), 400
-
-        data['table_type'] = 'financial'
-        image_count = len(data.get('image_paths', []))
-        print(f"🔵 金融表格批量处理 - 图片数量: {image_count}")
-
-        # ⭐⭐⭐ 只创建一个任务ID ⭐⭐⭐
-        task_id = str(uuid.uuid4())
-        print(f"🎯 创建任务ID: {task_id}")
-
-        # 在后台线程中处理，避免阻塞请求
-        import threading
-        def process_in_background():
-            try:
-                # ⭐⭐⭐ 传递相同的任务ID ⭐⭐⭐
-                _batch_process_images_sync(data, task_id)
-                print(f"✅ 后台处理完成 - 任务ID: {task_id}")
-            except Exception as e:
-                print(f"❌ 后台处理异常: {str(e)}")
-                # 即使异常也要更新状态
-                TASK_RESULTS[task_id] = {
-                    "status": "error",
-                    "error": f"处理异常: {str(e)}",
-                    "completed_at": time.time()
-                }
-
-        thread = threading.Thread(target=process_in_background)
-        thread.daemon = True
-        thread.start()
-
-        # 立即返回响应，不等待处理完成
-        print(f"🎯 立即返回响应，任务ID: {task_id}")
-
-        return jsonify({
-            "success": True,
-            "task_id": task_id,
-            "message": "批量处理任务已开始",
-            "status": "started",
-            "image_count": image_count,
-            "processing_started": True
-        })
-
-    except Exception as e:
-        logger.error(f"金融表格批量处理错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"金融表格批量处理错误: {str(e)}"
-        }), 500
-
-
-
+    else:
+        return jsonify({"error": result.get("error", "处理失败")}), 500
 
 from pathlib import Path
 
 
-def _check_excel_exists(image_path: str, output_path: str) -> tuple[bool, str]:
-    """
-    检查Excel文件是否已存在
-    返回: (是否存在, Excel文件路径)
-    """
-    try:
-        # 构建完整的Excel文件路径
-        excel_path = Path(output_path)
-
-        # 如果输出路径是相对路径，转换为绝对路径
-        if not excel_path.is_absolute():
-            # 基于图片路径推断Excel路径
-            image_dir = Path(image_path).parent
-            excel_path = image_dir / output_path
-
-        # 确保路径存在
-        excel_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 检查文件是否存在
-        if excel_path.exists():
-            # 返回相对路径用于URL访问
-            relative_path = str(excel_path.relative_to(Path.cwd()))
-            return True, relative_path
-
-        return False, str(excel_path)
-
-    except Exception as e:
-        logger.error(f"检查Excel文件存在性失败: {e}")
-        return False, output_path
 
 
 # 修改单张图片处理函数
 @llm_bp.route('/llm/process-image', methods=['POST'])
 def process_table_image():
     """处理单张表格图片 - 添加Excel存在性检查"""
+    print("处理金融表格1212123")
     try:
         data = request.get_json()
         if not data:
@@ -444,9 +320,12 @@ def process_table_image():
 
 
 # 修改普通表格处理函数
-@llm_bp.route('/llm/process-non-financial-table', methods=['POST'])
+@llm_bp.route('/llm/process-non-financial-table', methods=['POST', 'OPTIONS'])
 def process_non_financial_table():
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
     """处理普通表格 - 添加Excel存在性检查"""
+    print("处理普通表格1212123")
     try:
         data = request.get_json()
         if not data:
@@ -494,3 +373,50 @@ def process_non_financial_table():
             "error": f"处理普通表格错误: {str(e)}",
             "message": f"处理异常: {str(e)}"
         }), 500
+
+
+@llm_bp.route('/excel-data/<path:excel_path>')
+def serve_excel_data_route(excel_path):
+    """提供Excel文件数据访问"""
+    # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
+    from backend.utils.constants import EXCEL_DATA_DIR
+    excel_file_path = EXCEL_DATA_DIR / excel_path
+
+    if excel_file_path.exists():
+        return send_from_directory(EXCEL_DATA_DIR, excel_path)
+    else:
+        return jsonify({"error": "Excel文件不存在"}), 404
+
+
+def _check_excel_exists(image_path: str, output_path: str) -> tuple[bool, str]:
+    """
+    检查Excel文件是否已存在
+    返回: (是否存在, Excel文件路径)
+    """
+    try:
+        # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
+        excel_path = Path(output_path)
+
+        # 如果输出路径是相对路径，转换为绝对路径
+        if not excel_path.is_absolute():
+            # 使用常量EXCEL_DATA_DIR作为基础路径
+            excel_path = EXCEL_DATA_DIR / output_path
+
+        # 确保路径存在
+        excel_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 检查文件是否存在
+        if excel_path.exists():
+            # 返回相对路径用于URL访问
+            try:
+                relative_path = str(excel_path.relative_to(EXCEL_DATA_DIR))
+            except ValueError:
+                # 如果不在EXCEL_DATA_DIR下，返回绝对路径
+                relative_path = str(excel_path)
+            return True, str(excel_path)
+
+        return False, str(excel_path)
+
+    except Exception as e:
+        logger.error(f"检查Excel文件存在性失败: {e}")
+        return False, output_path

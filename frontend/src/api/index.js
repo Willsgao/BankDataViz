@@ -2,17 +2,9 @@
 import axios from 'axios'
 import { getBackendUrl } from '@/utils/config'
 
-// API统一导出 - 新增这行
-export * from './file'
-export * from './convert'
-export * from './layout'
-export * from './llm'
-export * from './text'
-
-
-// 创建axios实例 - 使用纯后端地址，不包含 /api
+// 创建axios实例 - 使用不包含 /api 的基础URL
 export const http = axios.create({
-  baseURL: getBackendUrl(),  // http://127.0.0.1:5000
+  baseURL: getBackendUrl(),  // 修改这里：移除 /api，变成 http://127.0.0.1:5000
   timeout: 100000,
   withCredentials: true
 })
@@ -22,7 +14,7 @@ export const updateApiBaseUrl = async () => {
   try {
     const { initConfig, getBackendUrl } = await import('@/utils/config')
     await initConfig()
-    http.defaults.baseURL = getBackendUrl()  // 更新为纯后端地址
+    http.defaults.baseURL = getBackendUrl()  // 修改这里：移除 /api
     console.log('API baseURL updated:', http.defaults.baseURL)
   } catch (error) {
     console.error('Failed to update API baseURL:', error)
@@ -32,6 +24,7 @@ export const updateApiBaseUrl = async () => {
 // 请求拦截器
 http.interceptors.request.use(
   config => {
+    console.log('🚀 发起请求:', config.method?.toUpperCase(), config.url)
     return config
   },
   error => {
@@ -42,13 +35,21 @@ http.interceptors.request.use(
 // 响应拦截器
 http.interceptors.response.use(
   response => {
-    return response
+    console.log('✅ 收到响应:', response.status, response.config.url)
+    return response.data
   },
   error => {
-    console.error('API 错误：', error.response?.data || error.message)
+    console.error('❌ API 错误：', error.response?.data || error.message)
     return Promise.reject(error)
   }
 )
 
+// 添加默认导出
 export default http
 
+// 其他API模块导出
+export * from './file'
+export * from './convert'
+export * from './layout'
+export * from './llm'
+export * from './text'
