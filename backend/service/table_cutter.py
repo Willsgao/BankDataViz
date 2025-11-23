@@ -107,17 +107,29 @@ class TableCutter:
 
             last_table_idx = i
 
+
+    def is_first_table_without_text(self, table_idx, valid_boxes):
+        """判断是否为第一个表格且前面没有文本内容"""
+        # 如果是第一个表格，检查前面是否有文本
+        for i in range(table_idx):
+            box = valid_boxes[i]
+            label = box.get("label", "")
+            # 如果前面有文本或标题元素，说明不是纯表格开头
+            if label in ["text", "title"]:
+                return False
+        return True
+
+
     def enhanced_cut_tables_with_context(
             self,
             img_path: Union[str, Path],
             layout_json: Dict,
             out_dir: Union[str, Path],
             confidence_threshold: float = 0.5,
-            sub_name: str = ""
-    ) -> List[Path]:
-        """
-        增强版表格切割：保留标题和上下文，支持跨页拼接判断
-        """
+            sub_name: str = "",
+            pre_last_state: int = 0
+    ) -> Tuple[List[Path], int]:
+
         img_path = Path(img_path)
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -149,8 +161,7 @@ class TableCutter:
         self.merge_adjacent_tables(valid_boxes)
 
         saved_paths = []
-        table_count = 0
-        pre_last_state = 0  # 用于跨页拼接判断
+        cur_pre_last_state = 0
 
         # 处理每个保留的表格
         for i, table_idx in enumerate(kept_table_indices, 1):
@@ -165,9 +176,16 @@ class TableCutter:
 
             x1, y1, x2, y2 = map(round, extended_coords)
 
-            # 生成文件名（包含跨页信息）
+            # 判断是否为第一个表格且前面没有文本
+            is_first_without_text = self.is_first_table_without_text(table_idx, valid_boxes)
+
+            # 判断是否为页面最后一个表格
             is_last_table = self.is_last_table_on_page(valid_boxes, table_idx)
-            filename = self.generate_table_filename(stem_name, i, is_last_table, pre_last_state, sub_name)
+
+            # 生成文件名（支持_0和_last组合）
+            filename = self.generate_table_filename(
+                stem_name, i, is_last_table, is_first_without_text, pre_last_state, sub_name
+            )
 
             save_path = out_dir / filename
 
@@ -180,10 +198,11 @@ class TableCutter:
 
             # 更新跨页状态
             if is_last_table:
-                pre_last_state = 1
+                cur_pre_last_state = 1
 
         print(f"🎯 原图 {stem_name} 共保存 {len(saved_paths)} 个增强表格")
-        return saved_paths
+        return saved_paths, cur_pre_last_state
+
 
     def find_above_titles_and_text(self, boxes: List[Dict], table_idx: int, table_coords: List[float]) -> List[Dict]:
         """查找表格上方的标题和文本元素"""
@@ -238,19 +257,35 @@ class TableCutter:
         table_indices = [i for i, box in enumerate(boxes) if box.get("label") == "table"]
         return table_idx == table_indices[-1] if table_indices else False
 
-    def generate_table_filename(self, stem_name: str, table_index: int, is_last: bool, pre_last_state: int,
-                                sub_name: str = "") -> str:
-        """生成表格文件名（包含跨页信息）"""
+
+    def generate_table_filename(self, stem_name: str, table_index: int,
+                                is_last: bool, is_first_without_text: bool,
+                                pre_last_state: int, sub_name: str = "") -> str:
+        """生成表格文件名（支持_0和_last同时存在）"""
         if sub_name:
-            base_name = f"{sub_name}_{table_index:03d}"
+            base_name = f"{sub_name}_table_{table_index:03d}"
         else:
             base_name = f"{stem_name}_table_{table_index:03d}"
 
-        if is_last:
-            base_name += "_last"
-        elif pre_last_state and table_index == 1:
-            base_name += "_0"
+        # 跨页标记逻辑（支持组合）：
+        marks = []
 
+        # _0 标记条件：
+        # - 前页有last标记且当前页是第一个表格（跨页续表）
+        # - 或者当前页第一个表格前面没有文本（纯表格开头）
+        if (pre_last_state and table_index == 1) or (table_index == 1 and is_first_without_text):
+            marks.append("0")
+
+        # _last 标记条件：页面最后一个表格
+        if is_last:
+            marks.append("last")
+
+        # 组合标记
+        if marks:
+            base_name += "_" + "_".join(marks)
+
+        print(
+            f"📄 文件名: {base_name}.png (标记: {marks}, 前页状态: {pre_last_state}, 无文本开头: {is_first_without_text})")
         return f"{base_name}.png"
 
     def process_pdf_tables(
@@ -262,7 +297,7 @@ class TableCutter:
             sub_name: str = ""
     ) -> None:
         """
-        处理PDF的所有表格（保留原逻辑）
+        处理PDF的所有表格（修复跨页状态传递）
         """
         sorted_info = self.get_new_info(json_file)
 
@@ -271,7 +306,7 @@ class TableCutter:
         subs_save_path.mkdir(parents=True, exist_ok=True)
         join_save_path.mkdir(parents=True, exist_ok=True)
 
-        pre_last_state = 0
+        pre_last_state = 0  # 初始化跨页状态
 
         for idx, idx_info in sorted_info.items():
             # 创建子目录
@@ -285,15 +320,28 @@ class TableCutter:
                 print(f"⚠️ 跳过不存在的图片: {sub_idx_name}")
                 continue
 
-            # 增强版表格切割
-            saved_tables = self.enhanced_cut_tables_with_context(
+            print(f"📄 处理页面 {idx}, 跨页状态: {pre_last_state}")
+
+            # 增强版表格切割 - 传递并接收跨页状态
+            saved_tables, pre_last_state = self.enhanced_cut_tables_with_context(
                 sub_idx_name,
                 idx_info,
                 sub_idx_dir,
-                sub_name=idx
+                sub_name=idx,
+                pre_last_state=pre_last_state  # 传递状态给当前页
             )
 
-            print(f"📄 页面 {idx} 处理完成，保存 {len(saved_tables)} 个表格")
+            print(f"✅ 页面 {idx} 处理完成, 输出状态: {pre_last_state}")
+            print(f"📄 页面 {idx} 处理完成，保存 {len(saved_tables)} 个表格，跨页状态: {pre_last_state}")
+
+
+
+
+
+
+
+
+
 
 
 # 导出函数
@@ -303,10 +351,30 @@ def extract_page_num_from_dir(dir_name: str) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
-def extract_table_index(filename: str) -> Optional[int]:
+def extract_table_index111(filename: str) -> Optional[int]:
     """从文件名提取表格索引"""
     match = re.search(r'_table_?(\d+)', filename) or re.search(r'_(\d{3})(?:_last|_0)?\.png', filename)
     return int(match.group(1)) if match else None
+
+
+def extract_table_index(filename: str) -> Optional[int]:
+    """从文件名提取表格索引（修复逻辑）"""
+    # 匹配模式: {前缀}_table_{数字}_{后缀}.png
+    patterns = [
+        r'_table_(\d+)',  # _table_001
+        r'_(\d{3})(?:_0|_last|_0_last)?\.png'  # _001_0.png 或 _001_last.png
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, filename)
+        if match:
+            index = int(match.group(1))
+            print(f"🔍 提取表格索引: {filename} -> {index}")
+            return index
+
+    print(f"⚠️ 无法提取表格索引: {filename}")
+    return None
+
 
 
 def extract_page_num(filename: str) -> Optional[int]:
@@ -315,7 +383,7 @@ def extract_page_num(filename: str) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
-# 兼容性函数
+
 def cut_final_tables(
         img_path: Union[str, Path],
         layout_json: Dict,
@@ -323,11 +391,12 @@ def cut_final_tables(
         confidence_threshold: float = 0.5,
         tol: int = 3
 ) -> List[Path]:
-    """兼容性函数"""
+    """兼容性函数 - 单页处理场景"""
     cutter = TableCutter(tol=tol)
-    return cutter.enhanced_cut_tables_with_context(
+    saved_paths, _ = cutter.enhanced_cut_tables_with_context(  # ← 调用修改后的函数
         img_path, layout_json, out_dir, confidence_threshold
     )
+    return saved_paths  # ← 只返回路径列表，保持兼容
 
 
 __all__ = [

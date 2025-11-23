@@ -13,7 +13,7 @@ class TableJoiner:
         self.tol = tol
         self.cutter = TableCutter(tol)
 
-    def should_join_tables(self, prev_table: Path, current_table: Path) -> bool:
+    def should_join_tables111(self, prev_table: Path, current_table: Path) -> bool:
         """
         判断两个表格是否应该拼接（基于原逻辑）
         """
@@ -33,6 +33,57 @@ class TableJoiner:
                 # 索引连续则拼接
                 return curr_idx == prev_idx + 1
 
+        return False
+
+    def should_join_tables222(self, prev_table: Path, current_table: Path) -> bool:
+        """判断两个表格是否应该拼接（支持组合标记）"""
+        prev_name = prev_table.name
+        curr_name = current_table.name
+
+        # 检查标记 - 支持 _last 和 _0_last 等组合
+        has_prev_last = '_last' in prev_name  # 只要包含_last就符合
+        has_curr_zero = '_0' in curr_name  # 只要包含_0就符合
+
+        # 提取表格索引
+        prev_idx = extract_table_index(prev_name)
+        curr_idx = extract_table_index(curr_name)
+
+        print(f"跨页检查: {prev_name} -> {curr_name}")
+        print(f"  prev有last: {has_prev_last}, curr有0: {has_curr_zero}")
+        print(f"  索引: prev={prev_idx}, curr={curr_idx}")
+
+        # 关键逻辑：前页有last标记 + 当前页有0标记 + 索引相同
+        if has_prev_last and has_curr_zero and prev_idx == curr_idx:
+            print(f"✅ 识别为跨页表格，进行拼接")
+            return True
+
+        return False
+
+    def should_join_tables(self, prev_table: Path, current_table: Path) -> bool:
+        """判断两个表格是否应该拼接（修复逻辑）"""
+        prev_name = prev_table.name
+        curr_name = current_table.name
+
+        # 提取表格索引
+        prev_idx = extract_table_index(prev_name)
+        curr_idx = extract_table_index(curr_name)
+
+        # 检查标记
+        has_prev_last = '_last' in prev_name
+        has_curr_zero = '_0' in curr_name
+
+        print(f"🔗 跨页检查: {prev_name} -> {curr_name}")
+        print(f"  索引: prev={prev_idx}, curr={curr_idx}")
+        print(f"  标记: prev有last={has_prev_last}, curr有0={has_curr_zero}")
+
+        # 关键逻辑：索引相同 + 前页有last + 当前页有0
+        if (prev_idx == curr_idx and
+                has_prev_last and
+                has_curr_zero):
+            print(f"✅ 识别为跨页表格，进行拼接")
+            return True
+
+        print(f"❌ 不满足跨页条件")
         return False
 
     def concat_images_vertically(self, img_paths: List[Path], out_path: Path = None) -> Image.Image:
@@ -176,7 +227,7 @@ class TableJoiner:
 
         return final_results
 
-    def enhanced_group_tables(self, crop_root: Path) -> Dict[int, List[Dict]]:
+    def enhanced_group_tables111(self, crop_root: Path) -> Dict[int, List[Dict]]:
         """
         增强版表格分组：基于内容连续性和跨页标记
         """
@@ -227,6 +278,51 @@ class TableJoiner:
                 table_groups[current_group_idx] = [table]
 
         return table_groups
+
+    def enhanced_group_tables(self, crop_root: Path) -> Dict[int, List[Dict]]:
+        """增强版表格分组（修复分组逻辑）"""
+        table_groups = {}
+        all_tables = []
+
+        # 收集所有表格
+        for page_dir in crop_root.iterdir():
+            if not page_dir.is_dir():
+                continue
+
+            page_num = extract_page_num_from_dir(page_dir.name) or 0
+
+            for table_file in page_dir.glob("*.png"):
+                table_idx = extract_table_index(table_file.name)
+                if table_idx is None:
+                    continue
+
+                all_tables.append({
+                    'path': table_file,
+                    'page_num': page_num,
+                    'filename': table_file.name,
+                    'table_idx': table_idx
+                })
+
+        # 按表格索引和页码排序
+        all_tables.sort(key=lambda x: (x['table_idx'], x['page_num']))
+
+        # 智能分组 - 基于表格索引
+        for table in all_tables:
+            table_idx = table['table_idx']
+
+            if table_idx not in table_groups:
+                table_groups[table_idx] = []
+
+            table_groups[table_idx].append(table)
+            print(f"📦 表格 {table['filename']} 分配到组 {table_idx}")
+
+        print(f"📊 分组完成: 共 {len(table_groups)} 个表格组")
+        for idx, group in table_groups.items():
+            print(f"  组 {idx}: {len(group)} 个表格")
+
+        return table_groups
+
+
 
     def should_group_tables(self, prev_table: Dict, current_table: Dict) -> bool:
         """

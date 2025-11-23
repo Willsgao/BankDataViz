@@ -30,37 +30,27 @@ from backend.llm_services.config_service import (
 from backend.llm_services.single_table_service import (
     _process_single_image,
     _process_non_financial_table,
-    _process_single_non_financial_table,
     recognize_table_internal
 )
 
 from backend.llm_services.batch_processing_service import (
     _batch_process_images_sync,
-    _batch_process_images,
-    _handle_batch_process
 )
 
 from backend.llm_services.excel_service import (
     check_excel_internal,
     get_excel_data_internal,
-    get_excel_content_internal,
-    serve_excel_data
+    get_excel_content_internal
 )
 
 from backend.llm_services.task_management_service import (
-    _send_websocket_notification,
-    _force_send_completion_notification,
     get_processing_status,
     cleanup_tasks,
     get_task_result,
-    TASK_RESULTS,
-    PROCESSING_STATUS
 )
 
-from backend.llm_services.utils import (
-    validate_required_params,
-    convert_to_excel_url
-)
+
+# :colHeaders="columns.map(col => col.header || col.title)"
 
 from backend.utils.constants import EXCEL_DATA_DIR, STATIC_DIR
 
