@@ -6,6 +6,10 @@ from pathlib import Path
 MAIN_ROOT = os.getcwd()
 print("MAIN_ROOT:, MAIN_ROOT", MAIN_ROOT)
 
+# 图片切割的URL
+REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:37987/layout"
+
+
 # 静态文件路径配置
 UPLOAD_FOLDER = r'backend/static/uploads'
 PNG_OUTPUT_ROOT = r'backend/static/pdf2pngs'

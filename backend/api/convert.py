@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify, send_from_directory
 from backend.models.database_manager import DatabaseManager
 from backend.service.pdf_convert_service import background_convert_table_only
 from backend.service.layout_service import batch_cut_tables
+from backend.service.layout_service import batch_cut_tables, execute_single_step, processing_pipeline
 
 from backend.utils.constants import (
     MAIN_ROOT, UPLOAD_FOLDER, PNG_OUTPUT_ROOT, DATABASE,  # 原有的
@@ -210,11 +211,19 @@ def batch_cut_table(task_id):
                 "error": "参数错误：需提供非空的pdf_folder和png_names列表"
             }), 400
 
-        # 调用服务层批量裁切逻辑
+        # # 调用服务层批量裁切逻辑
+        # batch_result = batch_cut_tables(
+        #     pdf_folder=pdf_folder,
+        #     png_names=png_names,
+        #     output_root=PNG_OUTPUT_DIR
+        # )
+
+        steps = data.get('steps')  # 新增：支持指定步骤
         batch_result = batch_cut_tables(
             pdf_folder=pdf_folder,
             png_names=png_names,
-            output_root=PNG_OUTPUT_DIR
+            output_root=PNG_OUTPUT_DIR,
+            steps=steps  # 新增步骤参数
         )
 
         print(f"批量裁切完成，结果类型: {type(batch_result)}")
@@ -234,53 +243,6 @@ def batch_cut_table(task_id):
             "error": f"接口处理失败: {str(e)}"
         }), 500
 
-
-@convert_bp.route('/batch-cut-table2/<task_id>', methods=['POST', 'OPTIONS'])
-def batch_cut_table2(task_id):
-    """
-    批量裁切图片中的表格
-    """
-    print("11111111111")
-    # 处理跨域预检请求
-    if request.method == 'OPTIONS':
-        return jsonify({"status": "ok"}), 200
-
-    # 解析请求参数
-    try:
-        data = request.get_json()
-        pdf_folder = data.get('pdf_folder')
-        png_names = data.get('png_names', [])
-        print("22222222222:", data)
-
-        # 参数校验
-        if not pdf_folder or not isinstance(png_names, list) or len(png_names) == 0:
-            return jsonify({
-                "success": False,
-                "error": "参数错误：需提供非空的pdf_folder和png_names列表"
-            }), 400
-
-        # 调用服务层批量裁切逻辑
-        batch_result = batch_cut_tables(
-            pdf_folder=pdf_folder,
-            png_names=png_names,
-            output_root=PNG_OUTPUT_DIR
-        )
-
-        print("444444444444444")
-        print(batch_result)
-
-        # 直接返回 batch_result
-        return jsonify(batch_result)
-
-    except Exception as e:
-        print(f"❌ 接口处理异常: {e}")
-        import traceback
-        traceback.print_exc()
-
-        return jsonify({
-            "success": False,
-            "error": f"接口处理失败: {str(e)}"
-        }), 500
 
 
 @convert_bp.get('/api/folder-images/<path:folder_path>')
@@ -337,3 +299,71 @@ def serve_static_png(filename):
     except Exception as e:
         print(f"❌ 静态图片服务错误: {e}")
         return jsonify({"error": "File not found"}), 404
+
+
+# ---------------- 10. 分步执行表格处理 ----------------
+@convert_bp.route('/step-process/<step_name>', methods=['POST', 'OPTIONS'])
+def api_step_process(step_name: str):
+    """
+    分步执行表格处理
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+
+    try:
+        data = request.get_json()
+        pdf_folder = data.get('pdf_folder')
+        png_names = data.get('png_names', [])
+        previous_context = data.get('previous_context', {})
+
+        # 参数校验
+        if not pdf_folder or not isinstance(png_names, list):
+            return jsonify({
+                "success": False,
+                "error": "参数错误：需提供pdf_folder和png_names"
+            }), 400
+
+        # 执行单个步骤
+        result_context = execute_single_step(
+            step_name=step_name,
+            pdf_folder=pdf_folder,
+            png_names=png_names,
+            output_root=PNG_OUTPUT_DIR,
+            previous_context=previous_context
+        )
+
+        return jsonify({
+            "success": True,
+            "step": step_name,
+            "context": result_context,
+            "message": f"步骤 {step_name} 执行完成"
+        })
+
+    except Exception as e:
+        print(f"❌ 分步执行失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"分步执行失败: {str(e)}"
+        }), 500
+
+
+# ---------------- 11. 获取可用步骤列表 ----------------
+@convert_bp.get('/available-steps')
+def api_available_steps():
+    """获取可用的处理步骤列表"""
+    try:
+        steps = processing_pipeline.get_available_steps()
+        return jsonify({
+            "success": True,
+            "data": {
+                "steps": steps,
+                "count": len(steps)
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
