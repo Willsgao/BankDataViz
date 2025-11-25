@@ -39,6 +39,7 @@
       @single-llm-process="handleSingleLLMProcess"
       @recognize-table="handleRecognizeTable"
       @recognize-non-financial-table="handleRecognizeNonFinancialTable"
+      @ocr-completed="handleOcrCompleted"
     />
 
     <!-- 非PDF文件 -->
@@ -89,6 +90,11 @@ const batchLlmLoading = ref(false)
 const ACTIVE_CONNECTIONS = ref({})
 const websocketConnected = ref(false)
 
+
+const handleOcrCompleted = (data) => {
+  console.log('📤 FileList 收到 ocr-completed，转发:', data)
+  emit('ocr-completed', data)
+}
 
 // 在 FileList.vue 中改进 initWebSocket 函数
 const initWebSocket = (taskId, pdfDiskName) => {

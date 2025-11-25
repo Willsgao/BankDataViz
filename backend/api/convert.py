@@ -8,12 +8,12 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify, send_from_directory
 from backend.models.database_manager import DatabaseManager
 from backend.service.pdf_convert_service import background_convert_table_only
-from backend.service.layout_service import batch_cut_tables
+# from backend.service.layout_service import batch_cut_tables
 from backend.service.layout_service import batch_cut_tables, execute_single_step, processing_pipeline
 
 from backend.utils.constants import (
     MAIN_ROOT, UPLOAD_FOLDER, PNG_OUTPUT_ROOT, DATABASE,  # 原有的
-    UPLOAD_DIR, PNG_OUTPUT_DIR, DATABASE_PATH, STATIC_DIR  # 新增的
+    UPLOAD_DIR, PNG_OUTPUT_DIR, DATABASE_PATH, STATIC_DIR, JOINED_TABLES_DIR  # 新增的
 )
 
 
@@ -271,7 +271,7 @@ def api_folder_images(folder_path: str):
 
 
 # ---------------- 9. 静态文件服务（修正） ----------------
-@convert_bp.route('/static/converted/<path:filename>')
+@convert_bp.route('/JOINED_TABLES_DIR/<path:filename>')
 def serve_static_png(filename):
     """提供 /static/converted/ 路径的图片访问"""
     try:
@@ -284,7 +284,8 @@ def serve_static_png(filename):
         png_name = parts[1]
 
         # 修正：使用正确的输出目录
-        target_dir = PNG_OUTPUT_DIR / folder
+        # target_dir = PNG_OUTPUT_DIR / folder
+        target_dir = JOINED_TABLES_DIR / folder  # 用 joined_tables 目录
 
         print(f"🔍 静态文件服务 - 查找路径: {target_dir}")
         print(f"🔍 静态文件服务 - 文件名: {png_name}")

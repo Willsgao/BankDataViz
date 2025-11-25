@@ -25,6 +25,24 @@ module.exports = defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false
+      },
+      '/static/joined_tables': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        logLevel: 'debug'
+      },
+      '/static/excel_output': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        logLevel: 'debug'
+      },
+      '/static/excel_data': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        logLevel: 'debug'
       }
     }
   },

@@ -177,6 +177,7 @@ def get_excel_data_internal():
             "error": f"读取Excel数据失败: {str(e)}"
         }), 500
 
+
 def get_excel_content_internal(excel_url):
     """读取Excel文件内容并返回结构化数据 - 修复版本"""
     try:
@@ -188,9 +189,6 @@ def get_excel_content_internal(excel_url):
                 "error": "缺少excel_url参数"
             }
 
-        # 调试信息
-        print(f"🔍 原始excel_url: {excel_url}")
-
         # 处理URL编码
         import urllib.parse
         excel_url = urllib.parse.unquote(excel_url)
@@ -199,29 +197,21 @@ def get_excel_content_internal(excel_url):
         file_path = None
 
         if excel_url.startswith('/api/excel-data/'):
-            # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
-            # 格式: /api/excel-data/{folder}/{filename}
             relative_path = excel_url.replace('/api/excel-data/', '')
             file_path = EXCEL_DATA_DIR / relative_path
-            print(f"🔍 转换路径1: {file_path}")
+        elif excel_url.startswith('/static/excel_output/'):
+            relative_path = excel_url.replace('/static/excel_output/', '')
+            backend_dir = Path(__file__).parent.parent
+            file_path = backend_dir / 'static' / 'excel_output' / relative_path
         elif excel_url.startswith('/static/excel_data/'):
-            # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐
-            # 格式: /static/excel_data/{folder}/{filename}
             relative_path = excel_url.replace('/static/excel_data/', '')
             file_path = EXCEL_DATA_DIR / relative_path
-            print(f"🔍 转换路径2: {file_path}")
         else:
-            # 直接使用路径
             file_path = Path(excel_url)
-            print(f"🔍 直接使用路径: {file_path}")
 
-        # ⭐⭐⭐ 修复：不再需要转换为绝对路径，因为EXCEL_DATA_DIR已经是绝对路径 ⭐⭐⭐
         print(f"🔍 最终文件路径: {file_path}")
-        print(f"🔍 文件是否存在: {file_path.exists()}")
 
         if not file_path.exists():
-            print(f"❌ 文件不存在，尝试的路径:")
-            print(f"   - {file_path}")
             return {
                 "success": False,
                 "error": f"Excel文件不存在: {file_path}"
@@ -229,10 +219,7 @@ def get_excel_content_internal(excel_url):
 
         # 读取Excel文件内容
         import openpyxl
-        print("&****************file_path&&:", file_path)
-
         workbook = openpyxl.load_workbook(file_path)
-        print("&****************file_path&&:", file_path)
 
         # 获取所有工作表
         sheet_data = []
@@ -289,12 +276,16 @@ def get_excel_content_internal(excel_url):
                 "colCount": len(headers)
             })
 
+        # ⭐⭐⭐ 返回正确的数据格式 ⭐⭐⭐
         result = {
             "success": True,
             "data": {
                 "filePath": str(file_path),
                 "sheets": sheet_data,
-                "totalSheets": len(sheet_data)
+                "totalSheets": len(sheet_data),
+                # 为了兼容性，也返回平铺的数据
+                "headers": sheet_data[0]["headers"] if sheet_data else [],
+                "data": sheet_data[0]["data"] if sheet_data else []
             }
         }
 
@@ -309,4 +300,3 @@ def get_excel_content_internal(excel_url):
             "success": False,
             "error": f"读取Excel内容失败: {str(e)}"
         }
-

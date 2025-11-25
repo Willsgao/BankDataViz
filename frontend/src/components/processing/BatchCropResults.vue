@@ -24,7 +24,8 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['open-config', 'preview-image', 'llm-process', 'single-llm-process', 'clear-cache', 'force-reset-loading', 'task-completed', 'update:llmLoading' ])
+const emit = defineEmits(['open-config', 'preview-image', 'llm-process', 'single-llm-process', 'clear-cache',
+'force-reset-loading', 'task-completed', 'update:llmLoading', 'ocr-completed' ])
 
 // LLM相关状态
 const batchLlmLoading = ref(false)
@@ -38,7 +39,15 @@ const jumpIndex = ref('')
 const scrollContainer = ref(null)
 const imageCards = ref([])
 
-
+// 清理图片路径的计算属性
+const cleanedImages = computed(() => {
+  return props.images.map(imgUrl => {
+    if (typeof imgUrl === 'string') {
+      return imgUrl.replace(/\/static\/static\//g, '/static/')
+    }
+    return imgUrl
+  })
+})
 
 // 监听父组件传递的 llmLoading 状态
 watch(() => props.llmLoading, (newVal) => {
@@ -399,6 +408,7 @@ const handleSingleLLMProcess = async (imgUrl, index) => {
 
 // 添加 mounted 调试
 onMounted(() => {
+console.log('📦 BatchCropResults 实际收到的前5张图：', props.images.slice(0, 5))
   console.log('🔍 BatchCropResults 初始化状态:', {
     llmLoadingProp: props.llmLoading,
     pdfName: props.pdf.disk_name
@@ -504,7 +514,7 @@ onMounted(() => {
     <div class="scroll-container">
       <div class="images-scroll" ref="scrollContainer">
         <ImageCard
-          v-for="(imgUrl, index) in images"
+          v-for="(imgUrl, index) in cleanedImages"
           :key="index"
           :image="imgUrl"
           :index="index"
@@ -514,6 +524,7 @@ onMounted(() => {
           :ref="el => { if (el) imageCards[index] = el }"
           @preview="$emit('preview-image', $event, index)"
           @llm-process="handleSingleLLMProcess($event, index)"
+          @ocr-completed="$emit('ocr-completed', $event)"
         />
       </div>
     </div>

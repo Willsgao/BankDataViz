@@ -7,7 +7,7 @@ import { getApiUrl } from '@/utils/config'
 export function useBatchTableCrop(joinedResults) {
   const batchCropLoading = ref({})
 
-  async function cutTablesForPDF(pdfDiskName, convertCache) {
+  async function cutTablesForPDF111(pdfDiskName, convertCache) {
     console.log('开始批量裁切PDF:', pdfDiskName)
 
     // 设置加载状态
@@ -159,6 +159,187 @@ export function useBatchTableCrop(joinedResults) {
       batchCropLoading.value[pdfDiskName] = false
     }
   }
+
+
+  async function cutTablesForPDF(pdfDiskName, convertCache) {
+      console.log('开始批量裁切PDF:', pdfDiskName)
+
+      // 设置加载状态
+      batchCropLoading.value[pdfDiskName] = true
+
+      try {
+        // ========== 缓存检查逻辑 ==========
+        // 1. 先检查内存中是否有结果
+        if (joinedResults.value[pdfDiskName] && joinedResults.value[pdfDiskName].length > 0) {
+          console.log('使用内存中的裁切结果，跳过处理')
+          ElMessage.info('已使用缓存的裁切结果')
+          return {
+            success: true,
+            images: joinedResults.value[pdfDiskName],
+            total: joinedResults.value[pdfDiskName].length,
+            message: '使用缓存结果',
+            fromCache: true
+          }
+        }
+
+        // 2. 检查本地存储中是否有结果
+        const cacheKey = pdfDiskName.replace('.pdf', '')
+        const storageKey = `batch_crop_${cacheKey}`
+        const cachedResult = localStorage.getItem(storageKey)
+
+        if (cachedResult) {
+          try {
+            const parsedResult = JSON.parse(cachedResult)
+            // 验证缓存是否有效（比如检查时间戳，这里简单检查是否有图片）
+            if (parsedResult.images && parsedResult.images.length > 0) {
+              console.log('使用本地存储的裁切结果')
+              // 更新内存中的结果
+              joinedResults.value[pdfDiskName] = parsedResult.images
+              ElMessage.info('已使用缓存的裁切结果')
+              return {
+                ...parsedResult,
+                fromCache: true
+              }
+            }
+          } catch (e) {
+            console.warn('解析缓存结果失败:', e)
+            localStorage.removeItem(storageKey) // 清除无效缓存
+          }
+        }
+        // ========== 缓存检查结束 ==========
+
+        // 检查是否已经有转换好的PNG图片
+        const pngList = convertCache[cacheKey]
+
+        if (!pngList || pngList.length === 0) {
+          throw new Error('请先转换PDF为图片再进行批量裁切')
+        }
+
+        console.log('找到PNG图片列表:', pngList.length)
+
+        // 调试信息：打印请求参数
+        console.log('📤 发送批量裁切请求:')
+        console.log('   - pdf_folder:', cacheKey)
+        console.log('   - png_names:', pngList)
+
+        // 使用正确的后端接口
+        const taskId = uuidv4()
+        const response = await axios.post(getApiUrl(`/batch-cut-table/${taskId}`), {
+          pdf_folder: cacheKey,
+          png_names: pngList
+        })
+
+        console.log('📥 批量裁切API响应:', response.data)
+
+        if (response.data.success) {
+          // 关键修改：简化图片URL构建逻辑
+          let imageUrls = []
+
+          // 处理不同的响应格式
+          const joinedData = response.data.data?.joined || response.data.joined || []
+
+          console.log('🔄 处理joined数据:', joinedData)
+
+          // 修改后的代码
+          if (joinedData.length > 0) {
+  imageUrls = joinedData.map(item => {
+    // 如果已经是完整路径，直接使用
+    if (typeof item === 'string') {
+      if (item.startsWith('http')) {
+        return item
+      } else if (item.startsWith('/static/')) {
+        // 已经是正确格式，直接返回
+        return item
+      } else if (item.startsWith('static/')) {
+        // 去掉开头的 static/，因为后端路由已经包含了 static
+        return `/${item}`
+      } else if (item.startsWith('joined_tables/')) {
+        // 直接返回，因为后端有对应的路由
+        return `/static/${item}`
+      } else {
+        // 假设是文件名，构建完整路径
+        return `/static/joined_tables/${item}`
+      }
+    }
+    // 如果是对象，尝试提取路径
+    else if (typeof item === 'object' && item.path) {
+      const path = item.path
+      if (path.startsWith('joined_tables/')) {
+        return `/static/${path}`
+      } else {
+        return `/static/joined_tables/${path}`
+      }
+    }
+    return item
+  })
+}
+
+
+          console.log('🖼️ 最终图片URLs:', imageUrls)
+
+          // 验证URL是否可访问
+          if (imageUrls.length > 0) {
+            // 测试第一个URL
+            const testUrl = imageUrls[0]
+            console.log('测试图片URL:', testUrl)
+
+            // 存储到 joinedResults 中
+            joinedResults.value[pdfDiskName] = imageUrls
+
+            // 缓存到本地存储
+            const resultToCache = {
+              success: true,
+              images: imageUrls,
+              total: imageUrls.length,
+              message: response.data.message || '批量裁切完成',
+              rawResponse: response.data,
+              timestamp: Date.now()
+            }
+            localStorage.setItem(storageKey, JSON.stringify(resultToCache))
+            console.log('结果已缓存到本地存储')
+          }
+
+          console.log('更新后的 joinedResults:', joinedResults.value)
+
+          ElMessage.success(`批量裁切完成，生成 ${imageUrls.length} 个表格`)
+
+          return {
+            success: true,
+            images: imageUrls,
+            total: imageUrls.length,
+            message: response.data.message || '批量裁切完成',
+            rawResponse: response.data,
+            fromCache: false
+          }
+        } else {
+          throw new Error(response.data.message || response.data.error || '批量裁切失败')
+        }
+
+      } catch (error) {
+        console.error('批量裁切失败:', error)
+
+        let errorMessage = '批量裁切失败'
+        if (error.response?.data?.error) {
+          errorMessage = error.response.data.error
+        } else if (error.message) {
+          errorMessage = error.message
+        }
+
+        ElMessage.error(errorMessage)
+
+        return {
+          success: false,
+          error: errorMessage,
+          images: [],
+          total: 0,
+          fromCache: false
+        }
+      } finally {
+        // 清除加载状态
+        batchCropLoading.value[pdfDiskName] = false
+      }
+    }
+
 
   // 从绝对路径提取相对路径
   function extractRelativePath(absolutePath) {

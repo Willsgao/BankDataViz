@@ -16,7 +16,6 @@
     @handle-batch-crop="handleBatchCrop"
     @open-llm-config="openLLMConfig"
     @handle-image-selected="handleImageSelected"
-    @handle-ocr-completed="handleOcrCompleted"
     @handle-recognize-table="handleRecognizeTable"
     @handle-excel-data-received="handleExcelDataReceived"
     @manually-trigger-excel-update="manuallyTriggerExcelUpdate"
@@ -111,59 +110,14 @@ const excelViewerKey = ref(0)
 // ---------------- 初始化 composables ----------------
 const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(joinedResults)
 
-
-
-
 // ---------------- 生命周期 ----------------
 onMounted(async () => {
   await loadFiles()
-  // 检查百度OCR服务状态
-  await checkBaiduOCRHealth()
 })
 
-// ---------------- 百度OCR相关函数 ----------------
-async function checkBaiduOCRHealth() {
-  try {
-    const result = await baiduOcrApi.healthCheck()
-    if (result.success) {
-      console.log('✅ 百度OCR服务正常')
-      ElMessage.success('百度OCR服务已就绪')
-    } else {
-      console.warn('⚠️ 百度OCR服务异常:', result.error)
-      ElMessage.warning('百度OCR服务异常，识别功能可能不可用')
-    }
-  } catch (error) {
-    console.error('❌ 百度OCR健康检查失败:', error)
-    ElMessage.error('百度OCR服务连接失败')
-  }
-}
 
-// 新增：处理OCR完成事件
-async function handleOcrCompleted(ocrResult) {
-  try {
-    console.log('🎯 TwoColumnPage 收到 OCR 完成事件:', ocrResult)
 
-    if (!ocrResult.success) {
-      ElMessage.error(`OCR识别失败: ${ocrResult.error}`)
-      return
-    }
 
-    // 构建excelInfo，触发Excel数据加载
-    const excelInfo = {
-      excelUrl: ocrResult.excelUrl,
-      tableName: ocrResult.tableName || '百度OCR识别结果',
-      tableType: 'baidu_ocr',
-      originalFilename: ocrResult.originalFilename
-    }
-
-    console.log('🔄 开始加载OCR识别结果:', excelInfo)
-    await handleExcelDataReceived(excelInfo)
-
-  } catch (error) {
-    console.error('💥 处理OCR结果失败:', error)
-    ElMessage.error('处理识别结果失败: ' + error.message)
-  }
-}
 
 
 
@@ -352,9 +306,6 @@ async function handleBatchCrop(pdfDiskName) {
       })
 
       joinedResults.value[pdfDiskName] = fullImageUrls
-      console.log('📦 已写进缓存：', pdfDiskName, result.images.length, result.images[0])
-      console.log('📦 已写进缓存：', pdfDiskName, result.images.length, result.images.slice(0, 3))
-
       ElMessage.success(`批量裁切完成，共生成 ${fullImageUrls.length} 个表格`)
     } else {
       ElMessage.error('批量裁切失败: ' + (result?.message || result?.error || '未知错误'))
@@ -429,7 +380,6 @@ async function handleRecognizeTable(tableData) {
   }
 }
 
-
 async function handleExcelDataReceived(excelInfo) {
   try {
     console.log('🎯 TwoColumnPage 收到 excel-data-received 事件:', excelInfo)
@@ -448,35 +398,18 @@ async function handleExcelDataReceived(excelInfo) {
 
     let finalExcelUrl = excelInfo.excelUrl
 
-    // ⭐⭐⭐ 修复：确保URL格式正确 ⭐⭐⭐
-    if (finalExcelUrl.startsWith('/static/excel_output/')) {
-      // 已经是正确的静态文件路径，不需要转换
-      console.log('✅ 使用原始静态文件路径:', finalExcelUrl)
-    } else if (finalExcelUrl.includes('excel_output')) {
-      // 提取相对路径，转换为静态文件路径
-      const fileName = finalExcelUrl.split('excel_output/').pop()
-      finalExcelUrl = `/static/excel_output/${fileName}`
-      console.log('🔄 转换为静态文件路径:', finalExcelUrl)
-    } else {
-      // 其他情况，直接使用
-      console.log('🔍 使用原始路径:', finalExcelUrl)
-    }
 
-    // 清理URL参数（如果有）
     if (finalExcelUrl.includes('?')) {
       finalExcelUrl = finalExcelUrl.split('?')[0]
     }
 
     console.log('🔄 调用getExcelContent:', finalExcelUrl)
 
-    // 使用llmApi获取Excel内容
     const response = await llmApi.getExcelContent(finalExcelUrl)
     console.log('🔍 getExcelContent 完整响应:', response)
 
     if (response.success === false) {
       console.error('❌ API调用失败:', response.error)
-      // 尝试直接构建Excel数据对象
-      await createExcelDataFromUrl(finalExcelUrl, excelInfo)
       return
     }
 
@@ -486,31 +419,24 @@ async function handleExcelDataReceived(excelInfo) {
     } else if (response.sheets) {
       excelData = response
     } else {
-      console.error('❌ 无法识别的数据格式，尝试直接构建数据')
-      await createExcelDataFromUrl(finalExcelUrl, excelInfo)
+      console.error('❌ 无法识别的数据格式')
       return
     }
 
-    // 构建Excel数据对象
     const newExcelData = {
-      tableName: excelInfo.tableName || '百度OCR识别结果',
+      tableName: excelInfo.tableName || '未命名表格',
       excelUrl: finalExcelUrl,
-      tableType: excelInfo.tableType || 'baidu_ocr',
+      tableType: excelInfo.tableType || 'unknown',
       lastUpdated: new Date().toISOString(),
       sheets: excelData.sheets || [],
       data: excelData.data || [],
       headers: excelData.headers || [],
-      filePath: excelData.filePath || finalExcelUrl,
-      totalSheets: excelData.totalSheets || (excelData.sheets ? excelData.sheets.length : 0),
-      // 添加百度OCR特有的信息
-      source: 'baidu_ocr',
-      originalFilename: excelInfo.originalFilename,
-      tablesCount: excelInfo.tablesCount
+      filePath: excelData.filePath || '',
+      totalSheets: excelData.totalSheets || (excelData.sheets ? excelData.sheets.length : 0)
     }
 
     console.log('🎉 新Excel数据对象:', newExcelData)
 
-    // 强制更新视图
     currentExcelData.value = null
     await nextTick()
 
@@ -525,96 +451,6 @@ async function handleExcelDataReceived(excelInfo) {
     ElMessage.error('加载Excel数据失败: ' + error.message)
   }
 }
-
-
-
-// 新增：直接从URL构建Excel数据的备用方法
-async function createExcelDataFromUrl(excelUrl, excelInfo) {
-  try {
-    console.log('🔄 尝试直接构建Excel数据:', excelUrl)
-
-    const newExcelData = {
-      tableName: excelInfo.tableName || '百度OCR识别结果',
-      excelUrl: excelUrl,
-      tableType: excelInfo.tableType || 'baidu_ocr',
-      lastUpdated: new Date().toISOString(),
-      sheets: [
-        {
-          name: 'Sheet1',
-          data: [], // 空数据，等待后续加载
-          headers: []
-        }
-      ],
-      data: [], // 空数据
-      headers: [], // 空表头
-      filePath: excelUrl,
-      totalSheets: 1,
-      source: 'baidu_ocr',
-      originalFilename: excelInfo.originalFilename,
-      tablesCount: excelInfo.tablesCount,
-      // 添加下载链接
-      downloadUrl: excelUrl,
-      status: 'pending' // 标记为待加载状态
-    }
-
-    // 强制更新视图
-    currentExcelData.value = null
-    await nextTick()
-
-    currentExcelData.value = newExcelData
-    excelViewerKey.value++
-
-    console.log('✅ 基础Excel数据已创建:', currentExcelData.value)
-    ElMessage.success('Excel文件已生成，正在加载数据...')
-
-    // 尝试异步加载Excel内容
-    setTimeout(() => {
-      loadExcelContentAsync(excelUrl)
-    }, 100)
-
-  } catch (error) {
-    console.error('❌ 构建Excel数据失败:', error)
-    throw error
-  }
-}
-
-// 新增：异步加载Excel内容
-async function loadExcelContentAsync(excelUrl) {
-  try {
-    console.log('🔄 异步加载Excel内容:', excelUrl)
-
-    const response = await llmApi.getExcelContent(excelUrl)
-
-    if (response.success && currentExcelData.value) {
-      let excelData = null
-      if (response.data && response.data.sheets) {
-        excelData = response.data
-      } else if (response.sheets) {
-        excelData = response
-      }
-
-      if (excelData) {
-        // 更新现有数据
-        currentExcelData.value.sheets = excelData.sheets || []
-        currentExcelData.value.data = excelData.data || []
-        currentExcelData.value.headers = excelData.headers || []
-        currentExcelData.value.totalSheets = excelData.totalSheets || (excelData.sheets ? excelData.sheets.length : 0)
-        currentExcelData.value.status = 'loaded'
-
-        console.log('✅ Excel内容加载完成:', currentExcelData.value)
-        ElMessage.success('Excel数据加载完成')
-      }
-    }
-  } catch (error) {
-    console.error('❌ 异步加载Excel内容失败:', error)
-    if (currentExcelData.value) {
-      currentExcelData.value.status = 'error'
-      currentExcelData.value.error = error.message
-    }
-  }
-}
-
-
 
 function manuallyTriggerExcelUpdate() {
   console.log('🔄 手动触发Excel更新')

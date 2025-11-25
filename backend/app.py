@@ -10,6 +10,7 @@ from backend.api.file import file_bp
 from backend.api.convert import convert_bp
 from backend.api.text import text_bp
 from backend.api.llm_routes import llm_bp
+from backend.api.baidu_ocr_routes import baidu_ocr_bp
 
 # 在 app.py 中添加（如果使用Flask）
 from backend.api.visualization_api import visualization_bp
@@ -44,6 +45,7 @@ app.register_blueprint(file_bp)
 app.register_blueprint(convert_bp, url_prefix='/api')
 app.register_blueprint(text_bp)
 app.register_blueprint(visualization_bp)
+app.register_blueprint(baidu_ocr_bp)
 
 # ⭐⭐⭐ 新增：注册WebSocket蓝图 ⭐⭐⭐
 app.register_blueprint(websocket_bp)
@@ -62,14 +64,7 @@ app.add_url_rule(
     )
 )
 
-app.add_url_rule(
-    '/static/joined_tables/<path:filename>',
-    'joined_tables',
-    lambda filename: send_from_directory(
-        Path(MAIN_ROOT) / 'backend' / 'static' / 'joined_tables',
-        filename
-    )
-)
+
 
 app.add_url_rule(
     '/static/excel_data/<path:filename>',
@@ -79,6 +74,29 @@ app.add_url_rule(
         filename
     )
 )
+
+
+# 在 app.py 的静态文件路由配置部分添加
+app.add_url_rule(
+    '/static/excel_output/<path:filename>',
+    'serve_excel_output',
+    lambda filename: send_from_directory(
+        Path(MAIN_ROOT) / 'backend' / 'static' / 'excel_output',
+        filename
+    )
+)
+
+
+
+app.add_url_rule(
+    '/static/joined_tables/<path:filename>',
+    'joined_tables',
+    lambda filename: send_from_directory(
+        Path(MAIN_ROOT) / 'backend' / 'static' / 'joined_tables',
+        filename
+    )
+)
+
 
 # ----------- 移除 app.py 中的 CORS 配置 -----------
 # CORS 配置将在 backend_run.py 中统一处理

@@ -1,16 +1,18 @@
 <template>
   <div class="image-card">
     <div class="card-header">
+      <!-- 修改表格名称显示 -->
       <span class="table-name">表格{{ index + 1 }}：{{ displayName }}</span>
 
       <el-button
+        v-if="llmConfigured"
         type="primary"
         size="small"
-        :loading="ocrLoading"
-        @click="handleOcrRecognize"
+        :loading="llmLoading"
+        @click="$emit('llm-process', image)"
         class="process-btn"
       >
-        {{ ocrLoading ? '识别中' : '识别' }}
+        {{ llmLoading ? '识别中' : '识别' }}
       </el-button>
     </div>
 
@@ -36,11 +38,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Picture } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { baiduOcrApi } from '@/api/baiduOcr'  // 导入百度OCR API
-
-import { onMounted } from 'vue'
-
 
 const props = defineProps({
   image: {
@@ -51,23 +48,30 @@ const props = defineProps({
     type: Number,
     required: true
   },
-  imageName: {
+  imageName: {  // 新增：接收图片名称
     type: String,
     default: ''
   },
-  // 移除 llmConfigured 和 llmLoading，因为百度OCR不需要配置
+  llmConfigured: {
+    type: Boolean,
+    default: false
+  },
+  llmLoading: {
+    type: Boolean,
+    default: false
+  }
 })
 
-const emit = defineEmits(['preview', 'ocr-completed'])  // 修改事件名
-
-const ocrLoading = ref(false)
+const emit = defineEmits(['preview', 'llm-process'])
 
 // 计算属性：生成显示名称
 const displayName = computed(() => {
+  // 如果传入了 imageName，直接使用
   if (props.imageName) {
     return props.imageName
   }
 
+  // 否则从图片URL中提取
   try {
     const fileName = props.image.split('/').pop()
     const nameWithoutExt = fileName.replace(/\.(png|jpg|jpeg)$/i, '')
@@ -82,85 +86,8 @@ const displayName = computed(() => {
     return '未知表格'
   }
 })
-
-// 在 ImageCard.vue 的 handleOcrRecognize 函数中
-async function handleOcrRecognize() {
-  try {
-    ocrLoading.value = true
-    console.log('🔄 开始百度OCR识别:', props.image)
-
-    // 从图片URL获取图片文件
-    const imageFile = await urlToFile(props.image, `table-${props.index + 1}.png`)
-
-    // 调用百度OCR接口
-    const result = await baiduOcrApi.recognizeTable(imageFile)
-
-    if (result.success) {
-      console.log('✅ 百度OCR识别成功:', result)
-
-      // 构建完整的Excel URL
-      const excelUrl = `/static/excel_output/${result.data.excel_filename}`
-
-      // 构建完整的识别结果数据
-      const ocrResult = {
-        success: true,
-        image: props.image,
-        tableName: displayName.value,
-        excelUrl: excelUrl, // 使用完整的URL
-        excelFilename: result.data.excel_filename,
-        originalFilename: result.data.original_filename,
-        tablesCount: result.data.tables_count,
-        wordsCount: result.data.words_count,
-        source: 'baidu_ocr'
-      }
-
-      // 触发OCR完成事件
-      emit('ocr-completed', ocrResult)
-
-      ElMessage.success('表格识别成功')
-    } else {
-      throw new Error(result.error || 'OCR识别失败')
-    }
-
-  } catch (error) {
-    console.error('❌ 百度OCR识别失败:', error)
-    ElMessage.error(`识别失败: ${error.message}`)
-
-    // 发送失败结果
-    emit('ocr-completed', {
-      success: false,
-      image: props.image,
-      tableName: displayName.value,
-      error: error.message,
-      source: 'baidu_ocr'
-    })
-  } finally {
-    ocrLoading.value = false
-  }
-}
-
-
-// 辅助函数：将图片URL转换为File对象
-async function urlToFile(url, filename) {
-  try {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    return new File([blob], filename, { type: blob.type })
-  } catch (error) {
-    console.error('转换图片URL失败:', error)
-    throw new Error('无法获取图片文件')
-  }
-}
-
-
-onMounted(() => {
-  console.log('🔍 ImageCard 实际收到 src：', props.image)
-})
-
-
 </script>
 
-<!-- 样式部分保持不变 -->
 <style scoped>
 .image-card {
   width: 200px;

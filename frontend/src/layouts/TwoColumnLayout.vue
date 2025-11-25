@@ -18,6 +18,10 @@
         @batch-crop="$emit('handleBatchCrop', $event)"
         @open-llm-config="$emit('openLLMConfig')"
         @image-selected="$emit('handleImageSelected', $event)"
+        @ocr-completed="(data) => {
+          console.log('🧩 TwoColumnLayout 收到 ocr-completed:', data);
+          $emit('handleOcrCompleted', data);
+        }"
         @recognize-table="$emit('handleRecognizeTable', $event)"
         @excel-data-received="(data) => {
           console.log('🧩 TwoColumnLayout 收到并转发 excel-data-received:', data);
@@ -116,6 +120,7 @@ defineEmits([
   'handleBatchCrop',
   'openLLMConfig',
   'handleImageSelected',
+  'handleOcrCompleted',
   'handleRecognizeTable',
   'handleExcelDataReceived',
   'manuallyTriggerExcelUpdate',

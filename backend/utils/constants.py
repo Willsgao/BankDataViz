@@ -6,8 +6,23 @@ from pathlib import Path
 MAIN_ROOT = os.getcwd()
 print("MAIN_ROOT:, MAIN_ROOT", MAIN_ROOT)
 
+
+# 百度表格识别
+# 百度OCR配置
+BAIDU_OCR_CONFIG = {
+    "API_KEY": "Id7EZH2q6IOSlivHbwHHbWwz",
+    "SECRET_KEY": "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+}
+# 其他应用配置
+BAIDU_APP_CONFIG = {
+    "TIMEOUT": 30,
+    "MAX_RETRIES": 3
+}
+
+
 # 图片切割的URL
-REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:37987/layout"
+# REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:37987/layout"
+REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:30417/layout"
 
 
 # 静态文件路径配置
@@ -30,7 +45,7 @@ DATABASE_PATH = Path(MAIN_ROOT) / DATABASE
 # ⭐⭐⭐ 新增：API路由路径常量 ⭐⭐⭐
 API_EXCEL_DATA_PREFIX = "/api/excel-data"
 API_STATIC_PREFIX = "/api/static"
-STATIC_CONVERTED_PREFIX = "/static/converted"
+STATIC_CONVERTED_PREFIX = "/static/joined_tables"
 
 # ⭐⭐⭐ 新增：文件夹路径常量 ⭐⭐⭐
 CONVERTED_IMAGES_DIR = PNG_OUTPUT_DIR  # 转换后的图片目录

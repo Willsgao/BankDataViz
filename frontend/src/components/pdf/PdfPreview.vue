@@ -69,6 +69,7 @@
           @single-llm-process="$emit('single-llm-process', $event)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
           @force-reset-loading="handleForceResetLoading"
+          @ocr-completed="$emit('ocr-completed', $event)"
         />
 
       </div>
@@ -95,6 +96,7 @@
       </div>
     </div>
   </div>
+
 </template>
 
 <script setup>
@@ -105,6 +107,7 @@ import PdfControls from './PdfControls.vue'
 import BatchCropResults from '@/components/processing/BatchCropResults.vue'
 import OtherPdfsList from '@/components/pdf/OtherPdfsList.vue'
 import CropResult from '@/components/processing/CropResult.vue'
+
 
 const props = defineProps({
   pdfFiles: {
@@ -161,7 +164,8 @@ const emit = defineEmits([
   'llm-process',
   'single-llm-process',
   'open-llm-config',
-  'update:llmLoading'
+  'update:llmLoading',
+  'ocr-completed'
 ])
 
 // 折叠状态
@@ -180,6 +184,7 @@ const otherPDFs = computed(() => props.pdfFiles.filter((_, index) => index !== p
 const safeJoinedResults = computed(() => {
   return props.joinedResults || {}
 })
+
 
 // 工具函数
 const hasBatchCropResults = (pdfDiskName) => {
@@ -211,6 +216,17 @@ watch(() => props.joinedResults, (newVal) => {
 watch(() => props.currentPdfIndex, () => {
   isCollapsed.value = false
 })
+
+
+watch(
+  () => currentPDF.value,
+  () => {
+    console.log('📌 PdfPreview 取缓存结果', !!currentPDF.value, currentPDF.value?.disk_name, safeJoinedResults.value[currentPDF.value?.disk_name]?.length)
+  },
+  { immediate: true }
+)
+
+
 </script>
 
 <style scoped>
