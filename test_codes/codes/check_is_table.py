@@ -41,25 +41,34 @@ class FinancialTableAnalyzerLLM:
 
     def _build_system_prompt(self) -> str:
         return '''
-你是一名专业的金融文档分析师。请严格按以下规则分析图像：
+你是一名专业的金融文档分析师，请严格按以下规则分析图像中的所有表格：
 
-## 分析任务
-1. 判断图像中是否存在表格（包括不完整边框的表格）。
-2. 若存在表格，判断是否为财务相关表格（如含资产、负债、收入、利润、现金流量等字段）。
-3. 判断表格的边框情况：
-   - 横向线框是否省略？（即行之间无横线）
-   - 纵向线框是否省略？（即列之间无竖线）
-4. 判断字段是否存在层级关系：
-   - 横向层级：同一行中是否有父级标题覆盖多个子列
-   - 纵向层级：同一列中是否有父级标题覆盖多个子行
+## 分析步骤
+1. 识别图像中所有的表格（包括无线框表格），按从上到下、从左到右的顺序编号为 Table 1, Table 2, ..., Table N。
+2. 对每个表格：
+   a. 判断是否为财务相关表格（含资产、负债、收入、利润、现金流量、股东权益、贷款、利息、准备金、折旧、摊销、应收款、应付款、股本、净利润、毛利率等关键词）。
+   b. 如果是财务表格：
+      - 提取横向（列方向）的带层级字段名，格式为路径形式，例如："2024年 > 平均余额"、"项目 > 公司类贷款 > 短期贷款"
+      - 提取纵向（行方向）的带层级字段名，格式同上，例如："地区 > 华东 > 上海"、"费用 > 销售费用 > 广告费"
+      - 层级关系指：父级标题覆盖多个子项（即使无合并单元格，只要语义上有包含关系即可）
+   c. 如果不是财务表格，字段名列表留空。
 
-## 输出格式（必须严格遵守，每行以指定前缀开头，结尾加 _END）
-是否有表格：是/否_END
-是否为财务表格：是/否_END
-横向线框是否省略：是/否_END
-纵向线框是否省略：是/否_END
-是否存在横向层级：是/否_END
-是否存在纵向层级：是/否_END
+## 输出格式（必须严格遵守）
+- 仅输出一个合法的 JSON 对象，不要任何额外文字、解释或 Markdown
+- 结构如下：
+{
+  "has_table": true,
+  "tables": [
+    {
+      "table_id": 1,
+      "is_financial": true,
+      "horizontal_hierarchy_fields": ["2024年 > 利润", "2023年 > 收入"],
+      "vertical_hierarchy_fields": ["项目 > 资产 > 流动资产", "项目 > 负债"]
+    },
+    ...
+  ]
+}
+- 如果没有表格，输出：{"has_table": false, "tables": []}
 '''
 
     def _call_llm_vision_api(self, base64_image: str, prompt: str) -> tuple[str, dict, float]:
@@ -79,7 +88,7 @@ class FinancialTableAnalyzerLLM:
                 }]
             )
             elapsed = time.time() - start_time
-            content = response.choices[0].message.content
+            content = response.choices[0].message.content.strip()
 
             usage = getattr(response, 'usage', None)
             usage_dict = {
@@ -95,23 +104,28 @@ class FinancialTableAnalyzerLLM:
             raise RuntimeError(f"API 调用失败: {e}") from e
 
     def _parse_llm_response(self, response_text: str) -> Dict[str, Any]:
-        def extract_field(pattern: str, text: str, default: str = "否") -> str:
-            match = re.search(pattern, text)
-            return match.group(1) if match else default
-
-        return {
-            "has_table": extract_field(r"是否有表格[:：]\s*(是|否)", response_text) == "是",
-            "is_financial": extract_field(r"是否为财务表格[:：]\s*(是|否)", response_text) == "是",
-            "horizontal_lines_omitted": extract_field(r"横向线框是否省略[:：]\s*(是|否)", response_text) == "是",
-            "vertical_lines_omitted": extract_field(r"纵向线框是否省略[:：]\s*(是|否)", response_text) == "是",
-            "has_horizontal_hierarchy": extract_field(r"是否存在横向层级[:：]\s*(是|否)", response_text) == "是",
-            "has_vertical_hierarchy": extract_field(r"是否存在纵向层级[:：]\s*(是|否)", response_text) == "是",
-        }
+        """解析 LLM 返回的 JSON 字符串，容错处理"""
+        import json
+        try:
+            # 清理可能的 ```json 包裹
+            cleaned = re.sub(r'^```json\s*|\s*```$', '', response_text.strip())
+            data = json.loads(cleaned)
+            has_table = data.get("has_table", False)
+            tables = data.get("tables", [])
+            return {
+                "has_table": bool(has_table),
+                "tables": tables
+            }
+        except (json.JSONDecodeError, ValueError) as e:
+            # 解析失败时返回安全默认值
+            print(f"[WARN] JSON 解析失败，跳过该图。错误: {e}")
+            return {
+                "has_table": False,
+                "tables": []
+            }
 
     def analyze_image_list(self, image_paths: List[str]) -> Dict[str, Any]:
-        """
-        分析一组图片（支持 JPG/PNG 等），返回结构化结果
-        """
+        """分析一组图片（支持 JPG/PNG 等），返回结构化结果"""
         print(f"[INFO] 即将分析 {len(image_paths)} 张图片")
         results = []
         total_time = 0.0
@@ -134,7 +148,8 @@ class FinancialTableAnalyzerLLM:
                     "raw_llm_output": raw_response,
                     "analysis_time_sec": round(elapsed, 2),
                     "token_usage": usage,
-                    **parsed_result
+                    "has_table": parsed_result["has_table"],
+                    "tables": parsed_result["tables"]
                 }
                 results.append(result)
 
@@ -148,21 +163,29 @@ class FinancialTableAnalyzerLLM:
                 results.append({
                     "image_path": img_path,
                     "has_table": False,
-                    "is_financial": False,
+                    "tables": [],
                     "error": str(e),
                     "analysis_time_sec": 0,
                     "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
                 })
 
-        financial_pages = [
-            i + 1 for i, r in enumerate(results)
-            if r.get("is_financial", False)
-        ]
+        # 提取所有财务表格详情（用于汇总）
+        financial_tables_detail = []
+        for idx, res in enumerate(results):
+            for tbl in res.get("tables", []):
+                if tbl.get("is_financial", False):
+                    financial_tables_detail.append({
+                        "image_index": idx + 1,
+                        "image_path": res["image_path"],
+                        "table_id": tbl["table_id"],
+                        "horizontal_hierarchy_fields": tbl.get("horizontal_hierarchy_fields", []),
+                        "vertical_hierarchy_fields": tbl.get("vertical_hierarchy_fields", [])
+                    })
 
         return {
             "input_type": "image_list",
             "total_images": len(image_paths),
-            "financial_table_indices": financial_pages,  # 从1开始的索引
+            "financial_tables_detail": financial_tables_detail,
             "image_results": results,
             "summary": {
                 "total_analysis_time_sec": round(total_time, 2),
@@ -177,17 +200,13 @@ class FinancialTableAnalyzerLLM:
         result = self.analyze_image_list(image_paths)
         result["input_type"] = "pdf"
         result["pdf_path"] = pdf_path
-        # 将 indices 改为页码（与 PDF 页码一致）
-        result["financial_table_pages"] = result.pop("financial_table_indices")
+        # 将 image_index 映射为页码
+        for ft in result["financial_tables_detail"]:
+            ft["page_number"] = ft.pop("image_index")
         return result
 
     def analyze(self, input_data: Union[str, List[str]], temp_dir: str = "./temp_imgs") -> Dict[str, Any]:
-        """
-        统一入口：自动判断输入类型并分析
-        :param input_data: PDF 路径（str）或图片路径列表（List[str]）
-        :param temp_dir: PDF 转图临时目录
-        :return: 分析结果
-        """
+        """统一入口：自动判断输入类型并分析"""
         if isinstance(input_data, str):
             if not os.path.exists(input_data):
                 raise FileNotFoundError(f"输入文件不存在: {input_data}")
@@ -209,7 +228,6 @@ class FinancialTableAnalyzerLLM:
 # ========================
 if __name__ == "__main__":
     API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
-
     analyzer = FinancialTableAnalyzerLLM(api_key=API_KEY)
 
     # === 示例 1：分析 PDF ===
@@ -217,43 +235,47 @@ if __name__ == "__main__":
 
     # === 示例 2：分析多张图片 ===
     image_list = []
-
     image_dir = r"E:\Datas\base_pros\DocuVista\test_codes\pngs"
-    for root,_, files in os.walk(image_dir):
+    for root, _, files in os.walk(image_dir):
         for file in files:
-            image_name = f"{root}/{file}"
-            image_list.append(image_name)
-
+            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                image_list.append(os.path.join(root, file))
     print("image_list:", image_list)
-
     result = analyzer.analyze(image_list)
 
     # === 打印汇总 ===
     summary = result["summary"]
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("📊 分析完成！性能与成本汇总")
-    print("="*60)
+    print("=" * 60)
     if result["input_type"] == "pdf":
         print(f"输入: PDF 文件 {result['pdf_path']}")
         print(f"总页数: {result['total_images']}")
-        print(f"含财务表格的页码: {result.get('financial_table_pages', [])}")
     else:
         print(f"输入: {result['total_images']} 张图片")
-        print(f"含财务表格的图片序号（从1开始）: {result.get('financial_table_indices', [])}")
 
     print(f"总耗时: {summary['total_analysis_time_sec']} 秒")
     print(f"总 Token 消耗: {summary['total_token_usage']['total_tokens']}")
-    print(f"  - Prompt: {summary['total_token_usage']['prompt_tokens']}")
-    print(f"  - Completion: {summary['total_token_usage']['completion_tokens']}")
 
-    # === 打印详情 ===
-    results_key = "image_results" if result["input_type"] == "image_list" else "image_results"
-    for i, res in enumerate(result[results_key]):
-        if res.get("is_financial"):
-            basename = os.path.basename(res["image_path"])
-            print(f"\n📄 {basename}")
-            print(f"  耗时: {res['analysis_time_sec']}s | Tokens: {res['token_usage']['total_tokens']}")
-            print(f"  无线框 → 横向: {'✅' if res['horizontal_lines_omitted'] else '❌'}, "
-                  f"纵向: {'✅' if res['vertical_lines_omitted'] else '❌'}")
-            print(f"  层级 → 横向: {'✅' if res['has_horizontal_hierarchy'] else '❌'}, "
-                  f"纵向: {'✅' if res['has_vertical_hierarchy'] else '❌'}")
+    # === 打印所有财务表格详情 ===
+    financial_tables = result.get("financial_tables_detail", [])
+    if not financial_tables:
+        print("\n❌ 未检测到财务类表格")
+    else:
+        print(f"\n✅ 共检测到 {len(financial_tables)} 个财务表格：")
+        for ft in financial_tables:
+            if result["input_type"] == "pdf":
+                loc = f"Page {ft['page_number']}"
+            else:
+                loc = f"Image {ft['image_index']}"
+            print(f"\n📄 {loc} - Table {ft['table_id']}")
+            h_fields = ft.get("horizontal_hierarchy_fields", [])
+            v_fields = ft.get("vertical_hierarchy_fields", [])
+            if h_fields:
+                print("  横向层级字段:")
+                for f in h_fields:
+                    print(f"    • {f}")
+            if v_fields:
+                print("  纵向层级字段:")
+                for f in v_fields:
+                    print(f"    • {f}")

@@ -227,17 +227,17 @@ def batch_process_ocr_files(json_folder, output_folder=None):
 if __name__ == "__main__":
     # 单个文件处理
     json_file_path = "data1.json"  # 替换为您的JSON文件路径
-    output_file = "OCR_结果_3.xlsx"
+    output_file = "OCR_结果_4.xlsx"
     df = process_ocr_json_to_excel(json_file_path, output_file)
-
-    # 批量处理（取消注释使用）
-    results = batch_process_ocr_files("path/to/json/folder")
-    {
-        "code": 1001,
-        "log_id": "1993548000500162560",
-        "message": "Create task successfully!",
-        "result": {
-            "task_id": "QNngaThB"
-        },
-        "success": true
-    }
+    #
+    # # 批量处理（取消注释使用）
+    # results = batch_process_ocr_files("path/to/json/folder")
+    # {
+    #     "code": 1001,
+    #     "log_id": "1993548000500162560",
+    #     "message": "Create task successfully!",
+    #     "result": {
+    #         "task_id": "QNngaThB"
+    #     },
+    #     "success": true
+    # }

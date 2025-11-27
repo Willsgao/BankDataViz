@@ -1,1149 +1,4958 @@
 {
-    "words_result": [
-        {
-            "words": "24",
-            "location": {
-                "top": 127,
-                "left": 151,
-                "width": 66,
-                "height": 51
-            }
-        },
-        {
-            "words": "中国建设银行股份有限公司2024年度报告",
-            "location": {
-                "top": 139,
-                "left": 447,
-                "width": 672,
-                "height": 39
-            }
-        },
-        {
-            "words": "管理层讨论与分析",
-            "location": {
-                "top": 236,
-                "left": 176,
-                "width": 299,
-                "height": 44
-            }
-        },
-        {
-            "words": "财务回顾",
-            "location": {
-                "top": 290,
-                "left": 173,
-                "width": 168,
-                "height": 49
-            }
-        },
-        {
-            "words": "利息收入",
-            "location": {
-                "top": 436,
-                "left": 175,
-                "width": 172,
-                "height": 49
-            }
-        },
-        {
-            "words": "2024年，本集团实现利息收入1.24万亿元，较上年减少58.09亿元，降幅0.47%。其中，发放贷款和垫款利息收入",
-            "location": {
-                "top": 518,
-                "left": 170,
-                "width": 2013,
-                "height": 52
-            }
-        },
-        {
-            "words": "占69.66%，金融投资利息收入占23.34%，存放中央银行款项、存放同业款项及拆出资金、买入返售金融资产利",
-            "location": {
-                "top": 589,
-                "left": 174,
-                "width": 2008,
-                "height": 53
-            }
-        },
-        {
-            "words": "息收入占比分别为3.62%、2.03%和1.35%。",
-            "location": {
-                "top": 662,
-                "left": 172,
-                "width": 731,
-                "height": 50
-            }
-        },
-        {
-            "words": "利息收入占比",
-            "location": {
-                "top": 762,
-                "left": 219,
-                "width": 223,
-                "height": 43
-            }
-        },
-        {
-            "words": "发放贷款和垫款利息收入结构（百万元）",
-            "location": {
-                "top": 761,
-                "left": 1264,
-                "width": 648,
-                "height": 46
-            }
-        },
-        {
-            "words": "600,000",
-            "location": {
-                "top": 892,
-                "left": 1223,
-                "width": 104,
-                "height": 30
-            }
-        },
-        {
-            "words": "69.66%",
-            "location": {
-                "top": 927,
-                "left": 794,
-                "width": 113,
-                "height": 32
-            }
-        },
-        {
-            "words": "发放贷款和垫款",
-            "location": {
-                "top": 969,
-                "left": 795,
-                "width": 232,
-                "height": 39
-            }
-        },
-        {
-            "words": "450,000",
-            "location": {
-                "top": 1007,
-                "left": 1226,
-                "width": 103,
-                "height": 30
-            }
-        },
-        {
-            "words": "1.35%",
-            "location": {
-                "top": 1027,
-                "left": 798,
-                "width": 93,
-                "height": 34
-            }
-        },
-        {
-            "words": "买入返售金融资产",
-            "location": {
-                "top": 1068,
-                "left": 796,
-                "width": 260,
-                "height": 39
-            }
-        },
-        {
-            "words": "2024年",
-            "location": {
-                "top": 1067,
-                "left": 2085,
-                "width": 92,
-                "height": 31
-            }
-        },
-        {
-            "words": "2.03%",
-            "location": {
-                "top": 1118,
-                "left": 795,
-                "width": 93,
-                "height": 33
-            }
-        },
-        {
-            "words": "300,000",
-            "location": {
-                "top": 1123,
-                "left": 1227,
-                "width": 102,
-                "height": 29
-            }
-        },
-        {
-            "words": "存放同业款项及",
-            "location": {
-                "top": 1160,
-                "left": 795,
-                "width": 230,
-                "height": 38
-            }
-        },
-        {
-            "words": "2023年",
-            "location": {
-                "top": 1144,
-                "left": 2083,
-                "width": 96,
-                "height": 32
-            }
-        },
-        {
-            "words": "拆出资金",
-            "location": {
-                "top": 1200,
-                "left": 797,
-                "width": 129,
-                "height": 36
-            }
-        },
-        {
-            "words": "3.62%",
-            "location": {
-                "top": 1251,
-                "left": 795,
-                "width": 95,
-                "height": 35
-            }
-        },
-        {
-            "words": "150,000",
-            "location": {
-                "top": 1237,
-                "left": 1230,
-                "width": 108,
-                "height": 31
-            }
-        },
-        {
-            "words": "存放中央银行款项",
-            "location": {
-                "top": 1293,
-                "left": 795,
-                "width": 265,
-                "height": 39
-            }
-        },
-        {
-            "words": "23.34%",
-            "location": {
-                "top": 1344,
-                "left": 795,
-                "width": 112,
-                "height": 34
-            }
-        },
-        {
-            "words": "0",
-            "location": {
-                "top": 1352,
-                "left": 1310,
-                "width": 26,
-                "height": 32
-            }
-        },
-        {
-            "words": "金融投资",
-            "location": {
-                "top": 1387,
-                "left": 796,
-                "width": 129,
-                "height": 38
-            }
-        },
-        {
-            "words": "公司类贷款",
-            "location": {
-                "top": 1387,
-                "left": 1440,
-                "width": 124,
-                "height": 32
-            }
-        },
-        {
-            "words": "个人贷款",
-            "location": {
-                "top": 1388,
-                "left": 1597,
-                "width": 98,
-                "height": 30
-            }
-        },
-        {
-            "words": "票据贴现",
-            "location": {
-                "top": 1388,
-                "left": 1740,
-                "width": 98,
-                "height": 31
-            }
-        },
-        {
-            "words": "境外及",
-            "location": {
-                "top": 1388,
-                "left": 1893,
-                "width": 74,
-                "height": 30
-            }
-        },
-        {
-            "words": "和垫款",
-            "location": {
-                "top": 1421,
-                "left": 1463,
-                "width": 75,
-                "height": 29
-            }
-        },
-        {
-            "words": "和垫款",
-            "location": {
-                "top": 1421,
-                "left": 1606,
-                "width": 75,
-                "height": 28
-            }
-        },
-        {
-            "words": "子公司",
-            "location": {
-                "top": 1423,
-                "left": 1893,
-                "width": 69,
-                "height": 25
-            }
-        },
-        {
-            "words": "下表列出所示期间本集团发放贷款和垫款各组成部分的平均余额、利息收入以及平均收益率情况。",
-            "location": {
-                "top": 1515,
-                "left": 181,
-                "width": 1746,
-                "height": 49
-            }
-        },
-        {
-            "words": "2024年",
-            "location": {
-                "top": 1613,
-                "left": 1066,
-                "width": 105,
-                "height": 35
-            }
-        },
-        {
-            "words": "2023年",
-            "location": {
-                "top": 1612,
-                "left": 1780,
-                "width": 96,
-                "height": 35
-            }
-        },
-        {
-            "words": "平均",
-            "location": {
-                "top": 1656,
-                "left": 1385,
-                "width": 63,
-                "height": 32
-            }
-        },
-        {
-            "words": "平均",
-            "location": {
-                "top": 1656,
-                "left": 2093,
-                "width": 63,
-                "height": 33
-            }
-        },
-        {
-            "words": "(人民币百万元，百分比除外)",
-            "location": {
-                "top": 1693,
-                "left": 198,
-                "width": 431,
-                "height": 43
-            }
-        },
-        {
-            "words": "平均余额",
-            "location": {
-                "top": 1697,
-                "left": 846,
-                "width": 131,
-                "height": 36
-            }
-        },
-        {
-            "words": "利息收入",
-            "location": {
-                "top": 1698,
-                "left": 1083,
-                "width": 131,
-                "height": 37
-            }
-        },
-        {
-            "words": "收益率(%)",
-            "location": {
-                "top": 1698,
-                "left": 1304,
-                "width": 146,
-                "height": 38
-            }
-        },
-        {
-            "words": "平均余额",
-            "location": {
-                "top": 1698,
-                "left": 1555,
-                "width": 130,
-                "height": 36
-            }
-        },
-        {
-            "words": "利息收入",
-            "location": {
-                "top": 1697,
-                "left": 1791,
-                "width": 129,
-                "height": 38
-            }
-        },
-        {
-            "words": "收益率(%)",
-            "location": {
-                "top": 1697,
-                "left": 2019,
-                "width": 138,
-                "height": 38
-            }
-        },
-        {
-            "words": "本行境内贷款和垫款",
-            "location": {
-                "top": 1757,
-                "left": 198,
-                "width": 297,
-                "height": 41
-            }
-        },
-        {
-            "words": "24,338,681",
-            "location": {
-                "top": 1763,
-                "left": 830,
-                "width": 145,
-                "height": 32
-            }
-        },
-        {
-            "words": "812,900",
-            "location": {
-                "top": 1764,
-                "left": 1107,
-                "width": 106,
-                "height": 32
-            }
-        },
-        {
-            "words": "3.34",
-            "location": {
-                "top": 1765,
-                "left": 1394,
-                "width": 56,
-                "height": 27
-            }
-        },
-        {
-            "words": "22,021,841",
-            "location": {
-                "top": 1763,
-                "left": 1549,
-                "width": 135,
-                "height": 35
-            }
-        },
-        {
-            "words": "823,397",
-            "location": {
-                "top": 1763,
-                "left": 1821,
-                "width": 102,
-                "height": 34
-            }
-        },
-        {
-            "words": "3.74",
-            "location": {
-                "top": 1765,
-                "left": 2105,
-                "width": 53,
-                "height": 30
-            }
-        },
-        {
-            "words": "公司类贷款和垫款",
-            "location": {
-                "top": 1812,
-                "left": 235,
-                "width": 263,
-                "height": 38
-            }
-        },
-        {
-            "words": "14,394,704",
-            "location": {
-                "top": 1817,
-                "left": 834,
-                "width": 143,
-                "height": 32
-            }
-        },
-        {
-            "words": "461,433",
-            "location": {
-                "top": 1817,
-                "left": 1107,
-                "width": 106,
-                "height": 32
-            }
-        },
-        {
-            "words": "3.21",
-            "location": {
-                "top": 1819,
-                "left": 1394,
-                "width": 53,
-                "height": 27
-            }
-        },
-        {
-            "words": "12,670,662",
-            "location": {
-                "top": 1816,
-                "left": 1552,
-                "width": 132,
-                "height": 33
-            }
-        },
-        {
-            "words": "441,221",
-            "location": {
-                "top": 1817,
-                "left": 1822,
-                "width": 98,
-                "height": 32
-            }
-        },
-        {
-            "words": "3.48",
-            "location": {
-                "top": 1818,
-                "left": 2105,
-                "width": 55,
-                "height": 28
-            }
-        },
-        {
-            "words": "短期贷款",
-            "location": {
-                "top": 1862,
-                "left": 234,
-                "width": 131,
-                "height": 40
-            }
-        },
-        {
-            "words": "4,059,423",
-            "location": {
-                "top": 1869,
-                "left": 845,
-                "width": 133,
-                "height": 32
-            }
-        },
-        {
-            "words": "122,517",
-            "location": {
-                "top": 1869,
-                "left": 1109,
-                "width": 104,
-                "height": 33
-            }
-        },
-        {
-            "words": "3.02",
-            "location": {
-                "top": 1871,
-                "left": 1394,
-                "width": 55,
-                "height": 27
-            }
-        },
-        {
-            "words": "3,530,267",
-            "location": {
-                "top": 1870,
-                "left": 1564,
-                "width": 121,
-                "height": 32
-            }
-        },
-        {
-            "words": "110,506",
-            "location": {
-                "top": 1869,
-                "left": 1824,
-                "width": 100,
-                "height": 31
-            }
-        },
-        {
-            "words": "3.13",
-            "location": {
-                "top": 1870,
-                "left": 2105,
-                "width": 52,
-                "height": 28
-            }
-        },
-        {
-            "words": "中长期贷款",
-            "location": {
-                "top": 1915,
-                "left": 233,
-                "width": 166,
-                "height": 38
-            }
-        },
-        {
-            "words": "10,335,281",
-            "location": {
-                "top": 1922,
-                "left": 833,
-                "width": 141,
-                "height": 32
-            }
-        },
-        {
-            "words": "338,916",
-            "location": {
-                "top": 1923,
-                "left": 1107,
-                "width": 106,
-                "height": 32
-            }
-        },
-        {
-            "words": "3.28",
-            "location": {
-                "top": 1923,
-                "left": 1393,
-                "width": 57,
-                "height": 28
-            }
-        },
-        {
-            "words": "9,140,395",
-            "location": {
-                "top": 1921,
-                "left": 1565,
-                "width": 119,
-                "height": 32
-            }
-        },
-        {
-            "words": "330,715",
-            "location": {
-                "top": 1921,
-                "left": 1821,
-                "width": 100,
-                "height": 32
-            }
-        },
-        {
-            "words": "3.62",
-            "location": {
-                "top": 1924,
-                "left": 2105,
-                "width": 53,
-                "height": 27
-            }
-        },
-        {
-            "words": "个人贷款和垫款",
-            "location": {
-                "top": 1968,
-                "left": 234,
-                "width": 232,
-                "height": 41
-            }
-        },
-        {
-            "words": "8,736,992",
-            "location": {
-                "top": 1974,
-                "left": 847,
-                "width": 130,
-                "height": 32
-            }
-        },
-        {
-            "words": "337,928",
-            "location": {
-                "top": 1974,
-                "left": 1107,
-                "width": 106,
-                "height": 32
-            }
-        },
-        {
-            "words": "3.87",
-            "location": {
-                "top": 1976,
-                "left": 1394,
-                "width": 55,
-                "height": 27
-            }
-        },
-        {
-            "words": "8,416,318",
-            "location": {
-                "top": 1974,
-                "left": 1564,
-                "width": 123,
-                "height": 33
-            }
-        },
-        {
-            "words": "369,842",
-            "location": {
-                "top": 1974,
-                "left": 1823,
-                "width": 99,
-                "height": 32
-            }
-        },
-        {
-            "words": "4.39",
-            "location": {
-                "top": 1975,
-                "left": 2105,
-                "width": 55,
-                "height": 28
-            }
-        },
-        {
-            "words": "短期贷款",
-            "location": {
-                "top": 2021,
-                "left": 234,
-                "width": 131,
-                "height": 38
-            }
-        },
-        {
-            "words": "1,313,522",
-            "location": {
-                "top": 2027,
-                "left": 850,
-                "width": 128,
-                "height": 32
-            }
-        },
-        {
-            "words": "47,173",
-            "location": {
-                "top": 2027,
-                "left": 1123,
-                "width": 90,
-                "height": 33
-            }
-        },
-        {
-            "words": "3.59",
-            "location": {
-                "top": 2027,
-                "left": 1394,
-                "width": 56,
-                "height": 29
-            }
-        },
-        {
-            "words": "1,132,732",
-            "location": {
-                "top": 2026,
-                "left": 1566,
-                "width": 121,
-                "height": 33
-            }
-        },
-        {
-            "words": "42,312",
-            "location": {
-                "top": 2026,
-                "left": 1839,
-                "width": 83,
-                "height": 31
-            }
-        },
-        {
-            "words": "3.74",
-            "location": {
-                "top": 2029,
-                "left": 2105,
-                "width": 54,
-                "height": 28
-            }
-        },
-        {
-            "words": "中长期贷款",
-            "location": {
-                "top": 2072,
-                "left": 233,
-                "width": 165,
-                "height": 37
-            }
-        },
-        {
-            "words": "7,423,470",
-            "location": {
-                "top": 2077,
-                "left": 848,
-                "width": 130,
-                "height": 34
-            }
-        },
-        {
-            "words": "290,755",
-            "location": {
-                "top": 2077,
-                "left": 1107,
-                "width": 105,
-                "height": 34
-            }
-        },
-        {
-            "words": "3.92",
-            "location": {
-                "top": 2080,
-                "left": 1394,
-                "width": 55,
-                "height": 28
-            }
-        },
-        {
-            "words": "7,283,586",
-            "location": {
-                "top": 2077,
-                "left": 1565,
-                "width": 122,
-                "height": 34
-            }
-        },
-        {
-            "words": "327,530",
-            "location": {
-                "top": 2077,
-                "left": 1822,
-                "width": 101,
-                "height": 33
-            }
-        },
-        {
-            "words": "4.50",
-            "location": {
-                "top": 2080,
-                "left": 2105,
-                "width": 54,
-                "height": 27
-            }
-        },
-        {
-            "words": "票据贴现",
-            "location": {
-                "top": 2125,
-                "left": 234,
-                "width": 130,
-                "height": 37
-            }
-        },
-        {
-            "words": "1,206,985",
-            "location": {
-                "top": 2129,
-                "left": 849,
-                "width": 129,
-                "height": 34
-            }
-        },
-        {
-            "words": "13,539",
-            "location": {
-                "top": 2129,
-                "left": 1127,
-                "width": 86,
-                "height": 34
-            }
-        },
-        {
-            "words": "1.12",
-            "location": {
-                "top": 2131,
-                "left": 1394,
-                "width": 55,
-                "height": 28
-            }
-        },
-        {
-            "words": "934,861",
-            "location": {
-                "top": 2131,
-                "left": 1586,
-                "width": 98,
-                "height": 32
-            }
-        },
-        {
-            "words": "12,334",
-            "location": {
-                "top": 2131,
-                "left": 1840,
-                "width": 82,
-                "height": 32
-            }
-        },
-        {
-            "words": "1.32",
-            "location": {
-                "top": 2133,
-                "left": 2110,
-                "width": 48,
-                "height": 27
-            }
-        },
-        {
-            "words": "境外及子公司",
-            "location": {
-                "top": 2177,
-                "left": 199,
-                "width": 196,
-                "height": 39
-            }
-        },
-        {
-            "words": "889,560",
-            "location": {
-                "top": 2183,
-                "left": 870,
-                "width": 108,
-                "height": 32
-            }
-        },
-        {
-            "words": "52,002",
-            "location": {
-                "top": 2183,
-                "left": 1124,
-                "width": 90,
-                "height": 32
-            }
-        },
-        {
-            "words": "5.85",
-            "location": {
-                "top": 2185,
-                "left": 1393,
-                "width": 56,
-                "height": 28
-            }
-        },
-        {
-            "words": "974,384",
-            "location": {
-                "top": 2183,
-                "left": 1584,
-                "width": 103,
-                "height": 33
-            }
-        },
-        {
-            "words": "54,520",
-            "location": {
-                "top": 2182,
-                "left": 1837,
-                "width": 87,
-                "height": 33
-            }
-        },
-        {
-            "words": "5.60",
-            "location": {
-                "top": 2185,
-                "left": 2104,
-                "width": 55,
-                "height": 28
-            }
-        },
-        {
-            "words": "发放贷款和垫款总额",
-            "location": {
-                "top": 2230,
-                "left": 199,
-                "width": 296,
-                "height": 39
-            }
-        },
-        {
-            "words": "25,228,241",
-            "location": {
-                "top": 2234,
-                "left": 830,
-                "width": 144,
-                "height": 35
-            }
-        },
-        {
-            "words": "864,902",
-            "location": {
-                "top": 2234,
-                "left": 1107,
-                "width": 107,
-                "height": 35
-            }
-        },
-        {
-            "words": "3.43",
-            "location": {
-                "top": 2237,
-                "left": 1393,
-                "width": 56,
-                "height": 29
-            }
-        },
-        {
-            "words": "22,996,225",
-            "location": {
-                "top": 2235,
-                "left": 1548,
-                "width": 139,
-                "height": 35
-            }
-        },
-        {
-            "words": "877,917",
-            "location": {
-                "top": 2234,
-                "left": 1820,
-                "width": 102,
-                "height": 34
-            }
-        },
-        {
-            "words": "3.82",
-            "location": {
-                "top": 2237,
-                "left": 2106,
-                "width": 52,
-                "height": 29
-            }
-        },
-        {
-            "words": "发放贷款和垫款利息收入8,649.02亿元，较上年减少130.15亿元，降幅1.48%，主要是发放贷款和垫款平均收益率",
-            "location": {
-                "top": 2329,
-                "left": 172,
-                "width": 2012,
-                "height": 51
-            }
-        },
-        {
-            "words": "较上年下降39个基点，抵销了平均余额较上年增长9.71%带来的影响。",
-            "location": {
-                "top": 2401,
-                "left": 174,
-                "width": 1233,
-                "height": 52
-            }
-        },
-        {
-            "words": "金融投资利息收入2,897.88亿元，较上年增加112.64亿元，增幅4.04%，主要是金融投资平均余额较上年增长",
-            "location": {
-                "top": 2506,
-                "left": 171,
-                "width": 2014,
-                "height": 52
-            }
-        },
-        {
-            "words": "9.18%,抵销了平均收益率较上年下降16个基点带来的影响。",
-            "location": {
-                "top": 2579,
-                "left": 171,
-                "width": 1076,
-                "height": 51
-            }
-        },
-        {
-            "words": "存放中央银行款项利息收入448.78亿元，较上年减少7.58亿元，降幅1.66%，主要是存放中央银行款项平均余额",
-            "location": {
-                "top": 2684,
-                "left": 169,
-                "width": 2015,
-                "height": 52
-            }
-        },
-        {
-            "words": "较上年减少2.25%。",
-            "location": {
-                "top": 2756,
-                "left": 174,
-                "width": 322,
-                "height": 50
-            }
-        },
-        {
-            "words": "存放同业款项及拆出资金利息收入252.28亿元，较上年减少4.50亿元，降幅1.75%，主要是存放同业款项及拆出",
-            "location": {
-                "top": 2860,
-                "left": 171,
-                "width": 2015,
-                "height": 52
-            }
-        },
-        {
-            "words": "资金平均收益率较上年下降13个基点。",
-            "location": {
-                "top": 2932,
-                "left": 175,
-                "width": 679,
-                "height": 50
-            }
-        },
-        {
-            "words": "买入返售金融资产利息收入167.61亿元，较上年减少28.50亿元，降幅14.53%，主要是买入返售金融资产平均余",
-            "location": {
-                "top": 3039,
-                "left": 171,
-                "width": 2013,
-                "height": 51
-            }
-        },
-        {
-            "words": "额较上年减少8.19%，平均收益率亦较上年下降13个基点。",
-            "location": {
-                "top": 3109,
-                "left": 174,
-                "width": 1031,
-                "height": 51
-            }
+    "tables_result": [
+        {
+            "header": [],
+            "body": [
+                {
+                    "col_end": 1,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 233
+                        },
+                        {
+                            "x": 708,
+                            "y": 233
+                        },
+                        {
+                            "x": 708,
+                            "y": 272
+                        },
+                        {
+                            "x": 246,
+                            "y": 272
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 0,
+                    "words": "项目"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 233
+                        },
+                        {
+                            "x": 1074,
+                            "y": 233
+                        },
+                        {
+                            "x": 1074,
+                            "y": 272
+                        },
+                        {
+                            "x": 708,
+                            "y": 272
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 1,
+                    "words": "2023年"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 233
+                        },
+                        {
+                            "x": 1409,
+                            "y": 233
+                        },
+                        {
+                            "x": 1408,
+                            "y": 271
+                        },
+                        {
+                            "x": 1074,
+                            "y": 272
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 2,
+                    "words": "2022年"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 272
+                        },
+                        {
+                            "x": 708,
+                            "y": 272
+                        },
+                        {
+                            "x": 708,
+                            "y": 313
+                        },
+                        {
+                            "x": 246,
+                            "y": 314
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 0,
+                    "words": "投资损失（减：收益）"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 272
+                        },
+                        {
+                            "x": 1074,
+                            "y": 272
+                        },
+                        {
+                            "x": 1074,
+                            "y": 313
+                        },
+                        {
+                            "x": 708,
+                            "y": 313
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 1,
+                    "words": "-140,411,765.95"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 272
+                        },
+                        {
+                            "x": 1408,
+                            "y": 271
+                        },
+                        {
+                            "x": 1408,
+                            "y": 313
+                        },
+                        {
+                            "x": 1074,
+                            "y": 313
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 2,
+                    "words": "56,493,113.27"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 314
+                        },
+                        {
+                            "x": 708,
+                            "y": 313
+                        },
+                        {
+                            "x": 708,
+                            "y": 355
+                        },
+                        {
+                            "x": 247,
+                            "y": 355
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 0,
+                    "words": "递延所得税资产减少（减：增加）"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 313
+                        },
+                        {
+                            "x": 1074,
+                            "y": 313
+                        },
+                        {
+                            "x": 1074,
+                            "y": 354
+                        },
+                        {
+                            "x": 708,
+                            "y": 355
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 1,
+                    "words": "-44,878,769.18"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 313
+                        },
+                        {
+                            "x": 1408,
+                            "y": 313
+                        },
+                        {
+                            "x": 1409,
+                            "y": 354
+                        },
+                        {
+                            "x": 1074,
+                            "y": 354
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 2,
+                    "words": "-23,516,297.95"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 247,
+                            "y": 355
+                        },
+                        {
+                            "x": 708,
+                            "y": 355
+                        },
+                        {
+                            "x": 708,
+                            "y": 395
+                        },
+                        {
+                            "x": 247,
+                            "y": 395
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 0,
+                    "words": "递延所得税负债增加（减：减少）"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 355
+                        },
+                        {
+                            "x": 1074,
+                            "y": 354
+                        },
+                        {
+                            "x": 1074,
+                            "y": 395
+                        },
+                        {
+                            "x": 708,
+                            "y": 395
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 1,
+                    "words": "139,280,757.94"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 354
+                        },
+                        {
+                            "x": 1409,
+                            "y": 354
+                        },
+                        {
+                            "x": 1408,
+                            "y": 395
+                        },
+                        {
+                            "x": 1074,
+                            "y": 395
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 2,
+                    "words": "4,239,913.98"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 247,
+                            "y": 395
+                        },
+                        {
+                            "x": 708,
+                            "y": 395
+                        },
+                        {
+                            "x": 708,
+                            "y": 437
+                        },
+                        {
+                            "x": 246,
+                            "y": 437
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 0,
+                    "words": "经营性应收项目的减少（减：增加）"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 395
+                        },
+                        {
+                            "x": 1074,
+                            "y": 395
+                        },
+                        {
+                            "x": 1074,
+                            "y": 437
+                        },
+                        {
+                            "x": 708,
+                            "y": 437
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 1,
+                    "words": "-5,683,009,135.42"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 395
+                        },
+                        {
+                            "x": 1408,
+                            "y": 395
+                        },
+                        {
+                            "x": 1408,
+                            "y": 437
+                        },
+                        {
+                            "x": 1074,
+                            "y": 437
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 2,
+                    "words": "-4,494,294,537.54"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 437
+                        },
+                        {
+                            "x": 708,
+                            "y": 437
+                        },
+                        {
+                            "x": 708,
+                            "y": 478
+                        },
+                        {
+                            "x": 247,
+                            "y": 478
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 0,
+                    "words": "经营性应付项目的增加（减：减少）"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 437
+                        },
+                        {
+                            "x": 1074,
+                            "y": 437
+                        },
+                        {
+                            "x": 1074,
+                            "y": 478
+                        },
+                        {
+                            "x": 708,
+                            "y": 478
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 1,
+                    "words": "9,397,771,343.98"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 437
+                        },
+                        {
+                            "x": 1408,
+                            "y": 437
+                        },
+                        {
+                            "x": 1408,
+                            "y": 478
+                        },
+                        {
+                            "x": 1074,
+                            "y": 478
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 2,
+                    "words": "6,651,514,213.65"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 247,
+                            "y": 478
+                        },
+                        {
+                            "x": 708,
+                            "y": 478
+                        },
+                        {
+                            "x": 708,
+                            "y": 518
+                        },
+                        {
+                            "x": 247,
+                            "y": 518
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 0,
+                    "words": "经营活动产生的现金流量净额"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 708,
+                            "y": 478
+                        },
+                        {
+                            "x": 1074,
+                            "y": 478
+                        },
+                        {
+                            "x": 1074,
+                            "y": 518
+                        },
+                        {
+                            "x": 708,
+                            "y": 518
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 1,
+                    "words": "4,785,971,228.85"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 1074,
+                            "y": 478
+                        },
+                        {
+                            "x": 1408,
+                            "y": 478
+                        },
+                        {
+                            "x": 1408,
+                            "y": 518
+                        },
+                        {
+                            "x": 1074,
+                            "y": 518
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 2,
+                    "words": "2,909,365,025.39"
+                }
+            ],
+            "table_location": [
+                {
+                    "x": 246,
+                    "y": 233
+                },
+                {
+                    "x": 1409,
+                    "y": 233
+                },
+                {
+                    "x": 1409,
+                    "y": 518
+                },
+                {
+                    "x": 246,
+                    "y": 518
+                }
+            ],
+            "footer": [
+                {
+                    "location": [
+                        {
+                            "x": 319,
+                            "y": 576
+                        },
+                        {
+                            "x": 878,
+                            "y": 575
+                        },
+                        {
+                            "x": 878,
+                            "y": 613
+                        },
+                        {
+                            "x": 319,
+                            "y": 614
+                        }
+                    ],
+                    "words": "六、主要股东情况（金额单位：人民币万元）"
+                }
+            ]
+        },
+        {
+            "header": [
+                {
+                    "location": [
+                        {
+                            "x": 335,
+                            "y": 634
+                        },
+                        {
+                            "x": 751,
+                            "y": 634
+                        },
+                        {
+                            "x": 751,
+                            "y": 670
+                        },
+                        {
+                            "x": 335,
+                            "y": 670
+                        }
+                    ],
+                    "words": "(一)最大十名法人股东持股情况"
+                }
+            ],
+            "body": [
+                {
+                    "col_end": 1,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 693
+                        },
+                        {
+                            "x": 744,
+                            "y": 693
+                        },
+                        {
+                            "x": 744,
+                            "y": 768
+                        },
+                        {
+                            "x": 248,
+                            "y": 768
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 0,
+                    "words": "法人股东名称"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 744,
+                            "y": 693
+                        },
+                        {
+                            "x": 1078,
+                            "y": 693
+                        },
+                        {
+                            "x": 1078,
+                            "y": 729
+                        },
+                        {
+                            "x": 744,
+                            "y": 729
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 1,
+                    "words": "2023年12月31日"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 693
+                        },
+                        {
+                            "x": 1408,
+                            "y": 693
+                        },
+                        {
+                            "x": 1408,
+                            "y": 729
+                        },
+                        {
+                            "x": 1078,
+                            "y": 729
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 3,
+                    "words": "2022年12月31日"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 729
+                        },
+                        {
+                            "x": 919,
+                            "y": 729
+                        },
+                        {
+                            "x": 919,
+                            "y": 768
+                        },
+                        {
+                            "x": 745,
+                            "y": 768
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 1,
+                    "words": "持股金额"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 729
+                        },
+                        {
+                            "x": 1078,
+                            "y": 729
+                        },
+                        {
+                            "x": 1078,
+                            "y": 768
+                        },
+                        {
+                            "x": 919,
+                            "y": 768
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 2,
+                    "words": "持股比例"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 729
+                        },
+                        {
+                            "x": 1252,
+                            "y": 729
+                        },
+                        {
+                            "x": 1252,
+                            "y": 768
+                        },
+                        {
+                            "x": 1078,
+                            "y": 768
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 3,
+                    "words": "持股金额"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 729
+                        },
+                        {
+                            "x": 1409,
+                            "y": 729
+                        },
+                        {
+                            "x": 1409,
+                            "y": 768
+                        },
+                        {
+                            "x": 1252,
+                            "y": 768
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 4,
+                    "words": "持股比例"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 768
+                        },
+                        {
+                            "x": 745,
+                            "y": 768
+                        },
+                        {
+                            "x": 745,
+                            "y": 806
+                        },
+                        {
+                            "x": 248,
+                            "y": 806
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 0,
+                    "words": "浙江卫星控股股份有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 768
+                        },
+                        {
+                            "x": 919,
+                            "y": 768
+                        },
+                        {
+                            "x": 919,
+                            "y": 806
+                        },
+                        {
+                            "x": 745,
+                            "y": 806
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 1,
+                    "words": "4,722.88"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 768
+                        },
+                        {
+                            "x": 1078,
+                            "y": 768
+                        },
+                        {
+                            "x": 1078,
+                            "y": 806
+                        },
+                        {
+                            "x": 919,
+                            "y": 806
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 2,
+                    "words": "5.98%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 768
+                        },
+                        {
+                            "x": 1252,
+                            "y": 768
+                        },
+                        {
+                            "x": 1252,
+                            "y": 806
+                        },
+                        {
+                            "x": 1078,
+                            "y": 806
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 3,
+                    "words": "3,937.20"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 768
+                        },
+                        {
+                            "x": 1409,
+                            "y": 768
+                        },
+                        {
+                            "x": 1409,
+                            "y": 806
+                        },
+                        {
+                            "x": 1252,
+                            "y": 806
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 4,
+                    "words": "5.23%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 806
+                        },
+                        {
+                            "x": 745,
+                            "y": 806
+                        },
+                        {
+                            "x": 745,
+                            "y": 844
+                        },
+                        {
+                            "x": 248,
+                            "y": 844
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 0,
+                    "words": "中法控股集团有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 806
+                        },
+                        {
+                            "x": 919,
+                            "y": 806
+                        },
+                        {
+                            "x": 919,
+                            "y": 844
+                        },
+                        {
+                            "x": 745,
+                            "y": 844
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 1,
+                    "words": "4,134.06"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 806
+                        },
+                        {
+                            "x": 1078,
+                            "y": 806
+                        },
+                        {
+                            "x": 1078,
+                            "y": 844
+                        },
+                        {
+                            "x": 919,
+                            "y": 844
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 2,
+                    "words": "5.23%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 806
+                        },
+                        {
+                            "x": 1252,
+                            "y": 806
+                        },
+                        {
+                            "x": 1252,
+                            "y": 844
+                        },
+                        {
+                            "x": 1078,
+                            "y": 844
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 3,
+                    "words": "3,937.20"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 806
+                        },
+                        {
+                            "x": 1409,
+                            "y": 806
+                        },
+                        {
+                            "x": 1409,
+                            "y": 844
+                        },
+                        {
+                            "x": 1252,
+                            "y": 844
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 4,
+                    "words": "5.23%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 844
+                        },
+                        {
+                            "x": 745,
+                            "y": 844
+                        },
+                        {
+                            "x": 745,
+                            "y": 881
+                        },
+                        {
+                            "x": 248,
+                            "y": 882
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 0,
+                    "words": "浙江聚优非织造材料科技有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 844
+                        },
+                        {
+                            "x": 919,
+                            "y": 844
+                        },
+                        {
+                            "x": 919,
+                            "y": 882
+                        },
+                        {
+                            "x": 745,
+                            "y": 881
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 1,
+                    "words": "2,128.45"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 844
+                        },
+                        {
+                            "x": 1078,
+                            "y": 844
+                        },
+                        {
+                            "x": 1078,
+                            "y": 882
+                        },
+                        {
+                            "x": 919,
+                            "y": 882
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 2,
+                    "words": "2.69%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 844
+                        },
+                        {
+                            "x": 1252,
+                            "y": 844
+                        },
+                        {
+                            "x": 1252,
+                            "y": 882
+                        },
+                        {
+                            "x": 1078,
+                            "y": 882
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 3,
+                    "words": "2,027.10"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 844
+                        },
+                        {
+                            "x": 1409,
+                            "y": 844
+                        },
+                        {
+                            "x": 1409,
+                            "y": 881
+                        },
+                        {
+                            "x": 1252,
+                            "y": 882
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 4,
+                    "words": "2.69%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 882
+                        },
+                        {
+                            "x": 745,
+                            "y": 881
+                        },
+                        {
+                            "x": 745,
+                            "y": 920
+                        },
+                        {
+                            "x": 248,
+                            "y": 920
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 0,
+                    "words": "嘉兴农昕贸易有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 881
+                        },
+                        {
+                            "x": 919,
+                            "y": 882
+                        },
+                        {
+                            "x": 919,
+                            "y": 920
+                        },
+                        {
+                            "x": 745,
+                            "y": 920
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 1,
+                    "words": "2,110.71"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 882
+                        },
+                        {
+                            "x": 1078,
+                            "y": 882
+                        },
+                        {
+                            "x": 1078,
+                            "y": 920
+                        },
+                        {
+                            "x": 919,
+                            "y": 920
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 2,
+                    "words": "2.67%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 882
+                        },
+                        {
+                            "x": 1252,
+                            "y": 882
+                        },
+                        {
+                            "x": 1252,
+                            "y": 920
+                        },
+                        {
+                            "x": 1078,
+                            "y": 920
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 3,
+                    "words": "2,010.20"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 882
+                        },
+                        {
+                            "x": 1409,
+                            "y": 881
+                        },
+                        {
+                            "x": 1409,
+                            "y": 920
+                        },
+                        {
+                            "x": 1252,
+                            "y": 920
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 4,
+                    "words": "2.67%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 920
+                        },
+                        {
+                            "x": 745,
+                            "y": 920
+                        },
+                        {
+                            "x": 745,
+                            "y": 957
+                        },
+                        {
+                            "x": 248,
+                            "y": 957
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 0,
+                    "words": "嘉兴洁琪污水管网有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 920
+                        },
+                        {
+                            "x": 919,
+                            "y": 920
+                        },
+                        {
+                            "x": 919,
+                            "y": 957
+                        },
+                        {
+                            "x": 745,
+                            "y": 957
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 1,
+                    "words": "1,773.77"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 920
+                        },
+                        {
+                            "x": 1078,
+                            "y": 920
+                        },
+                        {
+                            "x": 1078,
+                            "y": 957
+                        },
+                        {
+                            "x": 919,
+                            "y": 957
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 2,
+                    "words": "2.24%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 920
+                        },
+                        {
+                            "x": 1252,
+                            "y": 920
+                        },
+                        {
+                            "x": 1252,
+                            "y": 957
+                        },
+                        {
+                            "x": 1078,
+                            "y": 957
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 3,
+                    "words": "1,689.30"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 920
+                        },
+                        {
+                            "x": 1409,
+                            "y": 920
+                        },
+                        {
+                            "x": 1409,
+                            "y": 957
+                        },
+                        {
+                            "x": 1252,
+                            "y": 957
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 4,
+                    "words": "2.24%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 957
+                        },
+                        {
+                            "x": 745,
+                            "y": 957
+                        },
+                        {
+                            "x": 745,
+                            "y": 996
+                        },
+                        {
+                            "x": 248,
+                            "y": 996
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 0,
+                    "words": "浙江荣祥纺织股份有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 957
+                        },
+                        {
+                            "x": 919,
+                            "y": 957
+                        },
+                        {
+                            "x": 919,
+                            "y": 996
+                        },
+                        {
+                            "x": 745,
+                            "y": 996
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 1,
+                    "words": "1,185.26"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 957
+                        },
+                        {
+                            "x": 1078,
+                            "y": 957
+                        },
+                        {
+                            "x": 1078,
+                            "y": 996
+                        },
+                        {
+                            "x": 919,
+                            "y": 996
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 2,
+                    "words": "1.50%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 957
+                        },
+                        {
+                            "x": 1252,
+                            "y": 957
+                        },
+                        {
+                            "x": 1252,
+                            "y": 996
+                        },
+                        {
+                            "x": 1078,
+                            "y": 996
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 3,
+                    "words": "1,128.82"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 957
+                        },
+                        {
+                            "x": 1409,
+                            "y": 957
+                        },
+                        {
+                            "x": 1409,
+                            "y": 996
+                        },
+                        {
+                            "x": 1252,
+                            "y": 996
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 4,
+                    "words": "1.50%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 996
+                        },
+                        {
+                            "x": 745,
+                            "y": 996
+                        },
+                        {
+                            "x": 745,
+                            "y": 1033
+                        },
+                        {
+                            "x": 248,
+                            "y": 1033
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 0,
+                    "words": "梦迪集团有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 996
+                        },
+                        {
+                            "x": 919,
+                            "y": 996
+                        },
+                        {
+                            "x": 919,
+                            "y": 1033
+                        },
+                        {
+                            "x": 745,
+                            "y": 1033
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 1,
+                    "words": "1,177.63"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 996
+                        },
+                        {
+                            "x": 1078,
+                            "y": 996
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1033
+                        },
+                        {
+                            "x": 919,
+                            "y": 1033
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 2,
+                    "words": "1.49%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 996
+                        },
+                        {
+                            "x": 1252,
+                            "y": 996
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1033
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 3,
+                    "words": ""
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 996
+                        },
+                        {
+                            "x": 1409,
+                            "y": 996
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1033
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 4,
+                    "words": ""
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 1033
+                        },
+                        {
+                            "x": 745,
+                            "y": 1033
+                        },
+                        {
+                            "x": 745,
+                            "y": 1071
+                        },
+                        {
+                            "x": 248,
+                            "y": 1071
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 0,
+                    "words": "浙江鸣春纺织股份有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 1033
+                        },
+                        {
+                            "x": 919,
+                            "y": 1033
+                        },
+                        {
+                            "x": 919,
+                            "y": 1071
+                        },
+                        {
+                            "x": 745,
+                            "y": 1071
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 1,
+                    "words": "649.35"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1071
+                        },
+                        {
+                            "x": 919,
+                            "y": 1071
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 2,
+                    "words": "0.82%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1071
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 3,
+                    "words": "618.42"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1033
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1071
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 4,
+                    "words": "0.82%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 1071
+                        },
+                        {
+                            "x": 745,
+                            "y": 1071
+                        },
+                        {
+                            "x": 745,
+                            "y": 1109
+                        },
+                        {
+                            "x": 248,
+                            "y": 1109
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 0,
+                    "words": "浙江天之华控股有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 1071
+                        },
+                        {
+                            "x": 919,
+                            "y": 1071
+                        },
+                        {
+                            "x": 919,
+                            "y": 1109
+                        },
+                        {
+                            "x": 745,
+                            "y": 1109
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 1,
+                    "words": "649.35"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1109
+                        },
+                        {
+                            "x": 919,
+                            "y": 1109
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 2,
+                    "words": "0.82%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1109
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 3,
+                    "words": "618.42"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1071
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1109
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 4,
+                    "words": "0.82%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 1109
+                        },
+                        {
+                            "x": 745,
+                            "y": 1109
+                        },
+                        {
+                            "x": 745,
+                            "y": 1147
+                        },
+                        {
+                            "x": 248,
+                            "y": 1148
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 0,
+                    "words": "嘉兴市荣成织造有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 1109
+                        },
+                        {
+                            "x": 919,
+                            "y": 1109
+                        },
+                        {
+                            "x": 919,
+                            "y": 1147
+                        },
+                        {
+                            "x": 745,
+                            "y": 1147
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 1,
+                    "words": "590.65"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1147
+                        },
+                        {
+                            "x": 919,
+                            "y": 1147
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 2,
+                    "words": "0.75%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1147
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 3,
+                    "words": "562.52"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1109
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1147
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 4,
+                    "words": "0.75%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 1148
+                        },
+                        {
+                            "x": 745,
+                            "y": 1147
+                        },
+                        {
+                            "x": 745,
+                            "y": 1186
+                        },
+                        {
+                            "x": 248,
+                            "y": 1186
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 0,
+                    "words": "浙江卫星商贸有限公司"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 1147
+                        },
+                        {
+                            "x": 919,
+                            "y": 1147
+                        },
+                        {
+                            "x": 919,
+                            "y": 1186
+                        },
+                        {
+                            "x": 745,
+                            "y": 1186
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1185
+                        },
+                        {
+                            "x": 919,
+                            "y": 1186
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 2,
+                    "words": ""
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1185
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 3,
+                    "words": "560.78"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1147
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1185
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 4,
+                    "words": "0.75%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 14,
+                    "cell_location": [
+                        {
+                            "x": 248,
+                            "y": 1186
+                        },
+                        {
+                            "x": 745,
+                            "y": 1186
+                        },
+                        {
+                            "x": 745,
+                            "y": 1224
+                        },
+                        {
+                            "x": 248,
+                            "y": 1225
+                        }
+                    ],
+                    "row_start": 13,
+                    "col_start": 0,
+                    "words": "合计"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 14,
+                    "cell_location": [
+                        {
+                            "x": 745,
+                            "y": 1186
+                        },
+                        {
+                            "x": 919,
+                            "y": 1186
+                        },
+                        {
+                            "x": 919,
+                            "y": 1224
+                        },
+                        {
+                            "x": 745,
+                            "y": 1224
+                        }
+                    ],
+                    "row_start": 13,
+                    "col_start": 1,
+                    "words": "19,122.11"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 14,
+                    "cell_location": [
+                        {
+                            "x": 919,
+                            "y": 1186
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1224
+                        },
+                        {
+                            "x": 919,
+                            "y": 1224
+                        }
+                    ],
+                    "row_start": 13,
+                    "col_start": 2,
+                    "words": "24.19%"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 14,
+                    "cell_location": [
+                        {
+                            "x": 1078,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1224
+                        },
+                        {
+                            "x": 1078,
+                            "y": 1224
+                        }
+                    ],
+                    "row_start": 13,
+                    "col_start": 3,
+                    "words": "17,089.96"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 14,
+                    "cell_location": [
+                        {
+                            "x": 1252,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1185
+                        },
+                        {
+                            "x": 1409,
+                            "y": 1224
+                        },
+                        {
+                            "x": 1252,
+                            "y": 1224
+                        }
+                    ],
+                    "row_start": 13,
+                    "col_start": 4,
+                    "words": "22.70%"
+                }
+            ],
+            "table_location": [
+                {
+                    "x": 248,
+                    "y": 693
+                },
+                {
+                    "x": 1409,
+                    "y": 693
+                },
+                {
+                    "x": 1409,
+                    "y": 1225
+                },
+                {
+                    "x": 248,
+                    "y": 1225
+                }
+            ],
+            "footer": [
+                {
+                    "location": [
+                        {
+                            "x": 335,
+                            "y": 1222
+                        },
+                        {
+                            "x": 780,
+                            "y": 1222
+                        },
+                        {
+                            "x": 780,
+                            "y": 1258
+                        },
+                        {
+                            "x": 335,
+                            "y": 1259
+                        }
+                    ],
+                    "words": "(二)最大十名自然人股东持股情况"
+                }
+            ]
+        },
+        {
+            "header": [],
+            "body": [
+                {
+                    "col_end": 1,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 245,
+                            "y": 1282
+                        },
+                        {
+                            "x": 441,
+                            "y": 1282
+                        },
+                        {
+                            "x": 441,
+                            "y": 1356
+                        },
+                        {
+                            "x": 246,
+                            "y": 1356
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 0,
+                    "words": "股东名称"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 441,
+                            "y": 1282
+                        },
+                        {
+                            "x": 636,
+                            "y": 1282
+                        },
+                        {
+                            "x": 636,
+                            "y": 1355
+                        },
+                        {
+                            "x": 441,
+                            "y": 1356
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 1,
+                    "words": "银行现职"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1282
+                        },
+                        {
+                            "x": 1024,
+                            "y": 1282
+                        },
+                        {
+                            "x": 1024,
+                            "y": 1318
+                        },
+                        {
+                            "x": 636,
+                            "y": 1318
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 2,
+                    "words": "2023年12月31日"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 1024,
+                            "y": 1282
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1282
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1317
+                        },
+                        {
+                            "x": 1024,
+                            "y": 1318
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 4,
+                    "words": "2022年12月31日"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1318
+                        },
+                        {
+                            "x": 831,
+                            "y": 1318
+                        },
+                        {
+                            "x": 831,
+                            "y": 1355
+                        },
+                        {
+                            "x": 636,
+                            "y": 1355
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 2,
+                    "words": "持股金额"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1318
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1318
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1354
+                        },
+                        {
+                            "x": 831,
+                            "y": 1355
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 3,
+                    "words": "持股比例"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1318
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1317
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1354
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 4,
+                    "words": "持股金额"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1317
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1317
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1354
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 5,
+                    "words": "持股比例"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1356
+                        },
+                        {
+                            "x": 441,
+                            "y": 1356
+                        },
+                        {
+                            "x": 441,
+                            "y": 1395
+                        },
+                        {
+                            "x": 246,
+                            "y": 1396
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 0,
+                    "words": "景文学"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 441,
+                            "y": 1356
+                        },
+                        {
+                            "x": 636,
+                            "y": 1355
+                        },
+                        {
+                            "x": 636,
+                            "y": 1395
+                        },
+                        {
+                            "x": 441,
+                            "y": 1395
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 1,
+                    "words": "调研员"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1355
+                        },
+                        {
+                            "x": 831,
+                            "y": 1355
+                        },
+                        {
+                            "x": 831,
+                            "y": 1394
+                        },
+                        {
+                            "x": 636,
+                            "y": 1395
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 2,
+                    "words": "176.28"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1355
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1393
+                        },
+                        {
+                            "x": 831,
+                            "y": 1394
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 3,
+                    "words": "0.22%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1393
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1393
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 4,
+                    "words": "167.89"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1354
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1392
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1393
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 5,
+                    "words": "0.22%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1396
+                        },
+                        {
+                            "x": 441,
+                            "y": 1395
+                        },
+                        {
+                            "x": 442,
+                            "y": 1433
+                        },
+                        {
+                            "x": 246,
+                            "y": 1434
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 0,
+                    "words": "钱跃生"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 441,
+                            "y": 1395
+                        },
+                        {
+                            "x": 636,
+                            "y": 1395
+                        },
+                        {
+                            "x": 636,
+                            "y": 1432
+                        },
+                        {
+                            "x": 442,
+                            "y": 1433
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 1,
+                    "words": "退休"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1395
+                        },
+                        {
+                            "x": 831,
+                            "y": 1394
+                        },
+                        {
+                            "x": 831,
+                            "y": 1431
+                        },
+                        {
+                            "x": 636,
+                            "y": 1432
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 2,
+                    "words": "176.28"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1394
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1393
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1431
+                        },
+                        {
+                            "x": 831,
+                            "y": 1431
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 3,
+                    "words": "0.22%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1393
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1393
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1430
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1431
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 4,
+                    "words": "167.89"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 4,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1393
+                        },
+                        {
+                            "x": 1410,
+                            "y": 1392
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1430
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1430
+                        }
+                    ],
+                    "row_start": 3,
+                    "col_start": 5,
+                    "words": "0.22%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1434
+                        },
+                        {
+                            "x": 442,
+                            "y": 1433
+                        },
+                        {
+                            "x": 442,
+                            "y": 1470
+                        },
+                        {
+                            "x": 246,
+                            "y": 1471
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 0,
+                    "words": "高民华"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1433
+                        },
+                        {
+                            "x": 636,
+                            "y": 1432
+                        },
+                        {
+                            "x": 636,
+                            "y": 1470
+                        },
+                        {
+                            "x": 442,
+                            "y": 1470
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1432
+                        },
+                        {
+                            "x": 831,
+                            "y": 1431
+                        },
+                        {
+                            "x": 831,
+                            "y": 1469
+                        },
+                        {
+                            "x": 636,
+                            "y": 1470
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 2,
+                    "words": "168.71"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1431
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1431
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1468
+                        },
+                        {
+                            "x": 831,
+                            "y": 1469
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 3,
+                    "words": "0.21%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1431
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1430
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1468
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1468
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 4,
+                    "words": "160.68"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 5,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1430
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1430
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1467
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1468
+                        }
+                    ],
+                    "row_start": 4,
+                    "col_start": 5,
+                    "words": "0.21%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1471
+                        },
+                        {
+                            "x": 442,
+                            "y": 1470
+                        },
+                        {
+                            "x": 442,
+                            "y": 1508
+                        },
+                        {
+                            "x": 246,
+                            "y": 1509
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 0,
+                    "words": "姚法林"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1470
+                        },
+                        {
+                            "x": 636,
+                            "y": 1470
+                        },
+                        {
+                            "x": 636,
+                            "y": 1507
+                        },
+                        {
+                            "x": 442,
+                            "y": 1508
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1470
+                        },
+                        {
+                            "x": 831,
+                            "y": 1469
+                        },
+                        {
+                            "x": 831,
+                            "y": 1506
+                        },
+                        {
+                            "x": 636,
+                            "y": 1507
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 2,
+                    "words": "142.34"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1469
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1468
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1506
+                        },
+                        {
+                            "x": 831,
+                            "y": 1506
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 3,
+                    "words": "0.18%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1468
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1468
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1505
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1506
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 4,
+                    "words": "101.67"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 6,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1468
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1467
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1504
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1505
+                        }
+                    ],
+                    "row_start": 5,
+                    "col_start": 5,
+                    "words": "0.14%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1509
+                        },
+                        {
+                            "x": 442,
+                            "y": 1508
+                        },
+                        {
+                            "x": 442,
+                            "y": 1546
+                        },
+                        {
+                            "x": 246,
+                            "y": 1546
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 0,
+                    "words": "张亚英"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1508
+                        },
+                        {
+                            "x": 636,
+                            "y": 1507
+                        },
+                        {
+                            "x": 636,
+                            "y": 1545
+                        },
+                        {
+                            "x": 442,
+                            "y": 1546
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1507
+                        },
+                        {
+                            "x": 831,
+                            "y": 1506
+                        },
+                        {
+                            "x": 831,
+                            "y": 1545
+                        },
+                        {
+                            "x": 636,
+                            "y": 1545
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 2,
+                    "words": "142.34"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1506
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1506
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1544
+                        },
+                        {
+                            "x": 831,
+                            "y": 1545
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 3,
+                    "words": "0.18%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1506
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1505
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1544
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1544
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 4,
+                    "words": "135.56"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 7,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1505
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1504
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1543
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1544
+                        }
+                    ],
+                    "row_start": 6,
+                    "col_start": 5,
+                    "words": "0.18%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1546
+                        },
+                        {
+                            "x": 442,
+                            "y": 1546
+                        },
+                        {
+                            "x": 442,
+                            "y": 1584
+                        },
+                        {
+                            "x": 246,
+                            "y": 1585
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 0,
+                    "words": "马小星"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1546
+                        },
+                        {
+                            "x": 636,
+                            "y": 1545
+                        },
+                        {
+                            "x": 636,
+                            "y": 1584
+                        },
+                        {
+                            "x": 442,
+                            "y": 1584
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1545
+                        },
+                        {
+                            "x": 831,
+                            "y": 1545
+                        },
+                        {
+                            "x": 831,
+                            "y": 1583
+                        },
+                        {
+                            "x": 636,
+                            "y": 1584
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 2,
+                    "words": "124.55"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1545
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1544
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1582
+                        },
+                        {
+                            "x": 831,
+                            "y": 1583
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 3,
+                    "words": "0.16%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1544
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1544
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1582
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1582
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 4,
+                    "words": "118.62"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 8,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1544
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1543
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1581
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1582
+                        }
+                    ],
+                    "row_start": 7,
+                    "col_start": 5,
+                    "words": "0.16%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1585
+                        },
+                        {
+                            "x": 442,
+                            "y": 1584
+                        },
+                        {
+                            "x": 442,
+                            "y": 1622
+                        },
+                        {
+                            "x": 246,
+                            "y": 1622
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 0,
+                    "words": "冯建强"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1584
+                        },
+                        {
+                            "x": 636,
+                            "y": 1584
+                        },
+                        {
+                            "x": 636,
+                            "y": 1621
+                        },
+                        {
+                            "x": 442,
+                            "y": 1622
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1584
+                        },
+                        {
+                            "x": 831,
+                            "y": 1583
+                        },
+                        {
+                            "x": 831,
+                            "y": 1620
+                        },
+                        {
+                            "x": 636,
+                            "y": 1621
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 2,
+                    "words": "117.58"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1583
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1582
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1619
+                        },
+                        {
+                            "x": 831,
+                            "y": 1620
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 3,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1582
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1582
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1619
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1619
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 4,
+                    "words": "111.98"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 9,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1582
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1581
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1618
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1619
+                        }
+                    ],
+                    "row_start": 8,
+                    "col_start": 5,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1622
+                        },
+                        {
+                            "x": 442,
+                            "y": 1622
+                        },
+                        {
+                            "x": 442,
+                            "y": 1659
+                        },
+                        {
+                            "x": 246,
+                            "y": 1660
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 0,
+                    "words": "何雪根"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1622
+                        },
+                        {
+                            "x": 636,
+                            "y": 1621
+                        },
+                        {
+                            "x": 636,
+                            "y": 1659
+                        },
+                        {
+                            "x": 442,
+                            "y": 1659
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 1,
+                    "words": "调研员"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1621
+                        },
+                        {
+                            "x": 831,
+                            "y": 1620
+                        },
+                        {
+                            "x": 831,
+                            "y": 1658
+                        },
+                        {
+                            "x": 636,
+                            "y": 1659
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 2,
+                    "words": "117.58"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1620
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1619
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1657
+                        },
+                        {
+                            "x": 831,
+                            "y": 1658
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 3,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1619
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1619
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1657
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1657
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 4,
+                    "words": "111.98"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 10,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1619
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1618
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1656
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1657
+                        }
+                    ],
+                    "row_start": 9,
+                    "col_start": 5,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1660
+                        },
+                        {
+                            "x": 442,
+                            "y": 1659
+                        },
+                        {
+                            "x": 442,
+                            "y": 1696
+                        },
+                        {
+                            "x": 246,
+                            "y": 1697
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 0,
+                    "words": "康利军"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1659
+                        },
+                        {
+                            "x": 636,
+                            "y": 1659
+                        },
+                        {
+                            "x": 636,
+                            "y": 1696
+                        },
+                        {
+                            "x": 442,
+                            "y": 1696
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 1,
+                    "words": "退休"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1659
+                        },
+                        {
+                            "x": 831,
+                            "y": 1658
+                        },
+                        {
+                            "x": 831,
+                            "y": 1696
+                        },
+                        {
+                            "x": 636,
+                            "y": 1696
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 2,
+                    "words": "117.58"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1658
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1657
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1696
+                        },
+                        {
+                            "x": 831,
+                            "y": 1696
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 3,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1657
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1657
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1695
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1696
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 4,
+                    "words": "111.98"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 11,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1657
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1656
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1695
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1695
+                        }
+                    ],
+                    "row_start": 10,
+                    "col_start": 5,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1697
+                        },
+                        {
+                            "x": 442,
+                            "y": 1696
+                        },
+                        {
+                            "x": 442,
+                            "y": 1735
+                        },
+                        {
+                            "x": 246,
+                            "y": 1735
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 0,
+                    "words": "杭琴"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1696
+                        },
+                        {
+                            "x": 636,
+                            "y": 1696
+                        },
+                        {
+                            "x": 636,
+                            "y": 1735
+                        },
+                        {
+                            "x": 442,
+                            "y": 1735
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 1,
+                    "words": "退休"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1696
+                        },
+                        {
+                            "x": 831,
+                            "y": 1696
+                        },
+                        {
+                            "x": 831,
+                            "y": 1735
+                        },
+                        {
+                            "x": 636,
+                            "y": 1735
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 2,
+                    "words": "117.58"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1696
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1696
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1734
+                        },
+                        {
+                            "x": 831,
+                            "y": 1735
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 3,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1696
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1695
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1734
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 4,
+                    "words": "111.98"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 12,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1695
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1695
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1734
+                        }
+                    ],
+                    "row_start": 11,
+                    "col_start": 5,
+                    "words": "0.15%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 246,
+                            "y": 1735
+                        },
+                        {
+                            "x": 442,
+                            "y": 1735
+                        },
+                        {
+                            "x": 442,
+                            "y": 1775
+                        },
+                        {
+                            "x": 246,
+                            "y": 1775
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 0,
+                    "words": "合计"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 442,
+                            "y": 1735
+                        },
+                        {
+                            "x": 636,
+                            "y": 1735
+                        },
+                        {
+                            "x": 636,
+                            "y": 1774
+                        },
+                        {
+                            "x": 442,
+                            "y": 1775
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 1,
+                    "words": ""
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 636,
+                            "y": 1735
+                        },
+                        {
+                            "x": 831,
+                            "y": 1735
+                        },
+                        {
+                            "x": 831,
+                            "y": 1774
+                        },
+                        {
+                            "x": 636,
+                            "y": 1774
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 2,
+                    "words": "1,400.82"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 831,
+                            "y": 1735
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1773
+                        },
+                        {
+                            "x": 831,
+                            "y": 1774
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 3,
+                    "words": "1.77%"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 1025,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1773
+                        },
+                        {
+                            "x": 1025,
+                            "y": 1773
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 4,
+                    "words": "1,300.23"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 13,
+                    "cell_location": [
+                        {
+                            "x": 1218,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1734
+                        },
+                        {
+                            "x": 1411,
+                            "y": 1772
+                        },
+                        {
+                            "x": 1218,
+                            "y": 1773
+                        }
+                    ],
+                    "row_start": 12,
+                    "col_start": 5,
+                    "words": "1.73%"
+                }
+            ],
+            "table_location": [
+                {
+                    "x": 245,
+                    "y": 1282
+                },
+                {
+                    "x": 1411,
+                    "y": 1282
+                },
+                {
+                    "x": 1411,
+                    "y": 1775
+                },
+                {
+                    "x": 245,
+                    "y": 1775
+                }
+            ],
+            "footer": []
+        },
+        {
+            "header": [
+                {
+                    "location": [
+                        {
+                            "x": 336,
+                            "y": 1771
+                        },
+                        {
+                            "x": 954,
+                            "y": 1771
+                        },
+                        {
+                            "x": 954,
+                            "y": 1808
+                        },
+                        {
+                            "x": 336,
+                            "y": 1808
+                        }
+                    ],
+                    "words": "(三)本行与前十户法人股东及其关联方交易情况"
+                },
+                {
+                    "location": [
+                        {
+                            "x": 320,
+                            "y": 1829
+                        },
+                        {
+                            "x": 738,
+                            "y": 1828
+                        },
+                        {
+                            "x": 738,
+                            "y": 1865
+                        },
+                        {
+                            "x": 320,
+                            "y": 1865
+                        }
+                    ],
+                    "words": "截至2023年12月31日交易余额"
+                }
+            ],
+            "body": [
+                {
+                    "col_end": 1,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 137,
+                            "y": 1888
+                        },
+                        {
+                            "x": 208,
+                            "y": 1888
+                        },
+                        {
+                            "x": 207,
+                            "y": 1954
+                        },
+                        {
+                            "x": 135,
+                            "y": 1955
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 0,
+                    "words": "序\n号"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 208,
+                            "y": 1888
+                        },
+                        {
+                            "x": 515,
+                            "y": 1888
+                        },
+                        {
+                            "x": 516,
+                            "y": 1954
+                        },
+                        {
+                            "x": 207,
+                            "y": 1954
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 1,
+                    "words": "企业股东名称"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 515,
+                            "y": 1888
+                        },
+                        {
+                            "x": 680,
+                            "y": 1888
+                        },
+                        {
+                            "x": 680,
+                            "y": 1954
+                        },
+                        {
+                            "x": 516,
+                            "y": 1954
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 2,
+                    "words": "贷款余额"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 680,
+                            "y": 1888
+                        },
+                        {
+                            "x": 753,
+                            "y": 1888
+                        },
+                        {
+                            "x": 753,
+                            "y": 1953
+                        },
+                        {
+                            "x": 680,
+                            "y": 1954
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 3,
+                    "words": "贴\n现"
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 753,
+                            "y": 1888
+                        },
+                        {
+                            "x": 887,
+                            "y": 1887
+                        },
+                        {
+                            "x": 887,
+                            "y": 1953
+                        },
+                        {
+                            "x": 753,
+                            "y": 1953
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 4,
+                    "words": "五级分类\n状态"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 887,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1040,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1040,
+                            "y": 1953
+                        },
+                        {
+                            "x": 887,
+                            "y": 1953
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 5,
+                    "words": "银行承兑汇\n票"
+                },
+                {
+                    "col_end": 7,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 1040,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1176,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1177,
+                            "y": 1953
+                        },
+                        {
+                            "x": 1040,
+                            "y": 1953
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 6,
+                    "words": "开出信用\n证"
+                },
+                {
+                    "col_end": 8,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 1176,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1331,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1331,
+                            "y": 1952
+                        },
+                        {
+                            "x": 1177,
+                            "y": 1953
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 7,
+                    "words": "合计"
+                },
+                {
+                    "col_end": 9,
+                    "row_end": 1,
+                    "cell_location": [
+                        {
+                            "x": 1331,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1530,
+                            "y": 1887
+                        },
+                        {
+                            "x": 1530,
+                            "y": 1952
+                        },
+                        {
+                            "x": 1331,
+                            "y": 1952
+                        }
+                    ],
+                    "row_start": 0,
+                    "col_start": 8,
+                    "words": "占资本净额的\n比例"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 135,
+                            "y": 1955
+                        },
+                        {
+                            "x": 207,
+                            "y": 1954
+                        },
+                        {
+                            "x": 206,
+                            "y": 2022
+                        },
+                        {
+                            "x": 133,
+                            "y": 2022
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 0,
+                    "words": "1"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 207,
+                            "y": 1954
+                        },
+                        {
+                            "x": 516,
+                            "y": 1954
+                        },
+                        {
+                            "x": 515,
+                            "y": 2021
+                        },
+                        {
+                            "x": 206,
+                            "y": 2022
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 1,
+                    "words": "浙江聚优非织造材料科技\n有限公司"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 516,
+                            "y": 1954
+                        },
+                        {
+                            "x": 680,
+                            "y": 1954
+                        },
+                        {
+                            "x": 680,
+                            "y": 2021
+                        },
+                        {
+                            "x": 515,
+                            "y": 2021
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 2,
+                    "words": "100.00"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 680,
+                            "y": 1954
+                        },
+                        {
+                            "x": 753,
+                            "y": 1953
+                        },
+                        {
+                            "x": 753,
+                            "y": 2020
+                        },
+                        {
+                            "x": 680,
+                            "y": 2021
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 3,
+                    "words": ""
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 753,
+                            "y": 1953
+                        },
+                        {
+                            "x": 887,
+                            "y": 1953
+                        },
+                        {
+                            "x": 887,
+                            "y": 2020
+                        },
+                        {
+                            "x": 753,
+                            "y": 2020
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 4,
+                    "words": "正常"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 887,
+                            "y": 1953
+                        },
+                        {
+                            "x": 1040,
+                            "y": 1953
+                        },
+                        {
+                            "x": 1040,
+                            "y": 2019
+                        },
+                        {
+                            "x": 887,
+                            "y": 2020
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 5,
+                    "words": ""
+                },
+                {
+                    "col_end": 7,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1040,
+                            "y": 1953
+                        },
+                        {
+                            "x": 1177,
+                            "y": 1953
+                        },
+                        {
+                            "x": 1177,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1040,
+                            "y": 2019
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 6,
+                    "words": ""
+                },
+                {
+                    "col_end": 8,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1177,
+                            "y": 1953
+                        },
+                        {
+                            "x": 1331,
+                            "y": 1952
+                        },
+                        {
+                            "x": 1331,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1177,
+                            "y": 2019
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 7,
+                    "words": "100.00"
+                },
+                {
+                    "col_end": 9,
+                    "row_end": 2,
+                    "cell_location": [
+                        {
+                            "x": 1331,
+                            "y": 1952
+                        },
+                        {
+                            "x": 1530,
+                            "y": 1952
+                        },
+                        {
+                            "x": 1531,
+                            "y": 2018
+                        },
+                        {
+                            "x": 1331,
+                            "y": 2019
+                        }
+                    ],
+                    "row_start": 1,
+                    "col_start": 8,
+                    "words": "0.01%"
+                },
+                {
+                    "col_end": 1,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 133,
+                            "y": 2022
+                        },
+                        {
+                            "x": 206,
+                            "y": 2022
+                        },
+                        {
+                            "x": 205,
+                            "y": 2087
+                        },
+                        {
+                            "x": 132,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 0,
+                    "words": "2"
+                },
+                {
+                    "col_end": 2,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 206,
+                            "y": 2022
+                        },
+                        {
+                            "x": 515,
+                            "y": 2021
+                        },
+                        {
+                            "x": 516,
+                            "y": 2087
+                        },
+                        {
+                            "x": 205,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 1,
+                    "words": "浙江荣祥纺织股份有限公\n司"
+                },
+                {
+                    "col_end": 3,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 515,
+                            "y": 2021
+                        },
+                        {
+                            "x": 680,
+                            "y": 2021
+                        },
+                        {
+                            "x": 680,
+                            "y": 2087
+                        },
+                        {
+                            "x": 516,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 2,
+                    "words": "2,750.00"
+                },
+                {
+                    "col_end": 4,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 680,
+                            "y": 2021
+                        },
+                        {
+                            "x": 753,
+                            "y": 2020
+                        },
+                        {
+                            "x": 753,
+                            "y": 2087
+                        },
+                        {
+                            "x": 680,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 3,
+                    "words": ""
+                },
+                {
+                    "col_end": 5,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 753,
+                            "y": 2020
+                        },
+                        {
+                            "x": 887,
+                            "y": 2020
+                        },
+                        {
+                            "x": 887,
+                            "y": 2087
+                        },
+                        {
+                            "x": 753,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 4,
+                    "words": "正常"
+                },
+                {
+                    "col_end": 6,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 887,
+                            "y": 2020
+                        },
+                        {
+                            "x": 1040,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1040,
+                            "y": 2087
+                        },
+                        {
+                            "x": 887,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 5,
+                    "words": "3,200.00"
+                },
+                {
+                    "col_end": 7,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1040,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1177,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1177,
+                            "y": 2087
+                        },
+                        {
+                            "x": 1040,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 6,
+                    "words": ""
+                },
+                {
+                    "col_end": 8,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1177,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1331,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1331,
+                            "y": 2087
+                        },
+                        {
+                            "x": 1177,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 7,
+                    "words": "5,950.00"
+                },
+                {
+                    "col_end": 9,
+                    "row_end": 3,
+                    "cell_location": [
+                        {
+                            "x": 1331,
+                            "y": 2019
+                        },
+                        {
+                            "x": 1531,
+                            "y": 2018
+                        },
+                        {
+                            "x": 1531,
+                            "y": 2087
+                        },
+                        {
+                            "x": 1331,
+                            "y": 2087
+                        }
+                    ],
+                    "row_start": 2,
+                    "col_start": 8,
+                    "words": "0.72%"
+                }
+            ],
+            "table_location": [
+                {
+                    "x": 132,
+                    "y": 1887
+                },
+                {
+                    "x": 1531,
+                    "y": 1887
+                },
+                {
+                    "x": 1531,
+                    "y": 2087
+                },
+                {
+                    "x": 132,
+                    "y": 2087
+                }
+            ],
+            "footer": [
+                {
+                    "location": [
+                        {
+                            "x": 742,
+                            "y": 2125
+                        },
+                        {
+                            "x": 937,
+                            "y": 2125
+                        },
+                        {
+                            "x": 937,
+                            "y": 2156
+                        },
+                        {
+                            "x": 742,
+                            "y": 2156
+                        }
+                    ],
+                    "words": "第51页共69页"
+                }
+            ]
         }
     ],
-    "words_result_num": 127,
-    "log_id": "1993519111932436923"
+    "table_num": 4,
+    "log_id": "1993633850479080419"
 }
