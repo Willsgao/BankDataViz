@@ -203,7 +203,7 @@ if __name__ == '__main__':
         with open('data1.json', 'r', encoding='utf-8') as f:
             j = json.load(f)
 
-        save_file = "百度表格-简化层级版.xlsx"
+        save_file = "百度表格-简化层级版1.xlsx"
         baidu2excel_simple_with_hierarchy(j, save_file)
 
     except Exception as e:
