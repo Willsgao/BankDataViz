@@ -28,7 +28,10 @@ def baidu2excel(bd_json, out_file='baidu_table.xlsx'):
         for col in range(1, max_col+1):
             ws.column_dimensions[get_column_letter(col)].width = 12
 
-    out_file = r"E:\Datas\base_pros\DocuVista\test_codes/百度表格.xlsx"
+    import os
+    main_dir = os.getcwd()
+    print("main_dir:", main_dir)
+    out_file = fr"{main_dir}/百度表格.xlsx"
     wb.save(out_file)
     print('已生成', out_file)
 
