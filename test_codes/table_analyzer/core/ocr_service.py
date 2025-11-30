@@ -1,32 +1,24 @@
+
+
 import os
 import requests
 import json
-import hashlib
 import base64
 import urllib
 from typing import Dict, Any, List
 
-# from backend.utils.constants import BAIDU_OCR_CONFIG, BAIDU_APP_CONFIG
-BAIDU_OCR_CONFIG = {
-    "API_KEY": "Id7EZH2q6IOSlivHbwHHbWwz",
-    "SECRET_KEY": "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
-}
-# 其他应用配置
-BAIDU_APP_CONFIG = {
-    "TIMEOUT": 30,
-    "MAX_RETRIES": 3
-}
-
+from test_codes.table_analyzer.utils.image_utils import ImageUtils
+from test_codes.table_analyzer.utils.config import settings
 
 class TableOCRService:
-    """表格OCR识别服务类，用于识别图片中的Excel表格数据，支持图片ID"""
+    """重构后的OCR服务类"""
 
-    def __init__(self, api_key: str = None, secret_key: str = None, timeout: int = None, max_retries: int = None):
-        # 初始化代码保持不变...
-        self.api_key = api_key or BAIDU_OCR_CONFIG.get("API_KEY")
-        self.secret_key = secret_key or BAIDU_OCR_CONFIG.get("SECRET_KEY")
-        self.timeout = timeout or BAIDU_APP_CONFIG.get("TIMEOUT", 30)
-        self.max_retries = max_retries or BAIDU_APP_CONFIG.get("MAX_RETRIES", 3)
+    def __init__(self):
+        self.image_utils = ImageUtils()
+        self.api_key = settings.ocr_api_key
+        self.secret_key = settings.ocr_secret_key
+        self.timeout = settings.ocr_timeout
+        self.max_retries = settings.ocr_max_retries
 
         if not self.api_key or not self.secret_key:
             raise ValueError("API_KEY和SECRET_KEY不能为空，请检查配置文件")
@@ -37,25 +29,6 @@ class TableOCRService:
         adapter = requests.adapters.HTTPAdapter(max_retries=self.max_retries)
         self.session.mount('http://', adapter)
         self.session.mount('https://', adapter)
-
-    def _generate_image_id(self, image_path: str) -> str:
-        """
-        为图片生成唯一ID（与LLM分析器保持一致）
-        """
-        try:
-            with open(image_path, "rb") as f:
-                file_content = f.read()
-            content_hash = hashlib.md5(file_content).hexdigest()[:16]
-
-            file_name = os.path.basename(image_path)
-            combined = f"{file_name}_{content_hash}"
-            image_id = hashlib.md5(combined.encode()).hexdigest()[:16]
-
-            return f"img_{image_id}"
-
-        except Exception as e:
-            path_hash = hashlib.md5(image_path.encode()).hexdigest()[:16]
-            return f"img_{path_hash}"
 
     def get_access_token(self) -> str:
         """
@@ -124,7 +97,7 @@ class TableOCRService:
         result = self.recognize_table_from_base64(image_base64)
 
         # 添加图片ID到结果中
-        image_id = self._generate_image_id(file_path)
+        image_id = self.image_utils.generate_image_id(file_path)
         result["image_info"] = {
             "image_path": file_path,
             "image_id": image_id
@@ -217,14 +190,13 @@ class TableOCRService:
                 all_results["summary"]["success_count"] += 1
                 all_results["summary"]["total_tables"] += tables_count
 
-                print(
-                    f"✅ 图片 {os.path.basename(img_path)} (ID: {result['image_info']['image_id']}) 识别完成，检测到 {tables_count} 个表格")
+                print(f"✅ 图片 {os.path.basename(img_path)} (ID: {result['image_info']['image_id']}) 识别完成，检测到 {tables_count} 个表格")
 
             except Exception as e:
                 print(f"❌ 图片 {os.path.basename(img_path)} 识别失败: {e}")
 
                 # 即使失败也生成图片ID
-                image_id = self._generate_image_id(img_path)
+                image_id = self.image_utils.generate_image_id(img_path)
                 image_result = {
                     "image_path": img_path,
                     "image_id": image_id,
@@ -251,32 +223,3 @@ class TableOCRService:
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         print(f'结果已保存至: {save_path}')
-
-
-# 使用示例
-if __name__ == '__main__':
-    # 方式1: 使用配置文件中的默认参数
-    ocr_service = TableOCRService()
-
-    # 方式2: 覆盖部分配置参数
-    # ocr_service = TableOCRService(timeout=60, max_retries=5)
-    import os
-    code_dir = os.getcwd()
-    parent_dir = os.path.dirname(code_dir)
-    print("code_dir:::::::", code_dir)
-
-    page_file = fr"{parent_dir}/pngs/514001_158.png"
-    save_json = fr"{parent_dir}/data3.json"
-
-    try:
-        # 从文件识别表格
-        result = ocr_service.recognize_table_from_file(page_file)
-        ocr_service.save_result_to_json(result, save_json)
-        print("识别结果:", result)
-
-    except Exception as e:
-        print(f"识别失败: {e}")
-
-    finally:
-        # 关闭会话
-        ocr_service.close()

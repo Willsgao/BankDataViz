@@ -1,0 +1,319 @@
+{
+  "input_type": "image_list",
+  "total_images": 1,
+  "image_results": [
+    {
+      "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png",
+      "image_id": "img_49f3a9d9b30b8d4e",
+      "page_number": 1,
+      "raw_llm_output": "{\n    \"has_table\": true,\n    \"tables\": [\n        {\n            \"table_id\": 1,\n            \"is_financial\": true,\n            \"table_title\": \"其他应付款\",\n            \"currency\": null,\n            \"reporting_period\": null,\n            \"horizontal_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"2023年12月31日\", \"is_statistical\": false},\n                {\"field_path\": \"2022年12月31日\", \"is_statistical\": false}\n            ],\n            \"vertical_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 打包股股利\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 待解报单暂收\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 中间业务暂收款\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 待处理出纳长款\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 应付市场平盘款项\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 待清算银行卡跨行资金\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 久悬未取款\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 股金业务暂挂\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 财务暂收\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 电子商城待结算款项\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 红包待结算款项\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 其他应付款\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 合计\", \"is_statistical\": true}\n            ]\n        },\n        {\n            \"table_id\": 2,\n            \"is_financial\": true,\n            \"table_title\": \"租赁负债\",\n            \"currency\": null,\n            \"reporting_period\": null,\n            \"horizontal_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"2023年12月31日\", \"is_statistical\": false},\n                {\"field_path\": \"2022年12月31日\", \"is_statistical\": false}\n            ],\n            \"vertical_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 租赁付款额\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 未确认融资费用\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 合计\", \"is_statistical\": true}\n            ]\n        },\n        {\n            \"table_id\": 3,\n            \"is_financial\": true,\n            \"table_title\": \"预计负债\",\n            \"currency\": null,\n            \"reporting_period\": null,\n            \"horizontal_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"2023年12月31日\", \"is_statistical\": false},\n                {\"field_path\": \"2022年12月31日\", \"is_statistical\": false}\n            ],\n            \"vertical_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 银行承兑汇票计提损失准备\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 开出国内远期信用证计提损失准备\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 开出非融资保函款项计提损失准备\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 合计\", \"is_statistical\": true}\n            ]\n        },\n        {\n            \"table_id\": 4,\n            \"is_financial\": true,\n            \"table_title\": \"应付债券\",\n            \"currency\": null,\n            \"reporting_period\": null,\n            \"horizontal_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"2023年12月31日\", \"is_statistical\": false},\n                {\"field_path\": \"2022年12月31日\", \"is_statistical\": false}\n            ],\n            \"vertical_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 次级债券\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 同业存单\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 加：应计利息\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 合计\", \"is_statistical\": true}\n            ]\n        },\n        {\n            \"table_id\": 5,\n            \"is_financial\": true,\n            \"table_title\": \"递延所得税负债\",\n            \"currency\": null,\n            \"reporting_period\": null,\n            \"horizontal_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"2023年12月31日 > 应纳税暂时性差异\", \"is_statistical\": false},\n                {\"field_path\": \"2023年12月31日 > 递延所得税负债\", \"is_statistical\": false},\n                {\"field_path\": \"2022年12月31日 > 应纳税暂时性差异\", \"is_statistical\": false},\n                {\"field_path\": \"2022年12月31日 > 递延所得税负债\", \"is_statistical\": false}\n            ],\n            \"vertical_hierarchy_fields\": [\n                {\"field_path\": \"项目\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 贷款应计收利息\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 500.00万元以下固定资产折旧\", \"is_statistical\": false},\n                {\"field_path\": \"项目 > 交易性金融资产公\", \"is_statistical\": false}\n            ]\n        }\n    ]\n}",
+      "analysis_time_sec": 11.27,
+      "token_usage": {
+        "prompt_tokens": 2644,
+        "completion_tokens": 1484,
+        "total_tokens": 4128
+      },
+      "has_table": true,
+      "tables": [
+        {
+          "table_id": 1,
+          "is_financial": true,
+          "table_title": "其他应付款",
+          "currency": null,
+          "reporting_period": null,
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 打包股股利",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 待解报单暂收",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 中间业务暂收款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 待处理出纳长款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 应付市场平盘款项",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 待清算银行卡跨行资金",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 久悬未取款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 股金业务暂挂",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 财务暂收",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 电子商城待结算款项",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 红包待结算款项",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 其他应付款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 合计",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 2,
+          "is_financial": true,
+          "table_title": "租赁负债",
+          "currency": null,
+          "reporting_period": null,
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 租赁付款额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 未确认融资费用",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 合计",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 3,
+          "is_financial": true,
+          "table_title": "预计负债",
+          "currency": null,
+          "reporting_period": null,
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 银行承兑汇票计提损失准备",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 开出国内远期信用证计提损失准备",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 开出非融资保函款项计提损失准备",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 合计",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 4,
+          "is_financial": true,
+          "table_title": "应付债券",
+          "currency": null,
+          "reporting_period": null,
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 次级债券",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 同业存单",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 加：应计利息",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 合计",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 5,
+          "is_financial": true,
+          "table_title": "递延所得税负债",
+          "currency": null,
+          "reporting_period": null,
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 应纳税暂时性差异",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 递延所得税负债",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日 > 应纳税暂时性差异",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日 > 递延所得税负债",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "项目",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 贷款应计收利息",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 500.00万元以下固定资产折旧",
+              "is_statistical": false
+            },
+            {
+              "field_path": "项目 > 交易性金融资产公",
+              "is_statistical": false
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        }
+      ],
+      "tables_count": 5,
+      "financial_tables_count": 5
+    }
+  ],
+  "summary": {
+    "total_tables": 5,
+    "total_financial_tables": 5,
+    "total_analysis_time_sec": 11.27,
+    "total_token_usage": {
+      "prompt_tokens": 2644,
+      "completion_tokens": 1484,
+      "total_tokens": 4128
+    }
+  }
+}

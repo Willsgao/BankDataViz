@@ -23,14 +23,7 @@ class TableDataAligner:
 
     def load_data(self, llm_path: str, ocr_path: str) -> Tuple[Dict, Dict]:
         """
-        加载LLM和OCR数据
-
-        Args:
-            llm_path: LLM分析结果JSON路径
-            ocr_path: 百度OCR结果JSON路径
-
-        Returns:
-            tuple: (llm_data, ocr_data)
+        加载LLM和OCR数据 - 支持新格式
         """
         print("📥 加载数据...")
 
@@ -41,13 +34,30 @@ class TableDataAligner:
             with open(ocr_path, 'r', encoding='utf-8') as f:
                 ocr_data = json.load(f)
 
-            print(f"✅ LLM数据: {len(llm_data.get('image_results', []))} 张图片")
-            print(f"✅ OCR数据: {len(ocr_data.get('tables_result', []))} 个表格")
+            # 统计表格数量
+            llm_table_count = sum(len(img.get('tables', [])) for img in llm_data.get('image_results', []))
+
+            # 检查OCR数据格式
+            if 'tables_result' in ocr_data:
+                ocr_table_count = len(ocr_data.get('tables_result', []))
+            else:
+                ocr_table_count = 0
+
+            print(f"✅ LLM数据: {len(llm_data.get('image_results', []))} 张图片, {llm_table_count} 个表格")
+            print(f"✅ OCR数据: {ocr_table_count} 个表格")
+
+            # 检查是否有image_id信息
+            if 'image_info' in ocr_data:
+                image_id = ocr_data['image_info'].get('image_id')
+                image_path = ocr_data['image_info'].get('image_path')
+                print(f"📷 OCR图片ID: {image_id}")
+                print(f"📷 OCR图片路径: {image_path}")
 
             return llm_data, ocr_data
         except Exception as e:
             print(f"❌ 数据加载失败: {e}")
             raise
+
 
     def normalize_text(self, text: str) -> str:
         """
@@ -389,47 +399,48 @@ class TableDataAligner:
 
         return avg_similarity * match_ratio
 
-
     def align_data(self, llm_path: str, ocr_path: str, output_path: str = 'aligned_results.json',
-                   excel_path: str = None, image_n=0):
+                   excel_path: str = None, image_n=0, use_image_id=False):
         """
-        主对齐函数 - 添加调试信息
+        主对齐函数 - 支持通过image_id或索引匹配
         """
         print("🚀 开始数据对齐流程...")
 
         # 1. 加载数据
         llm_data, ocr_data = self.load_data(llm_path, ocr_path)
 
-        print("********************>:", llm_data)
+        # 2. 根据image_id或索引提取表格数据
+        if use_image_id and 'image_info' in ocr_data:
+            # 使用image_id匹配
+            ocr_image_id = ocr_data.get('image_info', {}).get('image_id')
+            llm_tables = []
+            ocr_tables = ocr_data.get('tables_result', [])
 
-        # 2. 提取表格数据（假设第一张图片）
-        image_llm_tables = llm_data.get('image_results', [{}])[image_n]
-        page_name = image_llm_tables.get("image_path", "")
+            # 在LLM数据中查找匹配的image_id
+            for image_result in llm_data.get('image_results', []):
+                if image_result.get('image_id') == ocr_image_id:
+                    llm_tables = image_result.get('tables', [])
+                    page_name = image_result.get("image_path", "")
+                    break
 
+            if not llm_tables:
+                print(f"❌ 未找到与OCR image_id '{ocr_image_id}' 匹配的LLM数据")
+                return []
+
+        else:
+            # 使用索引匹配（原有逻辑）
+            image_llm_tables = llm_data.get('image_results', [{}])[image_n]
+            llm_tables = image_llm_tables.get('tables', [])
+            page_name = image_llm_tables.get("image_path", "")
+            ocr_tables = ocr_data.get('tables_result', [])
+
+        # 提取页码信息
         page_num = '0'
         if page_name:
             image_last_name = os.path.basename(page_name)
             page_num = image_last_name.split('.')[0].split('_')[-1]
-        llm_tables =  (image_llm_tables.get('tables', []))
-        ocr_tables = ocr_data.get('tables_result', [])
 
         print(f"📊 待匹配表格: LLM={len(llm_tables)}, OCR={len(ocr_tables)}")
-
-        # 调试：显示LLM表格的完整结构
-        print("\n🔍 LLM表格结构调试:")
-        for i, llm_table in enumerate(llm_tables):
-            print(f"表格 {i + 1}: {llm_table.get('table_title', 'Unknown')}")
-            horizontal_fields = llm_table.get('horizontal_hierarchy_fields', [])
-            vertical_fields = llm_table.get('vertical_hierarchy_fields', [])
-
-            print(f"  水平字段:")
-            for field in horizontal_fields:
-                print(f"    - {field}")
-
-            print(f"  垂直字段:")
-            for field in vertical_fields:
-                print(f"    - {field}")
-            print()
 
         # 3. 基于叶子节点匹配表格
         matches = self.match_tables_by_leaf_nodes(llm_tables, ocr_tables)
@@ -444,12 +455,10 @@ class TableDataAligner:
         if excel_path:
             self.save_to_excel(merged_tables, excel_path, page_num)
         else:
-            # 如果没有指定Excel路径，使用JSON路径生成
             excel_path = output_path.replace('.json', '.xlsx')
             self.save_to_excel(merged_tables, excel_path, page_num)
 
         print("🎉 数据对齐流程完成!")
-
         return merged_tables
 
 
@@ -1026,26 +1035,30 @@ class TableDataAligner:
         return None
 
 
+
+
 # 使用示例
 if __name__ == '__main__':
     aligner = TableDataAligner()
 
-    image_list = []
+    import os
+
     code_dir = os.getcwd()
     parent_dir = os.path.dirname(code_dir)
-    num = "1"
-    analysis_results_path = fr"{parent_dir}\codes/analysis_results_1.json"
-    baidu_path = fr"{parent_dir}\data{num}.json"
-    tabl_merge_path = fr"{parent_dir}\table_alignment_results_{num}.json"
-    excel_output_path = fr"{parent_dir}\table_alignment_results_{num}.xlsx"
 
-    # 执行数据对齐
+    # 修正路径 - 去掉codes目录
+    analysis_results_path = fr"{parent_dir}\codes\analysis_results.json"  # 修正路径
+    baidu_path = fr"{parent_dir}\data3.json"
+    tabl_merge_path = fr"{parent_dir}\table_alignment_results.json"
+    excel_output_path = fr"{parent_dir}\table_alignment_results.xlsx"
+
+    # 执行数据对齐 - 使用image_id匹配
     aligned_data = aligner.align_data(
         llm_path=analysis_results_path,
         ocr_path=baidu_path,
         output_path=tabl_merge_path,
         excel_path=excel_output_path,
-        image_n=int(num)-1
+        use_image_id=True  # 启用image_id匹配
     )
 
     print(f"\n📈 对齐统计:")

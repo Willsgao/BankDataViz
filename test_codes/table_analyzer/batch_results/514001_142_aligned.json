@@ -1,0 +1,3112 @@
+{
+  "alignment_summary": {
+    "total_aligned_tables": 5,
+    "unmatched_llm_tables": 0,
+    "unmatched_ocr_tables": 0,
+    "average_similarity": 1.0
+  },
+  "aligned_tables": [
+    {
+      "table_id": 1,
+      "table_title": "其他应付款",
+      "is_financial": true,
+      "currency": null,
+      "reporting_period": null,
+      "similarity_score": 1.0,
+      "llm_hierarchy": {
+        "horizontal": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2022年12月31日",
+            "is_statistical": false
+          }
+        ],
+        "vertical": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 打包股股利",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 待解报单暂收",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 中间业务暂收款",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 待处理出纳长款",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 应付市场平盘款项",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 待清算银行卡跨行资金",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 久悬未取款",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 股金业务暂挂",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 财务暂收",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 电子商城待结算款项",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 红包待结算款项",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 其他应付款",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 合计",
+            "is_statistical": true
+          }
+        ]
+      },
+      "ocr_data": {
+        "body_cells": [
+          {
+            "col_end": 1,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 280
+              },
+              {
+                "x": 672,
+                "y": 280
+              },
+              {
+                "x": 673,
+                "y": 319
+              },
+              {
+                "x": 262,
+                "y": 319
+              }
+            ],
+            "row_start": 0,
+            "col_start": 0,
+            "words": "项目"
+          },
+          {
+            "col_end": 2,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 280
+              },
+              {
+                "x": 1028,
+                "y": 280
+              },
+              {
+                "x": 1028,
+                "y": 319
+              },
+              {
+                "x": 673,
+                "y": 319
+              }
+            ],
+            "row_start": 0,
+            "col_start": 1,
+            "words": "2023年12月31日"
+          },
+          {
+            "col_end": 3,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 280
+              },
+              {
+                "x": 1385,
+                "y": 280
+              },
+              {
+                "x": 1385,
+                "y": 319
+              },
+              {
+                "x": 1028,
+                "y": 319
+              }
+            ],
+            "row_start": 0,
+            "col_start": 2,
+            "words": "2022年12月31日"
+          },
+          {
+            "col_end": 1,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 319
+              },
+              {
+                "x": 673,
+                "y": 319
+              },
+              {
+                "x": 672,
+                "y": 359
+              },
+              {
+                "x": 262,
+                "y": 359
+              }
+            ],
+            "row_start": 1,
+            "col_start": 0,
+            "words": "打包股股利"
+          },
+          {
+            "col_end": 2,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 673,
+                "y": 319
+              },
+              {
+                "x": 1028,
+                "y": 319
+              },
+              {
+                "x": 1028,
+                "y": 359
+              },
+              {
+                "x": 672,
+                "y": 359
+              }
+            ],
+            "row_start": 1,
+            "col_start": 1,
+            "words": "711,912.19"
+          },
+          {
+            "col_end": 3,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 319
+              },
+              {
+                "x": 1385,
+                "y": 319
+              },
+              {
+                "x": 1385,
+                "y": 359
+              },
+              {
+                "x": 1028,
+                "y": 359
+              }
+            ],
+            "row_start": 1,
+            "col_start": 2,
+            "words": "711,912.19"
+          },
+          {
+            "col_end": 1,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 359
+              },
+              {
+                "x": 672,
+                "y": 359
+              },
+              {
+                "x": 672,
+                "y": 399
+              },
+              {
+                "x": 262,
+                "y": 399
+              }
+            ],
+            "row_start": 2,
+            "col_start": 0,
+            "words": "待解报单暂收"
+          },
+          {
+            "col_end": 2,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 359
+              },
+              {
+                "x": 1028,
+                "y": 359
+              },
+              {
+                "x": 1028,
+                "y": 399
+              },
+              {
+                "x": 672,
+                "y": 399
+              }
+            ],
+            "row_start": 2,
+            "col_start": 1,
+            "words": "610,087.17"
+          },
+          {
+            "col_end": 3,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 359
+              },
+              {
+                "x": 1385,
+                "y": 359
+              },
+              {
+                "x": 1385,
+                "y": 399
+              },
+              {
+                "x": 1028,
+                "y": 399
+              }
+            ],
+            "row_start": 2,
+            "col_start": 2,
+            "words": "588,837.90"
+          },
+          {
+            "col_end": 1,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 399
+              },
+              {
+                "x": 672,
+                "y": 399
+              },
+              {
+                "x": 672,
+                "y": 438
+              },
+              {
+                "x": 262,
+                "y": 439
+              }
+            ],
+            "row_start": 3,
+            "col_start": 0,
+            "words": "中间业务暂收款"
+          },
+          {
+            "col_end": 2,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 399
+              },
+              {
+                "x": 1028,
+                "y": 399
+              },
+              {
+                "x": 1028,
+                "y": 438
+              },
+              {
+                "x": 672,
+                "y": 438
+              }
+            ],
+            "row_start": 3,
+            "col_start": 1,
+            "words": "407,117.37"
+          },
+          {
+            "col_end": 3,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 399
+              },
+              {
+                "x": 1385,
+                "y": 399
+              },
+              {
+                "x": 1385,
+                "y": 438
+              },
+              {
+                "x": 1028,
+                "y": 438
+              }
+            ],
+            "row_start": 3,
+            "col_start": 2,
+            "words": ""
+          },
+          {
+            "col_end": 1,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 439
+              },
+              {
+                "x": 672,
+                "y": 438
+              },
+              {
+                "x": 672,
+                "y": 478
+              },
+              {
+                "x": 262,
+                "y": 478
+              }
+            ],
+            "row_start": 4,
+            "col_start": 0,
+            "words": "待处理出纳长款"
+          },
+          {
+            "col_end": 2,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 438
+              },
+              {
+                "x": 1028,
+                "y": 438
+              },
+              {
+                "x": 1028,
+                "y": 478
+              },
+              {
+                "x": 672,
+                "y": 478
+              }
+            ],
+            "row_start": 4,
+            "col_start": 1,
+            "words": "1.00"
+          },
+          {
+            "col_end": 3,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 438
+              },
+              {
+                "x": 1385,
+                "y": 438
+              },
+              {
+                "x": 1385,
+                "y": 477
+              },
+              {
+                "x": 1028,
+                "y": 478
+              }
+            ],
+            "row_start": 4,
+            "col_start": 2,
+            "words": ""
+          },
+          {
+            "col_end": 1,
+            "row_end": 6,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 478
+              },
+              {
+                "x": 672,
+                "y": 478
+              },
+              {
+                "x": 672,
+                "y": 517
+              },
+              {
+                "x": 262,
+                "y": 517
+              }
+            ],
+            "row_start": 5,
+            "col_start": 0,
+            "words": "应付市场平盘款项"
+          },
+          {
+            "col_end": 2,
+            "row_end": 6,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 478
+              },
+              {
+                "x": 1028,
+                "y": 478
+              },
+              {
+                "x": 1028,
+                "y": 516
+              },
+              {
+                "x": 672,
+                "y": 517
+              }
+            ],
+            "row_start": 5,
+            "col_start": 1,
+            "words": "13,021,939.60"
+          },
+          {
+            "col_end": 3,
+            "row_end": 6,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 478
+              },
+              {
+                "x": 1385,
+                "y": 477
+              },
+              {
+                "x": 1385,
+                "y": 516
+              },
+              {
+                "x": 1028,
+                "y": 516
+              }
+            ],
+            "row_start": 5,
+            "col_start": 2,
+            "words": "23,575,690.00"
+          },
+          {
+            "col_end": 1,
+            "row_end": 7,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 517
+              },
+              {
+                "x": 672,
+                "y": 517
+              },
+              {
+                "x": 672,
+                "y": 558
+              },
+              {
+                "x": 262,
+                "y": 558
+              }
+            ],
+            "row_start": 6,
+            "col_start": 0,
+            "words": "待清算银行卡跨行资金"
+          },
+          {
+            "col_end": 2,
+            "row_end": 7,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 517
+              },
+              {
+                "x": 1028,
+                "y": 516
+              },
+              {
+                "x": 1028,
+                "y": 557
+              },
+              {
+                "x": 672,
+                "y": 558
+              }
+            ],
+            "row_start": 6,
+            "col_start": 1,
+            "words": "752,375.10"
+          },
+          {
+            "col_end": 3,
+            "row_end": 7,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 516
+              },
+              {
+                "x": 1385,
+                "y": 516
+              },
+              {
+                "x": 1385,
+                "y": 557
+              },
+              {
+                "x": 1028,
+                "y": 557
+              }
+            ],
+            "row_start": 6,
+            "col_start": 2,
+            "words": "752,356.66"
+          },
+          {
+            "col_end": 1,
+            "row_end": 8,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 558
+              },
+              {
+                "x": 672,
+                "y": 558
+              },
+              {
+                "x": 672,
+                "y": 597
+              },
+              {
+                "x": 262,
+                "y": 597
+              }
+            ],
+            "row_start": 7,
+            "col_start": 0,
+            "words": "久悬未取款"
+          },
+          {
+            "col_end": 2,
+            "row_end": 8,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 558
+              },
+              {
+                "x": 1028,
+                "y": 557
+              },
+              {
+                "x": 1028,
+                "y": 597
+              },
+              {
+                "x": 672,
+                "y": 597
+              }
+            ],
+            "row_start": 7,
+            "col_start": 1,
+            "words": "16,099,894.14"
+          },
+          {
+            "col_end": 3,
+            "row_end": 8,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 557
+              },
+              {
+                "x": 1385,
+                "y": 557
+              },
+              {
+                "x": 1385,
+                "y": 596
+              },
+              {
+                "x": 1028,
+                "y": 597
+              }
+            ],
+            "row_start": 7,
+            "col_start": 2,
+            "words": "15,889,757.38"
+          },
+          {
+            "col_end": 1,
+            "row_end": 9,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 597
+              },
+              {
+                "x": 672,
+                "y": 597
+              },
+              {
+                "x": 672,
+                "y": 637
+              },
+              {
+                "x": 262,
+                "y": 637
+              }
+            ],
+            "row_start": 8,
+            "col_start": 0,
+            "words": "股金业务暂挂"
+          },
+          {
+            "col_end": 2,
+            "row_end": 9,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 597
+              },
+              {
+                "x": 1028,
+                "y": 597
+              },
+              {
+                "x": 1028,
+                "y": 636
+              },
+              {
+                "x": 672,
+                "y": 637
+              }
+            ],
+            "row_start": 8,
+            "col_start": 1,
+            "words": "2,770,389.46"
+          },
+          {
+            "col_end": 3,
+            "row_end": 9,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 597
+              },
+              {
+                "x": 1385,
+                "y": 596
+              },
+              {
+                "x": 1385,
+                "y": 636
+              },
+              {
+                "x": 1028,
+                "y": 636
+              }
+            ],
+            "row_start": 8,
+            "col_start": 2,
+            "words": "4,739,084.04"
+          },
+          {
+            "col_end": 1,
+            "row_end": 10,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 637
+              },
+              {
+                "x": 672,
+                "y": 637
+              },
+              {
+                "x": 672,
+                "y": 676
+              },
+              {
+                "x": 262,
+                "y": 677
+              }
+            ],
+            "row_start": 9,
+            "col_start": 0,
+            "words": "财务暂收"
+          },
+          {
+            "col_end": 2,
+            "row_end": 10,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 637
+              },
+              {
+                "x": 1028,
+                "y": 636
+              },
+              {
+                "x": 1028,
+                "y": 676
+              },
+              {
+                "x": 672,
+                "y": 676
+              }
+            ],
+            "row_start": 9,
+            "col_start": 1,
+            "words": "9,487,268.79"
+          },
+          {
+            "col_end": 3,
+            "row_end": 10,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 636
+              },
+              {
+                "x": 1385,
+                "y": 636
+              },
+              {
+                "x": 1385,
+                "y": 676
+              },
+              {
+                "x": 1028,
+                "y": 676
+              }
+            ],
+            "row_start": 9,
+            "col_start": 2,
+            "words": "14,645,395.73"
+          },
+          {
+            "col_end": 1,
+            "row_end": 11,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 677
+              },
+              {
+                "x": 672,
+                "y": 676
+              },
+              {
+                "x": 673,
+                "y": 716
+              },
+              {
+                "x": 262,
+                "y": 717
+              }
+            ],
+            "row_start": 10,
+            "col_start": 0,
+            "words": "电子商城待结算款项"
+          },
+          {
+            "col_end": 2,
+            "row_end": 11,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 676
+              },
+              {
+                "x": 1028,
+                "y": 676
+              },
+              {
+                "x": 1028,
+                "y": 716
+              },
+              {
+                "x": 673,
+                "y": 716
+              }
+            ],
+            "row_start": 10,
+            "col_start": 1,
+            "words": "12,584.05"
+          },
+          {
+            "col_end": 3,
+            "row_end": 11,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 676
+              },
+              {
+                "x": 1385,
+                "y": 676
+              },
+              {
+                "x": 1385,
+                "y": 716
+              },
+              {
+                "x": 1028,
+                "y": 716
+              }
+            ],
+            "row_start": 10,
+            "col_start": 2,
+            "words": "575.15"
+          },
+          {
+            "col_end": 1,
+            "row_end": 12,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 717
+              },
+              {
+                "x": 673,
+                "y": 716
+              },
+              {
+                "x": 672,
+                "y": 757
+              },
+              {
+                "x": 262,
+                "y": 757
+              }
+            ],
+            "row_start": 11,
+            "col_start": 0,
+            "words": "红包待结算款项"
+          },
+          {
+            "col_end": 2,
+            "row_end": 12,
+            "cell_location": [
+              {
+                "x": 673,
+                "y": 716
+              },
+              {
+                "x": 1028,
+                "y": 716
+              },
+              {
+                "x": 1028,
+                "y": 756
+              },
+              {
+                "x": 672,
+                "y": 757
+              }
+            ],
+            "row_start": 11,
+            "col_start": 1,
+            "words": ""
+          },
+          {
+            "col_end": 3,
+            "row_end": 12,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 716
+              },
+              {
+                "x": 1385,
+                "y": 716
+              },
+              {
+                "x": 1385,
+                "y": 756
+              },
+              {
+                "x": 1028,
+                "y": 756
+              }
+            ],
+            "row_start": 11,
+            "col_start": 2,
+            "words": "3.60"
+          },
+          {
+            "col_end": 1,
+            "row_end": 13,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 757
+              },
+              {
+                "x": 672,
+                "y": 757
+              },
+              {
+                "x": 672,
+                "y": 796
+              },
+              {
+                "x": 262,
+                "y": 796
+              }
+            ],
+            "row_start": 12,
+            "col_start": 0,
+            "words": "其他应付款"
+          },
+          {
+            "col_end": 2,
+            "row_end": 13,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 757
+              },
+              {
+                "x": 1028,
+                "y": 756
+              },
+              {
+                "x": 1028,
+                "y": 795
+              },
+              {
+                "x": 672,
+                "y": 796
+              }
+            ],
+            "row_start": 12,
+            "col_start": 1,
+            "words": "l4,752,319.65"
+          },
+          {
+            "col_end": 3,
+            "row_end": 13,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 756
+              },
+              {
+                "x": 1385,
+                "y": 756
+              },
+              {
+                "x": 1385,
+                "y": 795
+              },
+              {
+                "x": 1028,
+                "y": 795
+              }
+            ],
+            "row_start": 12,
+            "col_start": 2,
+            "words": "10,092,327.30"
+          },
+          {
+            "col_end": 1,
+            "row_end": 14,
+            "cell_location": [
+              {
+                "x": 262,
+                "y": 796
+              },
+              {
+                "x": 672,
+                "y": 796
+              },
+              {
+                "x": 672,
+                "y": 835
+              },
+              {
+                "x": 262,
+                "y": 836
+              }
+            ],
+            "row_start": 13,
+            "col_start": 0,
+            "words": "合计"
+          },
+          {
+            "col_end": 2,
+            "row_end": 14,
+            "cell_location": [
+              {
+                "x": 672,
+                "y": 796
+              },
+              {
+                "x": 1028,
+                "y": 795
+              },
+              {
+                "x": 1028,
+                "y": 834
+              },
+              {
+                "x": 672,
+                "y": 835
+              }
+            ],
+            "row_start": 13,
+            "col_start": 1,
+            "words": "58,625,888.52"
+          },
+          {
+            "col_end": 3,
+            "row_end": 14,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 795
+              },
+              {
+                "x": 1385,
+                "y": 795
+              },
+              {
+                "x": 1385,
+                "y": 834
+              },
+              {
+                "x": 1028,
+                "y": 834
+              }
+            ],
+            "row_start": 13,
+            "col_start": 2,
+            "words": "70,995,939.95"
+          }
+        ],
+        "header": [
+          {
+            "location": [
+              {
+                "x": 333,
+                "y": 221
+              },
+              {
+                "x": 606,
+                "y": 220
+              },
+              {
+                "x": 606,
+                "y": 258
+              },
+              {
+                "x": 333,
+                "y": 258
+              }
+            ],
+            "words": "(二十八)其他应付款"
+          }
+        ],
+        "footer": [
+          {
+            "location": [
+              {
+                "x": 336,
+                "y": 867
+              },
+              {
+                "x": 581,
+                "y": 867
+              },
+              {
+                "x": 581,
+                "y": 904
+              },
+              {
+                "x": 336,
+                "y": 904
+              }
+            ],
+            "words": "(二十九)租赁负债"
+          }
+        ]
+      },
+      "location": {
+        "page_number": 1,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+      }
+    },
+    {
+      "table_id": 2,
+      "table_title": "租赁负债",
+      "is_financial": true,
+      "currency": null,
+      "reporting_period": null,
+      "similarity_score": 1.0,
+      "llm_hierarchy": {
+        "horizontal": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2022年12月31日",
+            "is_statistical": false
+          }
+        ],
+        "vertical": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 租赁付款额",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 未确认融资费用",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 合计",
+            "is_statistical": true
+          }
+        ]
+      },
+      "ocr_data": {
+        "body_cells": [
+          {
+            "col_end": 1,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 927
+              },
+              {
+                "x": 638,
+                "y": 927
+              },
+              {
+                "x": 638,
+                "y": 966
+              },
+              {
+                "x": 251,
+                "y": 967
+              }
+            ],
+            "row_start": 0,
+            "col_start": 0,
+            "words": "项目"
+          },
+          {
+            "col_end": 2,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 638,
+                "y": 927
+              },
+              {
+                "x": 1028,
+                "y": 927
+              },
+              {
+                "x": 1029,
+                "y": 966
+              },
+              {
+                "x": 638,
+                "y": 966
+              }
+            ],
+            "row_start": 0,
+            "col_start": 1,
+            "words": "2023年12月31日"
+          },
+          {
+            "col_end": 3,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 927
+              },
+              {
+                "x": 1411,
+                "y": 927
+              },
+              {
+                "x": 1411,
+                "y": 965
+              },
+              {
+                "x": 1029,
+                "y": 966
+              }
+            ],
+            "row_start": 0,
+            "col_start": 2,
+            "words": "2022年12月31日"
+          },
+          {
+            "col_end": 1,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 967
+              },
+              {
+                "x": 638,
+                "y": 966
+              },
+              {
+                "x": 638,
+                "y": 1006
+              },
+              {
+                "x": 251,
+                "y": 1007
+              }
+            ],
+            "row_start": 1,
+            "col_start": 0,
+            "words": "租赁付款额"
+          },
+          {
+            "col_end": 2,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 638,
+                "y": 966
+              },
+              {
+                "x": 1029,
+                "y": 966
+              },
+              {
+                "x": 1028,
+                "y": 1006
+              },
+              {
+                "x": 638,
+                "y": 1006
+              }
+            ],
+            "row_start": 1,
+            "col_start": 1,
+            "words": "48,619,699.57"
+          },
+          {
+            "col_end": 3,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 966
+              },
+              {
+                "x": 1411,
+                "y": 965
+              },
+              {
+                "x": 1411,
+                "y": 1005
+              },
+              {
+                "x": 1028,
+                "y": 1006
+              }
+            ],
+            "row_start": 1,
+            "col_start": 2,
+            "words": "57,594,267.68"
+          },
+          {
+            "col_end": 1,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1007
+              },
+              {
+                "x": 638,
+                "y": 1006
+              },
+              {
+                "x": 638,
+                "y": 1046
+              },
+              {
+                "x": 251,
+                "y": 1046
+              }
+            ],
+            "row_start": 2,
+            "col_start": 0,
+            "words": "未确认融资费用"
+          },
+          {
+            "col_end": 2,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 638,
+                "y": 1006
+              },
+              {
+                "x": 1028,
+                "y": 1006
+              },
+              {
+                "x": 1029,
+                "y": 1045
+              },
+              {
+                "x": 638,
+                "y": 1046
+              }
+            ],
+            "row_start": 2,
+            "col_start": 1,
+            "words": "-4,249,497.49"
+          },
+          {
+            "col_end": 3,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 1028,
+                "y": 1006
+              },
+              {
+                "x": 1411,
+                "y": 1005
+              },
+              {
+                "x": 1411,
+                "y": 1045
+              },
+              {
+                "x": 1029,
+                "y": 1045
+              }
+            ],
+            "row_start": 2,
+            "col_start": 2,
+            "words": "~5,494,688.18"
+          },
+          {
+            "col_end": 1,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1046
+              },
+              {
+                "x": 638,
+                "y": 1046
+              },
+              {
+                "x": 638,
+                "y": 1084
+              },
+              {
+                "x": 251,
+                "y": 1084
+              }
+            ],
+            "row_start": 3,
+            "col_start": 0,
+            "words": "合计"
+          },
+          {
+            "col_end": 2,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 638,
+                "y": 1046
+              },
+              {
+                "x": 1029,
+                "y": 1045
+              },
+              {
+                "x": 1029,
+                "y": 1084
+              },
+              {
+                "x": 638,
+                "y": 1084
+              }
+            ],
+            "row_start": 3,
+            "col_start": 1,
+            "words": "44,370,202.08"
+          },
+          {
+            "col_end": 3,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 1045
+              },
+              {
+                "x": 1411,
+                "y": 1045
+              },
+              {
+                "x": 1411,
+                "y": 1084
+              },
+              {
+                "x": 1029,
+                "y": 1084
+              }
+            ],
+            "row_start": 3,
+            "col_start": 2,
+            "words": "52,099,579.50"
+          }
+        ],
+        "header": [],
+        "footer": [
+          {
+            "location": [
+              {
+                "x": 337,
+                "y": 1116
+              },
+              {
+                "x": 553,
+                "y": 1116
+              },
+              {
+                "x": 553,
+                "y": 1153
+              },
+              {
+                "x": 337,
+                "y": 1153
+              }
+            ],
+            "words": "(三十)预计负债"
+          }
+        ]
+      },
+      "location": {
+        "page_number": 1,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+      }
+    },
+    {
+      "table_id": 3,
+      "table_title": "预计负债",
+      "is_financial": true,
+      "currency": null,
+      "reporting_period": null,
+      "similarity_score": 1.0,
+      "llm_hierarchy": {
+        "horizontal": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2022年12月31日",
+            "is_statistical": false
+          }
+        ],
+        "vertical": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 银行承兑汇票计提损失准备",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 开出国内远期信用证计提损失准备",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 开出非融资保函款项计提损失准备",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 合计",
+            "is_statistical": true
+          }
+        ]
+      },
+      "ocr_data": {
+        "body_cells": [
+          {
+            "col_end": 1,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1175
+              },
+              {
+                "x": 639,
+                "y": 1175
+              },
+              {
+                "x": 639,
+                "y": 1214
+              },
+              {
+                "x": 251,
+                "y": 1214
+              }
+            ],
+            "row_start": 0,
+            "col_start": 0,
+            "words": "项目"
+          },
+          {
+            "col_end": 2,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 639,
+                "y": 1175
+              },
+              {
+                "x": 1029,
+                "y": 1175
+              },
+              {
+                "x": 1029,
+                "y": 1214
+              },
+              {
+                "x": 639,
+                "y": 1214
+              }
+            ],
+            "row_start": 0,
+            "col_start": 1,
+            "words": "2023年12月31日"
+          },
+          {
+            "col_end": 3,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 1175
+              },
+              {
+                "x": 1412,
+                "y": 1175
+              },
+              {
+                "x": 1412,
+                "y": 1214
+              },
+              {
+                "x": 1029,
+                "y": 1214
+              }
+            ],
+            "row_start": 0,
+            "col_start": 2,
+            "words": "2022年12月31日"
+          },
+          {
+            "col_end": 1,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1214
+              },
+              {
+                "x": 639,
+                "y": 1214
+              },
+              {
+                "x": 639,
+                "y": 1253
+              },
+              {
+                "x": 251,
+                "y": 1254
+              }
+            ],
+            "row_start": 1,
+            "col_start": 0,
+            "words": "银行承兑汇票计提损失准备"
+          },
+          {
+            "col_end": 2,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 639,
+                "y": 1214
+              },
+              {
+                "x": 1029,
+                "y": 1214
+              },
+              {
+                "x": 1029,
+                "y": 1253
+              },
+              {
+                "x": 639,
+                "y": 1253
+              }
+            ],
+            "row_start": 1,
+            "col_start": 1,
+            "words": "4,532,427.83"
+          },
+          {
+            "col_end": 3,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 1214
+              },
+              {
+                "x": 1412,
+                "y": 1214
+              },
+              {
+                "x": 1412,
+                "y": 1253
+              },
+              {
+                "x": 1029,
+                "y": 1253
+              }
+            ],
+            "row_start": 1,
+            "col_start": 2,
+            "words": "2,829,422.16"
+          },
+          {
+            "col_end": 1,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1254
+              },
+              {
+                "x": 639,
+                "y": 1253
+              },
+              {
+                "x": 639,
+                "y": 1331
+              },
+              {
+                "x": 251,
+                "y": 1331
+              }
+            ],
+            "row_start": 2,
+            "col_start": 0,
+            "words": "开出国内远期信用证计提损\n失准备"
+          },
+          {
+            "col_end": 2,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 639,
+                "y": 1253
+              },
+              {
+                "x": 1029,
+                "y": 1253
+              },
+              {
+                "x": 1029,
+                "y": 1330
+              },
+              {
+                "x": 639,
+                "y": 1331
+              }
+            ],
+            "row_start": 2,
+            "col_start": 1,
+            "words": "1,282,254.04"
+          },
+          {
+            "col_end": 3,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 1253
+              },
+              {
+                "x": 1412,
+                "y": 1253
+              },
+              {
+                "x": 1413,
+                "y": 1330
+              },
+              {
+                "x": 1029,
+                "y": 1330
+              }
+            ],
+            "row_start": 2,
+            "col_start": 2,
+            "words": "7,713,194.10"
+          },
+          {
+            "col_end": 1,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1331
+              },
+              {
+                "x": 639,
+                "y": 1331
+              },
+              {
+                "x": 639,
+                "y": 1408
+              },
+              {
+                "x": 251,
+                "y": 1408
+              }
+            ],
+            "row_start": 3,
+            "col_start": 0,
+            "words": "开出非融资保函款项计提损\n失准备"
+          },
+          {
+            "col_end": 2,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 639,
+                "y": 1331
+              },
+              {
+                "x": 1029,
+                "y": 1330
+              },
+              {
+                "x": 1029,
+                "y": 1407
+              },
+              {
+                "x": 639,
+                "y": 1408
+              }
+            ],
+            "row_start": 3,
+            "col_start": 1,
+            "words": "160,270.68"
+          },
+          {
+            "col_end": 3,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 1330
+              },
+              {
+                "x": 1413,
+                "y": 1330
+              },
+              {
+                "x": 1413,
+                "y": 1407
+              },
+              {
+                "x": 1029,
+                "y": 1407
+              }
+            ],
+            "row_start": 3,
+            "col_start": 2,
+            "words": "94,203.02"
+          },
+          {
+            "col_end": 1,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 251,
+                "y": 1408
+              },
+              {
+                "x": 639,
+                "y": 1408
+              },
+              {
+                "x": 639,
+                "y": 1447
+              },
+              {
+                "x": 251,
+                "y": 1448
+              }
+            ],
+            "row_start": 4,
+            "col_start": 0,
+            "words": "合计"
+          },
+          {
+            "col_end": 2,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 639,
+                "y": 1408
+              },
+              {
+                "x": 1029,
+                "y": 1407
+              },
+              {
+                "x": 1029,
+                "y": 1447
+              },
+              {
+                "x": 639,
+                "y": 1447
+              }
+            ],
+            "row_start": 4,
+            "col_start": 1,
+            "words": "5,974,952.55"
+          },
+          {
+            "col_end": 3,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 1029,
+                "y": 1407
+              },
+              {
+                "x": 1413,
+                "y": 1407
+              },
+              {
+                "x": 1413,
+                "y": 1447
+              },
+              {
+                "x": 1029,
+                "y": 1447
+              }
+            ],
+            "row_start": 4,
+            "col_start": 2,
+            "words": "10,636,819.28"
+          }
+        ],
+        "header": [],
+        "footer": []
+      },
+      "location": {
+        "page_number": 1,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+      }
+    },
+    {
+      "table_id": 4,
+      "table_title": "应付债券",
+      "is_financial": true,
+      "currency": null,
+      "reporting_period": null,
+      "similarity_score": 1.0,
+      "llm_hierarchy": {
+        "horizontal": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2022年12月31日",
+            "is_statistical": false
+          }
+        ],
+        "vertical": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 次级债券",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 同业存单",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 加：应计利息",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 合计",
+            "is_statistical": true
+          }
+        ]
+      },
+      "ocr_data": {
+        "body_cells": [
+          {
+            "col_end": 1,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 254,
+                "y": 1540
+              },
+              {
+                "x": 641,
+                "y": 1539
+              },
+              {
+                "x": 641,
+                "y": 1577
+              },
+              {
+                "x": 254,
+                "y": 1578
+              }
+            ],
+            "row_start": 0,
+            "col_start": 0,
+            "words": "项目"
+          },
+          {
+            "col_end": 2,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 641,
+                "y": 1539
+              },
+              {
+                "x": 1030,
+                "y": 1538
+              },
+              {
+                "x": 1030,
+                "y": 1577
+              },
+              {
+                "x": 641,
+                "y": 1577
+              }
+            ],
+            "row_start": 0,
+            "col_start": 1,
+            "words": "2023年12月31日"
+          },
+          {
+            "col_end": 3,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 1030,
+                "y": 1538
+              },
+              {
+                "x": 1415,
+                "y": 1538
+              },
+              {
+                "x": 1415,
+                "y": 1576
+              },
+              {
+                "x": 1030,
+                "y": 1577
+              }
+            ],
+            "row_start": 0,
+            "col_start": 2,
+            "words": "2022年12月31日"
+          },
+          {
+            "col_end": 1,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 254,
+                "y": 1578
+              },
+              {
+                "x": 641,
+                "y": 1577
+              },
+              {
+                "x": 641,
+                "y": 1617
+              },
+              {
+                "x": 254,
+                "y": 1618
+              }
+            ],
+            "row_start": 1,
+            "col_start": 0,
+            "words": "次级债券"
+          },
+          {
+            "col_end": 2,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 641,
+                "y": 1577
+              },
+              {
+                "x": 1030,
+                "y": 1577
+              },
+              {
+                "x": 1030,
+                "y": 1616
+              },
+              {
+                "x": 641,
+                "y": 1617
+              }
+            ],
+            "row_start": 1,
+            "col_start": 1,
+            "words": "899,881,732.45"
+          },
+          {
+            "col_end": 3,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 1030,
+                "y": 1577
+              },
+              {
+                "x": 1415,
+                "y": 1576
+              },
+              {
+                "x": 1415,
+                "y": 1615
+              },
+              {
+                "x": 1030,
+                "y": 1616
+              }
+            ],
+            "row_start": 1,
+            "col_start": 2,
+            "words": "899,568,246.67"
+          },
+          {
+            "col_end": 1,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 254,
+                "y": 1618
+              },
+              {
+                "x": 641,
+                "y": 1617
+              },
+              {
+                "x": 641,
+                "y": 1657
+              },
+              {
+                "x": 254,
+                "y": 1658
+              }
+            ],
+            "row_start": 2,
+            "col_start": 0,
+            "words": "同业存单"
+          },
+          {
+            "col_end": 2,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 641,
+                "y": 1617
+              },
+              {
+                "x": 1030,
+                "y": 1616
+              },
+              {
+                "x": 1030,
+                "y": 1656
+              },
+              {
+                "x": 641,
+                "y": 1657
+              }
+            ],
+            "row_start": 2,
+            "col_start": 1,
+            "words": "447,639,485.66"
+          },
+          {
+            "col_end": 3,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 1030,
+                "y": 1616
+              },
+              {
+                "x": 1415,
+                "y": 1615
+              },
+              {
+                "x": 1415,
+                "y": 1655
+              },
+              {
+                "x": 1030,
+                "y": 1656
+              }
+            ],
+            "row_start": 2,
+            "col_start": 2,
+            "words": "1,120,245,252.74"
+          },
+          {
+            "col_end": 1,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 254,
+                "y": 1658
+              },
+              {
+                "x": 641,
+                "y": 1657
+              },
+              {
+                "x": 641,
+                "y": 1696
+              },
+              {
+                "x": 254,
+                "y": 1697
+              }
+            ],
+            "row_start": 3,
+            "col_start": 0,
+            "words": "加：应计利息"
+          },
+          {
+            "col_end": 2,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 641,
+                "y": 1657
+              },
+              {
+                "x": 1030,
+                "y": 1656
+              },
+              {
+                "x": 1030,
+                "y": 1695
+              },
+              {
+                "x": 641,
+                "y": 1696
+              }
+            ],
+            "row_start": 3,
+            "col_start": 1,
+            "words": "18,693,989.05"
+          },
+          {
+            "col_end": 3,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 1030,
+                "y": 1656
+              },
+              {
+                "x": 1415,
+                "y": 1655
+              },
+              {
+                "x": 1415,
+                "y": 1694
+              },
+              {
+                "x": 1030,
+                "y": 1695
+              }
+            ],
+            "row_start": 3,
+            "col_start": 2,
+            "words": "18,745,205.49"
+          },
+          {
+            "col_end": 1,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 254,
+                "y": 1697
+              },
+              {
+                "x": 641,
+                "y": 1696
+              },
+              {
+                "x": 641,
+                "y": 1733
+              },
+              {
+                "x": 254,
+                "y": 1734
+              }
+            ],
+            "row_start": 4,
+            "col_start": 0,
+            "words": "合计"
+          },
+          {
+            "col_end": 2,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 641,
+                "y": 1696
+              },
+              {
+                "x": 1030,
+                "y": 1695
+              },
+              {
+                "x": 1030,
+                "y": 1732
+              },
+              {
+                "x": 641,
+                "y": 1733
+              }
+            ],
+            "row_start": 4,
+            "col_start": 1,
+            "words": "1,366,215,207.16"
+          },
+          {
+            "col_end": 3,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 1030,
+                "y": 1695
+              },
+              {
+                "x": 1415,
+                "y": 1694
+              },
+              {
+                "x": 1415,
+                "y": 1732
+              },
+              {
+                "x": 1030,
+                "y": 1732
+              }
+            ],
+            "row_start": 4,
+            "col_start": 2,
+            "words": "2,038,558,704.90"
+          }
+        ],
+        "header": [
+          {
+            "location": [
+              {
+                "x": 338,
+                "y": 1480
+              },
+              {
+                "x": 583,
+                "y": 1480
+              },
+              {
+                "x": 583,
+                "y": 1517
+              },
+              {
+                "x": 338,
+                "y": 1517
+              }
+            ],
+            "words": "(三十一)应付债券"
+          }
+        ],
+        "footer": [
+          {
+            "location": [
+              {
+                "x": 340,
+                "y": 1768
+              },
+              {
+                "x": 670,
+                "y": 1768
+              },
+              {
+                "x": 670,
+                "y": 1804
+              },
+              {
+                "x": 340,
+                "y": 1805
+              }
+            ],
+            "words": "(三十二)递延所得税负债"
+          }
+        ]
+      },
+      "location": {
+        "page_number": 1,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+      }
+    },
+    {
+      "table_id": 5,
+      "table_title": "递延所得税负债",
+      "is_financial": true,
+      "currency": null,
+      "reporting_period": null,
+      "similarity_score": 1.0,
+      "llm_hierarchy": {
+        "horizontal": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日 > 应纳税暂时性差异",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日 > 递延所得税负债",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2022年12月31日 > 应纳税暂时性差异",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2022年12月31日 > 递延所得税负债",
+            "is_statistical": false
+          }
+        ],
+        "vertical": [
+          {
+            "field_path": "项目",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 贷款应计收利息",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 500.00万元以下固定资产折旧",
+            "is_statistical": false
+          },
+          {
+            "field_path": "项目 > 交易性金融资产公",
+            "is_statistical": false
+          }
+        ]
+      },
+      "ocr_data": {
+        "body_cells": [
+          {
+            "col_end": 1,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 213,
+                "y": 1826
+              },
+              {
+                "x": 465,
+                "y": 1825
+              },
+              {
+                "x": 465,
+                "y": 1913
+              },
+              {
+                "x": 213,
+                "y": 1914
+              }
+            ],
+            "row_start": 0,
+            "col_start": 0,
+            "words": "项目"
+          },
+          {
+            "col_end": 3,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 465,
+                "y": 1825
+              },
+              {
+                "x": 961,
+                "y": 1825
+              },
+              {
+                "x": 962,
+                "y": 1868
+              },
+              {
+                "x": 465,
+                "y": 1869
+              }
+            ],
+            "row_start": 0,
+            "col_start": 1,
+            "words": "2023年12月31日"
+          },
+          {
+            "col_end": 5,
+            "row_end": 1,
+            "cell_location": [
+              {
+                "x": 961,
+                "y": 1825
+              },
+              {
+                "x": 1456,
+                "y": 1824
+              },
+              {
+                "x": 1456,
+                "y": 1867
+              },
+              {
+                "x": 962,
+                "y": 1868
+              }
+            ],
+            "row_start": 0,
+            "col_start": 3,
+            "words": "2022年12月31日"
+          },
+          {
+            "col_end": 2,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 466,
+                "y": 1869
+              },
+              {
+                "x": 714,
+                "y": 1868
+              },
+              {
+                "x": 714,
+                "y": 1913
+              },
+              {
+                "x": 466,
+                "y": 1913
+              }
+            ],
+            "row_start": 1,
+            "col_start": 1,
+            "words": "应纳税暂时性差异"
+          },
+          {
+            "col_end": 3,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 714,
+                "y": 1868
+              },
+              {
+                "x": 962,
+                "y": 1868
+              },
+              {
+                "x": 962,
+                "y": 1912
+              },
+              {
+                "x": 714,
+                "y": 1913
+              }
+            ],
+            "row_start": 1,
+            "col_start": 2,
+            "words": "递延所得税负债"
+          },
+          {
+            "col_end": 4,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 962,
+                "y": 1868
+              },
+              {
+                "x": 1210,
+                "y": 1867
+              },
+              {
+                "x": 1210,
+                "y": 1911
+              },
+              {
+                "x": 962,
+                "y": 1912
+              }
+            ],
+            "row_start": 1,
+            "col_start": 3,
+            "words": "应纳税暂时性差异"
+          },
+          {
+            "col_end": 5,
+            "row_end": 2,
+            "cell_location": [
+              {
+                "x": 1210,
+                "y": 1867
+              },
+              {
+                "x": 1457,
+                "y": 1867
+              },
+              {
+                "x": 1457,
+                "y": 1911
+              },
+              {
+                "x": 1210,
+                "y": 1911
+              }
+            ],
+            "row_start": 1,
+            "col_start": 4,
+            "words": "递延所得税负债"
+          },
+          {
+            "col_end": 1,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 214,
+                "y": 1914
+              },
+              {
+                "x": 466,
+                "y": 1913
+              },
+              {
+                "x": 466,
+                "y": 1957
+              },
+              {
+                "x": 214,
+                "y": 1958
+              }
+            ],
+            "row_start": 2,
+            "col_start": 0,
+            "words": "贷款应计收利息"
+          },
+          {
+            "col_end": 2,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 466,
+                "y": 1913
+              },
+              {
+                "x": 714,
+                "y": 1913
+              },
+              {
+                "x": 714,
+                "y": 1957
+              },
+              {
+                "x": 466,
+                "y": 1957
+              }
+            ],
+            "row_start": 2,
+            "col_start": 1,
+            "words": "67,410,979.47"
+          },
+          {
+            "col_end": 3,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 714,
+                "y": 1913
+              },
+              {
+                "x": 962,
+                "y": 1912
+              },
+              {
+                "x": 962,
+                "y": 1956
+              },
+              {
+                "x": 714,
+                "y": 1957
+              }
+            ],
+            "row_start": 2,
+            "col_start": 2,
+            "words": "l6,852,744.87"
+          },
+          {
+            "col_end": 4,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 962,
+                "y": 1912
+              },
+              {
+                "x": 1210,
+                "y": 1911
+              },
+              {
+                "x": 1210,
+                "y": 1956
+              },
+              {
+                "x": 962,
+                "y": 1956
+              }
+            ],
+            "row_start": 2,
+            "col_start": 3,
+            "words": "65,868,062.29"
+          },
+          {
+            "col_end": 5,
+            "row_end": 3,
+            "cell_location": [
+              {
+                "x": 1210,
+                "y": 1911
+              },
+              {
+                "x": 1457,
+                "y": 1911
+              },
+              {
+                "x": 1457,
+                "y": 1955
+              },
+              {
+                "x": 1210,
+                "y": 1956
+              }
+            ],
+            "row_start": 2,
+            "col_start": 4,
+            "words": "16,467,015.57"
+          },
+          {
+            "col_end": 1,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 214,
+                "y": 1958
+              },
+              {
+                "x": 466,
+                "y": 1957
+              },
+              {
+                "x": 466,
+                "y": 2025
+              },
+              {
+                "x": 214,
+                "y": 2026
+              }
+            ],
+            "row_start": 3,
+            "col_start": 0,
+            "words": "500.00万元以下固\n定资产折旧"
+          },
+          {
+            "col_end": 2,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 466,
+                "y": 1957
+              },
+              {
+                "x": 714,
+                "y": 1957
+              },
+              {
+                "x": 714,
+                "y": 2024
+              },
+              {
+                "x": 466,
+                "y": 2025
+              }
+            ],
+            "row_start": 3,
+            "col_start": 1,
+            "words": "21,509,333.70"
+          },
+          {
+            "col_end": 3,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 714,
+                "y": 1957
+              },
+              {
+                "x": 962,
+                "y": 1956
+              },
+              {
+                "x": 962,
+                "y": 2024
+              },
+              {
+                "x": 714,
+                "y": 2024
+              }
+            ],
+            "row_start": 3,
+            "col_start": 2,
+            "words": "5,377,333.43"
+          },
+          {
+            "col_end": 4,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 962,
+                "y": 1956
+              },
+              {
+                "x": 1210,
+                "y": 1956
+              },
+              {
+                "x": 1210,
+                "y": 2023
+              },
+              {
+                "x": 962,
+                "y": 2024
+              }
+            ],
+            "row_start": 3,
+            "col_start": 3,
+            "words": "29,227,923.11"
+          },
+          {
+            "col_end": 5,
+            "row_end": 4,
+            "cell_location": [
+              {
+                "x": 1210,
+                "y": 1956
+              },
+              {
+                "x": 1457,
+                "y": 1955
+              },
+              {
+                "x": 1457,
+                "y": 2023
+              },
+              {
+                "x": 1210,
+                "y": 2023
+              }
+            ],
+            "row_start": 3,
+            "col_start": 4,
+            "words": "7,306,980.78"
+          },
+          {
+            "col_end": 1,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 214,
+                "y": 2026
+              },
+              {
+                "x": 466,
+                "y": 2025
+              },
+              {
+                "x": 466,
+                "y": 2068
+              },
+              {
+                "x": 214,
+                "y": 2068
+              }
+            ],
+            "row_start": 4,
+            "col_start": 0,
+            "words": "交易性金融资产公"
+          },
+          {
+            "col_end": 2,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 466,
+                "y": 2025
+              },
+              {
+                "x": 714,
+                "y": 2024
+              },
+              {
+                "x": 714,
+                "y": 2067
+              },
+              {
+                "x": 466,
+                "y": 2068
+              }
+            ],
+            "row_start": 4,
+            "col_start": 1,
+            "words": "381,665,712.37"
+          },
+          {
+            "col_end": 3,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 714,
+                "y": 2024
+              },
+              {
+                "x": 962,
+                "y": 2024
+              },
+              {
+                "x": 962,
+                "y": 2067
+              },
+              {
+                "x": 714,
+                "y": 2067
+              }
+            ],
+            "row_start": 4,
+            "col_start": 2,
+            "words": "95,416,428.09"
+          },
+          {
+            "col_end": 4,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 962,
+                "y": 2024
+              },
+              {
+                "x": 1210,
+                "y": 2023
+              },
+              {
+                "x": 1210,
+                "y": 2067
+              },
+              {
+                "x": 962,
+                "y": 2067
+              }
+            ],
+            "row_start": 4,
+            "col_start": 3,
+            "words": "265,047,631.19"
+          },
+          {
+            "col_end": 5,
+            "row_end": 5,
+            "cell_location": [
+              {
+                "x": 1210,
+                "y": 2023
+              },
+              {
+                "x": 1457,
+                "y": 2023
+              },
+              {
+                "x": 1457,
+                "y": 2066
+              },
+              {
+                "x": 1210,
+                "y": 2067
+              }
+            ],
+            "row_start": 4,
+            "col_start": 4,
+            "words": "66,261,907.80"
+          }
+        ],
+        "header": [],
+        "footer": [
+          {
+            "location": [
+              {
+                "x": 746,
+                "y": 2115
+              },
+              {
+                "x": 942,
+                "y": 2115
+              },
+              {
+                "x": 942,
+                "y": 2147
+              },
+              {
+                "x": 746,
+                "y": 2147
+              }
+            ],
+            "words": "第41页共69页"
+          }
+        ]
+      },
+      "location": {
+        "page_number": 1,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+      }
+    }
+  ],
+  "unmatched_tables": {
+    "llm": [],
+    "ocr": []
+  }
+}

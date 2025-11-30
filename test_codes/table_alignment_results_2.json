@@ -3,12 +3,12 @@
     "total_aligned_tables": 2,
     "unmatched_llm_tables": 0,
     "unmatched_ocr_tables": 0,
-    "average_similarity": 0.9916666666666667
+    "average_similarity": 0.99375
   },
   "aligned_tables": [
     {
       "table_id": 1,
-      "table_title": "各支行存款情况",
+      "table_title": "存款情况",
       "is_financial": true,
       "currency": "人民币",
       "reporting_period": "",
@@ -903,8 +903,8 @@
         "footer": []
       },
       "location": {
-        "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes/pngs/514001_158.png"
+        "page_number": 2,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_158.png"
       }
     },
     {
@@ -913,7 +913,7 @@
       "is_financial": true,
       "currency": "人民币",
       "reporting_period": "2023年12月31日",
-      "similarity_score": 0.9958333333333333,
+      "similarity_score": 1.0,
       "llm_hierarchy": {
         "horizontal": [
           {
@@ -938,7 +938,7 @@
           },
           {
             "field_path": "合计",
-            "is_statistical": false
+            "is_statistical": true
           },
           {
             "field_path": "占资本净额比例",
@@ -1023,7 +1023,7 @@
             "is_statistical": true
           },
           {
-            "field_path": "浙江江德不锈钢管业股份有限公司",
+            "field_path": "浙江德威不锈钢管业股份有限公司",
             "is_statistical": false
           }
         ]
@@ -5400,8 +5400,8 @@
         ]
       },
       "location": {
-        "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes/pngs/514001_158.png"
+        "page_number": 2,
+        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_158.png"
       }
     }
   ],

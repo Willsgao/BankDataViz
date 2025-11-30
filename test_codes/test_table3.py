@@ -86,22 +86,14 @@ def debug_json_structure(bd_json):
 
 if __name__ == '__main__':
     try:
-<<<<<<< HEAD
-        with open('data.json', 'r', encoding='utf-8') as f:
-=======
-        with open('data1.json', 'r', encoding='utf-8') as f:
->>>>>>> 9934c1087cf9e1fe9a96512c622937df792805d6
+        with open('data3.json', 'r', encoding='utf-8') as f:
             j = json.load(f)
 
         # 先调试结构
         debug_json_structure(j)
 
         # 生成Excel
-<<<<<<< HEAD
-        save_file = "百度表格-修复版1.xlsx"
-=======
-        save_file = "百度表格-修复版_7.xlsx"
->>>>>>> 9934c1087cf9e1fe9a96512c622937df792805d6
+        save_file = "百度表格-修复版_8.xlsx"
         baidu2excel_fixed(j, save_file)
 
     except FileNotFoundError:

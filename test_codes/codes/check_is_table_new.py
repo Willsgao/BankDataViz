@@ -4,6 +4,7 @@ import base64
 import time
 import json
 import fitz  # PyMuPDF
+import hashlib
 from typing import List, Dict, Any, Union
 from openai import OpenAI
 
@@ -28,6 +29,25 @@ class FinancialTableAnalyzerLLM:
     def _encode_image_to_base64(self, image_path: str) -> str:
         with open(image_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
+
+    def _generate_image_id(self, image_path: str) -> str:
+        """
+        为图片生成唯一ID（与百度OCR服务保持一致）
+        """
+        try:
+            with open(image_path, "rb") as f:
+                file_content = f.read()
+            content_hash = hashlib.md5(file_content).hexdigest()[:16]
+
+            file_name = os.path.basename(image_path)
+            combined = f"{file_name}_{content_hash}"
+            image_id = hashlib.md5(combined.encode()).hexdigest()[:16]
+
+            return f"img_{image_id}"
+
+        except Exception as e:
+            path_hash = hashlib.md5(image_path.encode()).hexdigest()[:16]
+            return f"img_{path_hash}"
 
     def pdf_to_images(self, pdf_path: str, output_dir: str) -> List[str]:
         """将 PDF 转为图片列表"""
@@ -160,6 +180,41 @@ class FinancialTableAnalyzerLLM:
             "data_cells_count": None  # 后续可以补充
         }
 
+    def _parse_llm_response111(self, response_text: str, image_path: str, page_num: int = None) -> Dict[str, Any]:
+        """解析 LLM 返回的 JSON 字符串，构建完整的表格数据结构"""
+        try:
+            # 先打印原始响应以便调试
+            print(f"[DEBUG] 原始响应: {response_text[:500]}...")  # 只打印前500字符
+
+            cleaned = re.sub(r'^```json\s*|\s*```$', '', response_text.strip())
+            data = json.loads(cleaned)
+
+            # 构建完整的表格结构
+            tables = []
+            for table_data in data.get("tables", []):
+                # 检查表格字段完整性
+                required_fields = ["table_title", "currency", "reporting_period"]
+                for field in required_fields:
+                    if field not in table_data:
+                        print(f"[WARN] 表格缺少字段: {field}")
+                        table_data[field] = ""  # 设置默认值
+
+                # 构建完整表格结构
+                full_table = self._build_table_structure(table_data, image_path, page_num)
+                tables.append(full_table)
+
+            return {
+                "has_table": bool(data.get("has_table", False)),
+                "tables": tables
+            }
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"[ERROR] JSON 解析失败: {e}")
+            print(f"[DEBUG] 响应内容: {response_text}")
+            return {
+                "has_table": False,
+                "tables": []
+            }
+
     def _parse_llm_response(self, response_text: str, image_path: str, page_num: int = None) -> Dict[str, Any]:
         """解析 LLM 返回的 JSON 字符串，构建完整的表格数据结构"""
         try:
@@ -211,6 +266,9 @@ class FinancialTableAnalyzerLLM:
 
             print(f"[INFO] 正在分析: {img_path}")
             try:
+                # 生成图片ID（与百度OCR保持一致）
+                image_id = self._generate_image_id(img_path)
+
                 base64_img = self._encode_image_to_base64(img_path)
                 prompt = self._build_system_prompt()
                 raw_response, usage, elapsed = self._call_llm_vision_api(base64_img, prompt)
@@ -224,6 +282,7 @@ class FinancialTableAnalyzerLLM:
 
                 image_result = {
                     "image_path": img_path,
+                    "image_id": image_id,  # 添加图片ID
                     "page_number": idx + 1,
                     "raw_llm_output": raw_response,
                     "analysis_time_sec": round(elapsed, 2),
@@ -241,12 +300,15 @@ class FinancialTableAnalyzerLLM:
                 total_tokens["total_tokens"] += usage["total_tokens"]
 
                 print(
-                    f"[INFO] 图片 {idx + 1} 分析完成，检测到 {current_tables_count} 个表格（{current_financial_tables_count} 个财务表格）")
+                    f"[INFO] 图片 {idx + 1} (ID: {image_id}) 分析完成，检测到 {current_tables_count} 个表格（{current_financial_tables_count} 个财务表格）")
 
             except Exception as e:
                 print(f"[ERROR] 处理 {img_path} 时出错: {e}")
+                # 即使出错也生成图片ID
+                image_id = self._generate_image_id(img_path)
                 image_results.append({
                     "image_path": img_path,
+                    "image_id": image_id,  # 添加图片ID
                     "page_number": idx + 1,
                     "has_table": False,
                     "tables": [],
@@ -339,28 +401,27 @@ if __name__ == "__main__":
     # result = analyzer.analyze("report.pdf")
     # analyzer.save_results_to_json(result, "output/report_analysis.json")
 
-    code_dir = os.getcwd()
-    parent_dir = os.path.dirname(code_dir)
-
     # === 示例 2：分析多张图片 ===
     image_list = []
-    image_dir = fr"{parent_dir}\pngs"
-    for root, _, files in os.walk(image_dir):
-        for file in files:
-            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                image_list.append(os.path.join(root, file))
-    print("image_list:", image_list)
-    # image_list = [image_list[1]]
+    code_dir = os.getcwd()
+    parent_dir = os.path.dirname(code_dir)
+    # image_dir = fr"{parent_dir}\pngs"
+    # for root, _, files in os.walk(image_dir):
+    #     for file in files:
+    #         if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+    #             image_list.append(os.path.join(root, file))
+    # print("image_list:", image_list)
     # image_list = image_list[:2]
+
+    page_file = fr"{parent_dir}/pngs/514001_158.png"
+    image_list = [page_file]
 
     # 分析图片
     result = analyzer.analyze(image_list)
 
     # 保存结果到 JSON 文件
-    cur_dir = os.getcwd()
-    output_json_path = f"{cur_dir}/analysis_results_1.json"
+    output_json_path = f"{code_dir}/analysis_results.json"
 
-    print("cur_dir:", cur_dir)
     analyzer.save_results_to_json(result, output_json_path)
 
     # === 打印汇总 ===

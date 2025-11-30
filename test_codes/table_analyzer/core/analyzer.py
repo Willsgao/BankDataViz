@@ -1,49 +1,27 @@
 import os
 import re
-import base64
 import time
 import json
-import fitz  # PyMuPDF
 from typing import List, Dict, Any, Union
 from openai import OpenAI
 
+from test_codes.table_analyzer.utils.image_utils import ImageUtils
+from test_codes.table_analyzer.utils.config import settings
 
-class FinancialTableAnalyzerLLM:
-    """
-    支持分析 PDF 或图片列表，判断是否包含财务表格，
-    并分析线框省略情况、字段层级关系，同时统计耗时与 Token 消耗。
-    优化版：每张图片的分析结果保持独立
-    """
 
-    def __init__(self, api_key: str, base_url: str = "https://ark.cn-beijing.volces.com/api/v3",
-                 model_name: str = "doubao-1-5-vision-pro-250328"):
-        self.api_key = api_key
-        self.base_url = base_url
-        self.model_name = model_name
+class FinancialTableAnalyzer:
+    """重构后的LLM分析器"""
+
+    def __init__(self):
+        self.image_utils = ImageUtils()
         self.client = OpenAI(
-            base_url=self.base_url,
-            api_key=self.api_key
+            base_url=settings.llm_base_url,
+            api_key=settings.llm_api_key
         )
-
-    def _encode_image_to_base64(self, image_path: str) -> str:
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-
-    def pdf_to_images(self, pdf_path: str, output_dir: str) -> List[str]:
-        """将 PDF 转为图片列表"""
-        os.makedirs(output_dir, exist_ok=True)
-        doc = fitz.open(pdf_path)
-        image_paths = []
-        for i, page in enumerate(doc):
-            mat = fitz.Matrix(2.0, 2.0)
-            pix = page.get_pixmap(matrix=mat)
-            img_path = os.path.join(output_dir, f"page_{i + 1}.png")
-            pix.save(img_path)
-            image_paths.append(img_path)
-        doc.close()
-        return image_paths
+        self.model_name = settings.llm_model_name
 
     def _build_system_prompt(self) -> str:
+        """系统提示词"""
         return """
         你是一名专业的金融文档分析师，正在分析一张银行或金融机构PDF页面的图像。请严格基于图像中**实际可见的文本和表格结构**进行分析，**禁止推测、补充或假设任何图像中未明确显示的内容**。
 
@@ -110,6 +88,7 @@ class FinancialTableAnalyzerLLM:
 }"""
 
     def _call_llm_vision_api(self, base64_image: str, prompt: str) -> tuple[str, dict, float]:
+        """调用LLM视觉API"""
         start_time = time.time()
         try:
             response = self.client.chat.completions.create(
@@ -141,35 +120,14 @@ class FinancialTableAnalyzerLLM:
             elapsed = time.time() - start_time
             raise RuntimeError(f"API 调用失败: {e}") from e
 
-    def _build_table_structure(self, llm_table_data: Dict, image_path: str, page_num: int = None) -> Dict[str, Any]:
-        """构建完整的表格数据结构"""
-        return {
-            "table_id": llm_table_data.get("table_id"),
-            "is_financial": llm_table_data.get("is_financial", False),
-            "table_title": llm_table_data.get("table_title", ""),
-            "currency": llm_table_data.get("currency", ""),
-            "reporting_period": llm_table_data.get("reporting_period", ""),
-            "horizontal_hierarchy_fields": llm_table_data.get("horizontal_hierarchy_fields", []),
-            "vertical_hierarchy_fields": llm_table_data.get("vertical_hierarchy_fields", []),
-            "location": {
-                "page_number": page_num,
-                "image_path": image_path
-            },
-            "confidence": 0.8,  # 可以根据实际情况计算
-            "has_merged_cells": None,  # 后续可以补充
-            "data_cells_count": None  # 后续可以补充
-        }
-
     def _parse_llm_response(self, response_text: str, image_path: str, page_num: int = None) -> Dict[str, Any]:
-        """解析 LLM 返回的 JSON 字符串，构建完整的表格数据结构"""
+        """解析 LLM 返回的 JSON 字符串"""
         try:
-            # 先打印原始响应以便调试
-            print(f"[DEBUG] 原始响应: {response_text[:500]}...")  # 只打印前500字符
+            print(f"[DEBUG] 原始响应: {response_text[:500]}...")
 
             cleaned = re.sub(r'^```json\s*|\s*```$', '', response_text.strip())
             data = json.loads(cleaned)
 
-            # 构建完整的表格结构
             tables = []
             for table_data in data.get("tables", []):
                 # 检查表格字段完整性
@@ -177,10 +135,25 @@ class FinancialTableAnalyzerLLM:
                 for field in required_fields:
                     if field not in table_data:
                         print(f"[WARN] 表格缺少字段: {field}")
-                        table_data[field] = ""  # 设置默认值
+                        table_data[field] = ""
 
                 # 构建完整表格结构
-                full_table = self._build_table_structure(table_data, image_path, page_num)
+                full_table = {
+                    "table_id": table_data.get("table_id"),
+                    "is_financial": table_data.get("is_financial", False),
+                    "table_title": table_data.get("table_title", ""),
+                    "currency": table_data.get("currency", ""),
+                    "reporting_period": table_data.get("reporting_period", ""),
+                    "horizontal_hierarchy_fields": table_data.get("horizontal_hierarchy_fields", []),
+                    "vertical_hierarchy_fields": table_data.get("vertical_hierarchy_fields", []),
+                    "location": {
+                        "page_number": page_num,
+                        "image_path": image_path
+                    },
+                    "confidence": 0.8,
+                    "has_merged_cells": None,
+                    "data_cells_count": None
+                }
                 tables.append(full_table)
 
             return {
@@ -196,7 +169,7 @@ class FinancialTableAnalyzerLLM:
             }
 
     def analyze_image_list(self, image_paths: List[str]) -> Dict[str, Any]:
-        """分析一组图片（支持 JPG/PNG 等），每张图片的结果保持独立"""
+        """分析一组图片"""
         print(f"[INFO] 即将分析 {len(image_paths)} 张图片")
         image_results = []
         total_time = 0.0
@@ -211,7 +184,10 @@ class FinancialTableAnalyzerLLM:
 
             print(f"[INFO] 正在分析: {img_path}")
             try:
-                base64_img = self._encode_image_to_base64(img_path)
+                # 生成图片ID
+                image_id = self.image_utils.generate_image_id(img_path)
+
+                base64_img = self.image_utils.encode_image_to_base64(img_path)
                 prompt = self._build_system_prompt()
                 raw_response, usage, elapsed = self._call_llm_vision_api(base64_img, prompt)
                 parsed_result = self._parse_llm_response(raw_response, img_path, idx + 1)
@@ -224,6 +200,7 @@ class FinancialTableAnalyzerLLM:
 
                 image_result = {
                     "image_path": img_path,
+                    "image_id": image_id,
                     "page_number": idx + 1,
                     "raw_llm_output": raw_response,
                     "analysis_time_sec": round(elapsed, 2),
@@ -241,12 +218,14 @@ class FinancialTableAnalyzerLLM:
                 total_tokens["total_tokens"] += usage["total_tokens"]
 
                 print(
-                    f"[INFO] 图片 {idx + 1} 分析完成，检测到 {current_tables_count} 个表格（{current_financial_tables_count} 个财务表格）")
+                    f"[INFO] 图片 {idx + 1} (ID: {image_id}) 分析完成，检测到 {current_tables_count} 个表格（{current_financial_tables_count} 个财务表格）")
 
             except Exception as e:
                 print(f"[ERROR] 处理 {img_path} 时出错: {e}")
+                image_id = self.image_utils.generate_image_id(img_path)
                 image_results.append({
                     "image_path": img_path,
+                    "image_id": image_id,
                     "page_number": idx + 1,
                     "has_table": False,
                     "tables": [],
@@ -260,7 +239,7 @@ class FinancialTableAnalyzerLLM:
         return {
             "input_type": "image_list",
             "total_images": len(image_paths),
-            "image_results": image_results,  # 每张图片的结果保持独立
+            "image_results": image_results,
             "summary": {
                 "total_tables": total_tables_count,
                 "total_financial_tables": total_financial_tables_count,
@@ -269,25 +248,29 @@ class FinancialTableAnalyzerLLM:
             }
         }
 
-    def analyze_pdf(self, pdf_path: str, temp_dir: str = "./temp_imgs") -> Dict[str, Any]:
-        """分析 PDF（内部转为图片后调用 analyze_image_list）"""
+    def analyze_pdf(self, pdf_path: str, temp_dir: str = None) -> Dict[str, Any]:
+        """分析 PDF"""
+        if temp_dir is None:
+            temp_dir = settings.temp_dir
+
         print(f"[INFO] 正在转换 PDF 为图片: {pdf_path}")
-        image_paths = self.pdf_to_images(pdf_path, temp_dir)
+        image_paths = self.image_utils.pdf_to_images(pdf_path, temp_dir)
         result = self.analyze_image_list(image_paths)
         result["input_type"] = "pdf"
         result["pdf_path"] = pdf_path
-
         return result
 
-    def analyze(self, input_data: Union[str, List[str]], temp_dir: str = "./temp_imgs") -> Dict[str, Any]:
+    def analyze(self, input_data: Union[str, List[str]], temp_dir: str = None) -> Dict[str, Any]:
         """统一入口：自动判断输入类型并分析"""
+        if temp_dir is None:
+            temp_dir = settings.temp_dir
+
         if isinstance(input_data, str):
             if not os.path.exists(input_data):
                 raise FileNotFoundError(f"输入文件不存在: {input_data}")
             if input_data.lower().endswith('.pdf'):
                 return self.analyze_pdf(input_data, temp_dir)
             else:
-                # 单张图片
                 return self.analyze_image_list([input_data])
         elif isinstance(input_data, list):
             if not input_data:
@@ -297,136 +280,12 @@ class FinancialTableAnalyzerLLM:
             raise TypeError("input_data 必须是 PDF 路径（str）或图片路径列表（List[str]）")
 
     def save_results_to_json(self, result: Dict[str, Any], output_path: str) -> None:
-        """
-        将分析结果保存到 JSON 文件
-
-        Args:
-            result: analyze 方法返回的结果字典
-            output_path: 输出的 JSON 文件路径
-        """
+        """将分析结果保存到 JSON 文件"""
         try:
-            # 创建输出目录（如果不存在）
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-            # 保存到 JSON 文件
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
-
             print(f"[INFO] 分析结果已保存到: {output_path}")
-
         except Exception as e:
             print(f"[ERROR] 保存结果到 JSON 文件失败: {e}")
             raise
-
-
-# ========================
-# 使用示例
-# ========================
-if __name__ == "__main__":
-    # 从外部导入配置参数
-    API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
-    BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-    MODEL_NAME = "doubao-1-5-vision-pro-250328"
-
-    # 初始化分析器
-    analyzer = FinancialTableAnalyzerLLM(
-        api_key=API_KEY,
-        base_url=BASE_URL,
-        model_name=MODEL_NAME
-    )
-
-    # === 示例 1：分析 PDF ===
-    # result = analyzer.analyze("report.pdf")
-    # analyzer.save_results_to_json(result, "output/report_analysis.json")
-
-    code_dir = os.getcwd()
-    parent_dir = os.path.dirname(code_dir)
-
-    # === 示例 2：分析多张图片 ===
-    image_list = []
-    image_dir = fr"{parent_dir}\pngs"
-    for root, _, files in os.walk(image_dir):
-        for file in files:
-            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                image_list.append(os.path.join(root, file))
-    print("image_list:", image_list)
-    # image_list = [image_list[1]]
-    # image_list = image_list[:2]
-
-    # 分析图片
-    result = analyzer.analyze(image_list)
-
-    # 保存结果到 JSON 文件
-    cur_dir = os.getcwd()
-    output_json_path = f"{cur_dir}/analysis_results_1.json"
-
-    print("cur_dir:", cur_dir)
-    analyzer.save_results_to_json(result, output_json_path)
-
-    # === 打印汇总 ===
-    summary = result["summary"]
-    print("\n" + "=" * 60)
-    print("📊 分析完成！性能与成本汇总")
-    print("=" * 60)
-    if result["input_type"] == "pdf":
-        print(f"输入: PDF 文件 {result['pdf_path']}")
-        print(f"总页数: {result['total_images']}")
-    else:
-        print(f"输入: {result['total_images']} 张图片")
-
-    print(f"总表格数: {summary['total_tables']}")
-    print(f"财务表格数: {summary['total_financial_tables']}")
-    print(f"总耗时: {summary['total_analysis_time_sec']} 秒")
-    print(f"总 Token 消耗: {summary['total_token_usage']['total_tokens']}")
-
-    # === 逐张图片打印表格详情 ===
-    print(f"\n📋 逐图片表格详情:")
-    print("=" * 60)
-
-    for image_result in result["image_results"]:
-        print(f"\n📄 图片: {os.path.basename(image_result['image_path'])}")
-        print(f"  页码: {image_result['page_number']}")
-        print(f"  表格数量: {image_result['tables_count']}")
-        print(f"  财务表格: {image_result['financial_tables_count']}")
-        print(f"  分析耗时: {image_result['analysis_time_sec']} 秒")
-
-        if image_result["tables"]:
-            for table in image_result["tables"]:
-                print(f"\n  ┌─ 表格 {table['table_id']} ──────────────────────")
-                table_title = table.get("table_title") or "（无标题）"
-                currency = table.get("currency") or "（未注明）"
-                reporting_period = table.get("reporting_period") or "（未注明）"
-                is_financial = table.get("is_financial", False)
-
-                print(f"  │ 📌 表名: {table_title}")
-                print(f"  │ 💱 币种: {currency}")
-                print(f"  │ 📅 报告期: {reporting_period}")
-                print(f"  │ 💰 财务表格: {'是' if is_financial else '否'}")
-
-                if is_financial:
-                    h_fields = table.get("horizontal_hierarchy_fields", [])
-                    v_fields = table.get("vertical_hierarchy_fields", [])
-
-                    if h_fields:
-                        print(f"  │ ➤ 横向层级字段 ({len(h_fields)}个):")
-                        for item in h_fields[:3]:  # 只显示前3个
-                            field = item.get("field_path", "")
-                            is_stat = item.get("is_statistical", False)
-                            stat_tag = " [统计]" if is_stat else ""
-                            print(f"  │   • {field}{stat_tag}")
-                        if len(h_fields) > 3:
-                            print(f"  │   ... 还有 {len(h_fields) - 3} 个字段")
-
-                    if v_fields:
-                        print(f"  │ ➤ 纵向层级字段 ({len(v_fields)}个):")
-                        for item in v_fields[:3]:  # 只显示前3个
-                            field = item.get("field_path", "")
-                            is_stat = item.get("is_statistical", False)
-                            stat_tag = " [统计]" if is_stat else ""
-                            print(f"  │   • {field}{stat_tag}")
-                        if len(v_fields) > 3:
-                            print(f"  │   ... 还有 {len(v_fields) - 3} 个字段")
-
-                print(f"  └────────────────────────────────────────")
-        else:
-            print(f"  ❌ 未检测到表格")
