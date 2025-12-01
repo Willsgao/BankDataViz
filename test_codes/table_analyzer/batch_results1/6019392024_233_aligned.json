@@ -1,0 +1,178 @@
+{
+  "alignment_summary": {
+    "total_aligned_tables": 0,
+    "unmatched_llm_tables": 2,
+    "unmatched_ocr_tables": 0,
+    "average_similarity": 0
+  },
+  "aligned_tables": [],
+  "unmatched_tables": {
+    "llm": [
+      {
+        "table_id": 1,
+        "is_financial": true,
+        "table_title": "贷款损失准备变动情况",
+        "currency": "人民币",
+        "reporting_period": "2024年",
+        "horizontal_hierarchy_fields": [
+          {
+            "field_path": "注释",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2024 > 阶段一",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2024 > 阶段二",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2024 > 阶段三",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2024 > 合计",
+            "is_statistical": true
+          }
+        ],
+        "vertical_hierarchy_fields": [
+          {
+            "field_path": "2024年1月1日",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移 > 转移至阶段一",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移 > 转移至阶段二",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移 > 转移至阶段三",
+            "is_statistical": false
+          },
+          {
+            "field_path": "新增原生或购入的金融资产",
+            "is_statistical": false
+          },
+          {
+            "field_path": "本年转出/归还",
+            "is_statistical": false
+          },
+          {
+            "field_path": "重新计量",
+            "is_statistical": false
+          },
+          {
+            "field_path": "本年核销",
+            "is_statistical": false
+          },
+          {
+            "field_path": "收回已核销贷款",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2024年12月31日",
+            "is_statistical": true
+          }
+        ],
+        "location": {
+          "page_number": 1,
+          "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\6019392024_233.png"
+        },
+        "confidence": 0.8,
+        "has_merged_cells": null,
+        "data_cells_count": null
+      },
+      {
+        "table_id": 2,
+        "is_financial": true,
+        "table_title": "贷款损失准备变动情况",
+        "currency": "人民币",
+        "reporting_period": "2023年",
+        "horizontal_hierarchy_fields": [
+          {
+            "field_path": "注释",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023 > 阶段一",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023 > 阶段二",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023 > 阶段三",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023 > 合计",
+            "is_statistical": true
+          }
+        ],
+        "vertical_hierarchy_fields": [
+          {
+            "field_path": "2023年1月1日",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移 > 转移至阶段一",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移 > 转移至阶段二",
+            "is_statistical": false
+          },
+          {
+            "field_path": "转移 > 转移至阶段三",
+            "is_statistical": false
+          },
+          {
+            "field_path": "新增原生或购入的金融资产",
+            "is_statistical": false
+          },
+          {
+            "field_path": "本年转出/归还",
+            "is_statistical": false
+          },
+          {
+            "field_path": "重新计量",
+            "is_statistical": false
+          },
+          {
+            "field_path": "本年核销",
+            "is_statistical": false
+          },
+          {
+            "field_path": "收回已核销贷款",
+            "is_statistical": false
+          },
+          {
+            "field_path": "2023年12月31日",
+            "is_statistical": true
+          }
+        ],
+        "location": {
+          "page_number": 1,
+          "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\6019392024_233.png"
+        },
+        "confidence": 0.8,
+        "has_merged_cells": null,
+        "data_cells_count": null
+      }
+    ],
+    "ocr": []
+  }
+}

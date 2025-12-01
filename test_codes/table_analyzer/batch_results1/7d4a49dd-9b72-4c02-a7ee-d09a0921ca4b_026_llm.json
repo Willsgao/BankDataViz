@@ -1,0 +1,115 @@
+{
+  "input_type": "image_list",
+  "total_images": 1,
+  "image_results": [
+    {
+      "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_026.png",
+      "image_id": "img_4977a868f1751ba6",
+      "page_number": 1,
+      "raw_llm_output": "{\n  \"has_table\": true,\n  \"tables\": [\n    {\n      \"table_id\": 1,\n      \"is_financial\": true,\n      \"table_title\": \"发放贷款和垫款各组成部分的平均余额、利息收入以及平均收益率情况\",\n      \"currency\": \"人民币\",\n      \"reporting_period\": \"2024年\",\n      \"horizontal_hierarchy_fields\": [\n        {\"field_path\": \"2024年 > 平均余额\", \"is_statistical\": false},\n        {\"field_path\": \"2024年 > 利息收入\", \"is_statistical\": false},\n        {\"field_path\": \"2024年 > 平均收益率(%)\", \"is_statistical\": false},\n        {\"field_path\": \"2023年 > 平均余额\", \"is_statistical\": false},\n        {\"field_path\": \"2023年 > 利息收入\", \"is_statistical\": false},\n        {\"field_path\": \"2023年 > 平均收益率(%)\", \"is_statistical\": false}\n      ],\n      \"vertical_hierarchy_fields\": [\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 公司类贷款和垫款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 公司类贷款和垫款 > 短期贷款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 公司类贷款和垫款 > 中长期贷款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 个人贷款和垫款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 个人贷款和垫款 > 短期贷款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 个人贷款和垫款 > 中长期贷款\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 票据贴现\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 境外及子公司\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款各组成部分 > 发放贷款和垫款总额\", \"is_statistical\": true}\n      ]\n    }\n  ]\n}",
+      "analysis_time_sec": 11.64,
+      "token_usage": {
+        "prompt_tokens": 2644,
+        "completion_tokens": 637,
+        "total_tokens": 3281
+      },
+      "has_table": true,
+      "tables": [
+        {
+          "table_id": 1,
+          "is_financial": true,
+          "table_title": "发放贷款和垫款各组成部分的平均余额、利息收入以及平均收益率情况",
+          "currency": "人民币",
+          "reporting_period": "2024年",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "2024年 > 平均余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2024年 > 利息收入",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2024年 > 平均收益率(%)",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年 > 平均余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年 > 利息收入",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年 > 平均收益率(%)",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 公司类贷款和垫款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 公司类贷款和垫款 > 短期贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 公司类贷款和垫款 > 中长期贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 个人贷款和垫款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 个人贷款和垫款 > 短期贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 个人贷款和垫款 > 中长期贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 本行境内贷款和垫款 > 票据贴现",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 境外及子公司",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款各组成部分 > 发放贷款和垫款总额",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_026.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        }
+      ],
+      "tables_count": 1,
+      "financial_tables_count": 1
+    }
+  ],
+  "summary": {
+    "total_tables": 1,
+    "total_financial_tables": 1,
+    "total_analysis_time_sec": 11.64,
+    "total_token_usage": {
+      "prompt_tokens": 2644,
+      "completion_tokens": 637,
+      "total_tokens": 3281
+    }
+  }
+}

@@ -904,7 +904,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_158.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_158.png"
       }
     },
     {
@@ -938,7 +938,7 @@
           },
           {
             "field_path": "合计",
-            "is_statistical": false
+            "is_statistical": true
           },
           {
             "field_path": "占资本净额比例",
@@ -5401,7 +5401,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_158.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_158.png"
       }
     }
   ],

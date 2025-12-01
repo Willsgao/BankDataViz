@@ -1,0 +1,214 @@
+{
+  "input_type": "image_list",
+  "total_images": 1,
+  "image_results": [
+    {
+      "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514004_029.png",
+      "image_id": "img_7cf69b13cc0b8788",
+      "page_number": 1,
+      "raw_llm_output": "{\n  \"has_table\": true,\n  \"tables\": [\n    {\n      \"table_id\": 1,\n      \"is_financial\": true,\n      \"table_title\": \"持面值最大的十只金融债券情况\",\n      \"currency\": \"人民币\",\n      \"reporting_period\": \"2024年\",\n      \"horizontal_hierarchy_fields\": [\n        {\"field_path\": \"债券名称\", \"is_statistical\": false},\n        {\"field_path\": \"面值\", \"is_statistical\": false},\n        {\"field_path\": \"年利率（%）\", \"is_statistical\": false},\n        {\"field_path\": \"到期日\", \"is_statistical\": false},\n        {\"field_path\": \"计提减值准备\", \"is_statistical\": false}\n      ],\n      \"vertical_hierarchy_fields\": []\n    },\n    {\n      \"table_id\": 2,\n      \"is_financial\": true,\n      \"table_title\": \"抵债资产情况\",\n      \"currency\": \"人民币\",\n      \"reporting_period\": \"2024年12月31日、2023年12月31日\",\n      \"horizontal_hierarchy_fields\": [\n        {\"field_path\": \"2024年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2024年12月31日 > 减值准备金额\", \"is_statistical\": false},\n        {\"field_path\": \"2023年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2023年12月31日 > 减值准备金额\", \"is_statistical\": false}\n      ],\n      \"vertical_hierarchy_fields\": [\n        {\"field_path\": \"类别 > 房屋及建筑物\", \"is_statistical\": false},\n        {\"field_path\": \"类别 > 合计\", \"is_statistical\": true}\n      ]\n    },\n    {\n      \"table_id\": 3,\n      \"is_financial\": true,\n      \"table_title\": \"应收利息、其他应收款及坏账准备计提情况\",\n      \"currency\": \"人民币\",\n      \"reporting_period\": \"2024年\",\n      \"horizontal_hierarchy_fields\": [\n        {\"field_path\": \"应收利息 > 期末余额\", \"is_statistical\": false},\n        {\"field_path\": \"应收利息 > 期初余额\", \"is_statistical\": false},\n        {\"field_path\": \"应收利息 > 本期变动\", \"is_statistical\": false},\n        {\"field_path\": \"坏账准备 > 期末余额\", \"is_statistical\": false},\n        {\"field_path\": \"坏账准备 > 期初余额\", \"is_statistical\": false},\n        {\"field_path\": \"坏账准备 > 本期变动\", \"is_statistical\": false},\n        {\"field_path\": \"其他应收款 > 期末余额\", \"is_statistical\": false},\n        {\"field_path\": \"其他应收款 > 期初余额\", \"is_statistical\": false},\n        {\"field_path\": \"其他应收款 > 本期变动\", \"is_statistical\": false},\n        {\"field_path\": \"坏账准备 > 期末余额\", \"is_statistical\": false},\n        {\"field_path\": \"坏账准备 > 期初余额\", \"is_statistical\": false},\n        {\"field_path\": \"坏账准备 > 本期变动\", \"is_statistical\": false}\n      ],\n      \"vertical_hierarchy_fields\": []\n    },\n    {\n      \"table_id\": 4,\n      \"is_financial\": true,\n      \"table_title\": \"负债分析\",\n      \"currency\": \"人民币\",\n      \"reporting_period\": \"2024年12月31日、2023年12月31日\",\n      \"horizontal_hierarchy_fields\": [\n        {\"field_path\": \"2024年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2024年12月31日 > 占比（%）\", \"is_statistical\": false},\n        {\"field_path\": \"2023年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2023年12月31日 > 占比（%）\", \"is_statistical\": false},\n        {\"field_path\": \"金额变动 > 比例（%）\", \"is_statistical\": false}\n      ],\n      \"vertical_hierarchy_fields\": []\n    }\n  ]\n}",
+      "analysis_time_sec": 11.59,
+      "token_usage": {
+        "prompt_tokens": 2644,
+        "completion_tokens": 1033,
+        "total_tokens": 3677
+      },
+      "has_table": true,
+      "tables": [
+        {
+          "table_id": 1,
+          "is_financial": true,
+          "table_title": "持面值最大的十只金融债券情况",
+          "currency": "人民币",
+          "reporting_period": "2024年",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "债券名称",
+              "is_statistical": false
+            },
+            {
+              "field_path": "面值",
+              "is_statistical": false
+            },
+            {
+              "field_path": "年利率（%）",
+              "is_statistical": false
+            },
+            {
+              "field_path": "到期日",
+              "is_statistical": false
+            },
+            {
+              "field_path": "计提减值准备",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514004_029.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 2,
+          "is_financial": true,
+          "table_title": "抵债资产情况",
+          "currency": "人民币",
+          "reporting_period": "2024年12月31日、2023年12月31日",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "2024年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2024年12月31日 > 减值准备金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 减值准备金额",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "类别 > 房屋及建筑物",
+              "is_statistical": false
+            },
+            {
+              "field_path": "类别 > 合计",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514004_029.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 3,
+          "is_financial": true,
+          "table_title": "应收利息、其他应收款及坏账准备计提情况",
+          "currency": "人民币",
+          "reporting_period": "2024年",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "应收利息 > 期末余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "应收利息 > 期初余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "应收利息 > 本期变动",
+              "is_statistical": false
+            },
+            {
+              "field_path": "坏账准备 > 期末余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "坏账准备 > 期初余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "坏账准备 > 本期变动",
+              "is_statistical": false
+            },
+            {
+              "field_path": "其他应收款 > 期末余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "其他应收款 > 期初余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "其他应收款 > 本期变动",
+              "is_statistical": false
+            },
+            {
+              "field_path": "坏账准备 > 期末余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "坏账准备 > 期初余额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "坏账准备 > 本期变动",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514004_029.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        },
+        {
+          "table_id": 4,
+          "is_financial": true,
+          "table_title": "负债分析",
+          "currency": "人民币",
+          "reporting_period": "2024年12月31日、2023年12月31日",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "2024年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2024年12月31日 > 占比（%）",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 占比（%）",
+              "is_statistical": false
+            },
+            {
+              "field_path": "金额变动 > 比例（%）",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514004_029.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        }
+      ],
+      "tables_count": 4,
+      "financial_tables_count": 4
+    }
+  ],
+  "summary": {
+    "total_tables": 4,
+    "total_financial_tables": 4,
+    "total_analysis_time_sec": 11.59,
+    "total_token_usage": {
+      "prompt_tokens": 2644,
+      "completion_tokens": 1033,
+      "total_tokens": 3677
+    }
+  }
+}

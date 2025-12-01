@@ -1,0 +1,131 @@
+{
+  "input_type": "image_list",
+  "total_images": 1,
+  "image_results": [
+    {
+      "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_033.png",
+      "image_id": "img_1d9634ce7f1cfa41",
+      "page_number": 1,
+      "raw_llm_output": "{\n  \"has_table\": true,\n  \"tables\": [\n    {\n      \"table_id\": 1,\n      \"is_financial\": true,\n      \"table_title\": \"发放贷款和垫款总额及构成情况\",\n      \"currency\": \"人民币\",\n      \"reporting_period\": \"2024年12月31日\",\n      \"horizontal_hierarchy_fields\": [\n        {\"field_path\": \"2024年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2024年12月31日 > 占比(%)\", \"is_statistical\": false},\n        {\"field_path\": \"2023年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2023年12月31日 > 占比(%)\", \"is_statistical\": false},\n        {\"field_path\": \"2022年12月31日 > 金额\", \"is_statistical\": false},\n        {\"field_path\": \"2022年12月31日 > 占比(%)\", \"is_statistical\": false}\n      ],\n      \"vertical_hierarchy_fields\": [\n        {\"field_path\": \"本行境内贷款和垫款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 公司类贷款和垫款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 公司类贷款和垫款 > 短期贷款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 公司类贷款和垫款 > 中长期贷款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 个人贷款和垫款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 个人贷款和垫款 > 个人住房贷款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 个人贷款和垫款 > 信用卡贷款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 个人贷款和垫款 > 个人经营贷款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 个人贷款和垫款 > 个人消费贷款\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 其他贷款²\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 票据贴现\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 境外和子公司\", \"is_statistical\": false},\n        {\"field_path\": \"本行境内贷款和垫款 > 应计利息\", \"is_statistical\": false},\n        {\"field_path\": \"发放贷款和垫款总额\", \"is_statistical\": true}\n      ]\n    }\n  ]\n}",
+      "analysis_time_sec": 11.59,
+      "token_usage": {
+        "prompt_tokens": 2644,
+        "completion_tokens": 696,
+        "total_tokens": 3340
+      },
+      "has_table": true,
+      "tables": [
+        {
+          "table_id": 1,
+          "is_financial": true,
+          "table_title": "发放贷款和垫款总额及构成情况",
+          "currency": "人民币",
+          "reporting_period": "2024年12月31日",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "2024年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2024年12月31日 > 占比(%)",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年12月31日 > 占比(%)",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日 > 金额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年12月31日 > 占比(%)",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "本行境内贷款和垫款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 公司类贷款和垫款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 公司类贷款和垫款 > 短期贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 公司类贷款和垫款 > 中长期贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 个人贷款和垫款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 个人贷款和垫款 > 个人住房贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 个人贷款和垫款 > 信用卡贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 个人贷款和垫款 > 个人经营贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 个人贷款和垫款 > 个人消费贷款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 其他贷款²",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 票据贴现",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 境外和子公司",
+              "is_statistical": false
+            },
+            {
+              "field_path": "本行境内贷款和垫款 > 应计利息",
+              "is_statistical": false
+            },
+            {
+              "field_path": "发放贷款和垫款总额",
+              "is_statistical": true
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_033.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        }
+      ],
+      "tables_count": 1,
+      "financial_tables_count": 1
+    }
+  ],
+  "summary": {
+    "total_tables": 1,
+    "total_financial_tables": 1,
+    "total_analysis_time_sec": 11.59,
+    "total_token_usage": {
+      "prompt_tokens": 2644,
+      "completion_tokens": 696,
+      "total_tokens": 3340
+    }
+  }
+}

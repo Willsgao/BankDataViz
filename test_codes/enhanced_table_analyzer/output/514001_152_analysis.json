@@ -1,0 +1,855 @@
+{
+  "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
+  "image_id": "img_0dea808f809c",
+  "tables_count": 4,
+  "tables_analysis": [
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
+        "image_id": "img_0dea808f809c"
+      },
+      "table_info": {
+        "table_id": 1,
+        "table_index": 0,
+        "dimensions": {
+          "rows": 7,
+          "cols": 3
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "投资损失（减：收益）",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "递延所得税资产减少（减：增加）",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "递延所得税负债增加（减：减少）",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "经营性应收项目的减少（减：增加）",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "经营性应付项目的增加（减：减少）",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "经营活动产生的现金流量净额",
+              "is_statistical": false,
+              "is_header": false
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 1,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 4.89,
+        "token_usage": {
+          "prompt_tokens": 2468,
+          "completion_tokens": 398,
+          "total_tokens": 2866
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 7,
+            "cols": 3
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "项目",
+                "2023年",
+                "2022年"
+              ],
+              [
+                "投资损失（减：收益）",
+                "-140,411,765.95",
+                "56,493,113.27"
+              ],
+              [
+                "递延所得税资产减少（减：增加）",
+                "-44,878,769.18",
+                "-23,516,297.95"
+              ],
+              [
+                "递延所得税负债增加（减：减少）",
+                "139,280,757.94",
+                "4,239,913.98"
+              ],
+              [
+                "经营性应收项目的减少（减：增加）",
+                "-5,683,009,135.42",
+                "-4,494,294,537.54"
+              ],
+              [
+                "经营性应付项目的增加（减：减少）",
+                "9,397,771,343.98",
+                "6,651,514,213.65"
+              ],
+              [
+                "经营活动产生的现金流量净额",
+                "4,785,971,228.85",
+                "2,909,365,025.39"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "项目",
+                "2023年",
+                "2022年"
+              ],
+              [
+                "投资损失（减：收益）",
+                "-140,411,765.95",
+                "56,493,113.27"
+              ],
+              [
+                "递延所得税资产减少（减：增加）",
+                "-44,878,769.18",
+                "-23,516,297.95"
+              ],
+              [
+                "递延所得税负债增加（减：减少）",
+                "139,280,757.94",
+                "4,239,913.98"
+              ],
+              [
+                "经营性应收项目的减少（减：增加）",
+                "-5,683,009,135.42",
+                "-4,494,294,537.54"
+              ],
+              [
+                "经营性应付项目的增加（减：减少）",
+                "9,397,771,343.98",
+                "6,651,514,213.65"
+              ],
+              [
+                "经营活动产生的现金流量净额",
+                "4,785,971,228.85",
+                "2,909,365,025.39"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 21,
+            "coverage_percentage": 100.0
+          }
+        },
+        "raw_llm_response": "{\n      \"table_headers\": {\n        \"horizontal\": [{\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2023年\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2022年\", \"is_statistical\": false, \"is_header\": true}],\n        \"vertical\": [{\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"投资损失（减：收益）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"递延所得税资产减少（减：增加）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"递延所得税负债增加（减：减少）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"经营性应收项目的减少（减：增加）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"经营性应付项目的增加（减：减少）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"经营活动产生的现金流量净额\", \"is_statistical\": false, \"is_header\": false}],\n        \"header_positions\": {\n          \"horizontal_header_rows\": [0],\n          \"vertical_header_cols\": [0],\n          \"horizontal_header_depth\": 1,\n          \"vertical_header_depth\": 1\n        }\n      },\n      \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n      }\n    }"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
+        "image_id": "img_0dea808f809c"
+      },
+      "table_info": {
+        "table_id": 2,
+        "table_index": 1,
+        "dimensions": {
+          "rows": 14,
+          "cols": 5
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "法人股东名称",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日持股金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日持股比例",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年12月31日持股金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年12月31日持股比例",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 0
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 3.81,
+        "token_usage": {
+          "prompt_tokens": 2567,
+          "completion_tokens": 307,
+          "total_tokens": 2874
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 14,
+            "cols": 5
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "法人股东名称",
+                "2023年12月31日",
+                "2023年12月31日",
+                "2022年12月31日",
+                "2022年12月31日"
+              ],
+              [
+                "法人股东名称",
+                "持股金额",
+                "持股比例",
+                "持股金额",
+                "持股比例"
+              ],
+              [
+                "浙江卫星控股股份有限公司",
+                "4,722.88",
+                "5.98%",
+                "3,937.20",
+                "5.23%"
+              ],
+              [
+                "中法控股集团有限公司",
+                "4,134.06",
+                "5.23%",
+                "3,937.20",
+                "5.23%"
+              ],
+              [
+                "浙江聚优非织造材料科技有限公司",
+                "2,128.45",
+                "2.69%",
+                "2,027.10",
+                "2.69%"
+              ],
+              [
+                "嘉兴农昕贸易有限公司",
+                "2,110.71",
+                "2.67%",
+                "2,010.20",
+                "2.67%"
+              ],
+              [
+                "嘉兴洁琪污水管网有限公司",
+                "1,773.77",
+                "2.24%",
+                "1,689.30",
+                "2.24%"
+              ],
+              [
+                "浙江荣祥纺织股份有限公司",
+                "1,185.26",
+                "1.50%",
+                "1,128.82",
+                "1.50%"
+              ],
+              [
+                "梦迪集团有限公司",
+                "1,177.63",
+                "1.49%",
+                "",
+                ""
+              ],
+              [
+                "浙江鸣春纺织股份有限公司",
+                "649.35",
+                "0.82%",
+                "618.42",
+                "0.82%"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "法人股东名称",
+                "2023年12月31日",
+                "2023年12月31日"
+              ],
+              [
+                "法人股东名称",
+                "持股金额",
+                "持股比例"
+              ],
+              [
+                "浙江卫星控股股份有限公司",
+                "4,722.88",
+                "5.98%"
+              ],
+              [
+                "中法控股集团有限公司",
+                "4,134.06",
+                "5.23%"
+              ],
+              [
+                "浙江聚优非织造材料科技有限公司",
+                "2,128.45",
+                "2.69%"
+              ],
+              [
+                "嘉兴农昕贸易有限公司",
+                "2,110.71",
+                "2.67%"
+              ],
+              [
+                "嘉兴洁琪污水管网有限公司",
+                "1,773.77",
+                "2.24%"
+              ],
+              [
+                "浙江荣祥纺织股份有限公司",
+                "1,185.26",
+                "1.50%"
+              ],
+              [
+                "梦迪集团有限公司",
+                "1,177.63",
+                "1.49%"
+              ],
+              [
+                "浙江鸣春纺织股份有限公司",
+                "649.35",
+                "0.82%"
+              ],
+              [
+                "浙江天之华控股有限公司",
+                "649.35",
+                "0.82%"
+              ],
+              [
+                "嘉兴市荣成织造有限公司",
+                "590.65",
+                "0.75%"
+              ],
+              [
+                "浙江卫星商贸有限公司",
+                "",
+                ""
+              ],
+              [
+                "合计",
+                "19,122.11",
+                "24.19%"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 62,
+            "coverage_percentage": 88.6
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"法人股东名称\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 0\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
+        "image_id": "img_0dea808f809c"
+      },
+      "table_info": {
+        "table_id": 3,
+        "table_index": 2,
+        "dimensions": {
+          "rows": 13,
+          "cols": 6
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "股东名称",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "银行现职",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日持股金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日持股比例",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年12月31日持股金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年12月31日持股比例",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 0
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 3.59,
+        "token_usage": {
+          "prompt_tokens": 2478,
+          "completion_tokens": 330,
+          "total_tokens": 2808
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 13,
+            "cols": 6
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "股东名称",
+                "银行现职",
+                "2023年12月31日",
+                "2023年12月31日",
+                "2022年12月31日",
+                "2022年12月31日"
+              ],
+              [
+                "股东名称",
+                "银行现职",
+                "持股金额",
+                "持股比例",
+                "持股金额",
+                "持股比例"
+              ],
+              [
+                "景文学",
+                "调研员",
+                "176.28",
+                "0.22%",
+                "167.89",
+                "0.22%"
+              ],
+              [
+                "钱跃生",
+                "退休",
+                "176.28",
+                "0.22%",
+                "167.89",
+                "0.22%"
+              ],
+              [
+                "高民华",
+                "",
+                "168.71",
+                "0.21%",
+                "160.68",
+                "0.21%"
+              ],
+              [
+                "姚法林",
+                "",
+                "142.34",
+                "0.18%",
+                "101.67",
+                "0.14%"
+              ],
+              [
+                "张亚英",
+                "",
+                "142.34",
+                "0.18%",
+                "135.56",
+                "0.18%"
+              ],
+              [
+                "马小星",
+                "",
+                "124.55",
+                "0.16%",
+                "118.62",
+                "0.16%"
+              ],
+              [
+                "冯建强",
+                "",
+                "117.58",
+                "0.15%",
+                "111.98",
+                "0.15%"
+              ],
+              [
+                "何雪根",
+                "调研员",
+                "117.58",
+                "0.15%",
+                "111.98",
+                "0.15%"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "股东名称",
+                "银行现职",
+                "2023年12月31日"
+              ],
+              [
+                "股东名称",
+                "银行现职",
+                "持股金额"
+              ],
+              [
+                "景文学",
+                "调研员",
+                "176.28"
+              ],
+              [
+                "钱跃生",
+                "退休",
+                "176.28"
+              ],
+              [
+                "高民华",
+                "",
+                "168.71"
+              ],
+              [
+                "姚法林",
+                "",
+                "142.34"
+              ],
+              [
+                "张亚英",
+                "",
+                "142.34"
+              ],
+              [
+                "马小星",
+                "",
+                "124.55"
+              ],
+              [
+                "冯建强",
+                "",
+                "117.58"
+              ],
+              [
+                "何雪根",
+                "调研员",
+                "117.58"
+              ],
+              [
+                "康利军",
+                "退休",
+                "117.58"
+              ],
+              [
+                "杭琴",
+                "退休",
+                "117.58"
+              ],
+              [
+                "合计",
+                "",
+                "1,400.82"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 69,
+            "coverage_percentage": 88.5
+          }
+        },
+        "raw_llm_response": "{\n  \"table_headers\": {\n    \"horizontal\": [\n      {\"field_path\": \"股东名称\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"银行现职\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2023年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2023年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2022年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2022年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true}\n    ],\n    \"vertical\": [],\n    \"header_positions\": {\n      \"horizontal_header_rows\": [0, 1],\n      \"vertical_header_cols\": [],\n      \"horizontal_header_depth\": 2,\n      \"vertical_header_depth\": 0\n    }\n  },\n  \"consistency_checks\": {\n    \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n    \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n  }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
+        "image_id": "img_0dea808f809c"
+      },
+      "table_info": {
+        "table_id": 4,
+        "table_index": 3,
+        "dimensions": {
+          "rows": 3,
+          "cols": 9
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "序号",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "企业股东名称",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "贷款余额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "贴现",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "五级分类状态",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "银行承兑汇票",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "开出信用证",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "合计",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "占资本净额的比例",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 0
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 4.52,
+        "token_usage": {
+          "prompt_tokens": 2097,
+          "completion_tokens": 357,
+          "total_tokens": 2454
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 3,
+            "cols": 9
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "序\n号",
+                "企业股东名称",
+                "贷款余额",
+                "贴\n现",
+                "五级分类\n状态",
+                "银行承兑汇\n票",
+                "开出信用\n证",
+                "合计",
+                "占资本净额的\n比例"
+              ],
+              [
+                "1",
+                "浙江聚优非织造材料科技\n有限公司",
+                "100.00",
+                "",
+                "正常",
+                "",
+                "",
+                "100.00",
+                "0.01%"
+              ],
+              [
+                "2",
+                "浙江荣祥纺织股份有限公\n司",
+                "2,750.00",
+                "",
+                "正常",
+                "3,200.00",
+                "",
+                "5,950.00",
+                "0.72%"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "序\n号",
+                "企业股东名称",
+                "贷款余额"
+              ],
+              [
+                "1",
+                "浙江聚优非织造材料科技\n有限公司",
+                "100.00"
+              ],
+              [
+                "2",
+                "浙江荣祥纺织股份有限公\n司",
+                "2,750.00"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 69,
+            "coverage_percentage": 255.6
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"序号\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"企业股东名称\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"贷款余额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"贴现\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"五级分类状态\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"银行承兑汇票\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"开出信用证\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"合计\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"占资本净额的比例\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 0\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    }
+  ],
+  "summary": {
+    "total_tables": 4,
+    "successfully_analyzed": 4,
+    "failed": 0
+  }
+}

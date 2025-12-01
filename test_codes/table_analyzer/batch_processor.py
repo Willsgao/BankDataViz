@@ -239,12 +239,12 @@ class BatchTableProcessor:
                     f.write(f"   错误: {result['error']}\n")
 
 
-def main():
+def main(main_dir):
     """主函数 - 在这里直接设置参数"""
 
     # ======================== 在这里设置参数 ========================
-    INPUT_DIR = r"F:\wills\codes\DocuVista\test_codes\pngs"  # 输入图片目录
-    OUTPUT_DIR = r"F:\wills\codes\DocuVista\test_codes\table_analyzer\batch_results"  # 输出目录
+    INPUT_DIR = fr"{main_dir}\pngs"  # 输入图片目录
+    OUTPUT_DIR = fr"{main_dir}\table_analyzer\batch_results"  # 输出目录
     PATTERN = "*"  # 文件匹配模式，如 "*.png", "*table*"
     LIMIT = None  # 限制处理数量，None表示不限制
     RECURSIVE = True  # 是否递归子目录
@@ -293,4 +293,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    import os
+
+    cur_dir = os.getcwd()
+    main_dir = os.path.dirname(cur_dir)
+    main(main_dir)

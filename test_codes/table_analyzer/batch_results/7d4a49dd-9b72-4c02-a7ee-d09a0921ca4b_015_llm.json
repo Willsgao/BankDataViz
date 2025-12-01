@@ -1,0 +1,32 @@
+{
+  "input_type": "image_list",
+  "total_images": 1,
+  "image_results": [
+    {
+      "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_015.png",
+      "image_id": "img_6cbdbb9018dcc0ba",
+      "page_number": 1,
+      "has_table": false,
+      "tables": [],
+      "error": "API 调用失败: Connection error.",
+      "analysis_time_sec": 0,
+      "token_usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "tables_count": 0,
+      "financial_tables_count": 0
+    }
+  ],
+  "summary": {
+    "total_tables": 0,
+    "total_financial_tables": 0,
+    "total_analysis_time_sec": 0.0,
+    "total_token_usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    }
+  }
+}

@@ -30,10 +30,6 @@
         ],
         "vertical": [
           {
-            "field_path": "项目",
-            "is_statistical": false
-          },
-          {
             "field_path": "项目 > 打包股股利",
             "is_statistical": false
           },
@@ -1189,7 +1185,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_142.png"
       }
     },
     {
@@ -1215,10 +1211,6 @@
           }
         ],
         "vertical": [
-          {
-            "field_path": "项目",
-            "is_statistical": false
-          },
           {
             "field_path": "项目 > 租赁付款额",
             "is_statistical": false
@@ -1563,7 +1555,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_142.png"
       }
     },
     {
@@ -1589,10 +1581,6 @@
           }
         ],
         "vertical": [
-          {
-            "field_path": "项目",
-            "is_statistical": false
-          },
           {
             "field_path": "项目 > 银行承兑汇票计提损失准备",
             "is_statistical": false
@@ -1994,7 +1982,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_142.png"
       }
     },
     {
@@ -2020,10 +2008,6 @@
           }
         ],
         "vertical": [
-          {
-            "field_path": "项目",
-            "is_statistical": false
-          },
           {
             "field_path": "项目 > 次级债券",
             "is_statistical": false
@@ -2469,7 +2453,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_142.png"
       }
     },
     {
@@ -2503,10 +2487,6 @@
           }
         ],
         "vertical": [
-          {
-            "field_path": "项目",
-            "is_statistical": false
-          },
           {
             "field_path": "项目 > 贷款应计收利息",
             "is_statistical": false
@@ -3101,7 +3081,7 @@
       },
       "location": {
         "page_number": 1,
-        "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\pngs\\514001_142.png"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_142.png"
       }
     }
   ],

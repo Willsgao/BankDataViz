@@ -1,0 +1,207 @@
+{
+  "input_type": "image_list",
+  "total_images": 1,
+  "image_results": [
+    {
+      "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png",
+      "image_id": "img_be3e37753cbdf1aa",
+      "page_number": 1,
+      "raw_llm_output": "{\n    \"has_table\": true,\n    \"tables\": [\n        {\n            \"table_id\": 1,\n            \"is_financial\": true,\n            \"table_title\": \"财务摘要\",\n            \"currency\": \"人民币\",\n            \"reporting_period\": \"2024年\",\n            \"horizontal_hierarchy_fields\": [\n                {\"field_path\": \"2024年\", \"is_statistical\": false},\n                {\"field_path\": \"2023年\", \"is_statistical\": false},\n                {\"field_path\": \"变化(%)\", \"is_statistical\": false},\n                {\"field_path\": \"2022年\", \"is_statistical\": false},\n                {\"field_path\": \"2021年\", \"is_statistical\": false},\n                {\"field_path\": \"2020年\", \"is_statistical\": false}\n            ],\n            \"vertical_hierarchy_fields\": [\n                {\"field_path\": \"全年业绩\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 营业收入\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 利息净收入\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 手续费及佣金净收入\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 其他非利息收入\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 业务及管理费\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 信用减值损失\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 其他资产减值损失\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 营业利润\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 利润总额\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 净利润\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 归属于本行股东的净利润\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 归属于本行普通股股东的净利润\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 扣除非经常性损益后归属于本行股东的净利润\", \"is_statistical\": false},\n                {\"field_path\": \"全年业绩 > 经营活动产生的现金流量净额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 资产总额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 发放贷款和垫款净额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 负债总额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 吸收存款\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 股东权益\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 归属于本行股东权益\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 股本\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 核心一级资本净额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 其他一级资本净额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 二级资本净额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 资本净额\", \"is_statistical\": false},\n                {\"field_path\": \"于12月31日 > 风险加权资产\", \"is_statistical\": false},\n                {\"field_path\": \"每股计(人民币元)\", \"is_statistical\": false},\n                {\"field_path\": \"每股计(人民币元) > 基本和稀释每股收益\", \"is_statistical\": false},\n                {\"field_path\": \"每股计(人民币元) > 扣除非经常性损益后的基本和稀释每股收益\", \"is_statistical\": false},\n                {\"field_path\": \"每股计(人民币元) > 归属于本行普通股股东的每股净资产\", \"is_statistical\": false},\n                {\"field_path\": \"每股计(人民币元) > 每股经营活动产生的现金流量净额\", \"is_statistical\": false}\n            ]\n        }\n    ]\n}",
+      "analysis_time_sec": 13.08,
+      "token_usage": {
+        "prompt_tokens": 2644,
+        "completion_tokens": 1048,
+        "total_tokens": 3692
+      },
+      "has_table": true,
+      "tables": [
+        {
+          "table_id": 1,
+          "is_financial": true,
+          "table_title": "财务摘要",
+          "currency": "人民币",
+          "reporting_period": "2024年",
+          "horizontal_hierarchy_fields": [
+            {
+              "field_path": "2024年",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2023年",
+              "is_statistical": false
+            },
+            {
+              "field_path": "变化(%)",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2022年",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2021年",
+              "is_statistical": false
+            },
+            {
+              "field_path": "2020年",
+              "is_statistical": false
+            }
+          ],
+          "vertical_hierarchy_fields": [
+            {
+              "field_path": "全年业绩",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 营业收入",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 利息净收入",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 手续费及佣金净收入",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 其他非利息收入",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 业务及管理费",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 信用减值损失",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 其他资产减值损失",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 营业利润",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 利润总额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 净利润",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 归属于本行股东的净利润",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 归属于本行普通股股东的净利润",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 扣除非经常性损益后归属于本行股东的净利润",
+              "is_statistical": false
+            },
+            {
+              "field_path": "全年业绩 > 经营活动产生的现金流量净额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 资产总额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 发放贷款和垫款净额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 负债总额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 吸收存款",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 股东权益",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 归属于本行股东权益",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 股本",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 核心一级资本净额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 其他一级资本净额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 二级资本净额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 资本净额",
+              "is_statistical": false
+            },
+            {
+              "field_path": "于12月31日 > 风险加权资产",
+              "is_statistical": false
+            },
+            {
+              "field_path": "每股计(人民币元)",
+              "is_statistical": false
+            },
+            {
+              "field_path": "每股计(人民币元) > 基本和稀释每股收益",
+              "is_statistical": false
+            },
+            {
+              "field_path": "每股计(人民币元) > 扣除非经常性损益后的基本和稀释每股收益",
+              "is_statistical": false
+            },
+            {
+              "field_path": "每股计(人民币元) > 归属于本行普通股股东的每股净资产",
+              "is_statistical": false
+            },
+            {
+              "field_path": "每股计(人民币元) > 每股经营活动产生的现金流量净额",
+              "is_statistical": false
+            }
+          ],
+          "location": {
+            "page_number": 1,
+            "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png"
+          },
+          "confidence": 0.8,
+          "has_merged_cells": null,
+          "data_cells_count": null
+        }
+      ],
+      "tables_count": 1,
+      "financial_tables_count": 1
+    }
+  ],
+  "summary": {
+    "total_tables": 1,
+    "total_financial_tables": 1,
+    "total_analysis_time_sec": 13.08,
+    "total_token_usage": {
+      "prompt_tokens": 2644,
+      "completion_tokens": 1048,
+      "total_tokens": 3692
+    }
+  }
+}
