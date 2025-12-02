@@ -16,7 +16,7 @@ except ImportError as e:
     print(f"⚠️  Excel导出模块不可用: {e}")
 
 
-def main(input_dir, output_dir):
+def main(input_dir, output_dir, json_file=""):
     """主函数"""
 
 
@@ -65,7 +65,7 @@ def main(input_dir, output_dir):
 
         try:
             # 分析图片
-            result = analyzer.analyze_image(img_path, ocr_service)
+            result = analyzer.analyze_image(img_path, ocr_service, json_file)
 
             # 保存JSON结果
             json_filename = f"{os.path.splitext(os.path.basename(img_path))[0]}_analysis.json"
@@ -94,6 +94,15 @@ def main(input_dir, output_dir):
 
 if __name__ == "__main__":
     # 直接指定图片文件夹地址
+<<<<<<< HEAD
     input_dir = r"E:\Datas\base_pros\DocuVista\test_codes\pngs1"
     output_dir = r"E:\Datas\base_pros\DocuVista\test_codes\enhanced_table_analyzer\output"
     main(input_dir, output_dir)
+=======
+    main_dir = os.getcwd()
+    par_dir = os.path.dirname(main_dir)
+    input_dir = fr"{par_dir}\pngs"
+    output_dir = fr"{par_dir}\enhanced_table_analyzer\output"
+    json_file = fr"{par_dir}\data_555.json"
+    main(input_dir, output_dir, json_file)
+>>>>>>> b90de90b29ad3c1cfe4687339e64aa8982ffe2f8
