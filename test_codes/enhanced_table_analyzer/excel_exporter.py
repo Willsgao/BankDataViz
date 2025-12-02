@@ -1,219 +1,20 @@
 # -*- coding:utf-8 -*-
 """
-Excel导出模块 - 基于分析结果生成Excel表格（完全替换表头版）
+Excel导出模块 - 基于新的分析结果结构生成Excel表格
 """
+
 import os
+import time
 import json
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 from typing import Dict, List, Any, Optional, Tuple
-import re
 
-
-# 在 excel_exporter.py 文件开头或合适位置添加以下类
-
-class OCRDataAdapter:
-    """OCR数据适配器 - 处理不同来源的OCR数据结构"""
-
-    @staticmethod
-    def extract_table_data(data_source: Dict[str, Any]) -> List[List[str]]:
-        """
-        从不同来源的OCR数据中提取表格数据
-
-        Args:
-            data_source: OCR数据源，可能是不同格式
-
-        Returns:
-            二维列表表示的表格数据
-        """
-        if not data_source:
-            return []
-
-        # 1. 尝试从百度OCR原始结构提取
-        if "tables_result" in data_source:
-            return OCRDataAdapter._from_baidu_ocr(data_source)
-
-        # 2. 尝试从处理后的OCR结构提取
-        if "extracted_data" in data_source:
-            return OCRDataAdapter._from_processed_ocr(data_source)
-
-        # 3. 尝试从LLM分析结果结构提取
-        if "table_headers" in data_source:
-            return OCRDataAdapter._from_llm_analysis(data_source)
-
-        # 4. 尝试从其他常见结构提取
-        return OCRDataAdapter._try_common_formats(data_source)
-
-    @staticmethod
-    def _from_baidu_ocr(ocr_data: Dict[str, Any], table_index: int = 0) -> List[List[str]]:
-        tables_result = ocr_data.get("tables_result", [])
-        if not tables_result:
-            return []
-
-        # 根据索引获取对应的表格
-        if table_index < len(tables_result):
-            table = tables_result[table_index]
-            return OCRDataAdapter._parse_baidu_table_body(table)
-        return []
-
-    @staticmethod
-    def _parse_baidu_table_body(table: Dict[str, Any]) -> List[List[str]]:
-        """解析百度OCR表格body数据"""
-        body_cells = table.get("body", [])
-
-        if not body_cells:
-            return []
-
-        # 计算表格最大行列
-        max_row = 0
-        max_col = 0
-        for cell in body_cells:
-            max_row = max(max_row, cell.get("row_end", 0))
-            max_col = max(max_col, cell.get("col_end", 0))
-
-        # 创建空表格（+1因为索引从0开始）
-        table_data = [["" for _ in range(max_col + 1)] for _ in range(max_row + 1)]
-
-        # 填充数据
-        for cell in body_cells:
-            row_start = cell.get("row_start", 0)
-            col_start = cell.get("col_start", 0)
-            row_end = cell.get("row_end", row_start)
-            col_end = cell.get("col_end", col_start)
-            words = cell.get("words", "")
-
-            # 处理合并单元格
-            for r in range(row_start, row_end + 1):
-                for c in range(col_start, col_end + 1):
-                    if r < len(table_data) and c < len(table_data[0]):
-                        # 如果单元格已填充且不为空，用"/"分隔（处理重叠）
-                        if table_data[r][c] and table_data[r][c] != words:
-                            table_data[r][c] = f"{table_data[r][c]}/{words}"
-                        else:
-                            table_data[r][c] = words
-
-        # 清理空行和空列
-        return OCRDataAdapter._clean_table(table_data)
-
-    @staticmethod
-    def _from_processed_ocr(ocr_data: Dict[str, Any]) -> List[List[str]]:
-        """从处理后的OCR结构提取表格数据"""
-        extracted_data = ocr_data.get("extracted_data", {})
-
-        # 尝试不同的数据键
-        data_keys = ["top_rows_all_cols", "left_cols_all_rows", "grid",
-                     "table_data", "data", "cells"]
-
-        for key in data_keys:
-            if key in extracted_data:
-                data = extracted_data[key]
-                if data and isinstance(data, list):
-                    # 确保是二维列表
-                    if data and isinstance(data[0], list):
-                        return data
-                    else:
-                        # 转换为一维列表到二维列表
-                        return [data]
-
-        return []
-
-    @staticmethod
-    def _from_llm_analysis(llm_data: Dict[str, Any]) -> List[List[str]]:
-        """从LLM分析结果提取表格数据"""
-        # LLM分析结果可能包含OCR原始数据引用
-        if "source_data" in llm_data:
-            source_data = llm_data.get("source_data", {})
-            if "ocr_extract" in source_data:
-                return OCRDataAdapter.extract_table_data(source_data["ocr_extract"])
-
-        return []
-
-    @staticmethod
-    def _try_common_formats(data: Dict[str, Any]) -> List[List[str]]:
-        """尝试常见的数据格式"""
-        # 尝试直接是列表的情况
-        if isinstance(data, list):
-            if data and isinstance(data[0], list):
-                return data
-            elif data:
-                return [data]
-
-        # 尝试从"data"键获取
-        if "data" in data and isinstance(data["data"], list):
-            return OCRDataAdapter._try_common_formats(data["data"])
-
-        return []
-
-    @staticmethod
-    def _clean_table(table_data: List[List[str]]) -> List[List[str]]:
-        """清理表格：移除完全空白的行和列"""
-        if not table_data:
-            return []
-
-        # 找出有数据的列
-        has_data_cols = set()
-        for row in table_data:
-            for col_idx, cell in enumerate(row):
-                if cell and str(cell).strip():
-                    has_data_cols.add(col_idx)
-
-        if not has_data_cols:
-            return []
-
-        # 过滤列
-        cleaned_data = []
-        min_col = min(has_data_cols)
-        max_col = max(has_data_cols)
-
-        for row in table_data:
-            # 提取有数据的列范围
-            cleaned_row = row[min_col:max_col + 1]
-            # 检查行是否有数据
-            if any(cell and str(cell).strip() for cell in cleaned_row):
-                cleaned_data.append(cleaned_row)
-
-        return cleaned_data
-
-    @staticmethod
-    def get_table_metadata(ocr_data: Dict[str, Any]) -> Dict[str, Any]:
-        """获取表格元数据"""
-        metadata = {
-            "source_type": "unknown",
-            "table_count": 0,
-            "dimensions": {"rows": 0, "cols": 0}
-        }
-
-        if "tables_result" in ocr_data:
-            metadata["source_type"] = "baidu_ocr"
-            tables = ocr_data.get("tables_result", [])
-            metadata["table_count"] = len(tables)
-
-            if tables:
-                table = tables[0]
-                body_cells = table.get("body", [])
-                if body_cells:
-                    max_row = max(cell.get("row_end", 0) for cell in body_cells)
-                    max_col = max(cell.get("col_end", 0) for cell in body_cells)
-                    metadata["dimensions"] = {
-                        "rows": max_row + 1,
-                        "cols": max_col + 1
-                    }
-
-        elif "extracted_data" in ocr_data:
-            metadata["source_type"] = "processed_ocr"
-            data = OCRDataAdapter._from_processed_ocr(ocr_data)
-            if data:
-                metadata["dimensions"] = {
-                    "rows": len(data),
-                    "cols": len(data[0]) if data[0] else 0
-                }
-
-        return metadata
 
 class ExcelTableGenerator:
-    """Excel表格生成器（完全替换表头）"""
+    """Excel表格生成器 - 适配新的分析结果结构"""
 
     def __init__(self):
         # 样式定义
@@ -235,793 +36,1181 @@ class ExcelTableGenerator:
         self.error_fill = PatternFill(start_color="FF9999", end_color="FF9999", fill_type="solid")
         self.error_font = Font(name='微软雅黑', size=10, bold=True, color="FF0000")
 
-        # OCR原始数据工作表后缀
-        self.ocr_sheet_suffix = "_原始OCR"
-        self.ocr_adapter = OCRDataAdapter()
-
-    def extract_pure_data_from_ocr(self, ocr_extract: Dict[str, Any],
-                                   horizontal_headers_count: int,
-                                   vertical_headers_count: int) -> List[List[str]]:
+    def _parse_header_mapping(self, header_item: Dict[str, Any]) -> Tuple[str, List[Dict[str, Any]]]:
         """
-        从OCR数据中提取纯数据部分（删除表头行和表头列）
+        解析表头映射关系
+
+        Args:
+            header_item: 表头项，包含name和source
+
+        Returns:
+            (表头名称, 映射位置列表)
         """
-        extracted_data = ocr_extract.get("extracted_data", {})
+        name = header_item.get("name", "")
 
-        # 使用top_rows_all_cols作为完整表格数据
-        table_data = extracted_data.get("top_rows_all_cols", [])
+        # 处理source字段（可能是字典或列表）
+        source = header_item.get("source", {})
+        if isinstance(source, dict):
+            # 单个映射
+            return name, [source]
+        elif isinstance(source, list):
+            # 多个映射
+            return name, source
+        else:
+            return name, []
 
-        if not table_data:
+    def _get_data_from_ocr(self, ocr_data: List[List[str]],
+                           start_row: int, start_col: int,
+                           num_rows: int, num_cols: int) -> List[List[str]]:
+        """
+        从OCR数据中提取指定区域的数据
+
+        Args:
+            ocr_data: OCR原始数据
+            start_row: 起始行索引（0-based）
+            start_col: 起始列索引（0-based）
+            num_rows: 需要提取的行数
+            num_cols: 需要提取的列数
+
+        Returns:
+            提取的数据区域
+        """
+        if not ocr_data or start_row >= len(ocr_data):
             return []
 
-        # 删除水平表头行
-        if horizontal_headers_count > 0:
-            horizontal_headers_count = min(horizontal_headers_count, len(table_data))
-            # table_data = table_data[horizontal_headers_count:]
-
-        # 删除垂直表头列
-        if vertical_headers_count > 0:
-            pure_data = []
-            for row in table_data:
-                if vertical_headers_count < len(row):
-                    pure_row = row[vertical_headers_count:]
-                else:
-                    pure_row = []
-                pure_data.append(pure_row)
-
-            return pure_data
-
-        return table_data
-
-    def identify_headers_from_ocr(self, ocr_extract: Dict[str, Any]) -> Tuple[int, int]:
-        """
-        尝试从OCR数据中识别表头行数和列数
-        """
-        extracted_data = ocr_extract.get("extracted_data", {})
-        table_data = extracted_data.get("top_rows_all_cols", [])
-
-        if not table_data:
-            return 1, 1
-
-        horizontal_headers = 1
-        vertical_headers = 1
-
-        return horizontal_headers, vertical_headers
-
-    def create_summary_sheet_data(self, analysis_results: Dict[str, Any]) -> List[List[str]]:
-        """创建汇总表数据（支持新格式，增加质量信息）"""
-        summary_data = []
-
-        # 标题行
-        summary_data.append(["📊 对齐统计", "", "", "", "", "", "", "", "", "", "", ""])
-
-        # 从分析结果中获取统计数据
-        tables_count = analysis_results.get("tables_count", 0)
-        summary = analysis_results.get("summary", {})
-        successfully_analyzed = summary.get("successfully_analyzed", 0)
-        failed = summary.get("failed", 0)
-
-        summary_data.append([f"LLM识别表格: {tables_count} 个", "", "", "", "", "", "", "", "", "", "", ""])
-        summary_data.append([f"OCR识别表格: {tables_count} 个", "", "", "", "", "", "", "", "", "", "", ""])
-        summary_data.append([f"成功匹配: {successfully_analyzed} 个", "", "", "", "", "", "", "", "", "", "", ""])
-        summary_data.append([f"未匹配LLM表格: {failed} 个", "", "", "", "", "", "", "", "", "", "", ""])
-        summary_data.append([f"未匹配OCR表格: 0 个", "", "", "", "", "", "", "", "", "", "", ""])
-        summary_data.append(["", "", "", "", "", "", "", "", "", "", "", ""])
-
-        # 表头行（增加状态列和特征值列）
-        summary_data.append(["表格ID", "表格标题", "是否财务报表", "货币单位", "报告期间",
-                             "匹配相似度", "水平层级数", "垂直层级数", "OCR单元格数", "表头单元格数",
-                             "处理状态", "特征值"])
-
-        # 为每个表格添加行
-        tables_analysis = analysis_results.get("tables_analysis", [])
-        for i, table_result in enumerate(tables_analysis):
-            if table_result.get("success", False):
-                table_info = table_result.get("table_info", {})
-                analysis_result = table_result.get("analysis_result", {})
-                table_headers = analysis_result.get("table_headers", {})
-                ocr_extract = table_result.get("source_data", {}).get("ocr_extract", {})
-
-                # 获取分析质量信息
-                ocr_data_quality = analysis_result.get("ocr_data_quality", {})
-                matching_summary = analysis_result.get("matching_summary", {})
-                consistency_checks = analysis_result.get("consistency_checks", {})
-
-                # 获取表头数量 - 支持新旧格式
-                # 1. 尝试新格式
-                horizontal_for_replacement = table_headers.get("horizontal_for_replacement", [])
-                vertical_for_replacement = table_headers.get("vertical_for_replacement", [])
-
-                horizontal_count = len(horizontal_for_replacement)
-                vertical_count = len(vertical_for_replacement)
-
-                # 2. 如果新格式为空，尝试旧格式
-                if horizontal_count == 0:
-                    horizontal_headers = table_headers.get("horizontal", [])
-                    if isinstance(horizontal_headers, list):
-                        horizontal_count = len(horizontal_headers)
-                    else:
-                        horizontal_count = 0
-
-                if vertical_count == 0:
-                    vertical_headers = table_headers.get("vertical", [])
-                    if isinstance(vertical_headers, list):
-                        vertical_count = len(vertical_headers)
-                    else:
-                        vertical_count = 0
-
-                # 获取OCR位置信息 - 支持新旧格式
-                ocr_positions = table_headers.get("ocr_positions", {})
-                header_positions = table_headers.get("header_positions", {})
-
-                # 计算水平表头行数
-                horizontal_header_rows = ocr_positions.get("horizontal_header_rows",
-                                                           header_positions.get("horizontal_header_rows", []))
-                horizontal_header_depth = len(horizontal_header_rows)
-
-                # 计算垂直表头列数
-                vertical_header_cols = ocr_positions.get("vertical_header_cols",
-                                                         header_positions.get("vertical_header_cols", []))
-                vertical_header_depth = len(vertical_header_cols)
-
-                # 获取OCR单元格数
-                dimensions = table_info.get("dimensions", {})
-                ocr_cells = dimensions.get("rows", 0) * dimensions.get("cols", 0)
-
-                if ocr_extract:
-                    stats = ocr_extract.get("stats", {})
-                    ocr_cells = stats.get("cells_extracted", ocr_cells)
-
-                # 表格标题
-                table_title = table_info.get("title", f"表格_{table_info.get('table_id', i + 1)}")
-
-                # 获取匹配相似度
-                match_similarity = "1"  # 默认值
-
-                # 从匹配摘要中获取匹配率
-                if matching_summary:
-                    horizontal_match_rate = matching_summary.get("horizontal_match_rate", "100%")
-                    vertical_match_rate = matching_summary.get("vertical_match_rate", "100%")
-
-                    # 转换百分比到0-1之间的小数
-                    try:
-                        h_rate = float(horizontal_match_rate.strip('%')) / 100
-                        v_rate = float(vertical_match_rate.strip('%')) / 100
-                        avg_rate = (h_rate + v_rate) / 2
-                        match_similarity = f"{avg_rate:.2f}"
-                    except:
-                        match_similarity = "1"
-
-                # 获取置信度
-                confidence = matching_summary.get("confidence_level", "high")
-                if isinstance(confidence, str):
-                    if confidence.lower() == "high":
-                        confidence_score = "高"
-                    elif confidence.lower() == "medium":
-                        confidence_score = "中"
-                    elif confidence.lower() == "low":
-                        confidence_score = "低"
-                    else:
-                        confidence_score = confidence
-                else:
-                    confidence_score = "高"
-
-                # 获取OCR数据质量
-                data_quality = ocr_data_quality.get("data_quality", "")
-                coverage = ocr_data_quality.get("coverage_percentage", 100)
-                quality_note = ocr_data_quality.get("notes", "")
-
-                # 特征值：包含更多信息
-                features_parts = []
-
-                # 基础特征
-                if horizontal_count > 0 and vertical_count > 0:
-                    features_parts.append(f"H{horizontal_count}V{vertical_count}")
-
-                # 表头深度
-                if horizontal_header_depth > 0 or vertical_header_depth > 0:
-                    features_parts.append(f"R{horizontal_header_depth}C{vertical_header_depth}")
-
-                # 匹配质量
-                if confidence_score == "中" or confidence_score == "低":
-                    features_parts.append(f"置信度{confidence_score}")
-
-                # 数据质量
-                if data_quality and data_quality != "好":
-                    features_parts.append(f"质量{data_quality}")
-
-                # 覆盖率
-                if coverage < 90:
-                    features_parts.append(f"覆盖{coverage}%")
-
-                # 组合特征值
-                if features_parts:
-                    features = " ".join(features_parts)
-                else:
-                    features = f"H{horizontal_count}V{vertical_count}"
-
-                # 处理状态
-                # 检查是否需要人工干预
-                needs_human = False
-                if consistency_checks:
-                    table_count_check = consistency_checks.get("table_count", {})
-                    text_vs_visual = consistency_checks.get("text_vs_visual", {})
-
-                    if table_count_check.get("needs_human") or text_vs_visual.get("needs_human"):
-                        needs_human = True
-
-                header_ocr_match = consistency_checks.get("header_ocr_match", {})
-                if header_ocr_match.get("needs_human"):
-                    needs_human = True
-
-                # 确定处理状态
-                if needs_human:
-                    processing_status = "需人工检查"
-                elif confidence_score == "低":
-                    processing_status = "低置信度"
-                elif data_quality == "差":
-                    processing_status = "数据质量差"
-                else:
-                    processing_status = "成功"
-
-                # 报告期间推断（从水平表头中提取年份）
-                report_period = ""
-                if horizontal_for_replacement:
-                    # 从表头中提取年份信息
-                    years = []
-                    for header in horizontal_for_replacement[:5]:  # 只检查前5个
-                        if header and isinstance(header, str):
-                            # 查找年份模式
-                            year_match = re.search(r'(\d{4})年?', header)
-                            if year_match:
-                                years.append(year_match.group(1))
-
-                    if years:
-                        # 按数字排序
-                        years_sorted = sorted(years, key=int)
-                        if len(years_sorted) > 1:
-                            report_period = f"{years_sorted[0]}-{years_sorted[-1]}"
-                        else:
-                            report_period = years_sorted[0]
-
-                # 计算表头单元格数
-                header_cells = 0
-                if horizontal_header_depth > 0 and vertical_header_depth > 0:
-                    header_cells = (horizontal_header_depth * (dimensions.get("cols", 0) - vertical_header_depth) +
-                                    (vertical_header_depth * dimensions.get("rows", 0)))
-                elif horizontal_count > 0 and vertical_count > 0:
-                    header_cells = horizontal_count + vertical_count
-
-                summary_data.append([
-                    table_info.get("table_id", i + 1),  # 表格ID
-                    table_title,  # 表格标题
-                    "是",  # 是否财务报表
-                    "人民币",  # 货币单位
-                    report_period,  # 报告期间
-                    match_similarity,  # 匹配相似度
-                    horizontal_count,  # 水平层级数
-                    vertical_count,  # 垂直层级数
-                    ocr_cells,  # OCR单元格数
-                    header_cells,  # 表头单元格数
-                    processing_status,  # 处理状态
-                    features  # 特征值
-                ])
+        extracted = []
+        for row_idx in range(start_row, min(start_row + num_rows, len(ocr_data))):
+            row = ocr_data[row_idx]
+            if start_col < len(row):
+                end_col = min(start_col + num_cols, len(row))
+                extracted.append(row[start_col:end_col])
             else:
-                # 失败的情况
-                table_info = table_result.get("table_info", {})
-                error_msg = table_result.get("error", "未知错误")
-
-                summary_data.append([
-                    table_info.get("table_id", i + 1) if table_info else i + 1,
-                    f"表格_{i + 1}",
-                    "是",
-                    "人民币",
-                    "",
-                    "0",
-                    0,
-                    0,
-                    0,
-                    0,
-                    "失败",
-                    f"错误: {error_msg[:20]}..."  # 截断错误信息
-                ])
-
-        return summary_data
-
-    def extract_raw_ocr_data(self, ocr_extract: Dict[str, Any]) -> List[List[str]]:
-        """提取OCR原始数据 - 使用适配器"""
-        if not ocr_extract:
-            return []
-
-        try:
-            # 使用适配器提取数据
-            table_data = self.ocr_adapter.extract_table_data(ocr_extract)
-
-            # 添加调试日志
-            if table_data:
-                print(f"成功提取OCR数据: {len(table_data)}行 × {len(table_data[0]) if table_data[0] else 0}列")
-            else:
-                print("警告: 未提取到OCR数据，数据结构:", list(ocr_extract.keys())[:5])
-                # 尝试打印数据结构用于调试
-                import json
-                print("OCR数据样本:", json.dumps({k: type(v).__name__ for k, v in ocr_extract.items()}, indent=2))
-
-            return table_data
-
-        except Exception as e:
-            print(f"提取OCR数据时出错: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return []
-
-    def save_ocr_raw_data(self, worksheet, ocr_data: List[List[str]]):
-        """保存OCR原始数据到工作表 - 增强版"""
-        if not ocr_data:
-            worksheet.cell(row=1, column=1, value="无OCR原始数据")
-            # 添加调试信息
-            worksheet.cell(row=2, column=1, value="⚠️ OCR数据为空或格式不支持")
-            return
-
-        print(f"保存OCR数据到工作表: {len(ocr_data)}行 × {len(ocr_data[0]) if ocr_data else 0}列")
-
-        # 计算最大列数以正确设置列宽
-        max_cols = max(len(row) for row in ocr_data) if ocr_data else 0
-
-        for row_idx, row_data in enumerate(ocr_data, 1):
-            # 确保每行都有足够的列
-            padded_row = row_data + [""] * (max_cols - len(row_data))
-
-            for col_idx, cell_value in enumerate(padded_row, 1):
-                cell = worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
-                cell.border = self.thin_border
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                cell.font = self.data_font
-
-        # 调整列宽
-        if ocr_data and max_cols > 0:
-            for col_idx in range(1, max_cols + 1):
-                col_letter = get_column_letter(col_idx)
-                max_length = 0
-
-                for row_idx in range(1, len(ocr_data) + 1):
-                    cell_value = worksheet.cell(row=row_idx, column=col_idx).value
-                    if cell_value:
-                        cell_length = len(str(cell_value))
-                        max_length = max(max_length, cell_length)
-
-                adjusted_width = min(max(max_length + 2, 10), 30)
-                worksheet.column_dimensions[col_letter].width = adjusted_width
-
-        # 在第一行添加数据来源信息
-        if ocr_data:
-            info_cell = worksheet.cell(row=1, column=max_cols + 1,
-                                       value=f"数据行: {len(ocr_data)}, 列: {max_cols}")
-            info_cell.font = Font(name='微软雅黑', size=9, italic=True, color='666666')
-
-    def mark_table_in_summary(self, summary_ws, table_id: int, status: str, features: str = "",
-                              error_msg: str = ""):
-        """在汇总表中标记表格状态"""
-        # 找到表格对应的行（从第10行开始是表格数据）
-        for row in range(10, summary_ws.max_row + 1):
-            cell_value = summary_ws.cell(row=row, column=1).value
-            if cell_value == table_id:
-                # 更新状态列（第11列）
-                status_cell = summary_ws.cell(row=row, column=11, value=status)
-                # 更新特征值列（第12列）
-                features_cell = summary_ws.cell(row=row, column=12, value=features)
-
-                # 如果状态是失败，应用错误样式
-                if status == "失败":
-                    status_cell.fill = self.error_fill
-                    status_cell.font = self.error_font
-                    features_cell.value = error_msg[:50]  # 错误信息作为特征值
-
-                break
-
-    def export_analysis_to_excel(self,
-                                 analysis_results: Dict[str, Any],
-                                 output_path: str) -> str:
-        """将分析结果导出到Excel"""
-
-        # 创建新的工作簿
-        wb = Workbook()
-
-        # 移除默认工作表
-        default_ws = wb.active
-        wb.remove(default_ws)
-
-        # 1. 创建汇总表
-        print("创建汇总表...")
-        summary_data = self.create_summary_sheet_data(analysis_results)
-        ws_summary = wb.create_sheet(title="汇总表")
-
-        # 写入汇总数据
-        for row_idx, row_data in enumerate(summary_data, 1):
-            for col_idx, cell_value in enumerate(row_data, 1):
-                cell = ws_summary.cell(row=row_idx, column=col_idx, value=cell_value)
-
-                cell.border = self.thin_border
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-                # 标题行样式
-                if row_idx <= 7:
-                    cell.font = Font(bold=True, size=12)
-                # 表头行样式
-                elif row_idx == 9:
-                    cell.font = self.header_font
-                    cell.fill = self.header_fill
-                # 数据行样式
-                elif row_idx > 9:
-                    cell.font = self.data_font
-
-        # 调整汇总表列宽
-        column_widths = [20, 20, 12, 10, 12, 12, 12, 12, 12, 12, 12, 20]
-        for col_idx, width in enumerate(column_widths, 1):
-            col_letter = get_column_letter(col_idx)
-            ws_summary.column_dimensions[col_letter].width = width
-
-        # 2. 为每个表格创建工作表
-        print("创建表格工作表...")
-        tables_analysis = analysis_results.get("tables_analysis", [])
-
-        for table_idx, table_result in enumerate(tables_analysis):
-            table_info = table_result.get("table_info", {})
-            table_id = table_info.get("table_id", table_idx + 1)
-
-            # 获取OCR数据（在try块外定义，确保作用域）
-            ocr_extract = table_result.get("source_data", {}).get("ocr_extract", {})
-
-            # 提取OCR数据（在try块外定义）
-            ocr_raw_data = []
-            ocr_sheet_name = f"P152_表格_{table_id}{self.ocr_sheet_suffix}"
-
-            try:
-                # 限制工作表名称长度
-                if len(ocr_sheet_name) > 31:
-                    ocr_sheet_name = ocr_sheet_name[:31]
-
-                # 调试：打印OCR数据结构
-                print(f"\n表格 {table_id} OCR数据结构:")
-                print(f"  可用键: {list(ocr_extract.keys())}")
-
-                # 使用适配器获取元数据
-                metadata = self.ocr_adapter.get_table_metadata(ocr_extract)
-                print(f"  数据源类型: {metadata['source_type']}")
-                print(f"  表格维度: {metadata['dimensions']}")
-
-                # 提取数据
-                ocr_raw_data = self.extract_raw_ocr_data(ocr_extract)
-
-                # 创建OCR原始数据工作表
-                ws_ocr = wb.create_sheet(title=ocr_sheet_name)
-                self.save_ocr_raw_data(ws_ocr, ocr_raw_data)
-                print(f"  已保存OCR原始数据到工作表: {ocr_sheet_name}")
-
-            except Exception as e:
-                print(f"创建OCR原始数据工作表失败: {str(e)}")
-                # 即使OCR数据提取失败，也继续处理后续步骤
-                # 创建一个空的OCR工作表
-                try:
-                    ws_ocr = wb.create_sheet(title=ocr_sheet_name)
-                    ws_ocr.cell(row=1, column=1, value="OCR数据提取失败")
-                    ws_ocr.cell(row=2, column=1, value=f"错误: {str(e)[:100]}")
-                except:
-                    pass
-
-            # 检查表格是否成功分析
-            if not table_result.get("success", False):
-                error_msg = table_result.get("error", "未知错误")
-                print(f"表格 {table_id} 分析失败: {error_msg}")
-
-                # 尝试获取OCR数据
-                ocr_extract = table_result.get("source_data", {}).get("ocr_extract", {})
-
-                # 如果表格1没有OCR数据，尝试从分析结果的完整OCR数据中获取
-                if not ocr_extract and table_id == 1:
-                    print(f"  表格 {table_id} 没有OCR数据，尝试从完整OCR数据中查找...")
-                    # 从analysis_results中获取完整的OCR数据
-                    full_ocr_data = analysis_results.get("ocr_data", {})
-                    if full_ocr_data and "tables_result" in full_ocr_data:
-                        # 提取第一个表格（索引0）作为表格1的数据
-                        tables_result = full_ocr_data.get("tables_result", [])
-                        if len(tables_result) >= 1:
-                            # 创建模拟的ocr_extract结构
-                            ocr_extract = {
-                                "tables_result": [tables_result[0]],
-                                "table_num": 1
-                            }
-                            print(f"  从完整OCR数据中提取了表格 {table_id} 的数据")
-
-                if ocr_extract:
-                    print(f"  尝试使用OCR原始数据恢复表格 {table_id}...")
-                    try:
-                        self.create_fallback_table_from_ocr(
-                            wb, table_id, ocr_extract,
-                            error_msg, ws_summary
-                        )
-                        print(f"  表格 {table_id} 已从OCR数据恢复")
-                    except Exception as e:
-                        print(f"  OCR数据恢复失败: {str(e)}")
-                        self.mark_table_in_summary(ws_summary, table_id, "失败", error_msg=error_msg)
-                else:
-                    self.mark_table_in_summary(ws_summary, table_id, "失败", error_msg=error_msg)
-
-                continue
-
-            try:
-                print(f"处理表格 {table_id}...")
-
-                analysis_result = table_result.get("analysis_result", {})
-
-                # 构建带新表头的表格数据
-                table_data, metadata = self.build_table_with_new_headers(analysis_result, ocr_extract)
-
-                if not table_data or metadata.get("error"):
-                    error_msg = metadata.get("error", "构建表格失败")
-                    print(f"表格 {table_id} 处理失败: {error_msg}")
-                    self.mark_table_in_summary(ws_summary, table_id, "失败", error_msg=error_msg)
-                    continue
-
-                # 创建新表头工作表
-                sheet_name = f"P152_表格_{table_id}"
-                if len(sheet_name) > 31:
-                    sheet_name = sheet_name[:31]
-
-                ws_table = wb.create_sheet(title=sheet_name)
-
-                # 写入表格数据
-                for row_idx, row_data in enumerate(table_data, 1):
-                    for col_idx, cell_value in enumerate(row_data, 1):
-                        cell = ws_table.cell(row=row_idx, column=col_idx, value=cell_value)
-
-                        cell.border = self.thin_border
-                        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-                        # 水平表头区域样式
-                        if row_idx <= metadata.get("horizontal_header_depth", 1):
-                            cell.font = self.header_font
-                            cell.fill = self.header_fill
-                        # 垂直表头区域样式
-                        elif col_idx <= metadata.get("vertical_header_depth", 1):
-                            cell.font = Font(bold=True)
-                        else:
-                            cell.font = self.data_font
-
-                # 调整列宽
-                if table_data:
-                    for col_idx in range(1, len(table_data[0]) + 1):
-                        col_letter = get_column_letter(col_idx)
-                        max_length = 0
-
-                        for row_idx in range(1, len(table_data) + 1):
-                            cell_value = ws_table.cell(row=row_idx, column=col_idx).value
-                            if cell_value:
-                                cell_length = len(str(cell_value))
-                                max_length = max(max_length, cell_length)
-
-                        adjusted_width = min(max(max_length + 2, 10), 30)
-                        ws_table.column_dimensions[col_letter].width = adjusted_width
-
-                # 计算特征值
-                features = f"H{metadata.get('horizontal_header_depth', 0)}×V{metadata.get('vertical_header_depth', 0)}"
-                features += f" D{metadata.get('pure_data_rows', 0)}×{metadata.get('pure_data_cols', 0)}"
-
-                # 标记为成功
-                self.mark_table_in_summary(ws_summary, table_id, "成功", features)
-
-                print(f"表格 {table_id} 已导出到工作表: {sheet_name}")
-                print(f"  特征值: {features}")
-
-            except Exception as e:
-                error_msg = str(e)
-                print(f"导出表格 {table_id} 时出错: {error_msg}")
-                self.mark_table_in_summary(ws_summary, table_id, "失败", error_msg=error_msg)
-                import traceback
-                traceback.print_exc()
-
-        # 3. 保存工作簿
-        try:
-            wb.save(output_path)
-            print(f"Excel文件已保存到: {output_path}")
-        except Exception as e:
-            print(f"保存Excel文件失败: {str(e)}")
-            raise
-
-        return output_path
-
-    def _looks_like_header(self, cell_content: str) -> bool:
-        """判断单元格内容是否看起来像表头"""
-        if not cell_content:
-            return False
-
-        content = str(cell_content).strip()
-
-        # 表头特征：
-        # 1. 不包含数字（或很少数字）
-        # 2. 长度较短
-        # 3. 包含常见表头词汇
-
-        header_keywords = ['项目', '名称', '金额', '比例', '日期', '年份',
-                           '单位', '类型', '状态', '序号', '合计', '总计']
-
-        # 检查是否包含表头关键词
-        for keyword in header_keywords:
-            if keyword in content:
-                return True
-
-        # 检查长度和数字比例
-        if len(content) < 20:  # 表头通常较短
-            # 计算数字比例
-            digit_count = sum(c.isdigit() for c in content)
-            if digit_count / max(len(content), 1) < 0.3:  # 数字比例低于30%
-                return True
-
-        return False
-
-
-    # 需要修改 build_table_with_new_headers 方法：
-    def build_table_with_new_headers(self, analysis_result: Dict[str, Any],
-                                     ocr_extract: Dict[str, Any]) -> Tuple[List[List[str]], Dict[str, Any]]:
-        """基于新的LLM分析结果对齐表格"""
-
-        # 获取新结构的数据
-        table_headers = analysis_result.get("table_headers", {})
-
-        # 1. 获取用于替换的新表头
-        horizontal_for_replacement = table_headers.get("horizontal_for_replacement", [])
-        vertical_for_replacement = table_headers.get("vertical_for_replacement", [])
-
-        # 如果新字段不存在，尝试从旧字段获取（兼容性）
-        if not horizontal_for_replacement:
-            horizontal_headers = table_headers.get("horizontal", [])
-            horizontal_for_replacement = [h.get("field_path", "") for h in horizontal_headers]
-
-        if not vertical_for_replacement:
-            vertical_headers = table_headers.get("vertical", [])
-            vertical_for_replacement = [v.get("field_path", "") for v in vertical_headers]
-
-        # 2. 获取OCR中的表头位置
-        ocr_positions = table_headers.get("ocr_positions", {})
-
-        # 从新结构获取表头位置
-        horizontal_header_rows = ocr_positions.get("horizontal_header_rows", [])
-        vertical_header_cols = ocr_positions.get("vertical_header_cols", [])
-        data_start_row = ocr_positions.get("data_start_row")
-        data_start_col = ocr_positions.get("data_start_col")
-
-        # 如果新字段不存在，从旧结构获取
-        if not horizontal_header_rows:
-            header_positions = table_headers.get("header_positions", {})
-            horizontal_header_rows = header_positions.get("horizontal_header_rows", [0])
-            vertical_header_cols = header_positions.get("vertical_header_cols", [0])
-
-        # 3. 获取OCR原始数据
-        extracted_data = ocr_extract.get("extracted_data", {})
-        table_data = extracted_data.get("top_rows_all_cols", [])
-
-        if not table_data:
-            return [], {"error": "无表格数据"}
-
-        # 4. 计算数据起始位置（如果未提供）
-        if data_start_row is None:
-            data_start_row = max(horizontal_header_rows) + 1 if horizontal_header_rows else 1
-        if data_start_col is None:
-            data_start_col = max(vertical_header_cols) + 1 if vertical_header_cols else 1
-
-        print(f"表头位置 - 行: {horizontal_header_rows}, 列: {vertical_header_cols}")
-        print(f"数据起始 - 行: {data_start_row}, 列: {data_start_col}")
-        print(f"新横向表头({len(horizontal_for_replacement)}): {horizontal_for_replacement[:3]}...")
-        print(f"新纵向表头({len(vertical_for_replacement)}): {vertical_for_replacement[:3]}...")
-
-        # 5. 提取纯数据
-        pure_data = []
-        for row_idx in range(len(table_data)):
-            if row_idx >= data_start_row:
-                row = table_data[row_idx]
-                if row and len(row) > data_start_col:
-                    pure_data.append(row[data_start_col:])
-                elif row:
-                    pure_data.append([])
-
-        # 6. 构建新表格
-        new_table_data = self._rebuild_table_with_new_headers(
-            horizontal_for_replacement,
-            vertical_for_replacement,
-            pure_data
-        )
-
-        return new_table_data, {
-            "horizontal_header_depth": len(horizontal_header_rows),
-            "vertical_header_depth": len(vertical_header_cols),
-            "data_start_row": data_start_row,
-            "data_start_col": data_start_col,
-            "pure_data_rows": len(pure_data),
-            "pure_data_cols": len(pure_data[0]) if pure_data else 0,
-            "success": True,
-            "ocr_data_quality": analysis_result.get("ocr_data_quality", {}),
-            "matching_summary": analysis_result.get("matching_summary", {})
-        }
-
-    def _rebuild_table_with_new_headers(self, horizontal_headers, vertical_headers, pure_data):
-        """使用新表头重建表格"""
-        new_table = []
-
-        # 第一行：横向表头
-        header_row = [""] + horizontal_headers  # 左上角空白单元格
-        new_table.append(header_row)
-
-        # 数据行：每行以纵向表头开头
-        for i in range(max(len(vertical_headers), len(pure_data))):
+                extracted.append([])
+
+        return extracted
+
+    def _build_complete_table(self, column_headers: List[Dict[str, Any]],
+                              row_headers: List[Dict[str, Any]],
+                              data_region: List[List[str]]) -> List[List[str]]:
+        """
+        构建完整的表格数据
+
+        Args:
+            column_headers: 列表头信息
+            row_headers: 行表头信息
+            data_region: 数据区域
+
+        Returns:
+            完整的表格数据（包含表头和数据）
+        """
+        table = []
+
+        # 第一行：列表头（左上角空白单元格 + 列表头）
+        header_row = [""]  # 左上角空白
+        for header in column_headers:
+            name = header.get("name", "")
+            table.append(name)
+        table.append(header_row)
+
+        # 数据行：行表头 + 数据
+        for i, row_header in enumerate(row_headers):
             row = []
 
-            # 纵向表头
-            if i < len(vertical_headers):
-                row.append(vertical_headers[i])
-            else:
-                row.append(f"行{i + 1}")
+            # 添加行表头
+            row_name = row_header.get("name", "")
+            row.append(row_name)
 
-            # 数据部分
-            if i < len(pure_data):
-                data_row = pure_data[i]
-                # 确保数据列数与表头列数匹配
-                for j in range(len(horizontal_headers)):
+            # 添加数据
+            if i < len(data_region):
+                data_row = data_region[i]
+                # 确保数据列数匹配
+                for j in range(len(column_headers)):
                     if j < len(data_row):
                         row.append(data_row[j])
                     else:
                         row.append("")
             else:
-                # 没有数据，填充空白
-                row.extend([""] * len(horizontal_headers))
+                # 没有对应数据，填充空白
+                row.extend([""] * len(column_headers))
 
-            new_table.append(row)
+            table.append(row)
 
-        return new_table
+        return table
+
+    def create_summary_sheet(self, analysis_results: Dict[str, Any]) -> List[List[str]]:
+        """
+        创建详细的汇总表数据 - 修复版本
+
+        Args:
+            analysis_results: 完整的分析结果
+
+        Returns:
+            汇总表数据
+        """
+        import time
+
+        summary_data = []
+
+        # 1. 标题
+        summary_data.append(["📊 表格分析汇总报告"])
+        summary_data.append([])  # 空行
+
+        # 2. 整体统计
+        tables_count = analysis_results.get("tables_count", 0)
+        image_path = analysis_results.get("image_path", "未知图片")
+        image_id = analysis_results.get("image_id", "未知ID")
+
+        summary_data.append(["分析报告基本信息"])
+        summary_data.append(["图片文件:", os.path.basename(image_path) if image_path else "未知"])
+        summary_data.append(["图片ID:", image_id])
+        summary_data.append(["识别表格总数:", tables_count])
+        summary_data.append(["分析时间:", time.strftime("%Y-%m-%d %H:%M:%S")])
+        summary_data.append([])  # 空行
+
+        # 3. 详细统计表头
+        summary_data.append(["详细表格统计"])
+        summary_data.append([
+            "表格ID", "表格类型", "列数", "行数",
+            "OCR表格索引", "数据起始行", "数据起始列",
+            "表头层级", "状态", "备注"
+        ])
+
+        # 4. 提取表格数据 - 简化版本
+        tables = []
+        if "tables_analysis" in analysis_results:
+            tables_analysis = analysis_results["tables_analysis"]
+
+            # 只取第一个成功的分析
+            for table_analysis in tables_analysis:
+                if table_analysis.get("success"):
+                    analysis_result = table_analysis.get("analysis_result", {})
+                    if "tables" in analysis_result:
+                        tables = analysis_result["tables"]
+                        break
+
+        print(f"找到 {len(tables)} 个表格用于汇总")
+
+        # 5. 表格详情
+        processed_count = 0
+        for idx, table_info in enumerate(tables):
+            table_id = table_info.get("id", idx + 1)  # 使用1-based的ID
+
+            # 获取列数和行数
+            column_headers = table_info.get("column_headers", [])
+            row_headers = table_info.get("row_headers", [])
+
+            column_count = len(column_headers) if column_headers else 0
+            row_count = len(row_headers) if row_headers else 0
+
+            if column_count == 0 or row_count == 0:
+                print(f"表格 {table_id} 缺少表头数据，添加为失败状态")
+                summary_data.append([
+                    table_id,
+                    "未知",
+                    0,
+                    0,
+                    "未知",
+                    "未知",
+                    "未知",
+                    "未知",
+                    "失败",
+                    "缺少表头数据"
+                ])
+                continue
+
+            # 获取表格类型 - 增强版本（检查header_structure）
+            if "header_structure" in table_info:
+                header_structure = table_info.get("header_structure", {})
+                table_type_from_structure = header_structure.get("type", "")
+
+                if table_type_from_structure:
+                    if table_type_from_structure == "simple":
+                        table_type = "简单表格"
+                    elif table_type_from_structure == "hierarchical":
+                        table_type = "分层表格"
+                    elif table_type_from_structure == "cross":
+                        table_type = "交叉表格"
+                    else:
+                        table_type = self._infer_table_type(table_info)
+                else:
+                    table_type = self._infer_table_type(table_info)
+            else:
+                table_type = self._infer_table_type(table_info)
+
+            # 获取OCR表格索引
+            ocr_table_index = "未知"
+            if column_headers:
+                first_col = column_headers[0]
+                source = first_col.get("source", {})
+                if isinstance(source, dict):
+                    ocr_table_index = source.get("ocr_table", idx)  # 默认使用当前索引
+                elif isinstance(source, list) and source:
+                    ocr_table_index = source[0].get("ocr_table", idx)
+            else:
+                ocr_table_index = idx  # 默认使用当前索引
+
+            # 获取数据起始位置
+            data_start = table_info.get("data_start", {})
+            start_row = data_start.get("row", 1)  # 默认为第1行
+            start_col = data_start.get("column", 1)  # 默认为第1列
+
+            # 判断表头层级
+            has_hierarchy = False
+            for col in column_headers:
+                name = col.get("name", "")
+                if "|→" in str(name):
+                    has_hierarchy = True
+                    break
+
+            # 获取状态和备注
+            status = "成功"
+            remarks = ""
+
+            # 检查识别错误
+            error_found = False
+            for col in column_headers:
+                name = col.get("name", "")
+                if self._looks_like_error(str(name)):
+                    error_found = True
+                    break
+
+            if error_found:
+                status = "部分错误"
+                remarks = "存在识别错误的表头"
+
+            # 如果有header_structure，添加额外信息
+            if "header_structure" in table_info:
+                header_structure = table_info["header_structure"]
+                common_headers = header_structure.get("common_headers", [])
+                if common_headers:
+                    if remarks:
+                        remarks += f"; 公共表头:{len(common_headers)}个"
+                    else:
+                        remarks = f"公共表头:{len(common_headers)}个"
+
+            # 添加到汇总数据
+            summary_data.append([
+                table_id,
+                table_type,
+                column_count,
+                row_count,
+                ocr_table_index,
+                start_row,
+                start_col,
+                "多级" if has_hierarchy else "单级",
+                status,
+                remarks
+            ])
+
+            processed_count += 1
 
 
-# 简化接口函数
-def generate_excel_from_analysis(analysis_json_path: str, output_dir: str = "./output") -> str:
-    """从分析JSON文件生成Excel"""
 
+        # 6. 如果没有任何表格被处理，添加提示
+        if processed_count == 0:
+            summary_data.append(["", "未找到有效的表格数据", "", "", "", "", "", "", "", ""])
+            summary_data.append(["", "请检查分析结果JSON结构", "", "", "", "", "", "", "", ""])
+
+        # 7. 质量评估
+        if processed_count > 0:
+            summary_data.append([])
+            summary_data.append(["质量评估"])
+
+            # 计算统计信息
+            total_cols = 0
+            total_rows = 0
+            hierarchy_count = 0
+            success_count = 0
+
+            for i, table_info in enumerate(tables):
+                column_headers = table_info.get("column_headers", [])
+                row_headers = table_info.get("row_headers", [])
+
+                # 只统计成功的表格
+                if column_headers and row_headers:
+                    total_cols += len(column_headers)
+                    total_rows += len(row_headers)
+                    success_count += 1
+
+                    # 检查分层表头
+                    for col in column_headers:
+                        name = col.get("name", "")
+                        if "|→" in str(name):
+                            hierarchy_count += 1
+                            break
+
+            if success_count > 0:
+                avg_cols = total_cols / success_count
+                avg_rows = total_rows / success_count
+
+                summary_data.append([f"成功分析表格: {success_count}/{processed_count}"])
+                summary_data.append([f"平均列数: {avg_cols:.1f}"])
+                summary_data.append([f"平均行数: {avg_rows:.1f}"])
+                summary_data.append([f"分层表头表格: {hierarchy_count}/{success_count}"])
+            else:
+                summary_data.append([f"成功分析表格: 0/{processed_count}"])
+
+        return summary_data
+
+    def _infer_table_type(self, table_info: Dict[str, Any]) -> str:
+        """
+        推断表格类型
+
+        Args:
+            table_info: 表格信息
+
+        Returns:
+            表格类型字符串
+        """
+        column_headers = table_info.get("column_headers", [])
+        row_headers = table_info.get("row_headers", [])
+
+        # 检查表头关键词
+        table_keywords = {
+            "财务报表": ["利润", "收入", "成本", "资产", "负债", "现金流", "损益"],
+            "股东信息": ["股东", "持股", "比例", "金额", "法人", "自然人"],
+            "关联方交易": ["关联", "贷款", "余额", "信用证", "承兑汇票", "占资本"],
+            "现金流量": ["经营", "投资", "筹资", "现金流量", "调整项目"],
+            "贷款信息": ["贷款", "贴现", "五级分类", "承兑汇票", "信用证"]
+        }
+
+        # 检查所有表头
+        all_headers = []
+        for col in column_headers:
+            all_headers.append(col.get("name", ""))
+        for row in row_headers:
+            all_headers.append(row.get("name", ""))
+
+        # 匹配关键词
+        for table_type, keywords in table_keywords.items():
+            for keyword in keywords:
+                for header in all_headers:
+                    if keyword in header:
+                        return table_type
+
+        return "其他表格"
+
+    def _looks_like_error(self, text: str) -> bool:
+        """
+        判断文本是否看起来像识别错误
+
+        Args:
+            text: 要检查的文本
+
+        Returns:
+            是否可能是识别错误
+        """
+        if not text:
+            return False
+
+        # 常见识别错误模式
+        error_patterns = [
+            "银行现职",  # 应该是"银行职务"
+            "利总",  # 应该是"利润"
+            "收人",  # 应该是"收入"
+            "用用",  # 应该是"费用"
+        ]
+
+        return any(pattern in text for pattern in error_patterns)
+
+    def _extract_ocr_data(self, ocr_extract: Dict[str, Any]) -> List[List[str]]:
+        """
+        从OCR提取数据中获取完整的表格数据
+
+        Args:
+            ocr_extract: OCR提取的数据
+
+        Returns:
+            二维列表表示的完整表格数据
+        """
+        if not ocr_extract:
+            return []
+
+        # 尝试从不同位置获取OCR数据
+        extracted_data = ocr_extract.get("extracted_data", {})
+
+        # 优先使用 top_rows_all_cols（包含所有行的完整数据）
+        table_data = extracted_data.get("top_rows_all_cols", [])
+
+        if not table_data:
+            # 尝试其他可能的数据源
+            table_data = extracted_data.get("full_table", [])
+
+        if not table_data:
+            # 尝试从原始OCR结构获取
+            if "tables_result" in ocr_extract:
+                tables_result = ocr_extract.get("tables_result", [])
+                if tables_result and isinstance(tables_result, list) and len(tables_result) > 0:
+                    # 解析百度OCR格式
+                    return self._parse_baidu_ocr_to_table(tables_result[0])
+
+        return table_data if table_data else []
+
+    def _parse_baidu_ocr_to_table(self, table_data: Dict[str, Any]) -> List[List[str]]:
+        """
+        解析百度OCR表格数据为二维列表
+
+        Args:
+            table_data: 百度OCR表格数据
+
+        Returns:
+            二维列表表格数据
+        """
+        body_cells = table_data.get("body", [])
+
+        if not body_cells:
+            return []
+
+        # 计算表格最大行列
+        max_row = 0
+        max_col = 0
+        for cell in body_cells:
+            max_row = max(max_row, cell.get("row_end", 0))
+            max_col = max(max_col, cell.get("col_end", 0))
+
+        # 创建空表格
+        table = [["" for _ in range(max_col + 1)] for _ in range(max_row + 1)]
+
+        # 填充数据
+        for cell in body_cells:
+            row_start = cell.get("row_start", 0)
+            col_start = cell.get("col_start", 0)
+            row_end = cell.get("row_end", row_start)
+            col_end = cell.get("col_end", col_start)
+            words = cell.get("words", "")
+
+            # 处理合并单元格
+            for r in range(row_start, row_end + 1):
+                for c in range(col_start, col_end + 1):
+                    if r < len(table) and c < len(table[0]):
+                        table[r][c] = words
+
+        return table
+
+    def _build_complete_table_with_data(self,
+                                        column_headers: List[Dict[str, Any]],
+                                        row_headers: List[Dict[str, Any]],
+                                        ocr_data: List[List[str]]) -> List[List[str]]:
+        """
+        构建完整的表格数据（包含表头和从OCR提取的数据）
+
+        Args:
+            column_headers: 列表头信息（包含source映射）
+            row_headers: 行表头信息（包含source映射）
+            ocr_data: OCR原始数据
+
+        Returns:
+            完整的表格数据
+        """
+        table = []
+
+        # 1. 第一行：列表头
+        header_row = [""]  # 左上角空白单元格
+        for col_header in column_headers:
+            name = col_header.get("name", "")
+            header_row.append(name)
+        table.append(header_row)
+
+        # 2. 数据行：行表头 + 数据
+        for i, row_header in enumerate(row_headers):
+            row = []
+
+            # 添加行表头
+            row_name = row_header.get("name", "")
+            row.append(row_name)
+
+            # 获取行表头的OCR映射
+            row_source = row_header.get("source", {})
+            if isinstance(row_source, list) and row_source:
+                row_source = row_source[0]  # 取第一个映射
+
+            row_ocr_table = row_source.get("ocr_table", 0)
+            row_ocr_row = row_source.get("ocr_row", i)
+
+            # 对每一列填充数据
+            for j, col_header in enumerate(column_headers):
+                # 获取列表头的OCR映射
+                col_source = col_header.get("source", {})
+                if isinstance(col_source, list) and col_source:
+                    col_source = col_source[0]  # 取第一个映射
+
+                col_ocr_table = col_source.get("ocr_table", 0)
+                col_ocr_column = col_source.get("ocr_column", j)
+
+                # 检查是否在同一个OCR表格中
+                if row_ocr_table == col_ocr_table:
+                    # 从OCR数据中提取值
+                    if (row_ocr_row < len(ocr_data) and
+                            col_ocr_column < len(ocr_data[row_ocr_row])):
+                        cell_value = ocr_data[row_ocr_row][col_ocr_column]
+                    else:
+                        cell_value = ""
+                else:
+                    # 不在同一个OCR表格，暂时留空
+                    cell_value = ""
+                    print(f"警告: 行表头(i={i})和列表头(j={j})不在同一个OCR表格")
+
+                row.append(cell_value)
+
+            table.append(row)
+
+        return table
+
+    def _build_table_from_headers_only(self, table_info: Dict[str, Any]) -> List[List[str]]:
+        """
+        仅从表头信息构建表格（无OCR数据时使用）- 简化版
+
+        Args:
+            table_info: 表格信息
+
+        Returns:
+            只包含表头的表格数据
+        """
+        column_headers = table_info.get("column_headers", [])
+        row_headers = table_info.get("row_headers", [])
+
+        # 提取表头名称
+        column_names = []
+        for col in column_headers:
+            name = col.get("name", "")
+            column_names.append(name)
+
+        row_names = []
+        for row in row_headers:
+            name = row.get("name", "")
+            row_names.append(name)
+
+        # 构建只有表头的表格
+        table = []
+
+        # 列表头行
+        header_row = [""] + column_names
+        table.append(header_row)
+
+        # 数据行（只有行表头，数据部分为空）
+        for row_name in row_names:
+            row = [row_name] + [""] * len(column_names)
+            table.append(row)
+
+        return table
+
+    def build_table_from_analysis(self, table_info: Dict[str, Any],
+                                  ocr_data: List[List[List[str]]]) -> List[List[str]]:
+        """
+        根据LLM的表格布局和OCR数据构建新表格
+        """
+        column_headers = table_info.get("column_headers", [])
+        row_headers = table_info.get("row_headers", [])
+
+        # 创建空表格（按照LLM的布局）
+        # 第一行：列标题（左上角空白+列标题）
+        # 第一列：行标题
+        table = []
+
+        # 第一行：列标题
+        header_row = [""]  # 左上角空白
+        for col_header in column_headers:
+            header_row.append(col_header.get("name", ""))
+        table.append(header_row)
+
+        # 数据行
+        for i, row_header in enumerate(row_headers):
+            row = [row_header.get("name", "")]  # 行标题
+
+            for j, col_header in enumerate(column_headers):
+                # 关键：从source字段找到OCR中的位置
+                cell_value = self._get_cell_from_ocr(row_header, col_header, ocr_data, i, j)
+                row.append(cell_value)
+
+            table.append(row)
+
+        return table
+
+
+    def _get_cell_from_ocr(self, row_header: Dict, col_header: Dict,
+                           ocr_data: List, row_idx: int, col_idx: int) -> str:
+        """
+        根据表头的source字段从OCR中提取单元格数据
+        """
+        # 优先使用列标题的source（因为列标题通常对应数据列）
+        source = col_header.get("source", {})
+        if not source:
+            # 如果没有source，尝试行标题的source
+            source = row_header.get("source", {})
+
+        if isinstance(source, list) and source:
+            source = source[0]  # 取第一个映射
+
+        # 获取OCR中的位置
+        ocr_table_idx = source.get("ocr_table", 0)
+        ocr_row = source.get("ocr_row", row_idx)  # 如果没有指定，用当前行索引
+        ocr_col = source.get("ocr_column", col_idx)  # 如果没有指定，用当前列索引
+
+        # 从OCR数据中提取
+        if (ocr_table_idx < len(ocr_data) and
+                ocr_row < len(ocr_data[ocr_table_idx]) and
+                ocr_col < len(ocr_data[ocr_table_idx][ocr_row])):
+            return ocr_data[ocr_table_idx][ocr_row][ocr_col]
+
+        return ""  # 找不到就返回空
+
+    def _extract_cell(self, row_source, col_source, ocr_extracts):
+        """根据映射关系从OCR提取单元格数据"""
+        # 优先使用列标题的source（通常更准确）
+        source = col_source if col_source else row_source
+
+        if not source:
+            return ""  # 没有映射关系
+
+        ocr_table_idx = source.get("ocr_table", 0)
+        ocr_row = source.get("ocr_row", 0)
+        ocr_col = source.get("ocr_column", 0)
+
+        # 从OCR数据中提取
+        if (ocr_table_idx < len(ocr_extracts) and
+                ocr_extracts[ocr_table_idx] and
+                ocr_row < len(ocr_extracts[ocr_table_idx]) and
+                ocr_col < len(ocr_extracts[ocr_table_idx][ocr_row])):
+            return ocr_extracts[ocr_table_idx][ocr_row][ocr_col]
+
+        return ""  # 找不到就返回空
+
+    def _extract_cell_from_ocr(self, row_source, col_source, ocr_extracts, row_idx, col_idx):
+        """
+        根据映射关系从OCR提取单元格数据 - 简化版本
+        """
+        if not ocr_extracts:
+            return ""
+
+        # 优先使用列标题的source
+        source = col_source if col_source else row_source
+        if not source:
+            return ""
+
+        # 处理source可能是字典或列表
+        if isinstance(source, list) and source:
+            source = source[0]
+
+        # 获取OCR位置
+        ocr_table_idx = source.get("ocr_table", 0)
+        ocr_row = source.get("ocr_row", row_idx)
+        ocr_col = source.get("ocr_column", col_idx)
+
+        # 检查边界
+        if ocr_table_idx >= len(ocr_extracts):
+            return ""
+
+        ocr_data = ocr_extracts[ocr_table_idx]
+
+        # 尝试不同的OCR数据格式
+        if isinstance(ocr_data, dict):
+            # 如果是字典格式，尝试提取表格数据
+            extracted_data = ocr_data.get("extracted_data", {})
+            table_data = extracted_data.get("top_rows_all_cols", [])
+
+            if ocr_row < len(table_data) and ocr_col < len(table_data[ocr_row]):
+                return table_data[ocr_row][ocr_col]
+        elif isinstance(ocr_data, list):
+            # 如果是列表格式
+            if ocr_row < len(ocr_data) and ocr_col < len(ocr_data[ocr_row]):
+                return ocr_data[ocr_row][ocr_col]
+
+        return ""
+
+
+    def export_to_excel(self, analysis_results: Dict[str, Any],
+                        output_path: str,
+                        ocr_extracts: List[Dict[str, Any]] = None) -> str:
+        """
+        导出分析结果到Excel - 简化版本
+        """
+        # 创建工作簿
+        wb = Workbook()  # 需要这行！
+        default_ws = wb.active
+        wb.remove(default_ws)
+
+        # 1. 创建汇总表
+        print("创建汇总表...")
+        summary_data = self.create_summary_sheet(analysis_results)
+        ws_summary = wb.create_sheet(title="汇总")
+
+        # 写入汇总数据（简化版）
+        for row_idx, row_data in enumerate(summary_data, 1):
+            for col_idx, cell_value in enumerate(row_data, 1):
+                ws_summary.cell(row=row_idx, column=col_idx, value=cell_value)
+
+        # 2. 提取表格数据
+        tables = []
+        tables_analysis = analysis_results.get("tables_analysis", [])
+
+        # 找第一个成功的分析
+        for table_analysis in tables_analysis:
+            if table_analysis.get("success"):
+                analysis_result = table_analysis.get("analysis_result", {})
+                tables = analysis_result.get("tables", [])
+                break
+
+        print(f"找到 {len(tables)} 个表格")
+
+        # 3. 为每个表格创建工作表
+        for table_idx, table in enumerate(tables):
+            if not table.get("column_headers") or not table.get("row_headers"):
+                continue  # 跳过没有表头的
+
+            print(f"创建表格 {table_idx}...")
+
+            # 创建工作表
+            sheet_name = f"表格_{table_idx}"
+            ws = wb.create_sheet(title=sheet_name[:31])  # Excel限制31字符
+
+            # 写入表头
+            column_headers = table["column_headers"]
+            row_headers = table["row_headers"]
+
+            # 列标题（第一行）
+            ws.cell(row=1, column=1, value="")  # 左上角空白
+            for col_idx, col_header in enumerate(column_headers):
+                ws.cell(row=1, column=col_idx + 2, value=col_header.get("name", ""))
+
+            # 行标题（第一列）
+            for row_idx, row_header in enumerate(row_headers):
+                ws.cell(row=row_idx + 2, column=1, value=row_header.get("name", ""))
+
+            # 填充数据
+            if ocr_extracts:
+                for row_idx, row_header in enumerate(row_headers):
+                    for col_idx, col_header in enumerate(column_headers):
+                        # 提取单元格数据
+                        cell_value = self._extract_cell_from_ocr(
+                            row_header.get("source", {}),
+                            col_header.get("source", {}),
+                            ocr_extracts,
+                            row_idx,
+                            col_idx
+                        )
+                        ws.cell(row=row_idx + 2, column=col_idx + 2, value=cell_value)
+
+            print(f"表格 {table_idx} 创建完成: {len(column_headers)}列 × {len(row_headers)}行")
+
+        # 4. 保存工作簿
+        try:
+            wb.save(output_path)
+            print(f"Excel文件已保存到: {output_path}")
+            return output_path
+        except Exception as e:
+            print(f"保存Excel文件失败: {str(e)}")
+            raise
+
+
+
+
+
+    #     -----------------------
+    def build_table_from_analysis(self, analysis_result: Dict[str, Any],
+                                  ocr_extract: Dict[str, Any]) -> Tuple[List[List[str]], Dict[str, Any]]:
+        """
+        根据分析结果和OCR数据构建完整的表格（支持关联表头）
+        """
+        tables = analysis_result.get("tables", [])
+        if not tables:
+            return [], {"error": "无表格数据"}
+
+        # 取第一个表格
+        table_info = tables[0]
+        table_id = table_info.get("id", 0)
+
+        # 获取表头结构信息
+        header_structure = table_info.get("header_structure", {})
+        table_type = header_structure.get("type", "simple")
+
+        # 获取表头信息
+        column_headers = table_info.get("column_headers", [])
+        row_headers = table_info.get("row_headers", [])
+        common_headers = header_structure.get("common_headers", [])
+
+        if not column_headers or not row_headers:
+            return [], {"error": "表头数据不完整"}
+
+        # 提取OCR完整数据
+        ocr_data = self._extract_ocr_data(ocr_extract)
+        if not ocr_data:
+            return [], {"error": "无OCR数据"}
+
+        print(
+            f"表格 {table_id}: 类型={table_type}, 列头={len(column_headers)}, 行头={len(row_headers)}, 公共表头={len(common_headers)}")
+
+        # 根据表格类型构建表格
+        if table_type == "cross" and common_headers:
+            # 交叉表格：处理公共表头
+            table_data = self._build_cross_table(
+                column_headers,
+                row_headers,
+                common_headers,
+                header_structure,
+                ocr_data
+            )
+        elif table_type == "hierarchical":
+            # 分层表格
+            table_data = self._build_hierarchical_table(
+                column_headers,
+                row_headers,
+                header_structure,
+                ocr_data
+            )
+        else:
+            # 简单表格
+            table_data = self._build_simple_table(
+                column_headers,
+                row_headers,
+                ocr_data
+            )
+
+        # 构建元数据
+        metadata = {
+            "table_id": table_id,
+            "table_type": table_type,
+            "data_rows": len(row_headers),
+            "data_cols": len(column_headers),
+            "common_headers": len(common_headers),
+            "success": True
+        }
+
+        return table_data, metadata
+
+    def _build_cross_table(self, column_headers, row_headers, common_headers, header_structure, ocr_data):
+        """
+        构建交叉表格（有公共表头）
+        """
+        # 确定表格结构
+        # 如果有公共表头，表格的第一行第一列可能是公共表头
+        # 需要根据实际情况调整
+
+        table = []
+
+        # 获取关联映射
+        row_to_column_map = header_structure.get("row_to_column_map", [])
+        column_to_row_map = header_structure.get("column_to_row_map", [])
+
+        # 方案1：公共表头放在左上角
+        if common_headers:
+            # 第一行：公共表头 + 列标题
+            header_row = []
+            for common in common_headers:
+                # 从OCR中提取公共表头值
+                common_value = self._extract_header_from_source(common.get("source", {}), ocr_data)
+                header_row.append(common_value)
+
+            # 添加列标题
+            for col_header in column_headers:
+                col_value = self._extract_header_from_source(col_header.get("source", {}), ocr_data)
+                header_row.append(col_value)
+
+            table.append(header_row)
+
+        # 数据行
+        for row_idx, row_header in enumerate(row_headers):
+            row_data = []
+
+            # 行标题
+            row_value = self._extract_header_from_source(row_header.get("source", {}), ocr_data)
+            row_data.append(row_value)
+
+            # 数据单元格
+            # 使用关联映射确定哪些列属于这一行
+            column_indices = []
+            for mapping in row_to_column_map:
+                if mapping.get("row_index") == row_idx:
+                    column_indices = mapping.get("column_indices", [])
+                    break
+
+            if not column_indices:
+                # 如果没有映射，默认所有列
+                column_indices = list(range(len(column_headers)))
+
+            for col_idx in column_indices:
+                if col_idx < len(column_headers):
+                    col_header = column_headers[col_idx]
+                    cell_value = self._extract_cell_by_mapping(
+                        row_header.get("source", {}),
+                        col_header.get("source", {}),
+                        ocr_data,
+                        row_idx,
+                        col_idx
+                    )
+                    row_data.append(cell_value)
+
+            table.append(row_data)
+
+        return table
+
+    def _build_hierarchical_table(self, column_headers, row_headers, header_structure, ocr_data):
+        """
+        构建分层表格
+        """
+        table = []
+
+        # 构建多层表头
+        # 这里需要解析 "|→" 分隔的层级关系
+        max_column_depth = 1
+        max_row_depth = 1
+
+        # 分析列标题层级
+        for col in column_headers:
+            name = col.get("name", "")
+            depth = name.count("|→") + 1
+            max_column_depth = max(max_column_depth, depth)
+
+        # 分析行标题层级
+        for row in row_headers:
+            name = row.get("name", "")
+            depth = name.count("|→") + 1
+            max_row_depth = max(max_row_depth, depth)
+
+        # 构建表头区域
+        # 这里简化处理，只构建一级表头
+        header_row = []
+        for col_header in column_headers:
+            name = col_header.get("name", "")
+            # 提取最后一级作为显示名称
+            if "|→" in name:
+                display_name = name.split("|→")[-1]
+            else:
+                display_name = name
+            header_row.append(display_name)
+
+        table.append(header_row)
+
+        # 数据行
+        for row_idx, row_header in enumerate(row_headers):
+            row_data = []
+
+            # 行标题
+            name = row_header.get("name", "")
+            if "|→" in name:
+                display_name = name.split("|→")[-1]
+            else:
+                display_name = name
+            row_data.append(display_name)
+
+            # 数据单元格
+            for col_idx, col_header in enumerate(column_headers):
+                cell_value = self._extract_cell_by_mapping(
+                    row_header.get("source", {}),
+                    col_header.get("source", {}),
+                    ocr_data,
+                    row_idx,
+                    col_idx
+                )
+                row_data.append(cell_value)
+
+            table.append(row_data)
+
+        return table
+
+    def _build_simple_table(self, column_headers, row_headers, ocr_data):
+        """
+        构建简单表格
+        """
+        table = []
+
+        # 列标题行
+        header_row = []
+        for col_header in column_headers:
+            name = col_header.get("name", "")
+            header_row.append(name)
+
+        table.append(header_row)
+
+        # 数据行
+        for row_idx, row_header in enumerate(row_headers):
+            row_data = []
+
+            # 行标题
+            name = row_header.get("name", "")
+            row_data.append(name)
+
+            # 数据单元格
+            for col_idx, col_header in enumerate(column_headers):
+                cell_value = self._extract_cell_by_mapping(
+                    row_header.get("source", {}),
+                    col_header.get("source", {}),
+                    ocr_data,
+                    row_idx,
+                    col_idx
+                )
+                row_data.append(cell_value)
+
+            table.append(row_data)
+
+        return table
+
+    def _extract_header_from_source(self, source, ocr_data):
+        """
+        从source中提取表头数据
+        """
+        if not source:
+            return ""
+
+        if isinstance(source, list) and source:
+            source = source[0]
+
+        ocr_table_idx = source.get("ocr_table", 0)
+        ocr_row = source.get("ocr_row", 0)
+        ocr_col = source.get("ocr_column", 0)
+
+        return self._extract_from_position(ocr_table_idx, ocr_row, ocr_col, ocr_data)
+
+    def _extract_cell_by_mapping(self, row_source, col_source, ocr_data, row_idx, col_idx):
+        """
+        根据行列source映射提取单元格数据
+        """
+        # 优先使用数据映射（如果有的话）
+        # 否则使用行列source组合
+
+        if isinstance(row_source, list) and row_source:
+            row_source = row_source[0]
+
+        if isinstance(col_source, list) and col_source:
+            col_source = col_source[0]
+
+        # 组合映射：行source提供行号，列source提供列号
+        ocr_table_idx = col_source.get("ocr_table", row_source.get("ocr_table", 0))
+        ocr_row = row_source.get("ocr_row", row_idx + 1)  # +1跳过标题行
+        ocr_col = col_source.get("ocr_column", col_idx)
+
+        return self._extract_from_position(ocr_table_idx, ocr_row, ocr_col, ocr_data)
+
+    def _extract_from_position(self, ocr_table_idx, ocr_row, ocr_col, ocr_data):
+        """
+        从指定位置提取数据
+        """
+        if not ocr_data:
+            return ""
+
+        if ocr_table_idx >= len(ocr_data):
+            return ""
+
+        table_data = ocr_data[ocr_table_idx]
+
+        if (ocr_row < len(table_data) and
+                ocr_col < len(table_data[ocr_row])):
+            return table_data[ocr_row][ocr_col]
+
+        return ""
+
+    def _infer_table_type(self, table_info: Dict[str, Any]) -> str:
+        """
+        推断表格类型 - 增强版本
+        """
+        column_headers = table_info.get("column_headers", [])
+        row_headers = table_info.get("row_headers", [])
+        header_structure = table_info.get("header_structure", {})
+
+        # 首先检查header_structure中的类型
+        table_type = header_structure.get("type", "")
+        if table_type:
+            type_map = {
+                "simple": "简单表格",
+                "hierarchical": "分层表格",
+                "cross": "交叉表格"
+            }
+            return type_map.get(table_type, "其他表格")
+
+        # 如果没有header_structure，根据表头内容推断
+        # 检查分层表头
+        for col in column_headers:
+            name = col.get("name", "")
+            if "|→" in str(name):
+                return "分层表格"
+
+        for row in row_headers:
+            name = row.get("name", "")
+            if "|→" in str(name):
+                return "分层表格"
+
+        # 检查表头关键词
+        table_keywords = {
+            "财务报表": ["利润", "收入", "成本", "资产", "负债", "现金流", "损益"],
+            "股东信息": ["股东", "持股", "比例", "金额", "法人", "自然人"],
+            "关联方交易": ["关联", "贷款", "余额", "信用证", "承兑汇票", "占资本"],
+            "现金流量": ["经营", "投资", "筹资", "现金流量", "调整项目"],
+            "贷款信息": ["贷款", "贴现", "五级分类", "承兑汇票", "信用证"]
+        }
+
+        # 检查所有表头
+        all_headers = []
+        for col in column_headers:
+            all_headers.append(col.get("name", ""))
+        for row in row_headers:
+            all_headers.append(row.get("name", ""))
+
+        # 匹配关键词
+        for table_type, keywords in table_keywords.items():
+            for keyword in keywords:
+                for header in all_headers:
+                    if keyword in header:
+                        return table_type
+
+        return "其他表格"
+
+
+
+
+
+def export_analysis_to_excel(analysis_results: Dict[str, Any],
+                             output_path: str,
+                             ocr_data: List[Dict[str, Any]] = None) -> str:
+    """
+    导出分析结果到Excel的主函数
+
+    Args:
+        analysis_results: LLM分析结果
+        output_path: 输出文件路径
+        ocr_data: OCR提取数据（可选）
+
+    Returns:
+        输出的文件路径
+    """
+    generator = ExcelTableGenerator()
+    return generator.export_to_excel(analysis_results, output_path, ocr_data)
+
+
+def export_from_json(json_path: str, output_dir: str = "./output") -> str:
+    """
+    从JSON文件导出Excel
+
+    Args:
+        json_path: JSON文件路径
+        output_dir: 输出目录
+
+    Returns:
+        输出的文件路径
+    """
     os.makedirs(output_dir, exist_ok=True)
 
-    with open(analysis_json_path, 'r', encoding='utf-8') as f:
+    with open(json_path, 'r', encoding='utf-8') as f:
         analysis_results = json.load(f)
 
-    base_name = os.path.splitext(os.path.basename(analysis_json_path))[0]
+    # 生成输出文件名
+    base_name = os.path.splitext(os.path.basename(json_path))[0]
     if base_name.endswith('_analysis'):
         base_name = base_name[:-9]
 
-    output_filename = f"{base_name}_aligned.xlsx"
+    output_filename = f"{base_name}_tables.xlsx"
     output_path = os.path.join(output_dir, output_filename)
 
-    generator = ExcelTableGenerator()
-    return generator.export_analysis_to_excel(analysis_results, output_path)
-
-
-def generate_excel_directly(analysis_results: Dict[str, Any],
-                            image_path: str,
-                            output_dir: str = "./output") -> str:
-    """直接从分析结果生成Excel"""
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    base_name = os.path.splitext(os.path.basename(image_path))[0]
-    output_filename = f"{base_name}_aligned.xlsx"
-    output_path = os.path.join(output_dir, output_filename)
-
-    generator = ExcelTableGenerator()
-    return generator.export_analysis_to_excel(analysis_results, output_path)
+    # 导出Excel
+    return export_analysis_to_excel(analysis_results, output_path)
 
 
 # 主函数
 if __name__ == "__main__":
-    analysis_json_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\514001_152_analysis.json"
-    output_dir = r"./output"
+    # 示例用法
+    json_path = "analysis_results.json"
+    output_dir = "./output"
 
     try:
-        result_file = generate_excel_from_analysis(analysis_json_path, output_dir)
-        print(f"生成成功: {result_file}")
+        result_file = export_from_json(json_path, output_dir)
+        print(f"Excel文件生成成功: {result_file}")
     except Exception as e:
         print(f"生成失败: {str(e)}")
-        import traceback
-
-        traceback.print_exc()

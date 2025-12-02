@@ -8,7 +8,7 @@ from test_codes.enhanced_table_analyzer.config import settings
 
 
 class EnhancedFinancialTableAnalyzer:
-    """增强版金融表格分析器 - 表格结构分析"""
+    """增强版金融表格分析器 - 全局分析+语义对齐"""
 
     def __init__(self):
         self.client = OpenAI(
@@ -58,72 +58,59 @@ class EnhancedFinancialTableAnalyzer:
                 }
             })
 
-        return json.dumps({"ocr_tables": tables_info}, ensure_ascii=False, indent=2)
+        return json.dumps({"ocr_tables": tables_info}, ensure_ascii=False)
 
     def _build_global_analysis_prompt(self, ocr_summary: str) -> str:
-        """构建全局分析prompt - 最终简化版"""
+        """构建全局分析prompt"""
         return f"""
-    【任务】分析图片中的表格，提取表头结构，只输出组合好的表头文本。
+【核心任务】
+分析图片中的表格结构，建立表头与OCR数据的准确映射。
 
-    【OCR数据参考】{ocr_summary}
+【OCR检测结果】
+OCR系统检测到以下表格分区：
+{ocr_summary}
 
-    【横向表头规则】
-    1. 对每一列，从上到下组合所有表头层级
-    2. 格式："顶层>>中层>>底层"
-    3. 必须包含表格中每一列的表头路径
-    4. 输出为字符串数组，每个元素是一列的表头路径，该列没有则用""占位,数量与列数相同，不能省略
+【分析要求】
+1. 判断实际有几个独立表格（OCR可能错误分割）
+2. 识别每个表格的行表头和列表头
+3. 将表头映射到OCR数据的具体位置
 
-    【纵向表头规则】
-    1. 识别分组：如果某行在数据区为空或只有表头文本，这是高级表头
-    2. 组合方式：高级表头 + 次级表头 + 具体数据文本
-    3. 格式："高级表头>>次级表头>>数据内容"
-    4. 每个有数据的行都要有一条对应的路径，并且符合语义层面的包含关系
-    5. 输出为字符串数组，一定不能为空
-    
-    【特别注意】
-    1、表头内容要基于图片和ocr_summary给出
-    2、一定不能漏掉横向或纵向的表头信息
-    
+【映射规则】
+- 每个表头必须指定：ocr_table_id, ocr_row, ocr_col
+- 优先映射到数据直接对应的表头层级
+- 对于多级表头，用"|"表示层级
 
-    【分组表示例】
-    表格：
-    | 地区 | 城市 | 销售额 |
-    |------|------|--------|
-    | 华东 |      |        |
-    |      | 上海 | 100    |
-    |      | 南京 | 90     |
-    | 华北 |      |        |
-    |      | 北京 | 120    |
-
-    正确输出：
+【输出格式】
+{{
+  "visual_tables": [
     {{
-      "tables": [
-        {{
-          "id": "1",
-          "ocr_tables": [0], # 在ocr_summary中对应的表格序号
-          "headers": {{
-            "cols": ["地区", "城市", "销售额"],
-            "rows": [
-              "地区>>华东>>城市>>上海",
-              "地区>>华东>>城市>>南京", 
-              "地区>>华北>>城市>>北京"
-            ]
+      "visual_id": 0,
+      "name": "表格名称",
+      "contains_ocr_tables": [0, 1],  // 可能对应多个OCR分区
+      "headers": {{
+        "row_headers": [  // 纵向表头
+          {{
+            "name": "表头内容",
+            "ocr_ref": {{"table_id": 0, "row": 2, "col": 0}}
           }}
-        }}
-      ]
+        ],
+        "column_headers": [  // 横向表头
+          {{
+            "name": "表头内容", 
+            "ocr_ref": {{"table_id": 0, "row": 0, "col": 1}}
+          }}
+        ]
+      }},
+      "data_region": {{"start_row": 2, "start_col": 1}}  // 数据起始位置
     }}
+  ]
+}}
 
-    【注意】
-    1. 只输出JSON，不要解释
-    2. 路径用>>连接，不要空格
-    3. 确保横向表头覆盖每一列
-    4. 纵向表头要识别分组结构并组合
-
-    现在分析，直接输出：
-    """
+只输出JSON，不要其他内容。
+"""
 
     def _call_llm_global(self, base64_image: str, prompt: str) -> Dict[str, Any]:
-        """调用LLM进行全局分析 - 最终版"""
+        """调用LLM进行全局分析"""
         start_time = time.time()
 
         response = self.client.chat.completions.create(
@@ -135,10 +122,7 @@ class EnhancedFinancialTableAnalyzer:
                     {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
                 ]
             }],
-            temperature=0,
-            top_p=0.1,
-            seed=42,
-            response_format={"type": "json_object"}
+            temperature=0.1
         )
 
         elapsed = time.time() - start_time
@@ -146,23 +130,16 @@ class EnhancedFinancialTableAnalyzer:
 
         # 提取JSON
         try:
+            # 清理可能的markdown标记
             if content.startswith("```"):
                 lines = content.split("\n")
                 content = "\n".join(lines[1:-1]) if len(lines) > 2 else content
 
             result = json.loads(content)
 
-            # 验证格式 - 简化验证
-            if "tables" not in result:
-                raise ValueError("响应缺少tables字段")
-
-            for i, table in enumerate(result["tables"]):
-                if "id" not in table or "headers" not in table:
-                    raise ValueError(f"表格{i}缺少必要字段")
-                if not isinstance(table["headers"].get("cols"), list):
-                    raise ValueError(f"表格{i}的cols不是数组")
-                if not isinstance(table["headers"].get("rows"), list):
-                    raise ValueError(f"表格{i}的rows不是数组")
+            # 简单验证
+            if "visual_tables" not in result:
+                raise ValueError("响应缺少visual_tables字段")
 
         except (json.JSONDecodeError, ValueError) as e:
             raise ValueError(f"LLM响应解析失败: {e}\n原始内容: {content[:200]}...")
@@ -176,7 +153,7 @@ class EnhancedFinancialTableAnalyzer:
         }
 
         return {
-            "tables": result["tables"],
+            "analysis": result,
             "time_sec": round(elapsed, 2),
             "token_usage": token_usage
         }
@@ -198,14 +175,12 @@ class EnhancedFinancialTableAnalyzer:
         return {
             "success": True,
             "image_info": ocr_result.get("image_info", {}),
-            "tables_structure": {  # 改为tables_structure字段
-                "tables": llm_result["tables"]
-            },
+            "global_analysis": llm_result["analysis"],
             "processing_stats": {
                 "analysis_time_sec": llm_result["time_sec"],
                 "ocr_tables_count": len(ocr_result.get("tables_result", [])),
-                "visual_tables_count": len(llm_result["tables"]),  # 改为tables字段
-                "token_usage": llm_result["token_usage"]
+                "visual_tables_count": len(llm_result["analysis"].get("visual_tables", [])),
+                "token_usage": llm_result["token_usage"]  # 新增token消耗统计
             }
         }
 
@@ -247,37 +222,22 @@ if __name__ == "__main__":
     from test_codes.enhanced_table_analyzer.ocr_service import TableOCRService
 
     ocr_service = TableOCRService()
-    image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\123.png"
-    # image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png"
+    image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\514001_152.png"
 
     # 1. OCR识别
     ocr_result = ocr_service.recognize_table(image_path)
 
-    print("ocr_result:", ocr_result)
-
     # 2. 全局分析
     from pprint import pprint
-
     result = analyzer.analyze_image(image_path, ocr_result)
-    print("llm_result:", result)
 
     pprint(result)
 
     print(f"分析完成，发现{result['processing_stats']['visual_tables_count']}个表格")
 
     # 3. 使用映射关系提取数据
-    for table in result["tables_structure"]["tables"]:
-        print(f"\n表格ID: {table.get('id')}")
-        print(f"横向表头({len(table['headers']['cols'])}个):")
-        for col_path in table["headers"]["cols"]:
-            print(f"  {col_path}")
-
-        print(f"纵向表头({len(table['headers']['rows'])}个):")
-        if len(table["headers"]["rows"]) > 10:
-            for row_path in table["headers"]["rows"][:5]:
-                print(f"  {row_path}")
-            print(f"  ... 还有{len(table['headers']['rows']) - 5}个")
-        else:
-            for row_path in table["headers"]["rows"]:
-                print(f"  {row_path}")
-        print("-" * 50)
+    for table in result["global_analysis"]["visual_tables"]:
+        print(f"表格: {table.get('name', '未命名')}")
+        print(f"包含OCR分区: {table.get('contains_ocr_tables', [])}")
+        print(f"行表头: {[h['name'] for h in table['headers']['row_headers']]}")
+        print(f"列表头: {[h['name'] for h in table['headers']['column_headers']]}")
