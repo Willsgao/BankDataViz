@@ -1,0 +1,674 @@
+{
+  "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_029.png",
+  "image_id": "img_cdfda98cfc82",
+  "tables_count": 4,
+  "tables_analysis": [
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_029.png",
+        "image_id": "img_cdfda98cfc82"
+      },
+      "table_info": {
+        "table_id": 1,
+        "table_index": 0,
+        "dimensions": {
+          "rows": 11,
+          "cols": 5
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "债券名称",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "面值",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "年利率(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "到期日",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "计提减值准备",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0
+            ],
+            "vertical_header_cols": [],
+            "horizontal_header_depth": 1,
+            "vertical_header_depth": 0
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 4.53,
+        "token_usage": {
+          "prompt_tokens": 2608,
+          "completion_tokens": 260,
+          "total_tokens": 2868
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 11,
+            "cols": 5
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "债券名称",
+                "面值",
+                "年利率(%)",
+                "到期日",
+                "计提减值准备"
+              ],
+              [
+                "19农发08",
+                "2,100,000",
+                "3.63",
+                "2026-07-19",
+                "0.00"
+              ],
+              [
+                "18农发11",
+                "1,290,000",
+                "4.00",
+                "2025-11-12",
+                "0.00"
+              ],
+              [
+                "20进出05",
+                "1,280,000",
+                "2.93",
+                "2025-03-02",
+                "0.00"
+              ],
+              [
+                "17农发05",
+                "1,000,000",
+                "3.85",
+                "2027-01-06",
+                "0.00"
+              ],
+              [
+                "ICBCAS 2.2\n06/25/27",
+                "1,000,000",
+                "2.20",
+                "2027-06-25",
+                "427.04"
+              ],
+              [
+                "AGRBK 2.12\n12/10/27",
+                "900,000",
+                "2.12",
+                "2027-12-10",
+                "383.37"
+              ],
+              [
+                "24国开清发03",
+                "790,000",
+                "1.80",
+                "2027-09-02",
+                "0.00"
+              ],
+              [
+                "16进出10",
+                "750,000",
+                "3.18",
+                "2026-09-05",
+                "0.00"
+              ],
+              [
+                "16农发08",
+                "620,000",
+                "3.37",
+                "2026-02-26",
+                "0.00"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "债券名称",
+                "面值",
+                "年利率(%)"
+              ],
+              [
+                "19农发08",
+                "2,100,000",
+                "3.63"
+              ],
+              [
+                "18农发11",
+                "1,290,000",
+                "4.00"
+              ],
+              [
+                "20进出05",
+                "1,280,000",
+                "2.93"
+              ],
+              [
+                "17农发05",
+                "1,000,000",
+                "3.85"
+              ],
+              [
+                "ICBCAS 2.2\n06/25/27",
+                "1,000,000",
+                "2.20"
+              ],
+              [
+                "AGRBK 2.12\n12/10/27",
+                "900,000",
+                "2.12"
+              ],
+              [
+                "24国开清发03",
+                "790,000",
+                "1.80"
+              ],
+              [
+                "16进出10",
+                "750,000",
+                "3.18"
+              ],
+              [
+                "16农发08",
+                "620,000",
+                "3.37"
+              ],
+              [
+                "18国开06",
+                "620,000",
+                "4.73"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 53,
+            "coverage_percentage": 96.4
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"债券名称\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"面值\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"年利率(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"到期日\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"计提减值准备\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0],\n            \"vertical_header_cols\": [],\n            \"horizontal_header_depth\": 1,\n            \"vertical_header_depth\": 0\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_029.png",
+        "image_id": "img_cdfda98cfc82"
+      },
+      "table_info": {
+        "table_id": 2,
+        "table_index": 1,
+        "dimensions": {
+          "rows": 4,
+          "cols": 5
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "2024年12月31日.金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日.减值准备金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日.金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日.减值准备金额",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "类别.房屋及建筑物",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "类别.合计",
+              "is_statistical": true,
+              "is_header": true
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 4.46,
+        "token_usage": {
+          "prompt_tokens": 2128,
+          "completion_tokens": 342,
+          "total_tokens": 2470
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 4,
+            "cols": 5
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "类别",
+                "2024年12月31日",
+                "2024年12月31日",
+                "2023年12月31日",
+                "2023年12月31日"
+              ],
+              [
+                "类别",
+                "金额",
+                "减值准备金额",
+                "金额",
+                "减值准备金额"
+              ],
+              [
+                "房屋及建筑物",
+                "370,479",
+                "206,992",
+                "372,628",
+                "170,224"
+              ],
+              [
+                "合计",
+                "370,479",
+                "206,992",
+                "372,628",
+                "170,224"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "类别",
+                "2024年12月31日",
+                "2024年12月31日"
+              ],
+              [
+                "类别",
+                "金额",
+                "减值准备金额"
+              ],
+              [
+                "房屋及建筑物",
+                "370,479",
+                "206,992"
+              ],
+              [
+                "合计",
+                "370,479",
+                "206,992"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 32,
+            "coverage_percentage": 160.0
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"2024年12月31日.金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2024年12月31日.减值准备金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日.金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日.减值准备金额\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"类别.房屋及建筑物\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"类别.合计\", \"is_statistical\": true, \"is_header\": true}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_029.png",
+        "image_id": "img_cdfda98cfc82"
+      },
+      "table_info": {
+        "table_id": 3,
+        "table_index": 2,
+        "dimensions": {
+          "rows": 6,
+          "cols": 4
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "期末余额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "期初余额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "本期变动",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              3
+            ],
+            "vertical_header_cols": [],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 2,
+            "visual_observed": 2,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 3.88,
+        "token_usage": {
+          "prompt_tokens": 2169,
+          "completion_tokens": 247,
+          "total_tokens": 2416
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 6,
+            "cols": 4
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "项目",
+                "期末余额",
+                "期初余额",
+                "本期变动"
+              ],
+              [
+                "应收利息",
+                "638,897",
+                "563,369",
+                "75,528"
+              ],
+              [
+                "坏账准备",
+                "450,708",
+                "386,310",
+                "64,398"
+              ],
+              [
+                "项目",
+                "期末余额",
+                "期初余额",
+                "本期变动"
+              ],
+              [
+                "其他应收款",
+                "890,438",
+                "1,114,409",
+                "-223,971"
+              ],
+              [
+                "坏账准备",
+                "147,549",
+                "112,491",
+                "35,058"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "项目",
+                "期末余额",
+                "期初余额"
+              ],
+              [
+                "应收利息",
+                "638,897",
+                "563,369"
+              ],
+              [
+                "坏账准备",
+                "450,708",
+                "386,310"
+              ],
+              [
+                "项目",
+                "期末余额",
+                "期初余额"
+              ],
+              [
+                "其他应收款",
+                "890,438",
+                "1,114,409"
+              ],
+              [
+                "坏账准备",
+                "147,549",
+                "112,491"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 28,
+            "coverage_percentage": 116.7
+          }
+        },
+        "raw_llm_response": "{\n  \"table_headers\": {\n    \"horizontal\": [{\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"期末余额\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"期初余额\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"本期变动\", \"is_statistical\": false, \"is_header\": true}],\n    \"vertical\": [{\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}],\n    \"header_positions\": {\n      \"horizontal_header_rows\": [0, 3],\n      \"vertical_header_cols\": [],\n      \"horizontal_header_depth\": 2,\n      \"vertical_header_depth\": 1\n    }\n  },\n  \"consistency_checks\": {\n    \"table_count\": {\"ocr_reported\": 2, \"visual_observed\": 2, \"match\": true, \"needs_human\": false},\n    \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n  }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_029.png",
+        "image_id": "img_cdfda98cfc82"
+      },
+      "table_info": {
+        "table_id": 4,
+        "table_index": 3,
+        "dimensions": {
+          "rows": 2,
+          "cols": 5
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "金额变动比例(%)",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 2,
+            "visual_observed": 1,
+            "match": false,
+            "needs_human": true
+          },
+          "text_vs_visual": {
+            "match": false,
+            "needs_human": true
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 5.0,
+        "token_usage": {
+          "prompt_tokens": 1999,
+          "completion_tokens": 286,
+          "total_tokens": 2285
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 2,
+            "cols": 5
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "项目",
+                "2024年12月31日",
+                "2023年12月31日",
+                "2023年12月31日",
+                "金额变动\n比例(%)"
+              ],
+              [
+                "项目",
+                "金额\n占比(%)",
+                "金额",
+                "占比(%)",
+                "金额变动\n比例(%)"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "项目",
+                "2024年12月31日",
+                "2023年12月31日"
+              ],
+              [
+                "项目",
+                "金额\n占比(%)",
+                "金额"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 26,
+            "coverage_percentage": 260.0
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2024年12月31日\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"金额变动比例(%)\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 2, \"visual_observed\": 1, \"match\": false, \"needs_human\": true},\n        \"text_vs_visual\": {\"match\": false, \"needs_human\": true}\n    }\n}"
+      }
+    }
+  ],
+  "summary": {
+    "total_tables": 4,
+    "successfully_analyzed": 4,
+    "failed": 0
+  }
+}

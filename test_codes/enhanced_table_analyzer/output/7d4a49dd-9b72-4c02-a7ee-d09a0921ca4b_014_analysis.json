@@ -1,0 +1,574 @@
+{
+  "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png",
+  "image_id": "img_3ec29bd7b050",
+  "tables_count": 2,
+  "tables_analysis": [
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png",
+        "image_id": "img_3ec29bd7b050"
+      },
+      "table_info": {
+        "table_id": 1,
+        "table_index": 0,
+        "dimensions": {
+          "rows": 28,
+          "cols": 7
+        },
+        "ocr_reported_tables": 2
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "2024年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "变化(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2021年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2020年",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "营业收入",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "利息净收入",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "手续费及佣金净收入",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "其他非利息收入",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "业务及管理费",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "信用减值损失",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "其他资产减值损失",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "营业利润",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "利润总额",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 5.0,
+        "token_usage": {
+          "prompt_tokens": 2666,
+          "completion_tokens": 521,
+          "total_tokens": 3187
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 28,
+            "cols": 7
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "全年业绩",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+              ],
+              [
+                "营业收入",
+                "750,151",
+                "769,736",
+                "(2.54)",
+                "783,760",
+                "824,246",
+                "755,858"
+              ],
+              [
+                "利息净收入",
+                "589,882",
+                "617,233",
+                "(4.43)",
+                "643,669",
+                "605,420",
+                "575,909"
+              ],
+              [
+                "手续费及佣金净收入",
+                "104,928",
+                "115,746",
+                "(9.35)",
+                "116,085",
+                "121,492",
+                "114,582"
+              ],
+              [
+                "其他非利息收入",
+                "55,341",
+                "36,757",
+                "50.56",
+                "24,006",
+                "97,334",
+                "65,367"
+              ],
+              [
+                "业务及管理费",
+                "(214,312)",
+                "(210,088)",
+                "2.01",
+                "(210,896)",
+                "(209,864)",
+                "(179,308)"
+              ],
+              [
+                "信用减值损失",
+                "(120,700)",
+                "(136,774)",
+                "(11.75)",
+                "(154,535)",
+                "(167,949)",
+                "(193,491)"
+              ],
+              [
+                "其他资产减值损失",
+                "(298)",
+                "(463)",
+                "(35.64)",
+                "(479)",
+                "(766)",
+                "3,562"
+              ],
+              [
+                "营业利润",
+                "384,272",
+                "389,227",
+                "(1.27)",
+                "383,625",
+                "378,776",
+                "337,246"
+              ],
+              [
+                "利润总额",
+                "384,377",
+                "389,377",
+                "(1.28)",
+                "383,699",
+                "378,412",
+                "336,616"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "全年业绩",
+                "",
+                ""
+              ],
+              [
+                "营业收入",
+                "750,151",
+                "769,736"
+              ],
+              [
+                "利息净收入",
+                "589,882",
+                "617,233"
+              ],
+              [
+                "手续费及佣金净收入",
+                "104,928",
+                "115,746"
+              ],
+              [
+                "其他非利息收入",
+                "55,341",
+                "36,757"
+              ],
+              [
+                "业务及管理费",
+                "(214,312)",
+                "(210,088)"
+              ],
+              [
+                "信用减值损失",
+                "(120,700)",
+                "(136,774)"
+              ],
+              [
+                "其他资产减值损失",
+                "(298)",
+                "(463)"
+              ],
+              [
+                "营业利润",
+                "384,272",
+                "389,227"
+              ],
+              [
+                "利润总额",
+                "384,377",
+                "389,377"
+              ],
+              [
+                "净利润",
+                "336,282",
+                "332,460"
+              ],
+              [
+                "归属于本行股东的净利润",
+                "335,577",
+                "332,653"
+              ],
+              [
+                "归属于本行普通股股东的净利润",
+                "328,469",
+                "327,543"
+              ],
+              [
+                "扣除非经常性损益后归属于本行股东的净利润",
+                "335,323",
+                "332,291"
+              ],
+              [
+                "经营活动产生的现金流量净额",
+                "338,023",
+                "642,850"
+              ],
+              [
+                "于12月31日",
+                "",
+                ""
+              ],
+              [
+                "资产总额",
+                "40,571,149",
+                "38,324,826"
+              ],
+              [
+                "发放贷款和垫款净额",
+                "25,040,400",
+                "23,083,377"
+              ],
+              [
+                "负债总额",
+                "37,227,184",
+                "35,152,752"
+              ],
+              [
+                "吸收存款",
+                "28,713,870",
+                "27,654,011"
+              ],
+              [
+                "股东权益",
+                "3,343,965",
+                "3,172,074"
+              ],
+              [
+                "归属于本行股东权益",
+                "3,322,127",
+                "3,150,145"
+              ],
+              [
+                "股本",
+                "250,011",
+                "250,011"
+              ],
+              [
+                "核心一级资本净额2",
+                "3,165,549",
+                "2,944,386"
+              ],
+              [
+                "其他一级资本净额",
+                "158,875",
+                "200,088"
+              ],
+              [
+                "二级资本净额2",
+                "978,839",
+                "876,187"
+              ],
+              [
+                "资本净额2",
+                "4,303,263",
+                "4,020,661"
+              ],
+              [
+                "风险加权资产2",
+                "21,854,590",
+                "22,395,908"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 124,
+            "coverage_percentage": 63.3
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"2024年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"变化(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2021年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2020年\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"营业收入\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"利息净收入\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"手续费及佣金净收入\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"其他非利息收入\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"业务及管理费\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"信用减值损失\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"其他资产减值损失\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"营业利润\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"利润总额\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png",
+        "image_id": "img_3ec29bd7b050"
+      },
+      "table_info": {
+        "table_id": 2,
+        "table_index": 1,
+        "dimensions": {
+          "rows": 4,
+          "cols": 7
+        },
+        "ocr_reported_tables": 2
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "2024年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "变化(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2022年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2021年",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2020年",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "基本和稀释每股收益",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "扣除非经常性损益后的基本和稀释每股收益",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "归属于本行普通股股东的每股净资产",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "每股经营活动产生的现金流量净额",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1,
+              2
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 3,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 5.15,
+        "token_usage": {
+          "prompt_tokens": 2159,
+          "completion_tokens": 424,
+          "total_tokens": 2583
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 4,
+            "cols": 7
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "基本和稀释每股收益",
+                "1.31",
+                "1.31",
+                "—",
+                "1.28",
+                "1.19",
+                "1.06"
+              ],
+              [
+                "扣除非经常性损益后的基本和稀释每股收益",
+                "1.31",
+                "1.31",
+                "—",
+                "1.28",
+                "1.19",
+                "1.07"
+              ],
+              [
+                "归属于本行普通股股东的每股净资产",
+                "12.65",
+                "11.80",
+                "7.20",
+                "10.86",
+                "9.95",
+                "9.06"
+              ],
+              [
+                "每股经营活动产生的现金流量净额",
+                "1.35",
+                "2.57",
+                "(47.47)",
+                "3.91",
+                "1.75",
+                "2.32"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "基本和稀释每股收益",
+                "1.31",
+                "1.31"
+              ],
+              [
+                "扣除非经常性损益后的基本和稀释每股收益",
+                "1.31",
+                "1.31"
+              ],
+              [
+                "归属于本行普通股股东的每股净资产",
+                "12.65",
+                "11.80"
+              ],
+              [
+                "每股经营活动产生的现金流量净额",
+                "1.35",
+                "2.57"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 52,
+            "coverage_percentage": 185.7
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"2024年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"变化(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2021年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2020年\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"基本和稀释每股收益\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"扣除非经常性损益后的基本和稀释每股收益\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"归属于本行普通股股东的每股净资产\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"每股经营活动产生的现金流量净额\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1, 2],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 3,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    }
+  ],
+  "summary": {
+    "total_tables": 2,
+    "successfully_analyzed": 2,
+    "failed": 0
+  }
+}

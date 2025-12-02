@@ -1,13 +1,13 @@
 {
-  "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
-  "image_id": "img_0dea808f809c",
+  "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514001_152.png",
+  "image_id": "img_4e391d0cbe3b",
   "tables_count": 4,
   "tables_analysis": [
     {
       "success": true,
       "image_info": {
-        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
-        "image_id": "img_0dea808f809c"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514001_152.png",
+        "image_id": "img_4e391d0cbe3b"
       },
       "table_info": {
         "table_id": 1,
@@ -99,11 +99,11 @@
         }
       },
       "processing_stats": {
-        "analysis_time_sec": 4.89,
+        "analysis_time_sec": 5.23,
         "token_usage": {
           "prompt_tokens": 2468,
-          "completion_tokens": 398,
-          "total_tokens": 2866
+          "completion_tokens": 423,
+          "total_tokens": 2891
         }
       },
       "source_data": {
@@ -194,251 +194,19 @@
             "coverage_percentage": 100.0
           }
         },
-        "raw_llm_response": "{\n      \"table_headers\": {\n        \"horizontal\": [{\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2023年\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2022年\", \"is_statistical\": false, \"is_header\": true}],\n        \"vertical\": [{\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"投资损失（减：收益）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"递延所得税资产减少（减：增加）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"递延所得税负债增加（减：减少）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"经营性应收项目的减少（减：增加）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"经营性应付项目的增加（减：减少）\", \"is_statistical\": false, \"is_header\": false}, {\"field_path\": \"经营活动产生的现金流量净额\", \"is_statistical\": false, \"is_header\": false}],\n        \"header_positions\": {\n          \"horizontal_header_rows\": [0],\n          \"vertical_header_cols\": [0],\n          \"horizontal_header_depth\": 1,\n          \"vertical_header_depth\": 1\n        }\n      },\n      \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n      }\n    }"
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"投资损失（减：收益）\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"递延所得税资产减少（减：增加）\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"递延所得税负债增加（减：减少）\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"经营性应收项目的减少（减：增加）\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"经营性应付项目的增加（减：减少）\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"经营活动产生的现金流量净额\", \"is_statistical\": false, \"is_header\": false}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 1,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
       }
+    },
+    {
+      "success": false,
+      "table_index": 1,
+      "error": "JSON解析失败: Expecting property name enclosed in double quotes: line 6 column 46 (char 370)\n响应内容: {\n      \"table_headers\": {\n        \"horizontal\": [{\"field_path\": \"法人股东名称\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2023年12月31日\", \"is_statistical\": false, \"is_header\": true}, {\"fie"
     },
     {
       "success": true,
       "image_info": {
-        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
-        "image_id": "img_0dea808f809c"
-      },
-      "table_info": {
-        "table_id": 2,
-        "table_index": 1,
-        "dimensions": {
-          "rows": 14,
-          "cols": 5
-        },
-        "ocr_reported_tables": 4
-      },
-      "analysis_result": {
-        "table_headers": {
-          "horizontal": [
-            {
-              "field_path": "法人股东名称",
-              "is_statistical": false,
-              "is_header": true
-            },
-            {
-              "field_path": "2023年12月31日持股金额",
-              "is_statistical": false,
-              "is_header": true
-            },
-            {
-              "field_path": "2023年12月31日持股比例",
-              "is_statistical": false,
-              "is_header": true
-            },
-            {
-              "field_path": "2022年12月31日持股金额",
-              "is_statistical": false,
-              "is_header": true
-            },
-            {
-              "field_path": "2022年12月31日持股比例",
-              "is_statistical": false,
-              "is_header": true
-            }
-          ],
-          "vertical": [],
-          "header_positions": {
-            "horizontal_header_rows": [
-              0,
-              1
-            ],
-            "vertical_header_cols": [],
-            "horizontal_header_depth": 2,
-            "vertical_header_depth": 0
-          }
-        },
-        "consistency_checks": {
-          "table_count": {
-            "ocr_reported": 1,
-            "visual_observed": 1,
-            "match": true,
-            "needs_human": false
-          },
-          "text_vs_visual": {
-            "match": true,
-            "needs_human": false
-          }
-        }
-      },
-      "processing_stats": {
-        "analysis_time_sec": 3.81,
-        "token_usage": {
-          "prompt_tokens": 2567,
-          "completion_tokens": 307,
-          "total_tokens": 2874
-        }
-      },
-      "source_data": {
-        "ocr_extract": {
-          "success": true,
-          "dimensions": {
-            "rows": 14,
-            "cols": 5
-          },
-          "extracted_data": {
-            "top_rows_all_cols": [
-              [
-                "法人股东名称",
-                "2023年12月31日",
-                "2023年12月31日",
-                "2022年12月31日",
-                "2022年12月31日"
-              ],
-              [
-                "法人股东名称",
-                "持股金额",
-                "持股比例",
-                "持股金额",
-                "持股比例"
-              ],
-              [
-                "浙江卫星控股股份有限公司",
-                "4,722.88",
-                "5.98%",
-                "3,937.20",
-                "5.23%"
-              ],
-              [
-                "中法控股集团有限公司",
-                "4,134.06",
-                "5.23%",
-                "3,937.20",
-                "5.23%"
-              ],
-              [
-                "浙江聚优非织造材料科技有限公司",
-                "2,128.45",
-                "2.69%",
-                "2,027.10",
-                "2.69%"
-              ],
-              [
-                "嘉兴农昕贸易有限公司",
-                "2,110.71",
-                "2.67%",
-                "2,010.20",
-                "2.67%"
-              ],
-              [
-                "嘉兴洁琪污水管网有限公司",
-                "1,773.77",
-                "2.24%",
-                "1,689.30",
-                "2.24%"
-              ],
-              [
-                "浙江荣祥纺织股份有限公司",
-                "1,185.26",
-                "1.50%",
-                "1,128.82",
-                "1.50%"
-              ],
-              [
-                "梦迪集团有限公司",
-                "1,177.63",
-                "1.49%",
-                "",
-                ""
-              ],
-              [
-                "浙江鸣春纺织股份有限公司",
-                "649.35",
-                "0.82%",
-                "618.42",
-                "0.82%"
-              ]
-            ],
-            "left_cols_all_rows": [
-              [
-                "法人股东名称",
-                "2023年12月31日",
-                "2023年12月31日"
-              ],
-              [
-                "法人股东名称",
-                "持股金额",
-                "持股比例"
-              ],
-              [
-                "浙江卫星控股股份有限公司",
-                "4,722.88",
-                "5.98%"
-              ],
-              [
-                "中法控股集团有限公司",
-                "4,134.06",
-                "5.23%"
-              ],
-              [
-                "浙江聚优非织造材料科技有限公司",
-                "2,128.45",
-                "2.69%"
-              ],
-              [
-                "嘉兴农昕贸易有限公司",
-                "2,110.71",
-                "2.67%"
-              ],
-              [
-                "嘉兴洁琪污水管网有限公司",
-                "1,773.77",
-                "2.24%"
-              ],
-              [
-                "浙江荣祥纺织股份有限公司",
-                "1,185.26",
-                "1.50%"
-              ],
-              [
-                "梦迪集团有限公司",
-                "1,177.63",
-                "1.49%"
-              ],
-              [
-                "浙江鸣春纺织股份有限公司",
-                "649.35",
-                "0.82%"
-              ],
-              [
-                "浙江天之华控股有限公司",
-                "649.35",
-                "0.82%"
-              ],
-              [
-                "嘉兴市荣成织造有限公司",
-                "590.65",
-                "0.75%"
-              ],
-              [
-                "浙江卫星商贸有限公司",
-                "",
-                ""
-              ],
-              [
-                "合计",
-                "19,122.11",
-                "24.19%"
-              ]
-            ]
-          },
-          "stats": {
-            "cells_extracted": 62,
-            "coverage_percentage": 88.6
-          }
-        },
-        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"法人股东名称\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2022年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 0\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
-      }
-    },
-    {
-      "success": true,
-      "image_info": {
-        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
-        "image_id": "img_0dea808f809c"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514001_152.png",
+        "image_id": "img_4e391d0cbe3b"
       },
       "table_info": {
         "table_id": 3,
@@ -508,11 +276,11 @@
         }
       },
       "processing_stats": {
-        "analysis_time_sec": 3.59,
+        "analysis_time_sec": 3.87,
         "token_usage": {
           "prompt_tokens": 2478,
-          "completion_tokens": 330,
-          "total_tokens": 2808
+          "completion_tokens": 315,
+          "total_tokens": 2793
         }
       },
       "source_data": {
@@ -678,14 +446,14 @@
             "coverage_percentage": 88.5
           }
         },
-        "raw_llm_response": "{\n  \"table_headers\": {\n    \"horizontal\": [\n      {\"field_path\": \"股东名称\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"银行现职\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2023年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2023年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2022年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true},\n      {\"field_path\": \"2022年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true}\n    ],\n    \"vertical\": [],\n    \"header_positions\": {\n      \"horizontal_header_rows\": [0, 1],\n      \"vertical_header_cols\": [],\n      \"horizontal_header_depth\": 2,\n      \"vertical_header_depth\": 0\n    }\n  },\n  \"consistency_checks\": {\n    \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n    \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n  }\n}"
+        "raw_llm_response": "{\n  \"table_headers\": {\n    \"horizontal\": [{\"field_path\": \"股东名称\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"银行现职\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2023年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2023年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2022年12月31日持股金额\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2022年12月31日持股比例\", \"is_statistical\": false, \"is_header\": true}],\n    \"vertical\": [],\n    \"header_positions\": {\n      \"horizontal_header_rows\": [0, 1],\n      \"vertical_header_cols\": [],\n      \"horizontal_header_depth\": 2,\n      \"vertical_header_depth\": 0\n    }\n  },\n  \"consistency_checks\": {\n    \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n    \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n  }\n}"
       }
     },
     {
       "success": true,
       "image_info": {
-        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs\\514001_152.png",
-        "image_id": "img_0dea808f809c"
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514001_152.png",
+        "image_id": "img_4e391d0cbe3b"
       },
       "table_info": {
         "table_id": 4,
@@ -770,7 +538,7 @@
         }
       },
       "processing_stats": {
-        "analysis_time_sec": 4.52,
+        "analysis_time_sec": 5.27,
         "token_usage": {
           "prompt_tokens": 2097,
           "completion_tokens": 357,
@@ -849,7 +617,7 @@
   ],
   "summary": {
     "total_tables": 4,
-    "successfully_analyzed": 4,
-    "failed": 0
+    "successfully_analyzed": 3,
+    "failed": 1
   }
 }

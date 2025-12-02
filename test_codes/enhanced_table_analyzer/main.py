@@ -94,6 +94,6 @@ def main(input_dir, output_dir):
 
 if __name__ == "__main__":
     # 直接指定图片文件夹地址
-    input_dir = r"E:\Datas\base_pros\DocuVista\test_codes\pngs"
+    input_dir = r"E:\Datas\base_pros\DocuVista\test_codes\pngs1"
     output_dir = r"E:\Datas\base_pros\DocuVista\test_codes\enhanced_table_analyzer\output"
     main(input_dir, output_dir)

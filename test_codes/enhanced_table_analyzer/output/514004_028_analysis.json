@@ -1,0 +1,795 @@
+{
+  "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_028.png",
+  "image_id": "img_75f83474592c",
+  "tables_count": 4,
+  "tables_analysis": [
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_028.png",
+        "image_id": "img_75f83474592c"
+      },
+      "table_info": {
+        "table_id": 1,
+        "table_index": 0,
+        "dimensions": {
+          "rows": 7,
+          "cols": 6
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日占比(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日占比(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "变动比例(%)",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "交易性金融资产",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "债权投资",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "其他债权投资",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "其他权益工具投资",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "合计",
+              "is_statistical": true,
+              "is_header": false
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 7.07,
+        "token_usage": {
+          "prompt_tokens": 2407,
+          "completion_tokens": 478,
+          "total_tokens": 2885
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 7,
+            "cols": 6
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "项目",
+                "2024年12月31日",
+                "2024年12月31日",
+                "2023年12月31日",
+                "2023年12月31日",
+                "变动比例\n(%)"
+              ],
+              [
+                "项目",
+                "金额",
+                "占比(%)",
+                "金额",
+                "占比(%)",
+                "变动比例\n(%)"
+              ],
+              [
+                "交易性金融资产",
+                "110,517,038",
+                "22.54",
+                "121,020,036",
+                "28.61",
+                "-8.68"
+              ],
+              [
+                "债权投资",
+                "272,281,367",
+                "55.53",
+                "247,876,479",
+                "58.60",
+                "9.85"
+              ],
+              [
+                "其他债权投资",
+                "107,132,072",
+                "21.85",
+                "53,821,948",
+                "12.73",
+                "99.05"
+              ],
+              [
+                "其他权益工具投资",
+                "407,671",
+                "0.08",
+                "240,910",
+                "0.06",
+                "69.22"
+              ],
+              [
+                "合计",
+                "490,338,148",
+                "100.00",
+                "422,959,373",
+                "100.00",
+                "15.93"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "项目",
+                "2024年12月31日",
+                "2024年12月31日"
+              ],
+              [
+                "项目",
+                "金额",
+                "占比(%)"
+              ],
+              [
+                "交易性金融资产",
+                "110,517,038",
+                "22.54"
+              ],
+              [
+                "债权投资",
+                "272,281,367",
+                "55.53"
+              ],
+              [
+                "其他债权投资",
+                "107,132,072",
+                "21.85"
+              ],
+              [
+                "其他权益工具投资",
+                "407,671",
+                "0.08"
+              ],
+              [
+                "合计",
+                "490,338,148",
+                "100.00"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 51,
+            "coverage_percentage": 121.4
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2024年12月31日金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2024年12月31日占比(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日占比(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"变动比例(%)\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"交易性金融资产\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"债权投资\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"其他债权投资\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"其他权益工具投资\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"合计\", \"is_statistical\": true, \"is_header\": false}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_028.png",
+        "image_id": "img_75f83474592c"
+      },
+      "table_info": {
+        "table_id": 2,
+        "table_index": 1,
+        "dimensions": {
+          "rows": 6,
+          "cols": 6
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日占比(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2023年12月31日占比(%)",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "变动比例(%)",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "项目",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "债券",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "小计",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "应计利息",
+              "is_statistical": false,
+              "is_header": false
+            },
+            {
+              "field_path": "合计",
+              "is_statistical": false,
+              "is_header": false
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0,
+              1
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 2,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 5.88,
+        "token_usage": {
+          "prompt_tokens": 2279,
+          "completion_tokens": 449,
+          "total_tokens": 2728
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 6,
+            "cols": 6
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "项目",
+                "2024年12月31日",
+                "2024年12月31日",
+                "2023年12月31日",
+                "2023年12月31日",
+                "变动比例\n(%)"
+              ],
+              [
+                "项目",
+                "金额",
+                "占比(%)",
+                "金额",
+                "占比(%)",
+                "变动比例\n(%)"
+              ],
+              [
+                "债券",
+                "46,150,680",
+                "100.00",
+                "36,882,364",
+                "100.00",
+                "25.13"
+              ],
+              [
+                "小计",
+                "46,150,680",
+                "100.00",
+                "36,882,364",
+                "100.00",
+                "25.13"
+              ],
+              [
+                "应计利息",
+                "14,920",
+                "",
+                "38,224",
+                "",
+                "-60.97"
+              ],
+              [
+                "合计",
+                "46,165,600",
+                "",
+                "36,920,588",
+                "",
+                "25.04"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "项目",
+                "2024年12月31日",
+                "2024年12月31日"
+              ],
+              [
+                "项目",
+                "金额",
+                "占比(%)"
+              ],
+              [
+                "债券",
+                "46,150,680",
+                "100.00"
+              ],
+              [
+                "小计",
+                "46,150,680",
+                "100.00"
+              ],
+              [
+                "应计利息",
+                "14,920",
+                ""
+              ],
+              [
+                "合计",
+                "46,165,600",
+                ""
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 48,
+            "coverage_percentage": 133.3
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2024年12月31日金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2024年12月31日占比(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日金额\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"2023年12月31日占比(%)\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"变动比例(%)\", \"is_statistical\": false, \"is_header\": true}\n        ],\n        \"vertical\": [\n            {\"field_path\": \"项目\", \"is_statistical\": false, \"is_header\": true},\n            {\"field_path\": \"债券\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"小计\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"应计利息\", \"is_statistical\": false, \"is_header\": false},\n            {\"field_path\": \"合计\", \"is_statistical\": false, \"is_header\": false}\n        ],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0, 1],\n            \"vertical_header_cols\": [0],\n            \"horizontal_header_depth\": 2,\n            \"vertical_header_depth\": 1\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_028.png",
+        "image_id": "img_75f83474592c"
+      },
+      "table_info": {
+        "table_id": 3,
+        "table_index": 2,
+        "dimensions": {
+          "rows": 7,
+          "cols": 9
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "资产类别",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年1月1日",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "本期公允价值变动收益",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "计入权益的累积公允价值变动",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "本期计提的减值",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "本期购买金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "本期出售/赎回金额",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "其他变动",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "2024年12月31日",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [
+            {
+              "field_path": "资产类别",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0
+            ],
+            "vertical_header_cols": [
+              0
+            ],
+            "horizontal_header_depth": 1,
+            "vertical_header_depth": 1
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 4.71,
+        "token_usage": {
+          "prompt_tokens": 2638,
+          "completion_tokens": 382,
+          "total_tokens": 3020
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 7,
+            "cols": 9
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "资产类别",
+                "2024年1月\n1日",
+                "本期公允\n价值变动\n收益",
+                "计入权益\n的累积公\n允价值变\n动",
+                "本期计\n提的减\n值",
+                "本期购买金\n额",
+                "本期出售/赎\n回金额",
+                "其他变动",
+                "2024年12\n月31日"
+              ],
+              [
+                "交易性金融资产",
+                "121,020,036",
+                "1,035,198",
+                "",
+                "",
+                "2,951,484,070",
+                "2,983,568,495",
+                "20,546,230",
+                "110,517,038"
+              ],
+              [
+                "其他债权投资",
+                "53,821,948",
+                "",
+                "1,247,441",
+                "14,101",
+                "239,191,824",
+                "189,521,635",
+                "2,504,382",
+                "107,132,072"
+              ],
+              [
+                "其他权益工具投资",
+                "240,910",
+                "",
+                "68,068",
+                "",
+                "",
+                "",
+                "79,448",
+                "407,671"
+              ],
+              [
+                "以公允价值计量且\n其变动计入其他综\n合收益的贷款和垫\n款",
+                "17,779,960",
+                "",
+                "3,673",
+                "-29,269",
+                "82,065,685",
+                "87,591,702",
+                "",
+                "12,263,198"
+              ],
+              [
+                "衍生金融资产",
+                "524,631",
+                "107,956",
+                "",
+                "",
+                "1,903,680",
+                "1,896,304",
+                "",
+                "639,963"
+              ],
+              [
+                "合计",
+                "193,387,485",
+                "1,143,154",
+                "1,319,182",
+                "-15,168",
+                "3,274,645,259",
+                "3,262,578,136",
+                "23,130,060",
+                "230,959,942"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "资产类别",
+                "2024年1月\n1日",
+                "本期公允\n价值变动\n收益"
+              ],
+              [
+                "交易性金融资产",
+                "121,020,036",
+                "1,035,198"
+              ],
+              [
+                "其他债权投资",
+                "53,821,948",
+                ""
+              ],
+              [
+                "其他权益工具投资",
+                "240,910",
+                ""
+              ],
+              [
+                "以公允价值计量且\n其变动计入其他综\n合收益的贷款和垫\n款",
+                "17,779,960",
+                ""
+              ],
+              [
+                "衍生金融资产",
+                "524,631",
+                "107,956"
+              ],
+              [
+                "合计",
+                "193,387,485",
+                "1,143,154"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 81,
+            "coverage_percentage": 128.6
+          }
+        },
+        "raw_llm_response": "{\n      \"table_headers\": {\n        \"horizontal\": [{\"field_path\": \"资产类别\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2024年1月1日\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"本期公允价值变动收益\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"计入权益的累积公允价值变动\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"本期计提的减值\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"本期购买金额\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"本期出售/赎回金额\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"其他变动\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"2024年12月31日\", \"is_statistical\": false, \"is_header\": true}],\n        \"vertical\": [{\"field_path\": \"资产类别\", \"is_statistical\": false, \"is_header\": true}],\n        \"header_positions\": {\n          \"horizontal_header_rows\": [0],\n          \"vertical_header_cols\": [0],\n          \"horizontal_header_depth\": 1,\n          \"vertical_header_depth\": 1\n        }\n      },\n      \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n      }\n    }"
+      }
+    },
+    {
+      "success": true,
+      "image_info": {
+        "image_path": "E:\\Datas\\base_pros\\DocuVista\\test_codes\\pngs1\\514004_028.png",
+        "image_id": "img_75f83474592c"
+      },
+      "table_info": {
+        "table_id": 4,
+        "table_index": 3,
+        "dimensions": {
+          "rows": 4,
+          "cols": 2
+        },
+        "ocr_reported_tables": 4
+      },
+      "analysis_result": {
+        "table_headers": {
+          "horizontal": [
+            {
+              "field_path": "类别",
+              "is_statistical": false,
+              "is_header": true
+            },
+            {
+              "field_path": "金额",
+              "is_statistical": false,
+              "is_header": true
+            }
+          ],
+          "vertical": [],
+          "header_positions": {
+            "horizontal_header_rows": [
+              0
+            ],
+            "vertical_header_cols": [],
+            "horizontal_header_depth": 1,
+            "vertical_header_depth": 0
+          }
+        },
+        "consistency_checks": {
+          "table_count": {
+            "ocr_reported": 1,
+            "visual_observed": 1,
+            "match": true,
+            "needs_human": false
+          },
+          "text_vs_visual": {
+            "match": true,
+            "needs_human": false
+          }
+        }
+      },
+      "processing_stats": {
+        "analysis_time_sec": 3.86,
+        "token_usage": {
+          "prompt_tokens": 2014,
+          "completion_tokens": 181,
+          "total_tokens": 2195
+        }
+      },
+      "source_data": {
+        "ocr_extract": {
+          "success": true,
+          "dimensions": {
+            "rows": 4,
+            "cols": 2
+          },
+          "extracted_data": {
+            "top_rows_all_cols": [
+              [
+                "类别",
+                "金额"
+              ],
+              [
+                "政策性金融债券",
+                "16,055,969.23"
+              ],
+              [
+                "商业银行金融债券",
+                "9,703,685.66"
+              ],
+              [
+                "其他金融债券",
+                "412,744.55"
+              ]
+            ],
+            "left_cols_all_rows": [
+              [
+                "类别",
+                "金额"
+              ],
+              [
+                "政策性金融债券",
+                "16,055,969.23"
+              ],
+              [
+                "商业银行金融债券",
+                "9,703,685.66"
+              ],
+              [
+                "其他金融债券",
+                "412,744.55"
+              ]
+            ]
+          },
+          "stats": {
+            "cells_extracted": 2,
+            "coverage_percentage": 25.0
+          }
+        },
+        "raw_llm_response": "{\n    \"table_headers\": {\n        \"horizontal\": [{\"field_path\": \"类别\", \"is_statistical\": false, \"is_header\": true}, {\"field_path\": \"金额\", \"is_statistical\": false, \"is_header\": true}],\n        \"vertical\": [],\n        \"header_positions\": {\n            \"horizontal_header_rows\": [0],\n            \"vertical_header_cols\": [],\n            \"horizontal_header_depth\": 1,\n            \"vertical_header_depth\": 0\n        }\n    },\n    \"consistency_checks\": {\n        \"table_count\": {\"ocr_reported\": 1, \"visual_observed\": 1, \"match\": true, \"needs_human\": false},\n        \"text_vs_visual\": {\"match\": true, \"needs_human\": false}\n    }\n}"
+      }
+    }
+  ],
+  "summary": {
+    "total_tables": 4,
+    "successfully_analyzed": 4,
+    "failed": 0
+  }
+}
