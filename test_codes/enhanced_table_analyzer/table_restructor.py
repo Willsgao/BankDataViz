@@ -129,6 +129,9 @@ class TableReconstructor:
         all_cells = []
         row_offset = 0  # 行偏移量，用于拼接表格
 
+        print("**************************ocr_table_indices:")
+        print(ocr_table_indices)
+
         for idx in ocr_table_indices:
             if idx >= len(ocr_tables):
                 print(f"警告: OCR表格索引 {idx} 超出范围")
@@ -666,6 +669,10 @@ class TableReconstructor:
         # 第2步：提取表格数据
         ocr_tables, llm_tables = self.step2_extract_table_data(ocr_result, llm_result)
 
+
+        print("ocr_tablesocr_tablesocr_tables")
+        print(ocr_tables)
+
         if not ocr_tables or not llm_tables:
             self.log_issue("提取表格数据失败")
             return False
@@ -694,7 +701,7 @@ class TableReconstructor:
                 continue
 
             # 处理单个表格
-            final_table = self.process_single_table(tables_to_process, llm_table_info)
+            final_table = self.process_single_table(ocr_tables, llm_table_info)
 
             if final_table:
                 all_final_tables.append(final_table)
