@@ -65,6 +65,10 @@ class TableReconstructionPipeline:
         try:
             llm_result = self.llm_analyzer.analyze_image(image_path, ocr_result)
 
+            print("llm_resultllm_result:")
+            from pprint import pprint
+            pprint(llm_result)
+
             if not llm_result.get('success'):
                 print(f"❌ LLM分析失败: {llm_result.get('error', '未知错误')}")
                 self.stats['failed'] += 1
@@ -162,9 +166,6 @@ class TableReconstructionPipeline:
         }
 
 
-# ====================================
-# 5. 配置和主函数
-# ====================================
 # ====================================
 # 5. 配置和主函数
 # ====================================
@@ -292,19 +293,25 @@ def batch_example(image_paths, output_dir):
 
 
 if __name__ == "__main__":
-    # 运行单张图片处理
+    # # 运行单张图片处理
     # main()
 
     # 或者运行批量处理
-    image_paths = []
-    png_dir = r"E:\Datas\base_pros\DocuVista\test_codes\pngs"
+
+    # 批量图片路径
+    image_paths = [
+    ]
+    cur_dir = os.getcwd()
+    par_dir = os.path.dirname(cur_dir)
+    print("cur_dir:", cur_dir)
+    png_dir = fr"{par_dir}\pngs"
     for root,_,files in os.walk(png_dir):
         for file in files:
-            filename= fr"{root}\{file}"
+            filename = fr"{png_dir}\{file}"
             image_paths.append(filename)
-
     print("image_paths:", image_paths)
 
     # 输出目录
-    output_dir = r"E:\Datas\base_pros\DocuVista\test_codes\output_tables"
+    output_dir = fr"{par_dir}\output_tables"
+
     batch_example(image_paths, output_dir)

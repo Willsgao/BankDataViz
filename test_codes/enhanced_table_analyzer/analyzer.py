@@ -19,9 +19,13 @@ class EnhancedFinancialTableAnalyzer:
         self.max_sample_rows = 3  # 每个表格采样前3行
         self.max_sample_cols = 3  # 每个表格采样前3列
 
-    def _prepare_ocr_summary(self, ocr_result: Dict[str, Any]) -> str:
+    def _prepare_ocr_summary111(self, ocr_result: Dict[str, Any]) -> str:
         """准备OCR数据摘要 - 精简版"""
         ocr_tables = ocr_result.get("tables_result", [])
+
+        print("$$$$$$$$$$$$$$$$$$$$$$$")
+        print(ocr_tables)
+        print("$$$$$$$$$$$$$$$$$$$")
 
         tables_info = []
         for i, table in enumerate(ocr_tables):
@@ -60,6 +64,94 @@ class EnhancedFinancialTableAnalyzer:
 
         return json.dumps({"ocr_tables": tables_info}, ensure_ascii=False, indent=2)
 
+    def _prepare_ocr_summary(self, ocr_result: Dict[str, Any]) -> str:
+        """准备OCR数据摘要 - 根据实际OCR数据结构重写"""
+        # 注意：这里ocr_result可能是列表，而不是字典
+        ocr_tables = ocr_result if isinstance(ocr_result, list) else ocr_result.get("tables_result", [])
+
+        tables_info = []
+        for i, table in enumerate(ocr_tables):
+            # 从body数据推断表格维度
+            body_cells = table.get("body", [])
+
+            if not body_cells:
+                # 空表格
+                tables_info.append({
+                    "ocr_table_id": i,
+                    "dimensions": {"rows": 0, "cols": 0},
+                    "extracted_data": {
+                        "top_rows_all_cols": [],
+                        "left_cols_all_rows": []
+                    }
+                })
+                continue
+
+            # 推断最大行数和列数
+            max_row = 0
+            max_col = 0
+            for cell in body_cells:
+                max_row = max(max_row, cell.get("row_end", 0))
+                max_col = max(max_col, cell.get("col_end", 0))
+
+            rows = max_row   # row_end是从0开始的
+            cols = max_col   # col_end是从0开始的
+
+            print(f"Table {i}: rows={rows}, cols={cols}")  # 调试信息
+
+            # 创建单元格矩阵
+            cell_matrix = [["" for _ in range(cols)] for _ in range(rows)]
+
+            # 填充单元格矩阵
+            for cell in body_cells:
+                row_start = cell.get("row_start", 0)
+                col_start = cell.get("col_start", 0)
+                row_end = cell.get("row_end", 0)
+                col_end = cell.get("col_end", 0)
+                words = cell.get("words", "")
+
+                # 如果是合并单元格，填充所有位置
+                for r in range(row_start, row_end + 1):
+                    for c in range(col_start, col_end + 1):
+                        if r < rows and c < cols:
+                            cell_matrix[r][c] = words
+
+            # 提取表头信息（如果有）
+            headers = table.get("header", [])
+            header_text = ""
+            if headers and len(headers) > 0:
+                header_text = headers[0].get("words", "")
+
+            # 提取前三行所有列
+            top_rows = []
+            for r in range(min(self.max_sample_rows, rows)):
+                row_data = []
+                for c in range(cols):
+                    cell_text = cell_matrix[r][c]
+                    row_data.append(cell_text if cell_text else "[空]")
+                top_rows.append(row_data[:5])  # 只取前5列展示
+
+            # 提取前三列所有行
+            left_cols = []
+            for c in range(min(self.max_sample_cols, cols)):
+                col_data = []
+                for r in range(rows):
+                    cell_text = cell_matrix[r][c]
+                    col_data.append(cell_text if cell_text else "[空]")
+                left_cols.append(col_data[:8])  # 只取前8行展示
+
+            # 添加表头信息到摘要中
+            tables_info.append({
+                "ocr_table_id": i,
+                "dimensions": {"rows": rows, "cols": cols},
+                "header": header_text,  # 添加表头信息
+                "extracted_data": {
+                    "top_rows_all_cols": top_rows,
+                    "left_cols_all_rows": left_cols
+                }
+            })
+
+        return json.dumps({"ocr_tables": tables_info}, ensure_ascii=False, indent=2)
+
     def _build_global_analysis_prompt(self, ocr_summary: str) -> str:
         """构建全局分析prompt - 最终简化版"""
         return f"""
@@ -72,6 +164,7 @@ class EnhancedFinancialTableAnalyzer:
     2. 格式："顶层>>中层>>底层"
     3. 必须包含表格中每一列的表头路径
     4. 输出为字符串数组，每个元素是一列的表头路径，该列没有则用""占位,数量与列数相同，不能省略
+    5、表头列数如果与ocr_summary中列数不同，要检查
 
     【纵向表头规则】
     1. 识别分组：如果某行在数据区为空或只有表头文本，这是高级表头
@@ -83,6 +176,8 @@ class EnhancedFinancialTableAnalyzer:
     【特别注意】
     1、表头内容要基于图片和ocr_summary给出
     2、一定不能漏掉横向或纵向的表头信息
+    3、各自存在独立的横向表头的表格，不能当成同一个表格
+    4、对于表头检查一定要仔细，层级关系绝对不能丢
     
 
     【分组表示例】
@@ -100,7 +195,8 @@ class EnhancedFinancialTableAnalyzer:
       "tables": [
         {{
           "id": "1",
-          "ocr_tables": [0], # 在ocr_summary中对应的表格序号
+          "name":"租赁负债财务表",          
+          "ocr_tables": [],
           "headers": {{
             "cols": ["地区", "城市", "销售额"],
             "rows": [
@@ -118,6 +214,8 @@ class EnhancedFinancialTableAnalyzer:
     2. 路径用>>连接，不要空格
     3. 确保横向表头覆盖每一列
     4. 纵向表头要识别分组结构并组合
+    5. 要给表格一个合适的表格名"name"
+    6. "ocr_tables"中的数字是指该表格在ocr_summary中对应的表格的序号ocr_table_id
 
     现在分析，直接输出：
     """
@@ -192,6 +290,11 @@ class EnhancedFinancialTableAnalyzer:
 
         # 2. 调用LLM全局分析
         prompt = self._build_global_analysis_prompt(ocr_summary)
+
+        print("####################################")
+        print(prompt)
+        print("####################################")
+
         llm_result = self._call_llm_global(base64_image, prompt)
 
         # 3. 构建最终结果
