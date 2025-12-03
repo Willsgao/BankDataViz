@@ -280,22 +280,12 @@ def main():
         print(f"\n❌ 处理失败: {result.get('error', '未知错误')}")
 
 
-def batch_example():
+def batch_example(image_paths, output_dir):
     """
     批量处理示例
     """
     # 创建管道
     pipeline = create_pipeline()
-
-    # 批量图片路径
-    image_paths = [
-        r"E:\Datas\base_pros\DocuVista\test_codes\pngs\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png",
-        r"E:\Datas\base_pros\DocuVista\test_codes\pngs\514001_152.png",
-        # 添加更多图片...
-    ]
-
-    # 输出目录
-    output_dir = r"E:\Datas\base_pros\DocuVista\output_tables"
 
     # 批量处理
     result = pipeline.process_batch_images(image_paths, output_dir)
@@ -303,7 +293,18 @@ def batch_example():
 
 if __name__ == "__main__":
     # 运行单张图片处理
-    main()
+    # main()
 
     # 或者运行批量处理
-    # batch_example()
+    image_paths = []
+    png_dir = r"E:\Datas\base_pros\DocuVista\test_codes\pngs"
+    for root,_,files in os.walk(png_dir):
+        for file in files:
+            filename= fr"{root}\{file}"
+            image_paths.append(filename)
+
+    print("image_paths:", image_paths)
+
+    # 输出目录
+    output_dir = r"E:\Datas\base_pros\DocuVista\test_codes\output_tables"
+    batch_example(image_paths, output_dir)
