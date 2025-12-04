@@ -19,55 +19,9 @@ class EnhancedFinancialTableAnalyzer:
         self.max_sample_rows = 3  # 每个表格采样前3行
         self.max_sample_cols = 3  # 每个表格采样前3列
 
-    def _prepare_ocr_summary111(self, ocr_result: Dict[str, Any]) -> str:
-        """准备OCR数据摘要 - 精简版"""
-        ocr_tables = ocr_result.get("tables_result", [])
-
-        print("$$$$$$$$$$$$$$$$$$$$$$$")
-        print(ocr_tables)
-        print("$$$$$$$$$$$$$$$$$$$")
-
-        tables_info = []
-        for i, table in enumerate(ocr_tables):
-            # 获取表格维度
-            rows = table.get("row", 0)
-            cols = table.get("col", 0)
-
-            # 提取前三行所有列
-            top_rows = []
-            for r in range(min(self.max_sample_rows, rows)):
-                row_data = []
-                for c in range(cols):
-                    cell_key = f"{r}_{c}"
-                    cell = table.get("cell", {}).get(cell_key, "")
-                    row_data.append(cell if cell else "[空]")
-                top_rows.append(row_data[:5])  # 只取前5列展示，避免过长
-
-            # 提取前三列所有行
-            left_cols = []
-            for c in range(min(self.max_sample_cols, cols)):
-                col_data = []
-                for r in range(rows):
-                    cell_key = f"{r}_{c}"
-                    cell = table.get("cell", {}).get(cell_key, "")
-                    col_data.append(cell if cell else "[空]")
-                left_cols.append(col_data[:8])  # 只取前8行展示
-
-            tables_info.append({
-                "ocr_table_id": i,
-                "dimensions": {"rows": rows, "cols": cols},
-                "extracted_data": {
-                    "top_rows_all_cols": top_rows,  # 前三行所有列
-                    "left_cols_all_rows": left_cols  # 前三列所有行
-                }
-            })
-
-        return json.dumps({"ocr_tables": tables_info}, ensure_ascii=False, indent=2)
-
     def _prepare_ocr_summary(self, ocr_result: Dict[str, Any]) -> str:
-        """准备OCR数据摘要 - 根据实际OCR数据结构重写"""
-        # 注意：这里ocr_result可能是列表，而不是字典
-        ocr_tables = ocr_result if isinstance(ocr_result, list) else ocr_result.get("tables_result", [])
+        """准备OCR数据摘要 - 修正版，保持原有逻辑"""
+        ocr_tables = ocr_result.get("tables_result", [])
 
         tables_info = []
         for i, table in enumerate(ocr_tables):
@@ -79,6 +33,7 @@ class EnhancedFinancialTableAnalyzer:
                 tables_info.append({
                     "ocr_table_id": i,
                     "dimensions": {"rows": 0, "cols": 0},
+                    "text_features": [],
                     "extracted_data": {
                         "top_rows_all_cols": [],
                         "left_cols_all_rows": []
@@ -86,64 +41,59 @@ class EnhancedFinancialTableAnalyzer:
                 })
                 continue
 
-            # 推断最大行数和列数
-            max_row = 0
-            max_col = 0
+            # 找到最大的行索引和列索引
+            max_row_idx = 0
+            max_col_idx = 0
             for cell in body_cells:
-                max_row = max(max_row, cell.get("row_end", 0))
-                max_col = max(max_col, cell.get("col_end", 0))
+                max_row_idx = max(max_row_idx, cell.get("row_end", 0))
+                max_col_idx = max(max_col_idx, cell.get("col_end", 0))
 
-            rows = max_row   # row_end是从0开始的
-            cols = max_col   # col_end是从0开始的
+            # 确定表格实际大小
+            rows = max_row_idx  # row_end是最大行索引，需要+1
+            cols = max_col_idx  # col_end是最大列索引，需要+1
 
-            print(f"Table {i}: rows={rows}, cols={cols}")  # 调试信息
-
-            # 创建单元格矩阵
+            # 创建单元格矩阵，初始化为空字符串
             cell_matrix = [["" for _ in range(cols)] for _ in range(rows)]
 
-            # 填充单元格矩阵
+            # 填充单元格矩阵 - 对于合并单元格，所有位置都填充相同内容
             for cell in body_cells:
+
                 row_start = cell.get("row_start", 0)
                 col_start = cell.get("col_start", 0)
-                row_end = cell.get("row_end", 0)
-                col_end = cell.get("col_end", 0)
+                # row_end = cell.get("row_end", 0)
+                # col_end = cell.get("col_end", 0)
                 words = cell.get("words", "")
+                cell_matrix[row_start][col_start] = words  # 只填充左上角
 
-                # 如果是合并单元格，填充所有位置
-                for r in range(row_start, row_end + 1):
-                    for c in range(col_start, col_end + 1):
-                        if r < rows and c < cols:
-                            cell_matrix[r][c] = words
+                # # 填充合并单元格的所有位置
+                # for r in range(row_start, row_end + 1):
+                #     for c in range(col_start, col_end + 1):
+                #         if r < rows and c < cols:
+                #             cell_matrix[r][c] = words  # 直接赋值
 
-            # 提取表头信息（如果有）
-            headers = table.get("header", [])
-            header_text = ""
-            if headers and len(headers) > 0:
-                header_text = headers[0].get("words", "")
 
-            # 提取前三行所有列
+            # 提取前三行所有列 - 保持原有逻辑：空字符串保留为空
             top_rows = []
             for r in range(min(self.max_sample_rows, rows)):
                 row_data = []
                 for c in range(cols):
                     cell_text = cell_matrix[r][c]
-                    row_data.append(cell_text if cell_text else "[空]")
-                top_rows.append(row_data[:5])  # 只取前5列展示
+                    row_data.append(cell_text if cell_text else "")
+                top_rows.append(row_data)  # 只取前5列展示
 
-            # 提取前三列所有行
+            # 提取前三列所有行 - 保持原有逻辑：空字符串保留为空
             left_cols = []
             for c in range(min(self.max_sample_cols, cols)):
                 col_data = []
                 for r in range(rows):
                     cell_text = cell_matrix[r][c]
-                    col_data.append(cell_text if cell_text else "[空]")
-                left_cols.append(col_data[:8])  # 只取前8行展示
+                    col_data.append(cell_text if cell_text else "")
+                left_cols.append(col_data)  # 只取前8行展示
 
-            # 添加表头信息到摘要中
             tables_info.append({
                 "ocr_table_id": i,
                 "dimensions": {"rows": rows, "cols": cols},
-                "header": header_text,  # 添加表头信息
+                # "text_features": text_features,
                 "extracted_data": {
                     "top_rows_all_cols": top_rows,
                     "left_cols_all_rows": left_cols
@@ -152,12 +102,19 @@ class EnhancedFinancialTableAnalyzer:
 
         return json.dumps({"ocr_tables": tables_info}, ensure_ascii=False, indent=2)
 
+
     def _build_global_analysis_prompt(self, ocr_summary: str) -> str:
-        """构建全局分析prompt - 最终简化版"""
+        """构建全局分析prompt - 强制关注OCR文本"""
         return f"""
     【任务】分析图片中的表格，提取表头结构，只输出组合好的表头文本。
 
     【OCR数据参考】{ocr_summary}
+
+    【OCR文本特征强制规则】
+    1、ocr_summary中给出的前三行、前三列的数据你要都看一遍，来判断表格的表头
+    2. 你必须基于OCR识别出的实际文本来分析表格，不能忽略这些文本内容
+    3. 如果OCR识别出具体文本（如日期、数字、中文），绝对不能输出为字母或占位符
+    4. 当图片模糊或难以辨认时，以OCR文本内容为准
 
     【横向表头规则】
     1. 对每一列，从上到下组合所有表头层级
@@ -172,13 +129,12 @@ class EnhancedFinancialTableAnalyzer:
     3. 格式："高级表头>>次级表头>>数据内容"
     4. 每个有数据的行都要有一条对应的路径，并且符合语义层面的包含关系
     5. 输出为字符串数组，一定不能为空
-    
-    【特别注意】
+
+    【其他特别注意】
     1、表头内容要基于图片和ocr_summary给出
     2、一定不能漏掉横向或纵向的表头信息
     3、各自存在独立的横向表头的表格，不能当成同一个表格
     4、对于表头检查一定要仔细，层级关系绝对不能丢
-    
 
     【分组表示例】
     表格：
@@ -196,7 +152,7 @@ class EnhancedFinancialTableAnalyzer:
         {{
           "id": "1",
           "name":"租赁负债财务表",          
-          "ocr_tables": [],
+          "ocr_tables": [0],
           "headers": {{
             "cols": ["地区", "城市", "销售额"],
             "rows": [
@@ -216,6 +172,7 @@ class EnhancedFinancialTableAnalyzer:
     4. 纵向表头要识别分组结构并组合
     5. 要给表格一个合适的表格名"name"
     6. "ocr_tables"中的数字是指该表格在ocr_summary中对应的表格的序号ocr_table_id
+    
 
     现在分析，直接输出：
     """

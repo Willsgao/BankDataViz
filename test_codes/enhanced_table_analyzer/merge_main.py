@@ -250,7 +250,7 @@ def create_pipeline():
 # 6. 使用示例
 # ====================================
 
-def main():
+def main(image_path):
     """
     主函数：处理单张图片示例
     """
@@ -266,8 +266,6 @@ def main():
         traceback.print_exc()
         return
 
-    # 输入图片路径
-    image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png"
 
     # 处理图片
     result = pipeline.process_single_image(image_path)
@@ -288,14 +286,17 @@ def batch_example(image_paths, output_dir):
     # 创建管道
     pipeline = create_pipeline()
 
-
     # 批量处理
     result = pipeline.process_batch_images(image_paths, output_dir)
 
 
 if __name__ == "__main__":
+
+    # 输入图片路径
+    image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\123.png"
+
     # # 运行单张图片处理
-    # main()
+    # main(image_path)
 
     # 或者运行批量处理
 
@@ -305,7 +306,7 @@ if __name__ == "__main__":
     cur_dir = os.getcwd()
     par_dir = os.path.dirname(cur_dir)
     print("cur_dir:", cur_dir)
-    png_dir = fr"{par_dir}\pngs"
+    png_dir = fr"{par_dir}\png2"
     for root,_,files in os.walk(png_dir):
         for file in files:
             filename = fr"{png_dir}\{file}"
