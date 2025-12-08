@@ -2,9 +2,7 @@
 
 import json
 import os
-from test_codes.enhanced_table_analyzer.analyzer import FinancialTableAnalyzer
-from test_codes.enhanced_table_analyzer.config import settings
-from test_codes.enhanced_table_analyzer.utils.image_utils import ImageUtils
+from backend.table_processor.table_analyzer import FinancialTableAnalyzer
 
 # 导入Excel导出模块
 try:
@@ -115,7 +113,7 @@ def main(input_dir, output_dir, json_file=""):
 
     # 初始化分析器
     analyzer = FinancialTableAnalyzer()
-    from test_codes.enhanced_table_analyzer.ocr_service import TableOCRService
+    from backend.table_processor.ocr_service import TableOCRService
     ocr_service = TableOCRService()
 
     print("\n开始批量分析图片...")

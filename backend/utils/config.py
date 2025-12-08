@@ -1,4 +1,4 @@
-# backend/utils/config.py
+# backend/utils/table_config.py
 """
 后端配置管理
 从项目根目录的 project-config.json 读取配置

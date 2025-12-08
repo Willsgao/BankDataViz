@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, List
 from openai import OpenAI
 
-from test_codes.enhanced_table_analyzer.config import settings
+from backend.table_processor.table_config import settings
 
 
 class EnhancedFinancialTableAnalyzer:
@@ -160,7 +160,7 @@ OCR系统检测到以下表格分区：
 
     def analyze_image(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """分析单张图片中的所有表格"""
-        from test_codes.enhanced_table_analyzer.utils.image_utils import ImageUtils
+        from backend.table_processor.table_image_utils import ImageUtils
 
         # 1. 准备数据
         image_utils = ImageUtils()
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     analyzer = EnhancedFinancialTableAnalyzer()
 
     # 假设已有OCR服务
-    from test_codes.enhanced_table_analyzer.ocr_service import TableOCRService
+    from backend.table_processor.ocr_service import TableOCRService
 
     ocr_service = TableOCRService()
     image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\514001_152.png"
