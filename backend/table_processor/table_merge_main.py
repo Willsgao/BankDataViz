@@ -314,7 +314,7 @@ if __name__ == "__main__":
 
     # 输出目录
     # output_dir = fr"{cur_dir}\outputs"
-    output_dir = r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes\outputs"
+    output_dir = r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes\outputs1"
     print(">>>>>>>>output_dir>>>>>>>>>>>")
     print(output_dir)
 

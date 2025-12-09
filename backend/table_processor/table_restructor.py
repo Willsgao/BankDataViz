@@ -1442,7 +1442,7 @@ class TableReconstructor:
 
         return table
 
-    def step6_add_row_headers_intelligent(self, table, row_headers, table_boundaries=None):
+    def step6_add_row_headers_intelligent11(self, table, row_headers, table_boundaries=None):
         """第6步：智能匹配 - 考虑OCR表格内部顺序"""
         if not table or not row_headers:
             print("表格或行表头为空")
@@ -1459,6 +1459,424 @@ class TableReconstructor:
             # 原有逻辑（向后兼容）
             return self._match_without_boundaries(table, row_headers)
 
+    def _looks_like_numeric_data(self, text):
+        """判断文本是否看起来像数值型数据"""
+        if not text:
+            return False
+
+        text_str = str(text).strip()
+        clean_text = text_str.replace(',', '').replace(' ', '').replace('¥', '').replace('$', '').replace('€', '')
+
+        if clean_text.startswith('(') and clean_text.endswith(')'):
+            clean_text = '-' + clean_text[1:-1]
+
+        if not any(c.isdigit() for c in clean_text):
+            return False
+
+        try:
+            if '%' in clean_text:
+                clean_text = clean_text.replace('%', '')
+                float(clean_text)
+                return True
+            else:
+                float(clean_text)
+                return True
+        except ValueError:
+            digit_count = sum(1 for c in clean_text if c.isdigit())
+            total_len = len(clean_text)
+            if digit_count / total_len > 0.7:
+                return True
+
+        return False
+
+    def step6_add_row_headers_intelligent111(self, table, row_headers, table_boundaries=None):
+        """第6步：多轮对齐 - 检查前三列寻找表头"""
+
+        print(f"=== 第6步：多轮对齐（检查前三列） ===")
+
+        if not table or len(table) < 2 or not row_headers:
+            return table
+
+        # 清空第一列（用于存放最终的表头）
+        for row_idx in range(1, len(table)):
+            if len(table[row_idx]) > 0:
+                table[row_idx][0] = None
+
+        # ========== 第1轮：准备工作 ==========
+        print(f"\n[准备工作]")
+        print(f"表格: {len(table)}行 × {len(table[0])}列")
+        print(f"LLM表头数: {len(row_headers)}")
+
+        # 提取LLM表头的关键词（最后一级）
+        llm_keywords = []
+        for header in row_headers:
+            header_str = str(header)
+            if '>>' in header_str:
+                parts = header_str.split('>>')
+                llm_keywords.append(parts[-1].strip())
+            else:
+                llm_keywords.append(header_str.strip())
+
+        print(f"LLM关键词（前10个）:")
+        for i in range(min(10, len(llm_keywords))):
+            print(f"  [{i}]: {llm_keywords[i][:30]}...")
+
+        # ========== 第2轮：双向对齐 ==========
+        print(f"\n[第2轮] 双向对齐（检查前三列）:")
+
+        # 结果存储
+        top_down_matches = {}  # 行索引 → LLM索引
+        bottom_up_matches = {}  # 行索引 → LLM索引
+
+        # A. 从上到下对齐
+        print("A. 从上到下对齐:")
+        llm_idx = 0
+        rows_checked = 0
+
+        for row_idx in range(1, len(table)):
+            if llm_idx >= len(llm_keywords) or rows_checked >= 20:  # 最多检查20行
+                break
+
+            # 检查前三列的任意一列
+            matched = False
+            match_column = -1
+            match_text = ""
+
+            for col_idx in range(min(3, len(table[row_idx]))):  # 检查前3列！
+                cell = table[row_idx][col_idx]
+                if not cell:
+                    continue
+
+                cell_text = str(cell).strip()
+                llm_keyword = llm_keywords[llm_idx]
+
+                # 相似度计算
+                similarity = self.calculate_similarity_v2(llm_keyword, cell_text)
+
+                if similarity > 0.6:  # 阈值可以调整
+                    matched = True
+                    match_column = col_idx
+                    match_text = cell_text
+                    break
+
+            if matched:
+                top_down_matches[row_idx] = llm_idx
+                print(f"  行{row_idx} 列{match_column} → LLM[{llm_idx}]")
+                print(f"    OCR文本: '{match_text[:30]}...'")
+                print(f"    LLM关键词: '{llm_keywords[llm_idx][:30]}...'")
+                llm_idx += 1
+
+            rows_checked += 1
+
+        # B. 从下到上对齐
+        print(f"\nB. 从下到上对齐:")
+        llm_idx = len(llm_keywords) - 1
+        rows_checked = 0
+
+        for row_idx in range(len(table) - 1, 0, -1):
+            if llm_idx < 0 or rows_checked >= 20:
+                break
+
+            # 跳过已匹配的行
+            if row_idx in top_down_matches:
+                continue
+
+            # 检查前三列
+            matched = False
+            match_column = -1
+            match_text = ""
+
+            for col_idx in range(min(3, len(table[row_idx]))):  # 检查前3列！
+                cell = table[row_idx][col_idx]
+                if not cell:
+                    continue
+
+                cell_text = str(cell).strip()
+                llm_keyword = llm_keywords[llm_idx]
+
+                similarity = self.calculate_similarity_v2(llm_keyword, cell_text)
+
+                if similarity > 0.6:
+                    matched = True
+                    match_column = col_idx
+                    match_text = cell_text
+                    break
+
+            if matched:
+                bottom_up_matches[row_idx] = llm_idx
+                print(f"  行{row_idx} 列{match_column} → LLM[{llm_idx}]")
+                print(f"    OCR文本: '{match_text[:30]}...'")
+                print(f"    LLM关键词: '{llm_keywords[llm_idx][:30]}...'")
+                llm_idx -= 1
+
+            rows_checked += 1
+
+        # ========== 第3轮：确认一致匹配 ==========
+        print(f"\n[第3轮] 确认一致匹配:")
+
+        confirmed_matches = {}
+
+        # 找出双向匹配一致的行
+        all_matched_rows = set(top_down_matches.keys()) | set(bottom_up_matches.keys())
+
+        for row_idx in all_matched_rows:
+            top_llm = top_down_matches.get(row_idx)
+            bottom_llm = bottom_up_matches.get(row_idx)
+
+            if top_llm is not None and bottom_llm is not None:
+                # 双向匹配，检查是否一致
+                if top_llm == bottom_llm:
+                    confirmed_matches[row_idx] = top_llm
+                    table[row_idx][0] = row_headers[top_llm]
+                    print(f"  ✅ 行{row_idx} → LLM[{top_llm}] (双向确认)")
+                else:
+                    print(f"  ⚠️ 行{row_idx}: 双向匹配不一致 (上:{top_llm}, 下:{bottom_llm})")
+            elif top_llm is not None:
+                # 只有从上到下匹配
+                confirmed_matches[row_idx] = top_llm
+                table[row_idx][0] = row_headers[top_llm]
+                print(f"  ⚠️ 行{row_idx} → LLM[{top_llm}] (仅从上到下)")
+            elif bottom_llm is not None:
+                # 只有从下到上匹配
+                confirmed_matches[row_idx] = bottom_llm
+                table[row_idx][0] = row_headers[bottom_llm]
+                print(f"  ⚠️ 行{row_idx} → LLM[{bottom_llm}] (仅从下到上)")
+
+        # ========== 第4轮：顺序填充剩余 ==========
+        print(f"\n[第4轮] 顺序填充剩余:")
+
+        used_llm_indices = set(confirmed_matches.values())
+        used_row_indices = set(confirmed_matches.keys())
+
+        # 剩余的LLM表头
+        remaining_llm = [i for i in range(len(row_headers)) if i not in used_llm_indices]
+        # 剩余的OCR行（从已确认匹配的最后一行开始）
+        remaining_rows = []
+
+        if confirmed_matches:
+            last_confirmed_row = max(confirmed_matches.keys())
+            start_from = last_confirmed_row + 1
+        else:
+            start_from = 1
+
+        # 收集剩余的有内容的行
+        for row_idx in range(start_from, len(table)):
+            if row_idx in used_row_indices:
+                continue
+
+            # 检查该行是否有内容（前三列）
+            has_content = False
+            for col_idx in range(min(3, len(table[row_idx]))):
+                if table[row_idx][col_idx] and str(table[row_idx][col_idx]).strip():
+                    has_content = True
+                    break
+
+            if has_content:
+                remaining_rows.append(row_idx)
+
+        print(f"剩余LLM表头: {len(remaining_llm)}个")
+        print(f"剩余有内容行: {len(remaining_rows)}个")
+        print(f"从行{start_from}开始顺序填充")
+
+        # 一对一顺序填充
+        for i in range(min(len(remaining_llm), len(remaining_rows))):
+            row_idx = remaining_rows[i]
+            llm_idx = remaining_llm[i]
+            table[row_idx][0] = row_headers[llm_idx]
+            print(f"  ↳ 行{row_idx} → LLM[{llm_idx}] (顺序填充)")
+
+        # ========== 最终验证 ==========
+        print(f"\n[最终验证] 前15行结果:")
+
+        total_assigned = sum(1 for row in range(1, len(table)) if table[row][0])
+
+        for i in range(1, min(16, len(table))):
+            header = table[i][0][:40] + "..." if table[i][0] else ""
+
+            # 显示该行数据（前三列）
+            data_preview = []
+            for j in range(min(3, len(table[i]))):
+                if table[i][j]:
+                    data_preview.append(str(table[i][j])[:10])
+
+            data_str = " | ".join(data_preview) if data_preview else "空"
+
+            # 状态标记
+            status = "?"
+            if i in confirmed_matches:
+                status = "✅"  # 双向确认
+            elif table[i][0]:
+                status = "⚠️"  # 顺序填充
+
+            print(f"  行{i:2d} {status}: {header:<45} | 数据: {data_str}")
+
+        print(f"\n对齐统计:")
+        print(f"总分配表头: {total_assigned}/{len(row_headers)}")
+
+        return table
+
+    def step6_add_row_headers_intelligent(self, table, row_headers, table_boundaries=None):
+        """第6步：调试版 - 打印所有关键信息"""
+
+        print(f"\n{'=' * 80}")
+        print(f"=== 第6步：开始调试 ===")
+        print(f"{'=' * 80}")
+
+        if not table or len(table) < 2:
+            print("表格为空或太小")
+            return table
+
+        if not row_headers:
+            print("LLM表头为空")
+            return table
+
+        # 打印OCR表格的完整结构
+        print(f"\n[1] OCR表格完整结构 ({len(table)}行 × {len(table[0])}列):")
+        for i in range(len(table)):
+            row_str = f"行{i:2d}: "
+            for j in range(min(5, len(table[i]))):  # 只显示前5列
+                cell = table[i][j]
+                if cell:
+                    cell_str = str(cell).strip()
+                    row_str += f"列{j}: '{cell_str[:15]}' | "
+                else:
+                    row_str += f"列{j}: [空] | "
+            print(row_str)
+
+        # 打印LLM表头
+        print(f"\n[2] LLM表头 ({len(row_headers)}个):")
+        for i in range(len(row_headers)):
+            header = row_headers[i]
+            print(f"  [{i:2d}]: {str(header)[:50]}...")
+
+        # 清空第一列
+        print(f"\n[3] 清空第一列...")
+        for row_idx in range(1, len(table)):
+            if len(table[row_idx]) > 0:
+                table[row_idx][0] = None
+
+        # 关键调试：尝试找到对齐点
+        print(f"\n[4] 尝试找到对齐点:")
+
+        # 检查前10行OCR内容和前10个LLM表头的匹配
+        print("前10行OCR内容 vs 前10个LLM表头:")
+
+        for ocr_row in range(1, min(11, len(table))):
+            print(f"\n--- 检查OCR行{ocr_row} ---")
+
+            # 显示该行的所有列
+            for col in range(min(3, len(table[ocr_row]))):  # 只检查前3列
+                cell = table[ocr_row][col]
+                if cell:
+                    cell_str = str(cell).strip()
+                    print(f"  列{col}: '{cell_str}'")
+
+            # 检查与LLM表头的匹配
+            for llm_idx in range(min(10, len(row_headers))):
+                llm_header = row_headers[llm_idx]
+                llm_text = str(llm_header)
+
+                # 提取关键部分
+                if '>>' in llm_text:
+                    parts = llm_text.split('>>')
+                    llm_key = parts[-1].strip()
+                else:
+                    llm_key = llm_text.strip()
+
+                # 在该行的所有列中搜索匹配
+                for col in range(min(3, len(table[ocr_row]))):
+                    cell = table[ocr_row][col]
+                    if not cell:
+                        continue
+
+                    cell_str = str(cell).strip()
+
+                    # 简单匹配检查
+                    similarity = self.calculate_similarity_v2(llm_key, cell_str)
+                    if similarity > 0.3:  # 低阈值，先看看
+                        print(f"    LLM[{llm_idx}] '{llm_key}' -> 列{col} '{cell_str}' (相似度: {similarity:.2f})")
+
+        # 现在尝试最保守的对齐：找到第一个真正的数值数据行
+        print(f"\n[5] 寻找第一个真正的数值数据行:")
+
+        first_data_row = -1
+        for row_idx in range(1, len(table)):
+            has_numeric_data = False
+
+            # 检查该行是否有数值数据（跳过第一列）
+            for col_idx in range(1, len(table[row_idx])):
+                cell = table[row_idx][col_idx]
+                if not cell:
+                    continue
+
+                cell_str = str(cell).strip()
+                # 检查是否包含数字（但不是日期）
+                if any(c.isdigit() for c in cell_str):
+                    # 排除明显的表头文本
+                    if ('年' not in cell_str and '月' not in cell_str and
+                            '日' not in cell_str and len(cell_str) < 20):
+                        has_numeric_data = True
+                        print(f"  行{row_idx}列{col_idx}: 发现数值数据 '{cell_str}'")
+                        break
+
+            if has_numeric_data:
+                first_data_row = row_idx
+                print(f"  → 第一个数值数据行: 行{first_data_row}")
+                break
+
+        if first_data_row == -1:
+            print("  未找到数值数据行")
+            first_data_row = 1
+
+        # 尝试从第一个数据行开始对齐
+        print(f"\n[6] 尝试从行{first_data_row}开始对齐:")
+
+        llm_idx = 0
+        for row_idx in range(first_data_row, len(table)):
+            if llm_idx >= len(row_headers):
+                break
+
+            # 分配LLM表头
+            table[row_idx][0] = row_headers[llm_idx]
+
+            # 显示该行的数据
+            data_preview = []
+            for col in range(1, min(4, len(table[row_idx]))):
+                if table[row_idx][col]:
+                    data_preview.append(str(table[row_idx][col])[:10])
+
+            data_str = " | ".join(data_preview) if data_preview else "空"
+            print(f"  行{row_idx} → LLM[{llm_idx}] '{row_headers[llm_idx][:30]}...' | 数据: {data_str}")
+
+            llm_idx += 1
+
+        # 显示最终结果
+        print(f"\n[7] 最终对齐结果:")
+        print(f"对齐起始行: {first_data_row}")
+        print(f"已对齐行数: {llm_idx}")
+        print(f"剩余LLM表头: {len(row_headers) - llm_idx}")
+
+        print(f"\n前15行最终结果:")
+        for i in range(1, min(16, len(table))):
+            header = table[i][0][:40] + "..." if table[i][0] else "[空]"
+
+            # 显示数据
+            data_preview = []
+            for j in range(1, min(4, len(table[i]))):
+                if table[i][j]:
+                    data_preview.append(str(table[i][j])[:10])
+
+            data_str = " | ".join(data_preview) if data_preview else "空"
+
+            print(f"  行{i:2d}: {header:<45} | 数据: {data_str}")
+
+        print(f"\n{'=' * 80}")
+        print(f"=== 第6步：调试结束 ===")
+        print(f"{'=' * 80}")
+
+        return table
+    
+    
     def step7_save_to_excel(self, tables_data, output_file):
         """
             将多个表格保存到Excel，每个表格一个Sheet
@@ -1597,115 +2015,6 @@ class TableReconstructor:
             return False
 
     # ========== 完整流程 ==========
-    def process_all_tables11(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx"):
-        """
-        完整处理流程：第1-7步 - 增强版（支持表格合并）
-        """
-        print("开始表格重构流程...")
-
-        # 第1步：准备数据
-        ocr_result, llm_result = self.step1_prepare_data(ocr_result, llm_result)
-
-        # 第2步：提取表格数据
-        ocr_tables, llm_tables = self.step2_extract_table_data(ocr_result, llm_result)
-
-        print("ocr_tables数量:", len(ocr_tables))
-        print("llm_tables数量:", len(llm_tables))
-
-        if not ocr_tables or not llm_tables:
-            self.log_issue("提取表格数据失败")
-            return False
-
-        print(f"OCR表格数: {len(ocr_tables)}")
-        print(f"LLM表格结构数: {len(llm_tables)}")
-
-        # === 新增：列标题统一化处理 ===
-        print("\n=== 开始列标题统一化处理 ===")
-        llm_tables = self._unify_headers_across_tables(llm_tables)
-
-
-        # === 新增：检测需要合并的表格 ===
-        merge_groups = self._detect_tables_to_merge(llm_tables)
-
-        # 分离需要合并的表格和独立处理的表格
-        all_indices = set(range(len(llm_tables)))
-        merged_indices = set()
-
-        for group in merge_groups:
-            for idx in group:
-                merged_indices.add(idx)
-
-        independent_indices = all_indices - merged_indices
-
-        print(f"\n表格处理策略:")
-        print(f"  需要合并的表格: {merged_indices}")
-        print(f"  独立处理的表格: {independent_indices}")
-
-        # 处理每个表格（先处理合并的，再处理独立的）
-        all_final_tables = []
-
-        # 1. 处理合并的表格组
-        for group_idx, group in enumerate(merge_groups):
-            print(f"\n{'=' * 60}")
-            print(f"处理合并表格组 {group_idx + 1}/{len(merge_groups)}")
-            print(f"包含表格索引: {group}")
-            print(f"{'=' * 60}")
-
-            # 暂时跳过合并逻辑（下一步实现）
-            # 先按独立表格处理（保持原有行为）
-            for table_idx in group:
-                llm_table_info = llm_tables[table_idx]
-                print(f"\n处理表格 {table_idx + 1}/{len(llm_tables)} (合并组)")
-
-                # 原有独立处理逻辑（暂时保持）
-                final_table = self.process_single_table(ocr_tables, llm_table_info)
-
-                if final_table:
-                    all_final_tables.append(final_table)
-
-        # 2. 处理独立的表格
-        for table_idx in independent_indices:
-            print(f"\n处理表格 {table_idx + 1}/{len(llm_tables)} (独立)")
-
-            llm_table_info = llm_tables[table_idx]
-
-            # 原有独立处理逻辑
-            final_table = self.process_single_table(ocr_tables, llm_table_info)
-
-            if final_table:
-                all_final_tables.append(final_table)
-
-        if not all_final_tables:
-            self.log_issue("无表格数据生成")
-            return False
-
-        # 第7步：保存到Excel
-        if all_final_tables:
-            success = self.step7_save_to_excel(all_final_tables, output_file)
-
-            # 新增：生成最终数据Excel
-            final_success = self.final_data_converter.batch_convert_tables(
-                all_tables_data=all_final_tables,
-                all_llm_tables=llm_result.get('tables_structure', {}).get('tables', []),
-                output_excel_path=final_output_file,
-                bank_name="中国建设银行"  # 可以从图片文件名或其他方式获取
-            )
-
-            return success and final_success
-
-
-        # 输出统计信息
-        print(f"\n{'=' * 60}")
-        print(f"处理完成统计:")
-        print(f"  成功处理表格: {len(all_final_tables)}个")
-        print(f"  表格合并组: {len(merge_groups)}组")
-        print(f"  警告: {len(self.warnings)}个")
-        print(f"  问题: {len(self.issues)}个")
-        print(f"  输出文件: {output_file}")
-        print(f"{'=' * 60}")
-
-        return success
-
     def process_single_table(self, ocr_tables, llm_table_info):
         """
         处理单个表格的完整流程
