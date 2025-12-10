@@ -16,6 +16,7 @@ backend/data/*
 backend/static/pdf2pngs/*
 backend/weights/*
 backend/static/*
+test_codes/*
 
 #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
 
