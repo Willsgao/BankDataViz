@@ -1,4 +1,4 @@
-# 新建工具模块 backend/service/image_utils.py
+# 新建工具模块 backend/service/table_image_utils.py
 from PIL import Image
 from pathlib import Path
 from typing import List

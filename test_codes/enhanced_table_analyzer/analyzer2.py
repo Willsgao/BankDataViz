@@ -3,13 +3,13 @@ import os
 import re
 import time
 import json
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any
 from openai import OpenAI
 
-from test_codes.enhanced_table_analyzer.utils.image_utils import ImageUtils
+from backend.table_processor.table_image_utils import ImageUtils
 from test_codes.enhanced_table_analyzer.utils.ocr_processor import OCRProcessor
-from test_codes.enhanced_table_analyzer.config import settings
-from test_codes.enhanced_table_analyzer.ocr_service import TableOCRService
+from backend.table_processor.table_config import settings
+from backend.table_processor.ocr_service import TableOCRService
 
 
 class FinancialTableAnalyzer:
