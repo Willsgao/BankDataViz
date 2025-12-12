@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@handsontable/vue3": "^16.1.1",
+    "@vue/compiler-sfc": "^3.5.25",
     "@vueup/vue-quill": "^1.2.0",
     "axios": "^1.11.0",
     "core-js": "^3.8.3",
@@ -16,7 +17,7 @@
     "element-plus": "^2.10.4",
     "handsontable": "^16.1.1",
     "pinia": "^3.0.4",
-    "vue": "^3.2.13",
+    "vue": "^3.5.25",
     "vue-router": "^4.6.3",
     "vue3-quill": "^0.3.1"
   },
