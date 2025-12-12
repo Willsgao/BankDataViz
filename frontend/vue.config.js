@@ -2,44 +2,52 @@
 const { defineConfig } = require('@vue/cli-service')
 const path = require('path')
 
+// 后端地址：优先读环境变量，本地默认 localhost:5000
+//const API_BASE = process.env.API_BASE || 'http://localhost:5000'
+// 直接写死成服务器内网地址
+const API_BASE = 'http://172.17.0.1:5000'
+
 module.exports = defineConfig({
   lintOnSave: false,
   devServer: {
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: API_BASE,
         changeOrigin: true,
         secure: false,
-        pathRewrite: {
-          '^/api': '/api'  // 明确指定路径重写
-        },
-        logLevel: 'debug'  // 添加调试日志
+        pathRewrite: { '^/api': '/api' },
+        logLevel: 'debug'
       },
       '/file': {
-        target: 'http://localhost:5000',
+        target: API_BASE,
+        changeOrigin: true,
+        secure: false
+      },
+      '/upload': {               // 别忘了上传接口
+        target: API_BASE,
         changeOrigin: true,
         secure: false
       },
       '/convert': {
-        target: 'http://localhost:5000',
+        target: API_BASE,
         changeOrigin: true,
         secure: false
       },
       '/static/joined_tables': {
-        target: 'http://localhost:5000',
+        target: API_BASE,
         changeOrigin: true,
         secure: false,
         logLevel: 'debug'
       },
       '/static/excel_output': {
-        target: 'http://localhost:5000',
+        target: API_BASE,
         changeOrigin: true,
         secure: false,
         logLevel: 'debug'
       },
       '/static/excel_data': {
-        target: 'http://localhost:5000',
+        target: API_BASE,
         changeOrigin: true,
         secure: false,
         logLevel: 'debug'
