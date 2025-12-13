@@ -20,7 +20,7 @@
 const props = defineProps({ file: Object })
 import { getBackendUrl } from '@/utils/config'
 
-const pdfUrl = getBackendUrl(`/file/${props.file.filename}`)
+const pdfUrl = getBackendUrl(`/api/file/${props.file.disk_name || props.file.filename}`)
 defineEmits(['close'])
 </script>
 

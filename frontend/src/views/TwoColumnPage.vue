@@ -167,22 +167,23 @@ async function handleOcrCompleted(ocrResult) {
 
 
 
-// 在 TwoColumnPage.vue 的 script setup 中，替换所有空函数
-
 // ---------------- 业务函数实现 ----------------
 async function loadFiles() {
   try {
     files.value = await getFiles()
     console.log('📁 加载的文件列表:', files.value)
 
-    // 检查文件URL是否可访问
     if (files.value.length > 0) {
       const firstFile = files.value[0]
-      console.log('🔗 第一个文件的下载URL:', `/api/file/${firstFile.disk_name}`)
 
-      // 测试文件访问
+      // 构建正确的 URL（使用当前页面的协议和主机名）
+      const baseUrl = window.location.origin // 'http://localhost:8080'
+      const testUrl = `${baseUrl}/api/file-info/${firstFile.disk_name}`
+
+      console.log('🔗 测试URL:', testUrl)
+
       try {
-        const testResponse = await fetch(`/api/file-info/${firstFile.disk_name}`)
+        const testResponse = await fetch(testUrl)
         console.log('✅ 文件访问测试:', testResponse.ok)
       } catch (error) {
         console.error('❌ 文件访问测试失败:', error)

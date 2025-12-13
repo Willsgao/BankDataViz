@@ -11,5 +11,6 @@
 import { getBackendUrl } from '@/utils/config'
 
 const props = defineProps({ file: Object })
-const imgUrl = getBackendUrl(`/file/${props.file.filename}`)
+
+const pdfUrl = getBackendUrl(`/api/file/${props.file.disk_name || props.file.filename}`)
 </script>

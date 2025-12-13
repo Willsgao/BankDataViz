@@ -2,10 +2,8 @@
 const { defineConfig } = require('@vue/cli-service')
 const path = require('path')
 
-// 后端地址：优先读环境变量，本地默认 127.0.0.1:5000
-//const API_BASE = process.env.VUE_APP_API_BASE || 'http://127.0.0.1:5000'
 // vue.config.js
-const API_BASE = 'http://101.43.35.52:5000'
+const API_BASE = process.env.VUE_APP_API_BASE || 'http://localhost:5000'
 
 
 module.exports = defineConfig({
