@@ -38,10 +38,11 @@ const uploadActionUrl = ref('')
 
 
 onMounted(() => {
+  console.log('🔥 FileUpload 已挂载')
   uploadActionUrl.value = '/api/upload'
-  console.log('📌 uploadActionUrl 初始化:', uploadActionUrl.value) // ← 看控制台
-  configReady.value = true
+  console.log('📌 uploadActionUrl:', uploadActionUrl.value)
 })
+
 
 // 上传前验证
 const beforeUpload = (file) => {
