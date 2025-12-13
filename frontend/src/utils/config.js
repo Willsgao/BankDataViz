@@ -18,7 +18,8 @@ const getDefaultConfig = () => ({
     backend: {
       host: "127.0.0.1",
       port: 5000,
-      baseUrl: "http://127.0.0.1:5000"
+      // 关键：用环境变量，本地不传就 localhost，服务器传入 172.17.0.1:5000
+      baseUrl: process.env.VUE_APP_API_BASE || "http://localhost:5000"
     },
     frontend: {
       host: "localhost",
@@ -43,6 +44,8 @@ const getDefaultConfig = () => ({
     maxTokens: 4000
   }
 })
+
+
 
 // 读取配置文件的函数
 const loadConfig = async () => {
