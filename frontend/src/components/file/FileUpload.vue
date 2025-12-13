@@ -36,9 +36,10 @@ import { getBackendUrl } from '@/utils/config'
 const configReady = ref(false)
 const uploadActionUrl = ref('')
 
+
 onMounted(() => {
-  // 在组件挂载后设置上传URL
-  uploadActionUrl.value = getBackendUrl('/upload')
+  // 只给路径，让浏览器走代理
+  uploadActionUrl.value = '/api/upload'
   configReady.value = true
 })
 
