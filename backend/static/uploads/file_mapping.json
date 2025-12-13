@@ -44,6 +44,7 @@
     "file_type": "png",
     "disk_name": "324799c7-ee6f-4fbd-8439-b072cf9d7b06.png"
   },
+<<<<<<< HEAD
   "e9f225d2-0170-4f1a-873c-df25ca97b02d": {
     "original_name": "2025-03-29-601939.SH-建设银行-601939建设银行2024年度资本管理第三支柱信息披露报告.pdf",
     "file_type": "pdf",
@@ -88,5 +89,11 @@
     "original_name": "514001_142.png",
     "file_type": "png",
     "disk_name": "38714d76-fb9c-482d-a584-c3f56826371b.png"
+=======
+  "728c745b-8f11-4e96-8c4a-af0be4ada8c8": {
+    "original_name": "514001_142.png",
+    "file_type": "png",
+    "disk_name": "728c745b-8f11-4e96-8c4a-af0be4ada8c8.png"
+>>>>>>> 81ffc62ad55f3d8f7e170eccbc09c46131391cf0
   }
 }
