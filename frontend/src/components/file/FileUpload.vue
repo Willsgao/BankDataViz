@@ -36,10 +36,10 @@ import { getBackendUrl } from '@/utils/config'
 const configReady = ref(false)
 const uploadActionUrl = ref('')
 
-
+// uploadActionUrl.value = '/api/upload'
 onMounted(() => {
   console.log('🔥 FileUpload 已挂载')
-  uploadActionUrl.value = '/api/upload'
+  uploadActionUrl.value = 'http://101.43.35.52:5000/upload'
   console.log('📌 uploadActionUrl:', uploadActionUrl.value)
 })
 
