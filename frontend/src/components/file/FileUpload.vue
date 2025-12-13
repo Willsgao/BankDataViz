@@ -38,8 +38,8 @@ const uploadActionUrl = ref('')
 
 
 onMounted(() => {
-  // 只给路径，让浏览器走代理
   uploadActionUrl.value = '/api/upload'
+  console.log('📌 uploadActionUrl 初始化:', uploadActionUrl.value) // ← 看控制台
   configReady.value = true
 })
 
