@@ -4,8 +4,10 @@ const path = require('path')
 
 // 后端地址：优先读环境变量，本地默认 localhost:5000
 //const API_BASE = process.env.API_BASE || 'http://localhost:5000'
-// 直接写死成服务器内网地址
-const API_BASE = 'http://172.17.0.1:5000'
+
+const API_BASE = process.env.VUE_APP_API_BASE || 'http://101.43.35.52:5000'
+//// 直接写死成服务器内网地址
+//const API_BASE = 'http://172.17.0.1:5000'
 
 module.exports = defineConfig({
   lintOnSave: false,
