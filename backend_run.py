@@ -17,7 +17,7 @@ CORS(
         "http://localhost:8080",
         "http://127.0.0.1:8080",
         "http://172.17.0.1:8080",      # 容器内网
-        "http://your-domain.com:8080"  # 公网或域名
+        "http://101.43.35.52:8080",
     ],
     supports_credentials=True,
     allow_headers=["*"],
