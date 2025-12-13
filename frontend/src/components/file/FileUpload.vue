@@ -8,7 +8,7 @@
       :on-success="handleSuccess"
       :on-error="handleError"
       drag
-      v-if="configReady"
+      v-if="true"
     >
       <div class="upload-content">
         <el-icon class="upload-icon"><upload-filled /></el-icon>
