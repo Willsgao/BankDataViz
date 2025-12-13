@@ -253,7 +253,7 @@ def delete_file(filename):
 
 
 # ---------- 4. 搜索PDF文件（新增接口） ----------
-@file_bp.get('/api/search-pdf')
+@file_bp.get('/search-pdf')
 def search_pdf():
     """
     搜索PDF文件名称 - 基于文件映射服务
@@ -304,7 +304,7 @@ def get_file_by_id(file_id):
 
 
 # ---------- 5. 获取PDF对应的Excel sheet列表 ----------
-@file_bp.get('/api/excel-sheets/<file_id>')
+@file_bp.get('/excel-sheets/<file_id>')
 def get_excel_sheets(file_id):
     """
     根据PDF文件ID获取对应的Excel sheet列表
@@ -394,7 +394,7 @@ def get_excel_sheets(file_id):
 
 
 # ---------- 6. 获取Excel表格数据 ----------
-@file_bp.get('/api/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
+@file_bp.get('/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
 def get_excel_data(file_id, excel_file_name, sheet_name):
     """
     根据文件ID、Excel文件名和sheet名称获取Excel数据
@@ -458,7 +458,7 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
         return jsonify({"error": "处理请求失败"}), 500
 
 
-@file_bp.route('/api/excel-data/<path:filename>')
+@file_bp.route('/excel-data/<path:filename>')
 def serve_excel_file(filename):
     """提供 Excel 文件下载"""
     # 修正：统一使用Path对象构建路径
