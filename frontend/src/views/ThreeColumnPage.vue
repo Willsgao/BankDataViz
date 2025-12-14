@@ -429,7 +429,7 @@ const selectPdf = async (pdf) => {
     if (fileId) {
       // 通过文件ID获取PDF内容
       // pdfUrl.value = `/api/file-by-id/${fileId}`
-      pdfUrl.value = getBackendUrl(`/file-by-id/${fileId}`)
+      pdfUrl.value = getBackendUrl(`/api/file-by-id/${fileId}`)
       console.log('设置PDF预览URL:', pdfUrl.value)
 
       // 根据PDF ID获取对应的Excel sheet列表
