@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, List
 from openai import OpenAI
 
-from backend.table_processor.table_config import settings
+from backend.services.table_processor.table_config import settings
 
 
 class EnhancedFinancialTableAnalyzer:
@@ -238,7 +238,7 @@ class EnhancedFinancialTableAnalyzer:
 
     def analyze_image(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """分析单张图片中的所有表格"""
-        from backend.table_processor.table_image_utils import ImageUtils
+        from backend.services.table_processor import ImageUtils
 
         # 1. 准备数据
         image_utils = ImageUtils()
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     analyzer = EnhancedFinancialTableAnalyzer()
 
     # 假设已有OCR服务
-    from backend.table_processor.ocr_service import TableOCRService
+    from backend.services.table_processor import TableOCRService
 
     ocr_service = TableOCRService()
     image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\123.png"

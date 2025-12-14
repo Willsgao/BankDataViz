@@ -148,6 +148,34 @@ class Config:
             return f"{self.BACKEND_BASE_URL}{path}"
 
 
+
+class TableConfig:
+    """配置类"""
+    # LLM配置
+    LLM_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
+    LLM_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+    LLM_MODEL_NAME = "doubao-1-5-vision-pro-250328"
+
+    # OCR配置
+    OCR_API_KEY = "Id7EZH2q6IOSlivHbwHHbWwz"
+    OCR_SECRET_KEY = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+    OCR_TIMEOUT = 30
+    OCR_MAX_RETRIES = 3
+
+    # 表格分析配置
+    EXTRACT_ROWS = 10  # 提取的行数
+    EXTRACT_COLS = 3  # 提取的列数
+    MAX_RETRIES = 3  # 最大重试次数
+    TIMEOUT = 30  # 超时时间
+
+    # 路径配置
+    TEMP_DIR = "temp_imgs"
+    OUTPUT_DIR = "../../../test_codes/enhanced_table_analyzer/output"
+
+
+# 创建配置实例
+tableconfig = TableConfig()
+
 # 创建全局配置实例
 config = Config()
 
@@ -178,4 +206,4 @@ API_PATHS = {
     'UPLOAD_PREFIX': config.UPLOAD_PREFIX
 }
 
-__all__ = ['config', 'SERVER_CONFIG', 'FRONTEND_CONFIG', 'FILE_PATHS', 'API_PATHS']
+__all__ = ['config', 'SERVER_CONFIG', 'FRONTEND_CONFIG', 'FILE_PATHS', 'API_PATHS', 'tableconfig']

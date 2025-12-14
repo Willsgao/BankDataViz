@@ -1,0 +1,1383 @@
+{
+  "tables_result": [
+    {
+      "body": []
+    },
+    {
+      "body": [
+        {
+          "row_start": 0,
+          "col_start": 0,
+          "row_end": 3,
+          "col_end": 2,
+          "words": "(人民币百万元)",
+          "confidence": 0.9999790787696838,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 2,
+          "row_end": 1,
+          "col_end": 3,
+          "words": "a",
+          "confidence": 0.9989668130874634,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 3,
+          "row_end": 1,
+          "col_end": 4,
+          "words": "b",
+          "confidence": 0.9989299178123474,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 4,
+          "row_end": 1,
+          "col_end": 5,
+          "words": "C",
+          "confidence": 0.8424524068832397,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 2,
+          "row_end": 2,
+          "col_end": 4,
+          "words": "风险加权资产",
+          "confidence": 0.9999370574951172,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 4,
+          "row_end": 2,
+          "col_end": 5,
+          "words": "最低资本要求",
+          "confidence": 0.9999997615814209,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 2,
+          "row_end": 3,
+          "col_end": 3,
+          "words": "2024年 12月31日",
+          "confidence": 0.998745322227478,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 3,
+          "row_end": 3,
+          "col_end": 4,
+          "words": "2024年 9 月 30日",
+          "confidence": 0.9997209310531616,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 4,
+          "row_end": 3,
+          "col_end": 5,
+          "words": "2024年 12月31日",
+          "confidence": 0.9996017813682556,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 0,
+          "row_end": 4,
+          "col_end": 1,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 1,
+          "row_end": 4,
+          "col_end": 2,
+          "words": "信用风险",
+          "confidence": 0.9999951124191284,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 2,
+          "row_end": 4,
+          "col_end": 3,
+          "words": "19.814.943",
+          "confidence": 0.9625300168991089,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 3,
+          "row_end": 4,
+          "col_end": 4,
+          "words": "20,185,885",
+          "confidence": 0.9971051216125488,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 4,
+          "row_end": 4,
+          "col_end": 5,
+          "words": "1,585,195",
+          "confidence": 0.9704335331916809,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 0,
+          "row_end": 5,
+          "col_end": 1,
+          "words": "2",
+          "confidence": 0.9997593760490417,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 1,
+          "row_end": 5,
+          "col_end": 2,
+          "words": "信用风险(不包括交易对手信用风 险、信用估值调整风险、银行账簿资 产管理产品和银行账簿资产证券化)",
+          "confidence": 0.9999833703041077,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 2,
+          "row_end": 5,
+          "col_end": 3,
+          "words": "19.433.391",
+          "confidence": 0.998500645160675,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 3,
+          "row_end": 5,
+          "col_end": 4,
+          "words": "19,818,263",
+          "confidence": 0.9426417350769043,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 4,
+          "row_end": 5,
+          "col_end": 5,
+          "words": "1,554,670",
+          "confidence": 0.9990386962890625,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 0,
+          "row_end": 6,
+          "col_end": 1,
+          "words": "3",
+          "confidence": 0.9954054355621338,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 1,
+          "row_end": 6,
+          "col_end": 2,
+          "words": "其中:权重法",
+          "confidence": 0.9989974498748779,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 2,
+          "row_end": 6,
+          "col_end": 3,
+          "words": "5,820,738",
+          "confidence": 0.9921391606330872,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 3,
+          "row_end": 6,
+          "col_end": 4,
+          "words": "5,596,995",
+          "confidence": 0.9622238874435425,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 4,
+          "row_end": 6,
+          "col_end": 5,
+          "words": "465,658",
+          "confidence": 0.9998403191566467,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 0,
+          "row_end": 7,
+          "col_end": 1,
+          "words": "4",
+          "confidence": 0.9999347925186157,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 1,
+          "row_end": 7,
+          "col_end": 2,
+          "words": "其中:证券、商品、外汇交易清 算过程中形成的风险暴露",
+          "confidence": 0.9978457093238831,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 2,
+          "row_end": 7,
+          "col_end": 3,
+          "words": "0",
+          "confidence": 0.9505088925361633,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 3,
+          "row_end": 7,
+          "col_end": 4,
+          "words": "0",
+          "confidence": 0.8590061068534851,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 4,
+          "row_end": 7,
+          "col_end": 5,
+          "words": "0",
+          "confidence": 0.8590061068534851,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 0,
+          "row_end": 8,
+          "col_end": 1,
+          "words": "5",
+          "confidence": 0.999869704246521,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 1,
+          "row_end": 8,
+          "col_end": 2,
+          "words": "其中:门槛扣除项中未扣除部分",
+          "confidence": 0.9643173217773438,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 2,
+          "row_end": 8,
+          "col_end": 3,
+          "words": "363,177",
+          "confidence": 0.9991260170936584,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 3,
+          "row_end": 8,
+          "col_end": 4,
+          "words": "369,459",
+          "confidence": 0.9997106194496155,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 4,
+          "row_end": 8,
+          "col_end": 5,
+          "words": "29,054",
+          "confidence": 0.9966217875480652,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 0,
+          "row_end": 9,
+          "col_end": 1,
+          "words": "6",
+          "confidence": 0.9999856948852539,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 1,
+          "row_end": 9,
+          "col_end": 2,
+          "words": "其中:初级内部评级法",
+          "confidence": 0.9991018176078796,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 2,
+          "row_end": 9,
+          "col_end": 3,
+          "words": "11,323,706",
+          "confidence": 0.9942663311958313,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 3,
+          "row_end": 9,
+          "col_end": 4,
+          "words": "11,946,337",
+          "confidence": 0.9986099004745483,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 4,
+          "row_end": 9,
+          "col_end": 5,
+          "words": "905,896",
+          "confidence": 0.9915715456008911,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 0,
+          "row_end": 10,
+          "col_end": 1,
+          "words": "7",
+          "confidence": 0.9957969188690186,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 1,
+          "row_end": 10,
+          "col_end": 2,
+          "words": "其中:监管映射法",
+          "confidence": 0.9987848997116089,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 2,
+          "row_end": 10,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 3,
+          "row_end": 10,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 4,
+          "row_end": 10,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 0,
+          "row_end": 11,
+          "col_end": 1,
+          "words": "8",
+          "confidence": 0.9998082518577576,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 1,
+          "row_end": 11,
+          "col_end": 2,
+          "words": "其中:高级内部评级法",
+          "confidence": 0.9997550249099731,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 2,
+          "row_end": 11,
+          "col_end": 3,
+          "words": "2,288,947",
+          "confidence": 0.9447920918464661,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 3,
+          "row_end": 11,
+          "col_end": 4,
+          "words": "2,274,931",
+          "confidence": 0.9974903464317322,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 4,
+          "row_end": 11,
+          "col_end": 5,
+          "words": "183,116",
+          "confidence": 0.997019350528717,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 0,
+          "row_end": 12,
+          "col_end": 1,
+          "words": "9",
+          "confidence": 0.9964585900306702,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 1,
+          "row_end": 12,
+          "col_end": 2,
+          "words": "交易对手信用风险",
+          "confidence": 0.999990701675415,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 2,
+          "row_end": 12,
+          "col_end": 3,
+          "words": "117.100",
+          "confidence": 0.9907829165458679,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 3,
+          "row_end": 12,
+          "col_end": 4,
+          "words": "115,575",
+          "confidence": 0.9993189573287964,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 4,
+          "row_end": 12,
+          "col_end": 5,
+          "words": "9,368",
+          "confidence": 0.9951820373535156,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 0,
+          "row_end": 13,
+          "col_end": 1,
+          "words": "10",
+          "confidence": 0.998161792755127,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 1,
+          "row_end": 13,
+          "col_end": 2,
+          "words": "其中:标准法",
+          "confidence": 0.9989611506462097,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 2,
+          "row_end": 13,
+          "col_end": 3,
+          "words": "117,100",
+          "confidence": 0.9986734390258789,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 3,
+          "row_end": 13,
+          "col_end": 4,
+          "words": "115.575",
+          "confidence": 0.9472240805625916,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 4,
+          "row_end": 13,
+          "col_end": 5,
+          "words": "9,368",
+          "confidence": 0.9404792785644531,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 0,
+          "row_end": 14,
+          "col_end": 1,
+          "words": "11",
+          "confidence": 0.9996209144592285,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 1,
+          "row_end": 14,
+          "col_end": 2,
+          "words": "其中:现期风险暴露法",
+          "confidence": 0.9634391069412231,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 2,
+          "row_end": 14,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 3,
+          "row_end": 14,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 4,
+          "row_end": 14,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 14,
+          "col_start": 0,
+          "row_end": 15,
+          "col_end": 1,
+          "words": "12",
+          "confidence": 0.9993136525154114,
+          "type": "body"
+        },
+        {
+          "row_start": 14,
+          "col_start": 1,
+          "row_end": 15,
+          "col_end": 2,
+          "words": "其中:其他方法",
+          "confidence": 0.9980403780937195,
+          "type": "body"
+        },
+        {
+          "row_start": 14,
+          "col_start": 2,
+          "row_end": 15,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 14,
+          "col_start": 3,
+          "row_end": 15,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 14,
+          "col_start": 4,
+          "row_end": 15,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 15,
+          "col_start": 0,
+          "row_end": 16,
+          "col_end": 1,
+          "words": "13",
+          "confidence": 0.9994853734970093,
+          "type": "body"
+        },
+        {
+          "row_start": 15,
+          "col_start": 1,
+          "row_end": 16,
+          "col_end": 2,
+          "words": "信用估值调整风险",
+          "confidence": 0.9999920129776001,
+          "type": "body"
+        },
+        {
+          "row_start": 15,
+          "col_start": 2,
+          "row_end": 16,
+          "col_end": 3,
+          "words": "46.944",
+          "confidence": 0.9880134463310242,
+          "type": "body"
+        },
+        {
+          "row_start": 15,
+          "col_start": 3,
+          "row_end": 16,
+          "col_end": 4,
+          "words": "36,447",
+          "confidence": 0.9530622363090515,
+          "type": "body"
+        },
+        {
+          "row_start": 15,
+          "col_start": 4,
+          "row_end": 16,
+          "col_end": 5,
+          "words": "3,756",
+          "confidence": 0.9596004486083984,
+          "type": "body"
+        },
+        {
+          "row_start": 16,
+          "col_start": 0,
+          "row_end": 17,
+          "col_end": 1,
+          "words": "14",
+          "confidence": 0.8833876848220825,
+          "type": "body"
+        },
+        {
+          "row_start": 16,
+          "col_start": 1,
+          "row_end": 17,
+          "col_end": 2,
+          "words": "银行账簿资产管理产品",
+          "confidence": 0.9999814033508301,
+          "type": "body"
+        },
+        {
+          "row_start": 16,
+          "col_start": 2,
+          "row_end": 17,
+          "col_end": 3,
+          "words": "199,861",
+          "confidence": 0.9716672897338867,
+          "type": "body"
+        },
+        {
+          "row_start": 16,
+          "col_start": 3,
+          "row_end": 17,
+          "col_end": 4,
+          "words": "197,318",
+          "confidence": 0.9970751404762268,
+          "type": "body"
+        },
+        {
+          "row_start": 16,
+          "col_start": 4,
+          "row_end": 17,
+          "col_end": 5,
+          "words": "15,989",
+          "confidence": 0.9319018721580505,
+          "type": "body"
+        },
+        {
+          "row_start": 17,
+          "col_start": 0,
+          "row_end": 18,
+          "col_end": 1,
+          "words": "15",
+          "confidence": 0.999824583530426,
+          "type": "body"
+        },
+        {
+          "row_start": 17,
+          "col_start": 1,
+          "row_end": 18,
+          "col_end": 2,
+          "words": "其中:穿透法",
+          "confidence": 0.9925996661186218,
+          "type": "body"
+        },
+        {
+          "row_start": 17,
+          "col_start": 2,
+          "row_end": 18,
+          "col_end": 3,
+          "words": "2,873",
+          "confidence": 0.9961943626403809,
+          "type": "body"
+        },
+        {
+          "row_start": 17,
+          "col_start": 3,
+          "row_end": 18,
+          "col_end": 4,
+          "words": "1,910",
+          "confidence": 0.999616801738739,
+          "type": "body"
+        },
+        {
+          "row_start": 17,
+          "col_start": 4,
+          "row_end": 18,
+          "col_end": 5,
+          "words": "230",
+          "confidence": 0.9994244575500488,
+          "type": "body"
+        },
+        {
+          "row_start": 18,
+          "col_start": 0,
+          "row_end": 19,
+          "col_end": 1,
+          "words": "16",
+          "confidence": 0.999950110912323,
+          "type": "body"
+        },
+        {
+          "row_start": 18,
+          "col_start": 1,
+          "row_end": 19,
+          "col_end": 2,
+          "words": "其中:授权基础法",
+          "confidence": 0.9978686571121216,
+          "type": "body"
+        },
+        {
+          "row_start": 18,
+          "col_start": 2,
+          "row_end": 19,
+          "col_end": 3,
+          "words": "192,913",
+          "confidence": 0.9988398551940918,
+          "type": "body"
+        },
+        {
+          "row_start": 18,
+          "col_start": 3,
+          "row_end": 19,
+          "col_end": 4,
+          "words": "195,293",
+          "confidence": 0.9958871006965637,
+          "type": "body"
+        },
+        {
+          "row_start": 18,
+          "col_start": 4,
+          "row_end": 19,
+          "col_end": 5,
+          "words": "15,433",
+          "confidence": 0.9413847923278809,
+          "type": "body"
+        },
+        {
+          "row_start": 19,
+          "col_start": 0,
+          "row_end": 20,
+          "col_end": 1,
+          "words": "17",
+          "confidence": 0.9998202919960022,
+          "type": "body"
+        },
+        {
+          "row_start": 19,
+          "col_start": 1,
+          "row_end": 20,
+          "col_end": 2,
+          "words": "其中:适用 1250%风险权重",
+          "confidence": 0.9992265701293945,
+          "type": "body"
+        },
+        {
+          "row_start": 19,
+          "col_start": 2,
+          "row_end": 20,
+          "col_end": 3,
+          "words": "4,075",
+          "confidence": 0.9982320666313171,
+          "type": "body"
+        },
+        {
+          "row_start": 19,
+          "col_start": 3,
+          "row_end": 20,
+          "col_end": 4,
+          "words": "115",
+          "confidence": 0.9994497299194336,
+          "type": "body"
+        },
+        {
+          "row_start": 19,
+          "col_start": 4,
+          "row_end": 20,
+          "col_end": 5,
+          "words": "326",
+          "confidence": 0.9999735951423645,
+          "type": "body"
+        },
+        {
+          "row_start": 20,
+          "col_start": 0,
+          "row_end": 21,
+          "col_end": 1,
+          "words": "18",
+          "confidence": 0.9998188018798828,
+          "type": "body"
+        },
+        {
+          "row_start": 20,
+          "col_start": 1,
+          "row_end": 21,
+          "col_end": 2,
+          "words": "银行账簿资产证券化1",
+          "confidence": 0.9998564720153809,
+          "type": "body"
+        },
+        {
+          "row_start": 20,
+          "col_start": 2,
+          "row_end": 21,
+          "col_end": 3,
+          "words": "17,647",
+          "confidence": 0.9180703163146973,
+          "type": "body"
+        },
+        {
+          "row_start": 20,
+          "col_start": 3,
+          "row_end": 21,
+          "col_end": 4,
+          "words": "18,282",
+          "confidence": 0.9991476535797119,
+          "type": "body"
+        },
+        {
+          "row_start": 20,
+          "col_start": 4,
+          "row_end": 21,
+          "col_end": 5,
+          "words": "1,412",
+          "confidence": 0.9983892440795898,
+          "type": "body"
+        },
+        {
+          "row_start": 21,
+          "col_start": 0,
+          "row_end": 22,
+          "col_end": 1,
+          "words": "19",
+          "confidence": 0.9999225735664368,
+          "type": "body"
+        },
+        {
+          "row_start": 21,
+          "col_start": 1,
+          "row_end": 22,
+          "col_end": 2,
+          "words": "其中:资产证券化内部评级法",
+          "confidence": 0.9982258677482605,
+          "type": "body"
+        },
+        {
+          "row_start": 21,
+          "col_start": 2,
+          "row_end": 22,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 21,
+          "col_start": 3,
+          "row_end": 22,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 21,
+          "col_start": 4,
+          "row_end": 22,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 22,
+          "col_start": 0,
+          "row_end": 23,
+          "col_end": 1,
+          "words": "20",
+          "confidence": 0.9994893074035645,
+          "type": "body"
+        },
+        {
+          "row_start": 22,
+          "col_start": 1,
+          "row_end": 23,
+          "col_end": 2,
+          "words": "其中:资产证券化外部评级法",
+          "confidence": 0.9920831918716431,
+          "type": "body"
+        },
+        {
+          "row_start": 22,
+          "col_start": 2,
+          "row_end": 23,
+          "col_end": 3,
+          "words": "0",
+          "confidence": 0.9426873326301575,
+          "type": "body"
+        },
+        {
+          "row_start": 22,
+          "col_start": 3,
+          "row_end": 23,
+          "col_end": 4,
+          "words": "0",
+          "confidence": 0.9426873326301575,
+          "type": "body"
+        },
+        {
+          "row_start": 22,
+          "col_start": 4,
+          "row_end": 23,
+          "col_end": 5,
+          "words": "0",
+          "confidence": 0.9382243752479553,
+          "type": "body"
+        },
+        {
+          "row_start": 23,
+          "col_start": 0,
+          "row_end": 24,
+          "col_end": 1,
+          "words": "21",
+          "confidence": 0.999652624130249,
+          "type": "body"
+        },
+        {
+          "row_start": 23,
+          "col_start": 1,
+          "row_end": 24,
+          "col_end": 2,
+          "words": "其中:资产证券化标准法",
+          "confidence": 0.9982185363769531,
+          "type": "body"
+        },
+        {
+          "row_start": 23,
+          "col_start": 2,
+          "row_end": 24,
+          "col_end": 3,
+          "words": "7,818",
+          "confidence": 0.999642550945282,
+          "type": "body"
+        },
+        {
+          "row_start": 23,
+          "col_start": 3,
+          "row_end": 24,
+          "col_end": 4,
+          "words": "7,813",
+          "confidence": 0.9957884550094604,
+          "type": "body"
+        },
+        {
+          "row_start": 23,
+          "col_start": 4,
+          "row_end": 24,
+          "col_end": 5,
+          "words": "625",
+          "confidence": 0.9999580383300781,
+          "type": "body"
+        },
+        {
+          "row_start": 24,
+          "col_start": 0,
+          "row_end": 25,
+          "col_end": 1,
+          "words": "22",
+          "confidence": 0.9999599456787109,
+          "type": "body"
+        },
+        {
+          "row_start": 24,
+          "col_start": 1,
+          "row_end": 25,
+          "col_end": 2,
+          "words": "市场风险",
+          "confidence": 0.9999768733978271,
+          "type": "body"
+        },
+        {
+          "row_start": 24,
+          "col_start": 2,
+          "row_end": 25,
+          "col_end": 3,
+          "words": "250,577",
+          "confidence": 0.9982997179031372,
+          "type": "body"
+        },
+        {
+          "row_start": 24,
+          "col_start": 3,
+          "row_end": 25,
+          "col_end": 4,
+          "words": "194.481",
+          "confidence": 0.937985360622406,
+          "type": "body"
+        },
+        {
+          "row_start": 24,
+          "col_start": 4,
+          "row_end": 25,
+          "col_end": 5,
+          "words": "20,046",
+          "confidence": 0.9945266246795654,
+          "type": "body"
+        },
+        {
+          "row_start": 25,
+          "col_start": 0,
+          "row_end": 26,
+          "col_end": 1,
+          "words": "23",
+          "confidence": 0.9999072551727295,
+          "type": "body"
+        },
+        {
+          "row_start": 25,
+          "col_start": 1,
+          "row_end": 26,
+          "col_end": 2,
+          "words": "其中:标准法",
+          "confidence": 0.9962989687919617,
+          "type": "body"
+        },
+        {
+          "row_start": 25,
+          "col_start": 2,
+          "row_end": 26,
+          "col_end": 3,
+          "words": "250.577",
+          "confidence": 0.9998666644096375,
+          "type": "body"
+        },
+        {
+          "row_start": 25,
+          "col_start": 3,
+          "row_end": 26,
+          "col_end": 4,
+          "words": "194.481",
+          "confidence": 0.937985360622406,
+          "type": "body"
+        },
+        {
+          "row_start": 25,
+          "col_start": 4,
+          "row_end": 26,
+          "col_end": 5,
+          "words": "20,046",
+          "confidence": 0.9939091205596924,
+          "type": "body"
+        },
+        {
+          "row_start": 26,
+          "col_start": 0,
+          "row_end": 27,
+          "col_end": 1,
+          "words": "24",
+          "confidence": 0.999965488910675,
+          "type": "body"
+        },
+        {
+          "row_start": 26,
+          "col_start": 1,
+          "row_end": 27,
+          "col_end": 2,
+          "words": "其中:内部模型法",
+          "confidence": 0.9993358254432678,
+          "type": "body"
+        },
+        {
+          "row_start": 26,
+          "col_start": 2,
+          "row_end": 27,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 26,
+          "col_start": 3,
+          "row_end": 27,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 26,
+          "col_start": 4,
+          "row_end": 27,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 27,
+          "col_start": 0,
+          "row_end": 28,
+          "col_end": 1,
+          "words": "25",
+          "confidence": 0.9999042749404907,
+          "type": "body"
+        },
+        {
+          "row_start": 27,
+          "col_start": 1,
+          "row_end": 29,
+          "col_end": 2,
+          "words": "其中:简化标准法 交易账簿和银行账簿间转换的资本要求",
+          "confidence": 0.9983603954315186,
+          "type": "body"
+        },
+        {
+          "row_start": 27,
+          "col_start": 2,
+          "row_end": 28,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 27,
+          "col_start": 3,
+          "row_end": 28,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 27,
+          "col_start": 4,
+          "row_end": 28,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 28,
+          "col_start": 0,
+          "row_end": 29,
+          "col_end": 1,
+          "words": "26",
+          "confidence": 0.9999779462814331,
+          "type": "body"
+        },
+        {
+          "row_start": 28,
+          "col_start": 2,
+          "row_end": 29,
+          "col_end": 3,
+          "words": "44,651",
+          "confidence": 0.9997212290763855,
+          "type": "body"
+        },
+        {
+          "row_start": 28,
+          "col_start": 3,
+          "row_end": 29,
+          "col_end": 4,
+          "words": "0",
+          "confidence": 0.9555007815361023,
+          "type": "body"
+        },
+        {
+          "row_start": 28,
+          "col_start": 4,
+          "row_end": 29,
+          "col_end": 5,
+          "words": "3,572",
+          "confidence": 0.99022376537323,
+          "type": "body"
+        },
+        {
+          "row_start": 29,
+          "col_start": 0,
+          "row_end": 30,
+          "col_end": 1,
+          "words": "27",
+          "confidence": 0.9999597072601318,
+          "type": "body"
+        },
+        {
+          "row_start": 29,
+          "col_start": 1,
+          "row_end": 30,
+          "col_end": 2,
+          "words": "操作风险",
+          "confidence": 0.9999988675117493,
+          "type": "body"
+        },
+        {
+          "row_start": 29,
+          "col_start": 2,
+          "row_end": 30,
+          "col_end": 3,
+          "words": "1,744,419",
+          "confidence": 0.9997877478599548,
+          "type": "body"
+        },
+        {
+          "row_start": 29,
+          "col_start": 3,
+          "row_end": 30,
+          "col_end": 4,
+          "words": "1,770,189",
+          "confidence": 0.996282160282135,
+          "type": "body"
+        },
+        {
+          "row_start": 29,
+          "col_start": 4,
+          "row_end": 30,
+          "col_end": 5,
+          "words": "139,554",
+          "confidence": 0.9941767454147339,
+          "type": "body"
+        },
+        {
+          "row_start": 30,
+          "col_start": 0,
+          "row_end": 31,
+          "col_end": 1,
+          "words": "28",
+          "confidence": 0.9998935461044312,
+          "type": "body"
+        },
+        {
+          "row_start": 30,
+          "col_start": 1,
+          "row_end": 31,
+          "col_end": 2,
+          "words": "因应用资本底线而导致的额外调整",
+          "confidence": 0.9999994039535522,
+          "type": "body"
+        },
+        {
+          "row_start": 30,
+          "col_start": 2,
+          "row_end": 31,
+          "col_end": 3,
+          "words": "0",
+          "confidence": 0.8884851932525635,
+          "type": "body"
+        },
+        {
+          "row_start": 30,
+          "col_start": 3,
+          "row_end": 31,
+          "col_end": 5,
+          "words": "0",
+          "confidence": 0.8319578766822815,
+          "type": "body"
+        },
+        {
+          "row_start": 31,
+          "col_start": 0,
+          "row_end": 32,
+          "col_end": 1,
+          "words": "29",
+          "confidence": 0.9999650716781616,
+          "type": "body"
+        },
+        {
+          "row_start": 31,
+          "col_start": 1,
+          "row_end": 32,
+          "col_end": 2,
+          "words": "合计",
+          "confidence": 0.9999999403953552,
+          "type": "body"
+        },
+        {
+          "row_start": 31,
+          "col_start": 2,
+          "row_end": 32,
+          "col_end": 3,
+          "words": "21,854,590",
+          "confidence": 0.9544804692268372,
+          "type": "body"
+        },
+        {
+          "row_start": 31,
+          "col_start": 3,
+          "row_end": 32,
+          "col_end": 5,
+          "words": "22,150,555 1,748,367",
+          "confidence": 0.9989781975746155,
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "body": []
+    }
+  ],
+  "image_info": {
+    "image_path": "C:\\Users\\1\\Desktop\\pngs2\\e30214c2-bb28-4650-8ef0-43c2c27cc0b5_009.png",
+    "image_id": "img_801b426a8508"
+  },
+  "log_id": "",
+  "orc_statistics": {
+    "processing_time": 22.937982082366943,
+    "tables_count": 3,
+    "cells_count": 151
+  }
+}

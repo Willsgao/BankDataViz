@@ -6,9 +6,9 @@ import base64
 import urllib.parse
 from typing import Dict, Any, List
 
-from backend.table_processor.table_image_utils import ImageUtils
-from backend.table_processor.table_config import settings
-from backend.table_processor.ocr_adapter import OCRProviderFactory, OCRAdapter
+from backend.services.table_processor.table_image_utils import TableImageUtils
+from backend.services.table_processor.table_config import settings
+from backend.services.table_processor.ocr_adapter import OCRProviderFactory, OCRAdapter
 
 
 
@@ -19,7 +19,7 @@ class TableOCRService:
         Args:
             provider_type: OCR提供商类型，默认为配置中的设置
         """
-        self.image_utils = ImageUtils()
+        self.image_utils = TableImageUtils()
 
         # 确定使用的OCR提供商
         self.provider_type = provider_type or getattr(settings, 'ocr_provider', 'baidu')

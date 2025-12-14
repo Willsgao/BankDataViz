@@ -6,9 +6,9 @@ from typing import Dict, Any, List
 # 1. OCR服务（复用analyzer中的OCR服务）
 # ====================================
 
-from backend.table_processor.ocr_service import TableOCRService
-from backend.table_processor.table_analyzer import EnhancedFinancialTableAnalyzer
-from backend.table_processor.table_restructor import TableReconstructor
+from backend.services.table_processor import TableOCRService
+from backend.services.table_processor.analyzer import EnhancedFinancialTableAnalyzer
+from backend.services.table_processor import TableReconstructor
 
 
 

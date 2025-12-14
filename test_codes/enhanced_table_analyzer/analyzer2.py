@@ -6,10 +6,10 @@ import json
 from typing import List, Dict, Any
 from openai import OpenAI
 
-from backend.table_processor.table_image_utils import ImageUtils
+from backend.services.table_processor import ImageUtils
 from test_codes.enhanced_table_analyzer.utils.ocr_processor import OCRProcessor
-from backend.table_processor.table_config import settings
-from backend.table_processor.ocr_service import TableOCRService
+from backend.services.table_processor.table_config import settings
+from backend.services.table_processor import TableOCRService
 
 
 class FinancialTableAnalyzer:

@@ -6,9 +6,9 @@ from typing import Dict, Any, List
 # 1. OCR服务（复用analyzer中的OCR服务）
 # ====================================
 
-from backend.services.table_processor import TableOCRService
+from backend.services.table_processor.ocr_service import TableOCRService
 from backend.services.table_processor.analyzer import EnhancedFinancialTableAnalyzer
-from backend.services.table_processor import TableReconstructor
+from backend.services.table_processor.restructor import TableReconstructor
 
 
 
@@ -38,7 +38,7 @@ class TableReconstructionPipeline:
             'processing_time': 0
         }
 
-    def process_single_image(self, image_path: str, output_excel: str = None) -> Dict[str, Any]:
+    def process_single_image(self, image_path: str, output_excel: str = None, final_output_file: str=None) -> Dict[str, Any]:
         """
         处理单张图片的完整流程
         """
@@ -92,7 +92,8 @@ class TableReconstructionPipeline:
             success = self.table_reconstructor.process_all_tables(
                 ocr_result=ocr_result,
                 llm_result=llm_result,
-                output_file=output_excel
+                output_file=output_excel,
+                final_output_file=final_output_file
             )
 
             if success:
@@ -138,13 +139,15 @@ class TableReconstructionPipeline:
 
             # 生成输出路径
             output_excel = None
+            final_output_file = None
             if output_dir:
                 import os
                 image_name = os.path.splitext(os.path.basename(image_path))[0]
                 output_excel = os.path.join(output_dir, f"{image_name}_reconstructed.xlsx")
+                output_excel = os.path.join(output_dir, f"{image_name}_final.xlsx")
 
             # 处理单张图片
-            result = self.process_single_image(image_path, output_excel)
+            result = self.process_single_image(image_path, output_excel, final_output_file)
             result['image_path'] = image_path
             results.append(result)
 
@@ -169,66 +172,24 @@ class TableReconstructionPipeline:
 # ====================================
 
 # -*- coding:utf-8 -*-
-
 import os
 
 
-class Config:
-    """配置类"""
-    # LLM配置
-    LLM_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-    LLM_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
-    LLM_MODEL_NAME = "doubao-1-5-vision-pro-250328"
-
-    # OCR配置
-    OCR_API_KEY = "Id7EZH2q6IOSlivHbwHHbWwz"
-    OCR_SECRET_KEY = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
-    OCR_TIMEOUT = 30
-    OCR_MAX_RETRIES = 3
-
-    # 表格分析配置
-    EXTRACT_ROWS = 10  # 提取的行数
-    EXTRACT_COLS = 3  # 提取的列数
-    MAX_RETRIES = 3  # 最大重试次数
-    TIMEOUT = 30  # 超时时间
-
-    # 路径配置
-    TEMP_DIR = "./temp_imgs"
-    OUTPUT_DIR = "../enhanced_table_analyzer/output"
-
-
-# 创建配置实例
-config = Config()
-settings = config  # 别名，保持兼容性
-
-
-def create_pipeline():
+def create_pipeline(config_instance=None):
     """
     创建完整的处理管道
+    参数：config_instance - 可选的配置实例，如果不传则使用默认tableconfig
     """
+    from backend.utils.config import tableconfig as default_config
+
+    # 使用传入的配置或默认配置
+    config = config_instance or default_config
+
     # 1. OCR服务
     ocr_service = TableOCRService()
 
-    # 2. LLM分析器 - 根据EnhancedFinancialTableAnalyzer的实际构造函数参数调整
-    # 通常analyzer应该接收config对象或直接使用全局配置
-    try:
-        # 尝试创建analyzer（可能需要检查analyzer的实际构造函数）
-        # 方法1：直接使用默认构造函数
-        llm_analyzer = EnhancedFinancialTableAnalyzer()
-
-        # 方法2：如果需要配置，可能需要这样：
-        # from test_codes.enhanced_table_analyzer.config import Config as AnalyzerConfig
-        # 或者查看analyzer的实际定义来了解正确的参数
-    except TypeError as e:
-        print(f"创建LLM分析器失败: {e}")
-        print("请检查EnhancedFinancialTableAnalyzer的构造函数参数...")
-        # 回退到其他创建方式
-        # 尝试使用位置参数
-        llm_analyzer = EnhancedFinancialTableAnalyzer(
-            Config.LLM_BASE_URL,
-            Config.LLM_API_KEY,
-            Config.LLM_MODEL_NAME
-        )
+    # 2. LLM分析器 - 现在构造函数已经使用全局配置
+    llm_analyzer = EnhancedFinancialTableAnalyzer()
 
     # 3. 表格重构器
     table_reconstructor = TableReconstructor()
@@ -241,7 +202,6 @@ def create_pipeline():
     )
 
     return pipeline
-
 
 # ====================================
 # 6. 使用示例
@@ -295,13 +255,11 @@ if __name__ == "__main__":
     # # 运行单张图片处理
     # main(image_path)
 
-    # 或者运行批量处理
-
     # 批量图片路径
     image_paths = [
     ]
     cur_dir = os.getcwd()
-    par_dir = os.path.dirname(cur_dir)
+    par_dir = os.path.dirname(os.path.dirname(os.path.dirname(cur_dir)))
     print("cur_dir:", cur_dir)
     # png_dir = fr"{par_dir}\png2"
     png_dir = r"C:\Users\1\Desktop\pngs2"
@@ -312,7 +270,10 @@ if __name__ == "__main__":
     print("image_paths:", image_paths)
 
     # 输出目录
-    output_dir = fr"{cur_dir}\outputs"
+    # output_dir = fr"{cur_dir}\outputs"
+    output_dir = fr"{par_dir}/test_codes/table_analyzer_codes/outputs2"
+    # output_dir = r"../../test_codes/table_analyzer_codes/outputs2"
+    print("par_dir:::", par_dir)
     print(">>>>>>>>output_dir>>>>>>>>>>>")
     print(output_dir)
 

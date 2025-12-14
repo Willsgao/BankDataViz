@@ -5,9 +5,7 @@ OCR适配器层 - 统一不同OCR接口的数据格式
 转换各种OCR结果到统一格式
 """
 import json
-from typing import Dict, Any, List
-from backend.table_processor.table_image_utils import ImageUtils
-
+from typing import Dict, Any
 
 
 class OCRAdapter:
@@ -463,7 +461,6 @@ class TencentOCRProvider(BaseOCRProvider):
     def recognize(self, image_path: str) -> Dict[str, Any]:
         """腾讯OCR识别实现"""
         import base64
-        import os
         import time
         from tencentcloud.common.exception.tencent_cloud_sdk_exception import TencentCloudSDKException
         from tencentcloud.ocr.v20181119 import models
