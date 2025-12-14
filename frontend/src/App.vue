@@ -116,6 +116,9 @@ const updateUserInfo = () => {
   userRole.value = localStorage.getItem('user_role') || ''
 }
 
+// 把更新函数提供给后代组件
+provide('reloadUserInfo', updateUserInfo)
+
 onMounted(() => {
   updateUserInfo()
 

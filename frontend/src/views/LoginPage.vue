@@ -57,13 +57,15 @@
 
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, inject  } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const loading = ref(false)
 const loginForm = ref()
+const reloadUserInfo = inject('reloadUserInfo')
+
 
 // 定义测试账户
 const testAccounts = {
@@ -121,6 +123,9 @@ const handleLogin = async () => {
         localStorage.setItem('user_role', account.role)
         localStorage.setItem('username', account.username)
 
+        // 2. 立即通知 App.vue 更新
+        reloadUserInfo()
+
         ElMessage.success(`登录成功！欢迎 ${account.username}`)
 
         // 根据角色重定向
@@ -129,6 +134,7 @@ const handleLogin = async () => {
         // 登录失败
         ElMessage.error('用户名或密码错误，或角色不匹配')
       }
+
     }, 1000)
   } catch (error) {
     console.error('登录失败:', error)
@@ -137,6 +143,8 @@ const handleLogin = async () => {
     loading.value = false
   }
 }
+
+
 </script>
 
 
