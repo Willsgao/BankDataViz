@@ -4,19 +4,18 @@ import time
 from typing import Dict, Any, List
 from openai import OpenAI
 
-# from backend.services.table_processor.table_config import settings
-from backend.utils.config import tableconfig as settings
-
+from backend.utils.config import config
 
 class EnhancedFinancialTableAnalyzer:
     """增强版金融表格分析器 - 表格结构分析"""
 
     def __init__(self):
+        # 使用统一配置
         self.client = OpenAI(
-            base_url=settings.llm_base_url,
-            api_key=settings.llm_api_key
+            base_url=config.TABLE_LLM_BASE_URL,  # 使用 config.TABLE_LLM_BASE_URL
+            api_key=config.TABLE_LLM_API_KEY  # 使用 config.TABLE_LLM_API_KEY
         )
-        self.model_name = settings.llm_model_name
+        self.model_name = config.TABLE_LLM_MODEL_NAME  # 使用 config.TABLE_LLM_MODEL_NAME
         self.max_sample_rows = 3  # 每个表格采样前3行
         self.max_sample_cols = 3  # 每个表格采样前3列
 

@@ -10,6 +10,7 @@ from backend.services.table_processor.table_image_utils import TableImageUtils
 from backend.services.table_processor.table_config import settings
 from backend.services.table_processor.ocr_adapter import OCRProviderFactory, OCRAdapter
 
+from backend.utils.config import config  # 导入统一配置
 
 
 class TableOCRService:
@@ -21,24 +22,26 @@ class TableOCRService:
         """
         self.image_utils = TableImageUtils()
 
-        # 确定使用的OCR提供商
-        self.provider_type = provider_type or getattr(settings, 'ocr_provider', 'baidu')
+        # 确定使用的OCR提供商 - 使用统一配置
+        self.provider_type = provider_type or config.OCR_PROVIDER  # 使用 config.OCR_PROVIDER
 
         print(f"初始化OCR服务，使用提供商: {self.provider_type}")
 
-        # 创建OCR提供商实例
+        # 创建OCR提供商实例 - 传入主配置
         try:
-            self.ocr_provider = OCRProviderFactory.create_provider(self.provider_type, settings)
+            self.ocr_provider = OCRProviderFactory.create_provider(self.provider_type, config)
         except Exception as e:
             print(f"⚠️ 创建OCR提供商失败: {e}，回退到百度OCR")
             # 回退到百度OCR
             self.provider_type = 'baidu'
-            self.ocr_provider = OCRProviderFactory.create_provider('baidu', settings)
+            self.ocr_provider = OCRProviderFactory.create_provider('baidu', config)
 
         # 适配器实例
         self.adapter = OCRAdapter()
 
         print(f"✅ OCR服务初始化完成，使用: {self.provider_type}")
+
+
 
     def _get_access_token(self) -> str:
         """获取百度OCR访问令牌 - 兼容原有代码"""
