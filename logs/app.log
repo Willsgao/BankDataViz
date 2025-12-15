@@ -1,0 +1,16 @@
+MAIN_ROOT:, MAIN_ROOT /data/BankTables
+✅ 确保目录存在: /data/BankTables/backend/static
+✅ 确保目录存在: /data/BankTables/backend/static/excel_data
+✅ 确保目录存在: /data/BankTables/backend/static/uploads
+✅ 确保目录存在: /data/BankTables/backend/static/pdf2pngs
+✅ 确保目录存在: /data/BankTables/backend/static/joined_tables
+✅ 确保目录存在: /data/BankTables/backend/static/layout_output
+✅ 确保目录存在: /data/BankTables/backend/static/cropped_tables
+🔍 输出目录设置为: /data/BankTables/backend/static/pdf2pngs
+🔍 输出目录是否存在: True
+✅ 状态管理器初始化完成
+✅ 数据库初始化完成
+ * Serving Flask app 'backend.app'
+ * Debug mode: on
+Address already in use
+Port 5000 is in use by another program. Either identify and stop that program, or start the server with a different port.
