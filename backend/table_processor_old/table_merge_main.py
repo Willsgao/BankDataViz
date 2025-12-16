@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 # ====================================
 
 from backend.services.table_processor import TableOCRService
-from backend.services.table_processor.analyzer import EnhancedFinancialTableAnalyzer
+from backend.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
 from backend.services.table_processor import TableReconstructor
 
 

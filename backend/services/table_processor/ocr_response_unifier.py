@@ -1,4 +1,4 @@
-# file name: ocr_adapter.py
+# file name: ocr_response_unifier.py
 # -*- coding:utf-8 -*-
 """
 OCR适配器层 - 统一不同OCR接口的数据格式
@@ -11,7 +11,7 @@ from typing import Dict, Any
 class OCRAdapter:
     """OCR适配器 - 将不同OCR提供商的响应转换为统一格式"""
 
-    # 在 ocr_adapter.py 的 OCRAdapter 类中修改：
+    # 在 ocr_response_unifier.py 的 OCRAdapter 类中修改：
     @staticmethod
     def adapt_baidu_response(baidu_result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -301,11 +301,11 @@ class BaiduOCRProvider(BaseOCRProvider):
 
     def __init__(self, config):
         super().__init__(config)
-        self.api_key = config.ocr_api_key
-        self.secret_key = config.ocr_secret_key
+        # 修改为新的属性名
+        self.api_key = getattr(config, 'ocr_api_key', getattr(config, 'api_key', ''))
+        self.secret_key = getattr(config, 'ocr_secret_key', getattr(config, 'secret_key', ''))
         self.access_token = None
         self.session = None
-        # 移除原有的导入依赖，改为直接实现
 
     # 修改 BaiduOCRProvider 类的 _baidu_ocr_logic 方法
     def _baidu_ocr_logic(self, image_path: str) -> Dict[str, Any]:
@@ -413,15 +413,17 @@ class TencentOCRProvider(BaseOCRProvider):
 
     def __init__(self, config):
         super().__init__(config)
-        self.secret_id = config.tencent_secret_id
-        self.secret_key = config.tencent_secret_key
-        self.region = config.tencent_region
+        # 修改为新的属性名
+        self.secret_id = getattr(config, 'tencent_secret_id', '')
+        self.secret_key = getattr(config, 'tencent_secret_key', '')
+        self.region = getattr(config, 'tencent_region', 'ap-shanghai')
 
         if not self.secret_id or not self.secret_key:
             raise ValueError("腾讯OCR配置缺失: secret_id 或 secret_key")
 
         # 初始化腾讯云客户端
         self.client = self._init_tencent_client()
+
 
     def _init_tencent_client(self):
         """初始化腾讯云OCR客户端"""

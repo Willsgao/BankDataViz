@@ -1,4 +1,4 @@
-# backend/pipeline/pipeline.py
+# backend/pipeline/end_to_end_pipeline.py
 import os, yaml, logging, uuid, shutil
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor

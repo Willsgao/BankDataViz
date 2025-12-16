@@ -1,4 +1,4 @@
-# backend/utils/table_config.py
+# backend/utils/_config_shim.py
 """
 后端配置管理
 从项目根目录的 project-config.json 读取配置
@@ -148,30 +148,108 @@ class Config:
             return f"{self.BACKEND_BASE_URL}{path}"
 
 
-
+# 修改后的 TableConfig 类
 class TableConfig:
-    """配置类"""
-    # LLM配置
-    LLM_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-    LLM_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
-    LLM_MODEL_NAME = "doubao-1-5-vision-pro-250328"
+    """表格处理配置类 - 整合了table_processor的所有配置"""
 
-    # OCR配置
-    OCR_API_KEY = "Id7EZH2q6IOSlivHbwHHbWwz"
-    OCR_SECRET_KEY = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
-    OCR_TIMEOUT = 30
-    OCR_MAX_RETRIES = 3
+    def __init__(self):
+        # ========== LLM配置 ==========
+        self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+        self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
+        self.llm_model_name = "doubao-1-5-vision-pro-250328"
 
-    # 表格分析配置
-    EXTRACT_ROWS = 10  # 提取的行数
-    EXTRACT_COLS = 3  # 提取的列数
-    MAX_RETRIES = 3  # 最大重试次数
-    TIMEOUT = 30  # 超时时间
+        # ========== OCR配置 - 多OCR支持 ==========
+        self.ocr_provider = "tencent"  # 默认使用腾讯OCR，可选: "tencent" 或 "baidu"
 
-    # 路径配置
-    TEMP_DIR = "temp_imgs"
-    OUTPUT_DIR = "../../../test_codes/enhanced_table_analyzer/output"
+        # 百度OCR配置
+        self.ocr_api_key = "Id7EZH2q6IOSlivHbwHHbWwz"
+        self.ocr_secret_key = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
 
+        # 腾讯OCR配置
+        self.tencent_secret_id = "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG"
+        self.tencent_secret_key = "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP"
+        self.tencent_region = "ap-shanghai"  # 区域: ap-shanghai, ap-beijing 等
+
+        # ========== 处理配置 ==========
+        self.ocr_timeout = 30
+        self.ocr_max_retries = 3
+        self.extract_rows = 10  # 提取的行数
+        self.extract_cols = 3  # 提取的列数
+        self.max_retries = 3  # 最大重试次数
+        self.timeout = 30  # 超时时间
+
+        # OCR 调试：是否落盘/保留字节
+        self.debug_ocr = os.getenv("OCR_DEBUG", "false").lower() == "true"
+        self.debug_ocr_keep_mb = int(os.getenv("OCR_DEBUG_KEEP_MB", "0"))
+        # LLM 调试：是否打印 prompt
+        self.debug_llm = os.getenv("LLM_DEBUG", "false").lower() == "true"
+
+        self.CACHE_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")
+        self.OBJECT_STORE = os.getenv("OBJECT_STORE", "local")
+        self.LOCAL_OBJECT_STORE = os.getenv("LOCAL_OBJECT_STORE", "./obj_cache")
+        self.OBJECT_STORE_BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
+        # 强制刷新开关
+        self.OCR_FORCE_REFRESH = os.getenv("OCR_FORCE_REFRESH", "false").lower() == "true"
+        self.LLM_FORCE_REFRESH = os.getenv("LLM_FORCE_REFRESH", "false").lower() == "true"
+
+        # ========== 路径配置 ==========
+        # 从主配置中获取基础路径
+        config_instance = Config()
+        main_root = Path(config_instance.MAIN_ROOT)
+
+        # ========== 路径配置（环境变量优先，绝对路径兜底，永不 None） ==========
+        # 1. 输出目录
+        self.output_dir = os.getenv("OUTPUT_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/outputs"
+
+        # 2. 临时目录
+        self.temp_dir = os.getenv("TEMP_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/temp"
+
+        # 3. 本地对象存储目录
+        self.LOCAL_OBJECT_STORE = os.getenv("LOCAL_OBJECT_STORE") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/obj_cache"
+
+        # 4. 确保目录存在（只建一次）
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.temp_dir, exist_ok=True)
+        os.makedirs(self.LOCAL_OBJECT_STORE, exist_ok=True)
+
+
+
+    def _create_dirs(self):
+        """创建必要的目录"""
+        import os
+        for dir_path in [self.temp_dir, self.output_dir]:
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+                print(f"创建目录: {dir_path}")
+
+    # 为了保持兼容性，添加属性访问器
+    @property
+    def LLM_API_KEY(self):
+        return self.llm_api_key
+
+    @property
+    def LLM_BASE_URL(self):
+        return self.llm_base_url
+
+    @property
+    def LLM_MODEL_NAME(self):
+        return self.llm_model_name
+
+    @property
+    def OCR_API_KEY(self):
+        return self.ocr_api_key
+
+    @property
+    def OCR_SECRET_KEY(self):
+        return self.ocr_secret_key
+
+    @property
+    def OCR_TIMEOUT(self):
+        return self.ocr_timeout
+
+    @property
+    def OCR_MAX_RETRIES(self):
+        return self.ocr_max_retries
 
 # 创建配置实例
 tableconfig = TableConfig()

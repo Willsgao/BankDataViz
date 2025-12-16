@@ -8,7 +8,7 @@ from openai import OpenAI
 
 from backend.services.table_processor import ImageUtils
 from test_codes.enhanced_table_analyzer.utils.ocr_processor import OCRProcessor
-from backend.services.table_processor.table_config import settings
+from backend.services.table_processor._config_shim import settings
 from backend.services.table_processor import TableOCRService
 
 

@@ -1,4 +1,4 @@
-# backend/utils/table_image_utils.py
+# backend/utils/image_utils.py
 import base64
 import io
 from typing import Tuple

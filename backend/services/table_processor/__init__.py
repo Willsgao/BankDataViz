@@ -1,9 +1,9 @@
 # table_processor/__init__.py
 
 # 只暴露最顶层的类，隐藏内部实现细节
-from .pipeline import TableReconstructionPipeline
-from .analyzer import EnhancedFinancialTableAnalyzer
-from .restructor import TableReconstructor
+from .end_to_end_pipeline import TableReconstructionPipeline
+from .llm_table_structure_parser import EnhancedFinancialTableAnalyzer
+from .table_rebuilder import TableReconstructor
 
 # 可选：提供快捷创建函数
 def create_processor(config=None):

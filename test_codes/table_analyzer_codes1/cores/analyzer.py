@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, List
 from openai import OpenAI
 
-from backend.services.table_processor.table_config import settings
+from backend.services.table_processor._config_shim import settings
 
 
 class EnhancedFinancialTableAnalyzer:

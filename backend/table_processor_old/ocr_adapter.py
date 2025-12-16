@@ -1,4 +1,4 @@
-# file name: ocr_adapter.py
+# file name: ocr_response_unifier.py
 # -*- coding:utf-8 -*-
 """
 OCR适配器层 - 统一不同OCR接口的数据格式
@@ -11,7 +11,7 @@ from typing import Dict, Any
 class OCRAdapter:
     """OCR适配器 - 将不同OCR提供商的响应转换为统一格式"""
 
-    # 在 ocr_adapter.py 的 OCRAdapter 类中修改：
+    # 在 ocr_response_unifier.py 的 OCRAdapter 类中修改：
     @staticmethod
     def adapt_baidu_response(baidu_result: Dict[str, Any]) -> Dict[str, Any]:
         """

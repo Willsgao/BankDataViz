@@ -1,4 +1,4 @@
-# file: final_data.py
+# file: long_format_converter.py
 
 import pandas as pd
 from typing import List, Dict, Any, Optional

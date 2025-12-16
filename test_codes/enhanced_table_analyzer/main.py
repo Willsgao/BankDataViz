@@ -2,7 +2,7 @@
 
 import json
 import os
-from backend.services.table_processor.analyzer import FinancialTableAnalyzer
+from backend.services.table_processor.llm_table_structure_parser import FinancialTableAnalyzer
 
 # 导入Excel导出模块
 try:
