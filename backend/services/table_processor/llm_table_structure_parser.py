@@ -4,16 +4,21 @@ import time
 from typing import Dict, Any, List
 from openai import OpenAI
 
+<<<<<<< HEAD:backend/services/table_processor/llm_table_structure_parser.py
 
 from backend.utils.config import tableconfig as settings
 from backend.services.table_processor.cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert
 
 
+=======
+from backend.utils.config import config
+>>>>>>> f662bba3fc86341539408e13dff693eb5f844420:backend/services/table_processor/analyzer.py
 
 class EnhancedFinancialTableAnalyzer:
     """增强版金融表格分析器 - 表格结构分析"""
 
     def __init__(self):
+<<<<<<< HEAD:backend/services/table_processor/llm_table_structure_parser.py
         # 兼容新旧配置结构
         if hasattr(settings, 'llm_base_url'):
             # 新配置结构（直接属性）
@@ -31,6 +36,14 @@ class EnhancedFinancialTableAnalyzer:
             api_key=api_key
         )
         self.model_name = model_name
+=======
+        # 使用统一配置
+        self.client = OpenAI(
+            base_url=config.TABLE_LLM_BASE_URL,  # 使用 config.TABLE_LLM_BASE_URL
+            api_key=config.TABLE_LLM_API_KEY  # 使用 config.TABLE_LLM_API_KEY
+        )
+        self.model_name = config.TABLE_LLM_MODEL_NAME  # 使用 config.TABLE_LLM_MODEL_NAME
+>>>>>>> f662bba3fc86341539408e13dff693eb5f844420:backend/services/table_processor/analyzer.py
         self.max_sample_rows = 3  # 每个表格采样前3行
         self.max_sample_cols = 3  # 每个表格采样前3列
 

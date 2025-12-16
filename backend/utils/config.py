@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 # backend/utils/_config_shim.py
+=======
+# backend/utils/config.py
+>>>>>>> f662bba3fc86341539408e13dff693eb5f844420
 """
-后端配置管理
-从项目根目录的 project-config.json 读取配置
+后端配置管理 - 增强版，包含表格处理器配置
 """
 
 import os
@@ -29,11 +32,12 @@ except ImportError:
 
 
 class Config:
-    """配置类"""
+    """主配置类 - 整合表格处理器配置"""
 
     def __init__(self):
         self._config = self._load_config()
         self._setup_derived_config()
+        self._setup_table_processor_config()  # 新增：表格处理器配置
 
     def _load_config(self):
         """加载配置文件"""
@@ -53,7 +57,7 @@ class Config:
             return self._get_default_config()
 
     def _get_default_config(self):
-        """默认配置"""
+        """默认配置 - 包含表格处理器配置"""
         return {
             "project": {
                 "name": "DocuVista",
@@ -86,6 +90,37 @@ class Config:
                 "defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
                 "defaultModelId": "doubao-1-5-vision-pro-250328",
                 "maxTokens": 4000
+            },
+            # 新增表格处理器配置部分
+            "table_processor": {
+                "llm": {
+                    "api_key": "90b9c47f-815c-4216-913a-3d1a567e35ac",
+                    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+                    "model_name": "doubao-1-5-vision-pro-250328"
+                },
+                "ocr": {
+                    "provider": "tencent",  # baidu 或 tencent
+                    "timeout": 30,
+                    "max_retries": 3
+                },
+                "baidu_ocr": {
+                    "api_key": "Id7EZH2q6IOSlivHbwHHbWwz",
+                    "secret_key": "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+                },
+                "tencent_ocr": {
+                    "secret_id": "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG",
+                    "secret_key": "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP",
+                    "region": "ap-shanghai"
+                },
+                "processing": {
+                    "extract_rows": 10,
+                    "extract_cols": 3,
+                    "max_retries": 3,
+                    "timeout": 30
+                },
+                "paths": {
+                    "temp_dir": "temp_imgs"
+                }
             }
         }
 
@@ -114,7 +149,7 @@ class Config:
         self.PNG_OUTPUT_ROOT = PNG_OUTPUT_ROOT
         self.MAIN_ROOT = Path(MAIN_ROOT)
 
-        # LLM配置
+        # LLM配置（通用）
         self.LLM_DEFAULT_BASE_URL = self._config['llm']['defaultBaseUrl']
         self.LLM_DEFAULT_MODEL_ID = self._config['llm']['defaultModelId']
         self.LLM_MAX_TOKENS = self._config['llm']['maxTokens']
@@ -124,6 +159,61 @@ class Config:
 
         # 允许的文件扩展名
         self.ALLOWED_EXTENSIONS = ALLOWED_EXTENSIONS
+
+    def _setup_table_processor_config(self):
+        """设置表格处理器专用配置"""
+        table_config = self._config.get('table_processor', {})
+
+        # LLM配置（表格专用）
+        llm_config = table_config.get('llm', {})
+        self.TABLE_LLM_API_KEY = llm_config.get('api_key', "90b9c47f-815c-4216-913a-3d1a567e35ac")
+        self.TABLE_LLM_BASE_URL = llm_config.get('base_url', "https://ark.cn-beijing.volces.com/api/v3")
+        self.TABLE_LLM_MODEL_NAME = llm_config.get('model_name', "doubao-1-5-vision-pro-250328")
+
+        # OCR配置
+        ocr_config = table_config.get('ocr', {})
+        self.OCR_PROVIDER = ocr_config.get('provider', 'tencent')
+        self.OCR_TIMEOUT = ocr_config.get('timeout', 30)
+        self.OCR_MAX_RETRIES = ocr_config.get('max_retries', 3)
+
+        # 百度OCR
+        baidu_config = table_config.get('baidu_ocr', {})
+        self.BAIDU_OCR_API_KEY = baidu_config.get('api_key', "Id7EZH2q6IOSlivHbwHHbWwz")
+        self.BAIDU_OCR_SECRET_KEY = baidu_config.get('secret_key', "leeZiDapOBp6nGZssuuzABgSZubNgSLu")
+
+        # 腾讯OCR
+        tencent_config = table_config.get('tencent_ocr', {})
+        self.TENCENT_SECRET_ID = tencent_config.get('secret_id', "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG")
+        self.TENCENT_SECRET_KEY = tencent_config.get('secret_key', "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP")
+        self.TENCENT_REGION = tencent_config.get('region', "ap-shanghai")
+
+        # 处理配置
+        processing_config = table_config.get('processing', {})
+        self.EXTRACT_ROWS = processing_config.get('extract_rows', 10)
+        self.EXTRACT_COLS = processing_config.get('extract_cols', 3)
+        self.MAX_RETRIES = processing_config.get('max_retries', 3)
+        self.TIMEOUT = processing_config.get('timeout', 30)
+
+        # 路径配置
+        paths_config = table_config.get('paths', {})
+        self.TABLE_TEMP_DIR = paths_config.get('temp_dir', "temp_imgs")
+
+        # 使用主项目的输出目录
+        self.TABLE_OUTPUT_DIR = self.EXCEL_DATA_FOLDER
+
+        # 创建目录
+        self._create_table_dirs()
+
+    def _create_table_dirs(self):
+        """创建表格处理需要的目录"""
+        import os
+        dirs_to_create = [
+            self.TABLE_TEMP_DIR,
+            self.TABLE_OUTPUT_DIR
+        ]
+        for dir_path in dirs_to_create:
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
 
     @property
     def backend_api_base_url(self):
@@ -148,6 +238,7 @@ class Config:
             return f"{self.BACKEND_BASE_URL}{path}"
 
 
+<<<<<<< HEAD
 # 修改后的 TableConfig 类
 class TableConfig:
     """表格处理配置类 - 整合了table_processor的所有配置"""
@@ -250,12 +341,89 @@ class TableConfig:
     @property
     def OCR_MAX_RETRIES(self):
         return self.ocr_max_retries
+=======
+# 为了保持向后兼容性，保留TableConfig类（但内容从主配置读取）
+class TableConfig:
+    """表格处理器配置类 - 兼容层"""
 
-# 创建配置实例
-tableconfig = TableConfig()
+    def __init__(self, config: Config):
+        self.config = config
+
+    @property
+    def llm_api_key(self):
+        return self.config.TABLE_LLM_API_KEY
+
+    @property
+    def llm_base_url(self):
+        return self.config.TABLE_LLM_BASE_URL
+
+    @property
+    def llm_model_name(self):
+        return self.config.TABLE_LLM_MODEL_NAME
+
+    @property
+    def ocr_provider(self):
+        return self.config.OCR_PROVIDER
+
+    @property
+    def ocr_api_key(self):
+        return self.config.BAIDU_OCR_API_KEY
+
+    @property
+    def ocr_secret_key(self):
+        return self.config.BAIDU_OCR_SECRET_KEY
+
+    @property
+    def tencent_secret_id(self):
+        return self.config.TENCENT_SECRET_ID
+
+    @property
+    def tencent_secret_key(self):
+        return self.config.TENCENT_SECRET_KEY
+
+    @property
+    def tencent_region(self):
+        return self.config.TENCENT_REGION
+
+    @property
+    def ocr_timeout(self):
+        return self.config.OCR_TIMEOUT
+
+    @property
+    def ocr_max_retries(self):
+        return self.config.OCR_MAX_RETRIES
+
+    @property
+    def extract_rows(self):
+        return self.config.EXTRACT_ROWS
+
+    @property
+    def extract_cols(self):
+        return self.config.EXTRACT_COLS
+
+    @property
+    def max_retries(self):
+        return self.config.MAX_RETRIES
+
+    @property
+    def timeout(self):
+        return self.config.TIMEOUT
+
+    @property
+    def temp_dir(self):
+        return self.config.TABLE_TEMP_DIR
+
+    @property
+    def output_dir(self):
+        return self.config.TABLE_OUTPUT_DIR
+>>>>>>> f662bba3fc86341539408e13dff693eb5f844420
+
 
 # 创建全局配置实例
 config = Config()
+
+# 创建表格处理器配置实例（兼容性）
+tableconfig = TableConfig(config)
 
 # 导出常用配置（保持兼容性）
 SERVER_CONFIG = {
@@ -284,4 +452,4 @@ API_PATHS = {
     'UPLOAD_PREFIX': config.UPLOAD_PREFIX
 }
 
-__all__ = ['config', 'SERVER_CONFIG', 'FRONTEND_CONFIG', 'FILE_PATHS', 'API_PATHS', 'tableconfig']
+__all__ = ['config', 'tableconfig', 'SERVER_CONFIG', 'FRONTEND_CONFIG', 'FILE_PATHS', 'API_PATHS']
