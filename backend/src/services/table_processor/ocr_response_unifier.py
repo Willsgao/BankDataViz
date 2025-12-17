@@ -289,7 +289,16 @@ class BaseOCRProvider:
 
     def __init__(self, config):
         self.config = config
-        self.timeout = config.ocr_timeout
+        self.timeout = 30  # 默认值
+        try:
+            # 优先尝试大写的 OCR_TIMEOUT
+            if hasattr(config, 'OCR_TIMEOUT'):
+                self.timeout = config.OCR_TIMEOUT
+            # 然后尝试小写的 ocr_timeout
+            elif hasattr(config, 'ocr_timeout'):
+                self.timeout = config.ocr_timeout
+        except:
+            pass  # 保持默认值30
 
     def recognize(self, image_path: str) -> Dict[str, Any]:
         """识别表格 - 子类必须实现"""

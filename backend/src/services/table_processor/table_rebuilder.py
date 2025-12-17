@@ -1,5 +1,5 @@
 
-from backend.services.table_processor.long_format_converter import FinalDataConverter
+from backend.src.services.table_processor.long_format_converter import FinalDataConverter
 
 class TableReconstructor:
     """表格重构器：整合7步流程"""
@@ -2242,7 +2242,7 @@ def main():
     success = reconstructor.process_all_tables(
         ocr_result=ocr_result,
         llm_result=llm_result,
-        output_file="../../../test_codes/enhanced_table_analyzer/reconstructed_tables2.xlsx"
+        output_file="../../../../test_codes/enhanced_table_analyzer/reconstructed_tables2.xlsx"
     )
 
     if success:

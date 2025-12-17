@@ -2,7 +2,7 @@
 
 import json
 import os
-from backend.services.table_processor.llm_table_structure_parser import FinancialTableAnalyzer
+from backend.src.services import FinancialTableAnalyzer
 
 # 导入Excel导出模块
 try:
@@ -113,7 +113,7 @@ def main(input_dir, output_dir, json_file=""):
 
     # 初始化分析器
     analyzer = FinancialTableAnalyzer()
-    from backend.services.table_processor import TableOCRService
+    from backend.src.services import TableOCRService
     ocr_service = TableOCRService()
 
     print("\n开始批量分析图片...")

@@ -6,8 +6,8 @@ import base64
 import urllib.parse
 from typing import Dict, Any, List
 
-from backend.services.table_processor import ImageUtils
-from backend.services.table_processor._config_shim import settings
+from backend.src.services import ImageUtils
+from backend.src.services import settings
 
 
 class TableOCRService:

@@ -1,5 +1,5 @@
 
-from backend.services.table_processor import FinalDataConverter
+from backend.src.services import FinalDataConverter
 
 class TableReconstructor:
     """表格重构器：整合7步流程"""

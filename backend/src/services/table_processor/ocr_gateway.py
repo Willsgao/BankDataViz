@@ -8,28 +8,24 @@ import urllib.parse
 from io import BytesIO
 from typing import Dict, Any, List
 
-from backend.services.table_processor.image_utils import TableImageUtils
+from backend.src.services import TableImageUtils
 from backend.utils.config import tableconfig as settings
-from backend.services.table_processor.ocr_response_unifier import OCRProviderFactory, OCRAdapter
-from backend.services.table_processor.cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert
+from backend.src.services import OCRProviderFactory, OCRAdapter
+from backend.src.services import ensure_table, get as cache_get, upsert as cache_upsert
 
 import hashlib, gzip, json, os
 from pathlib import Path
 
 # ----- 0. 三级缓存工具 -----
-from .cache_gateway import get as cache_get, upsert as cache_upsert
 from .object_store import get_object, put_object
 from backend.utils.config import tableconfig
 import redis
-# r = redis.Redis(host=os.getenv("REDIS_HOST", "127.0.0.1"),
-#                 port=int(os.getenv("REDIS_PORT", "6379")),
-#                 db=0, decode_responses=False)
+
 _redis = redis.Redis(
     host=os.getenv("REDIS_HOST", "127.0.0.1"),
     port=int(os.getenv("REDIS_PORT", "6379")),
     db=0, decode_responses=False
 )
-
 
 
 class TableOCRService:

@@ -4,7 +4,7 @@ from pathlib import Path
 
 STORE_TYPE = os.getenv("OBJECT_STORE", "local")   # local | s3
 BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
-LOCAL_ROOT = Path(os.getenv("LOCAL_OBJECT_STORE", "./obj_cache"))
+LOCAL_ROOT = Path(os.getenv("LOCAL_OBJECT_STORE", "obj_cache"))
 LOCAL_ROOT.mkdir(exist_ok=True)
 
 def _local_path(key: str) -> Path:

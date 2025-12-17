@@ -6,9 +6,9 @@ import base64
 import urllib.parse
 from typing import Dict, Any, List
 
-from backend.services.table_processor.table_image_utils import TableImageUtils
-from backend.services.table_processor.table_config import settings
-from backend.services.table_processor.ocr_adapter import OCRProviderFactory, OCRAdapter
+from backend.src.services.table_processor.image_utils import TableImageUtils
+from backend.utils.config import tableconfig as settings
+from backend.src.services.table_processor.ocr_response_unifier import OCRProviderFactory, OCRAdapter
 
 from backend.utils.config import config  # 导入统一配置
 
@@ -27,20 +27,27 @@ class TableOCRService:
 
         print(f"初始化OCR服务，使用提供商: {self.provider_type}")
 
-        # 创建OCR提供商实例 - 传入主配置
+        # 🔥 修复：使用正确的配置对象
+        # tableconfig 是专门为表格处理器设计的配置
+        from backend.utils.config import tableconfig
+
+        print(f"[DEBUG] 使用 tableconfig 作为配置源")
+        print(f"  tableconfig.ocr_api_key: {getattr(tableconfig, 'ocr_api_key', '未找到')}")
+        print(f"  tableconfig.OCR_API_KEY: {getattr(tableconfig, 'OCR_API_KEY', '未找到')}")
+
+        # 创建OCR提供商实例 - 传入 tableconfig
         try:
-            self.ocr_provider = OCRProviderFactory.create_provider(self.provider_type, config)
+            self.ocr_provider = OCRProviderFactory.create_provider(self.provider_type, tableconfig)
         except Exception as e:
             print(f"⚠️ 创建OCR提供商失败: {e}，回退到百度OCR")
             # 回退到百度OCR
             self.provider_type = 'baidu'
-            self.ocr_provider = OCRProviderFactory.create_provider('baidu', config)
+            self.ocr_provider = OCRProviderFactory.create_provider('baidu', tableconfig)
 
         # 适配器实例
         self.adapter = OCRAdapter()
 
         print(f"✅ OCR服务初始化完成，使用: {self.provider_type}")
-
 
 
     def _get_access_token(self) -> str:
@@ -185,3 +192,7 @@ class TableOCRService:
             import traceback
             traceback.print_exc()
             raise Exception(f"OCR识别失败: {str(e)}")
+
+
+# 修改 ocr_service.py 中的 TableOCRService.__init__
+

@@ -1,24 +1,17 @@
 # -*- coding:utf-8 -*-
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 from openai import OpenAI
 
-<<<<<<< HEAD:backend/services/table_processor/llm_table_structure_parser.py
-
 from backend.utils.config import tableconfig as settings
-from backend.services.table_processor.cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert
-
-
-=======
 from backend.utils.config import config
->>>>>>> f662bba3fc86341539408e13dff693eb5f844420:backend/services/table_processor/analyzer.py
+
 
 class EnhancedFinancialTableAnalyzer:
     """增强版金融表格分析器 - 表格结构分析"""
 
     def __init__(self):
-<<<<<<< HEAD:backend/services/table_processor/llm_table_structure_parser.py
         # 兼容新旧配置结构
         if hasattr(settings, 'llm_base_url'):
             # 新配置结构（直接属性）
@@ -31,19 +24,13 @@ class EnhancedFinancialTableAnalyzer:
             api_key = settings.LLM_API_KEY
             model_name = settings.LLM_MODEL_NAME
 
-        self.client = OpenAI(
-            base_url=base_url,
-            api_key=api_key
-        )
-        self.model_name = model_name
-=======
         # 使用统一配置
         self.client = OpenAI(
             base_url=config.TABLE_LLM_BASE_URL,  # 使用 config.TABLE_LLM_BASE_URL
             api_key=config.TABLE_LLM_API_KEY  # 使用 config.TABLE_LLM_API_KEY
         )
         self.model_name = config.TABLE_LLM_MODEL_NAME  # 使用 config.TABLE_LLM_MODEL_NAME
->>>>>>> f662bba3fc86341539408e13dff693eb5f844420:backend/services/table_processor/analyzer.py
+
         self.max_sample_rows = 3  # 每个表格采样前3行
         self.max_sample_cols = 3  # 每个表格采样前3列
 
@@ -575,7 +562,7 @@ class EnhancedFinancialTableAnalyzer:
 
     def analyze_image111(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """分析单张图片中的所有表格"""
-        from backend.services.table_processor.image_utils import TableImageUtils
+        from backend.src.services.table_processor.image_utils import TableImageUtils
 
         # 1. 准备数据
         image_utils = TableImageUtils()
@@ -615,7 +602,7 @@ class EnhancedFinancialTableAnalyzer:
         import hashlib, gzip, json
 
         # ===== 1. 准备数据 =====
-        from backend.services.table_processor.image_utils import TableImageUtils
+        from backend.src.services.table_processor.image_utils import TableImageUtils
         image_utils = TableImageUtils()
         base64_image = image_utils.encode_image_to_base64(image_path)
 
@@ -677,7 +664,7 @@ if __name__ == "__main__":
     analyzer = EnhancedFinancialTableAnalyzer()
 
     # 假设已有OCR服务
-    from backend.services.table_processor.ocr_gateway import TableOCRService
+    from backend.src.services import TableOCRService
 
     ocr_service = TableOCRService()
     image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\123.png"

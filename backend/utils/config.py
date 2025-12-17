@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# backend/utils/_config_shim.py
-=======
 # backend/utils/config.py
->>>>>>> f662bba3fc86341539408e13dff693eb5f844420
 """
 后端配置管理 - 增强版，包含表格处理器配置
 """
@@ -238,12 +234,55 @@ class Config:
             return f"{self.BACKEND_BASE_URL}{path}"
 
 
-<<<<<<< HEAD
-# 修改后的 TableConfig 类
+# 修改后的 TableConfig 类 - 融合两个版本
 class TableConfig:
     """表格处理配置类 - 整合了table_processor的所有配置"""
 
-    def __init__(self):
+    def __init__(self, config: Config = None):
+        self.config = config
+
+        if self.config:
+            # 如果传入主配置，则从主配置读取
+            self._init_from_main_config()
+        else:
+            # 否则使用独立的配置
+            self._init_from_env_and_defaults()
+
+        # 确保目录存在
+        self._create_dirs()
+
+    def _init_from_main_config(self):
+        """从主配置读取"""
+        # LLM配置
+        self.llm_api_key = self.config.TABLE_LLM_API_KEY
+        self.llm_base_url = self.config.TABLE_LLM_BASE_URL
+        self.llm_model_name = self.config.TABLE_LLM_MODEL_NAME
+
+        # OCR配置
+        self.ocr_provider = self.config.OCR_PROVIDER
+        self.ocr_api_key = self.config.BAIDU_OCR_API_KEY
+        self.ocr_secret_key = self.config.BAIDU_OCR_SECRET_KEY
+        self.tencent_secret_id = self.config.TENCENT_SECRET_ID
+        self.tencent_secret_key = self.config.TENCENT_SECRET_KEY
+        self.tencent_region = self.config.TENCENT_REGION
+        self.ocr_timeout = self.config.OCR_TIMEOUT
+        self.ocr_max_retries = self.config.OCR_MAX_RETRIES
+
+        # 处理配置
+        self.extract_rows = self.config.EXTRACT_ROWS
+        self.extract_cols = self.config.EXTRACT_COLS
+        self.max_retries = self.config.MAX_RETRIES
+        self.timeout = self.config.TIMEOUT
+
+        # 路径配置
+        self.temp_dir = self.config.TABLE_TEMP_DIR
+        self.output_dir = self.config.TABLE_OUTPUT_DIR
+
+        # 环境变量配置
+        self._init_env_vars()
+
+    def _init_from_env_and_defaults(self):
+        """从环境变量和默认值初始化"""
         # ========== LLM配置 ==========
         self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
         self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
@@ -251,64 +290,64 @@ class TableConfig:
 
         # ========== OCR配置 - 多OCR支持 ==========
         self.ocr_provider = "tencent"  # 默认使用腾讯OCR，可选: "tencent" 或 "baidu"
-
-        # 百度OCR配置
         self.ocr_api_key = "Id7EZH2q6IOSlivHbwHHbWwz"
         self.ocr_secret_key = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
-
-        # 腾讯OCR配置
         self.tencent_secret_id = "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG"
         self.tencent_secret_key = "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP"
-        self.tencent_region = "ap-shanghai"  # 区域: ap-shanghai, ap-beijing 等
+        self.tencent_region = "ap-shanghai"
 
         # ========== 处理配置 ==========
         self.ocr_timeout = 30
         self.ocr_max_retries = 3
-        self.extract_rows = 10  # 提取的行数
-        self.extract_cols = 3  # 提取的列数
-        self.max_retries = 3  # 最大重试次数
-        self.timeout = 30  # 超时时间
+        self.extract_rows = 10
+        self.extract_cols = 3
+        self.max_retries = 3
+        self.timeout = 30
 
+        # ========== 环境变量配置 ==========
+        self._init_env_vars()
+
+        # ========== 路径配置 ==========
+        # 输出目录 - 环境变量优先，默认值兜底
+        self.output_dir = os.getenv("OUTPUT_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/outputs"
+
+        # 临时目录
+        self.temp_dir = os.getenv("TEMP_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/temp"
+
+    def _init_env_vars(self):
+        """初始化环境变量相关配置"""
         # OCR 调试：是否落盘/保留字节
         self.debug_ocr = os.getenv("OCR_DEBUG", "false").lower() == "true"
         self.debug_ocr_keep_mb = int(os.getenv("OCR_DEBUG_KEEP_MB", "0"))
+
         # LLM 调试：是否打印 prompt
         self.debug_llm = os.getenv("LLM_DEBUG", "false").lower() == "true"
 
+        # 缓存配置
         self.CACHE_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")
         self.OBJECT_STORE = os.getenv("OBJECT_STORE", "local")
-        self.LOCAL_OBJECT_STORE = os.getenv("LOCAL_OBJECT_STORE", "./obj_cache")
+        self.LOCAL_OBJECT_STORE = os.getenv(
+            "LOCAL_OBJECT_STORE") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/obj_cache"
         self.OBJECT_STORE_BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
-        # 强制刷新开关
+
+        # 强制刷新开关 - 这是你需要的属性
         self.OCR_FORCE_REFRESH = os.getenv("OCR_FORCE_REFRESH", "false").lower() == "true"
         self.LLM_FORCE_REFRESH = os.getenv("LLM_FORCE_REFRESH", "false").lower() == "true"
 
-        # ========== 路径配置 ==========
-        # 从主配置中获取基础路径
-        config_instance = Config()
-        main_root = Path(config_instance.MAIN_ROOT)
-
-        # ========== 路径配置（环境变量优先，绝对路径兜底，永不 None） ==========
-        # 1. 输出目录
-        self.output_dir = os.getenv("OUTPUT_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/outputs"
-
-        # 2. 临时目录
-        self.temp_dir = os.getenv("TEMP_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/temp"
-
-        # 3. 本地对象存储目录
-        self.LOCAL_OBJECT_STORE = os.getenv("LOCAL_OBJECT_STORE") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/obj_cache"
-
-        # 4. 确保目录存在（只建一次）
-        os.makedirs(self.output_dir, exist_ok=True)
-        os.makedirs(self.temp_dir, exist_ok=True)
-        os.makedirs(self.LOCAL_OBJECT_STORE, exist_ok=True)
-
-
-
     def _create_dirs(self):
         """创建必要的目录"""
-        import os
-        for dir_path in [self.temp_dir, self.output_dir]:
+        dirs_to_create = []
+
+        if hasattr(self, 'temp_dir') and self.temp_dir:
+            dirs_to_create.append(self.temp_dir)
+
+        if hasattr(self, 'output_dir') and self.output_dir:
+            dirs_to_create.append(self.output_dir)
+
+        if hasattr(self, 'LOCAL_OBJECT_STORE') and self.LOCAL_OBJECT_STORE:
+            dirs_to_create.append(self.LOCAL_OBJECT_STORE)
+
+        for dir_path in dirs_to_create:
             if dir_path and not os.path.exists(dir_path):
                 os.makedirs(dir_path, exist_ok=True)
                 print(f"创建目录: {dir_path}")
@@ -335,89 +374,237 @@ class TableConfig:
         return self.ocr_secret_key
 
     @property
-    def OCR_TIMEOUT(self):
+    def ocr_timeout(self):
         return self.ocr_timeout
 
     @property
     def OCR_MAX_RETRIES(self):
         return self.ocr_max_retries
-=======
-# 为了保持向后兼容性，保留TableConfig类（但内容从主配置读取）
-class TableConfig:
-    """表格处理器配置类 - 兼容层"""
 
-    def __init__(self, config: Config):
+    @property
+    def TENCENT_SECRET_ID(self):
+        return self.tencent_secret_id
+
+    @property
+    def TENCENT_SECRET_KEY(self):
+        return self.tencent_secret_key
+
+    @property
+    def TENCENT_REGION(self):
+        return self.tencent_region
+
+    @property
+    def EXTRACT_ROWS(self):
+        return self.extract_rows
+
+    @property
+    def EXTRACT_COLS(self):
+        return self.extract_cols
+
+    @property
+    def MAX_RETRIES(self):
+        return self.max_retries
+
+    @property
+    def TIMEOUT(self):
+        return self.timeout
+
+
+class TableConfig:
+    """表格处理配置类 - 整合了table_processor的所有配置"""
+
+    def __init__(self, config: Config = None):
         self.config = config
 
-    @property
-    def llm_api_key(self):
-        return self.config.TABLE_LLM_API_KEY
+        if self.config:
+            # 如果传入主配置，则从主配置读取
+            self._init_from_main_config()
+        else:
+            # 否则使用独立的配置
+            self._init_from_env_and_defaults()
 
-    @property
-    def llm_base_url(self):
-        return self.config.TABLE_LLM_BASE_URL
+        # 确保目录存在
+        self._create_dirs()
 
-    @property
-    def llm_model_name(self):
-        return self.config.TABLE_LLM_MODEL_NAME
+    def _init_from_main_config(self):
+        """从主配置读取"""
+        # LLM配置
+        self.llm_api_key = self.config.TABLE_LLM_API_KEY
+        self.llm_base_url = self.config.TABLE_LLM_BASE_URL
+        self.llm_model_name = self.config.TABLE_LLM_MODEL_NAME
 
-    @property
-    def ocr_provider(self):
-        return self.config.OCR_PROVIDER
+        # OCR配置
+        self.ocr_provider = self.config.OCR_PROVIDER
+        self.ocr_api_key = self.config.BAIDU_OCR_API_KEY
+        self.ocr_secret_key = self.config.BAIDU_OCR_SECRET_KEY
+        self.tencent_secret_id = self.config.TENCENT_SECRET_ID
+        self.tencent_secret_key = self.config.TENCENT_SECRET_KEY
+        self.tencent_region = self.config.TENCENT_REGION
 
-    @property
-    def ocr_api_key(self):
-        return self.config.BAIDU_OCR_API_KEY
+        # 🔥 修复：使用不同的变量名，避免与 property 冲突
+        self._ocr_timeout = self.config.OCR_TIMEOUT  # 使用下划线前缀
+        self._ocr_max_retries = self.config.OCR_MAX_RETRIES  # 使用下划线前缀
 
-    @property
-    def ocr_secret_key(self):
-        return self.config.BAIDU_OCR_SECRET_KEY
+        # 处理配置
+        self.extract_rows = self.config.EXTRACT_ROWS
+        self.extract_cols = self.config.EXTRACT_COLS
+        self.max_retries = self.config.MAX_RETRIES
+        self.timeout = self.config.TIMEOUT
 
-    @property
-    def tencent_secret_id(self):
-        return self.config.TENCENT_SECRET_ID
+        # 路径配置
+        self.temp_dir = self.config.TABLE_TEMP_DIR
+        self.output_dir = self.config.TABLE_OUTPUT_DIR
 
-    @property
-    def tencent_secret_key(self):
-        return self.config.TENCENT_SECRET_KEY
+        # 环境变量配置
+        self._init_env_vars()
 
-    @property
-    def tencent_region(self):
-        return self.config.TENCENT_REGION
+    def _init_from_env_and_defaults(self):
+        """从环境变量和默认值初始化"""
+        # ========== LLM配置 ==========
+        self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+        self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
+        self.llm_model_name = "doubao-1-5-vision-pro-250328"
 
+        # ========== OCR配置 - 多OCR支持 ==========
+        self.ocr_provider = "tencent"  # 默认使用腾讯OCR，可选: "tencent" 或 "baidu"
+        self.ocr_api_key = "Id7EZH2q6IOSlivHbwHHbWwz"
+        self.ocr_secret_key = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+        self.tencent_secret_id = "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG"
+        self.tencent_secret_key = "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP"
+        self.tencent_region = "ap-shanghai"
+
+        # ========== 处理配置 ==========
+        self._ocr_timeout = 30  # 🔥 使用下划线前缀
+        self._ocr_max_retries = 3  # 🔥 使用下划线前缀
+        self.extract_rows = 10
+        self.extract_cols = 3
+        self.max_retries = 3
+        self.timeout = 30
+
+        # ========== 环境变量配置 ==========
+        self._init_env_vars()
+
+        # ========== 路径配置 ==========
+        # 输出目录 - 环境变量优先，默认值兜底
+        self.output_dir = os.getenv("OUTPUT_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/outputs"
+
+        # 临时目录
+        self.temp_dir = os.getenv("TEMP_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/temp"
+
+    def _init_env_vars(self):
+        """初始化环境变量相关配置"""
+        # OCR 调试：是否落盘/保留字节
+        self.debug_ocr = os.getenv("OCR_DEBUG", "false").lower() == "true"
+        self.debug_ocr_keep_mb = int(os.getenv("OCR_DEBUG_KEEP_MB", "0"))
+
+        # LLM 调试：是否打印 prompt
+        self.debug_llm = os.getenv("LLM_DEBUG", "false").lower() == "true"
+
+        # 缓存配置
+        self.CACHE_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")
+        self.OBJECT_STORE = os.getenv("OBJECT_STORE", "local")
+        self.LOCAL_OBJECT_STORE = os.getenv(
+            "LOCAL_OBJECT_STORE") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/obj_cache"
+        self.OBJECT_STORE_BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
+
+        # 强制刷新开关 - 这是你需要的属性
+        self.OCR_FORCE_REFRESH = os.getenv("OCR_FORCE_REFRESH", "false").lower() == "true"
+        self.LLM_FORCE_REFRESH = os.getenv("LLM_FORCE_REFRESH", "false").lower() == "true"
+
+    def _create_dirs(self):
+        """创建必要的目录"""
+        dirs_to_create = []
+
+        if hasattr(self, 'temp_dir') and self.temp_dir:
+            dirs_to_create.append(self.temp_dir)
+
+        if hasattr(self, 'output_dir') and self.output_dir:
+            dirs_to_create.append(self.output_dir)
+
+        if hasattr(self, 'LOCAL_OBJECT_STORE') and self.LOCAL_OBJECT_STORE:
+            dirs_to_create.append(self.LOCAL_OBJECT_STORE)
+
+        for dir_path in dirs_to_create:
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+                print(f"创建目录: {dir_path}")
+
+    # 🔥 修改：将 property 改为使用下划线前缀的变量
     @property
     def ocr_timeout(self):
-        return self.config.OCR_TIMEOUT
+        """小写兼容属性"""
+        return getattr(self, '_ocr_timeout', 30)
+
+    @property
+    def OCR_TIMEOUT(self):
+        return self.ocr_timeout
 
     @property
     def ocr_max_retries(self):
-        return self.config.OCR_MAX_RETRIES
+        """小写兼容属性"""
+        return getattr(self, '_ocr_max_retries', 3)
 
     @property
-    def extract_rows(self):
-        return self.config.EXTRACT_ROWS
+    def OCR_MAX_RETRIES(self):
+        return self.ocr_max_retries
+
+    # 🔥 添加：如果需要设置这些属性，添加 setter
+    @ocr_timeout.setter
+    def ocr_timeout(self, value):
+        self._ocr_timeout = value
+
+    @ocr_max_retries.setter
+    def ocr_max_retries(self, value):
+        self._ocr_max_retries = value
+
+    # 为了保持兼容性，添加属性访问器
+    @property
+    def LLM_API_KEY(self):
+        return self.llm_api_key
 
     @property
-    def extract_cols(self):
-        return self.config.EXTRACT_COLS
+    def LLM_BASE_URL(self):
+        return self.llm_base_url
 
     @property
-    def max_retries(self):
-        return self.config.MAX_RETRIES
+    def LLM_MODEL_NAME(self):
+        return self.llm_model_name
 
     @property
-    def timeout(self):
-        return self.config.TIMEOUT
+    def OCR_API_KEY(self):
+        return self.ocr_api_key
 
     @property
-    def temp_dir(self):
-        return self.config.TABLE_TEMP_DIR
+    def OCR_SECRET_KEY(self):
+        return self.ocr_secret_key
 
     @property
-    def output_dir(self):
-        return self.config.TABLE_OUTPUT_DIR
->>>>>>> f662bba3fc86341539408e13dff693eb5f844420
+    def TENCENT_SECRET_ID(self):
+        return self.tencent_secret_id
 
+    @property
+    def TENCENT_SECRET_KEY(self):
+        return self.tencent_secret_key
+
+    @property
+    def TENCENT_REGION(self):
+        return self.tencent_region
+
+    @property
+    def EXTRACT_ROWS(self):
+        return self.extract_rows
+
+    @property
+    def EXTRACT_COLS(self):
+        return self.extract_cols
+
+    @property
+    def MAX_RETRIES(self):
+        return self.max_retries
+
+    @property
+    def TIMEOUT(self):
+        return self.timeout
 
 # 创建全局配置实例
 config = Config()

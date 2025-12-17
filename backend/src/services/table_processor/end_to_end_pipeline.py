@@ -6,9 +6,9 @@ from typing import Dict, Any, List
 # 1. OCR服务（复用analyzer中的OCR服务）
 # ====================================
 
-from backend.services.table_processor.ocr_gateway import TableOCRService
-from backend.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
-from backend.services.table_processor.table_rebuilder import TableReconstructor
+from backend.src.services.table_processor.ocr_service import TableOCRService
+from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
+from backend.src.services.table_processor.table_rebuilder import TableReconstructor
 
 
 
@@ -175,7 +175,6 @@ class TableReconstructionPipeline:
 # ====================================
 
 # -*- coding:utf-8 -*-
-import os
 
 
 def create_pipeline(config_instance=None):
@@ -267,7 +266,7 @@ if __name__ == "__main__":
     import os, sys
     from pathlib import Path
 
-    from backend.services.table_processor.cache_gateway import  ensure_table
+    from backend.src.services.table_processor.cache_gateway import  ensure_table
 
     ensure_table()
 
@@ -282,7 +281,8 @@ if __name__ == "__main__":
     os.environ.setdefault("OUTPUT_DIR",             f"{PROJECT_ROOT}/outputs")
     os.environ.setdefault("TEMP_DIR",               f"{PROJECT_ROOT}/temp")
 
-    from backend.services.table_processor.cache_gateway import ensure_table, get, upsert
+    from backend.src.services.table_processor.cache_gateway import ensure_table
+
     ensure_table()          # 首次建表
 
     # === 2. 图片 & 输出目录也用 PROJECT_ROOT 拼 ===
