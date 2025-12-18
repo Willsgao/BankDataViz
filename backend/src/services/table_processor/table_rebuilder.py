@@ -199,44 +199,6 @@ class TableReconstructor:
 
         return similarity
 
-    def find_best_match_row(self, target_text, table, start_row=1, search_cols=None):
-        """
-        在表格中查找与目标文本最匹配的行
-        """
-        if not target_text or not table:
-            return -1, 0.0
-
-        best_row = -1
-        best_score = 0.0
-
-        # 确定搜索列范围
-        if search_cols is None:
-            # 默认搜索所有列
-            search_cols = list(range(len(table[0])))
-
-        for row_idx in range(start_row, len(table)):
-            row_score = 0.0
-
-            for col_idx in search_cols:
-                if col_idx >= len(table[row_idx]):
-                    continue
-
-                cell_text = table[row_idx][col_idx]
-                if not cell_text:
-                    continue
-
-                # 计算相似度
-                similarity = self.calculate_similarity(target_text, str(cell_text))
-                if similarity > row_score:
-                    row_score = similarity
-
-            # 更新最佳匹配
-            if row_score > best_score:
-                best_score = row_score
-                best_row = row_idx
-
-        return best_row, best_score
-
     def _detect_tables_to_merge(self, llm_tables):
         """
         检测哪些LLM表格应该合并处理
@@ -784,7 +746,6 @@ class TableReconstructor:
     def _create_marked_table(self, table, row_checks=None, col_checks=None):
         """创建带标记的表格（根据数据类型标记）"""
 
-        print("&&&&&&&&&&&&&&&&&&&&&")
         if not table:
             return []
 
@@ -883,10 +844,6 @@ class TableReconstructor:
         # 注意：只统计数据列和数据行的标记
         data_row_checks = row_checks[1:]  # 跳过表头行
         data_col_checks = [col_checks[c] for c in data_column_indices]
-
-        total_zeros = sum(1 for x in data_row_checks + data_col_checks if x == 0)
-        total_ones = sum(1 for x in data_row_checks + data_col_checks if x == 1)
-        total_twos = sum(1 for x in data_row_checks + data_col_checks if x == 2)
 
         final_vals = data_row_checks+data_col_checks
 
@@ -1988,7 +1945,7 @@ class TableReconstructor:
 
         return table
 
-    def step7_save_to_excel(self, tables_data, output_file):
+    def step9_save_to_excel(self, tables_data, output_file):
         """
             将多个表格保存到Excel，每个表格一个Sheet
             tables_data: 列表，每个元素是一个表格的完整数据
@@ -2257,7 +2214,7 @@ class TableReconstructor:
 
 
         # 第8步：保存到Excel
-        success = self.step7_save_to_excel(all_final_tables, output_file)
+        success = self.step9_save_to_excel(all_final_tables, output_file)
 
         if not success:
             self.log_issue("保存原始Excel失败")

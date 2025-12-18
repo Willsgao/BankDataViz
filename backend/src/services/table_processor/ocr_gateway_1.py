@@ -1,15 +1,31 @@
 # -*- coding:utf-8 -*-
 
 import os
+import json
 import requests
 import base64
 import urllib.parse
+from io import BytesIO
 from typing import Dict, Any, List
 
-from backend.src.services import ImageUtils
-from backend.src.services import settings
+from backend.src.services import TableImageUtils
+from backend.utils.config import tableconfig as settings
 from backend.src.services import OCRProviderFactory, OCRAdapter
+from backend.src.services import ensure_table, get as cache_get, upsert as cache_upsert
 
+import hashlib, gzip, json, os
+from pathlib import Path
+
+# ----- 0. 三级缓存工具 -----
+from .object_store import get_object, put_object
+from backend.utils.config import tableconfig
+import redis
+
+_redis = redis.Redis(
+    host=os.getenv("REDIS_HOST", "127.0.0.1"),
+    port=int(os.getenv("REDIS_PORT", "6379")),
+    db=0, decode_responses=False
+)
 
 
 class TableOCRService:
@@ -19,7 +35,7 @@ class TableOCRService:
         Args:
             provider_type: OCR提供商类型，默认为配置中的设置
         """
-        self.image_utils = ImageUtils()
+        self.image_utils = TableImageUtils()
 
         # 确定使用的OCR提供商
         self.provider_type = provider_type or getattr(settings, 'ocr_provider', 'baidu')
@@ -123,43 +139,61 @@ class TableOCRService:
             self.ocr_provider = OCRProviderFactory.create_provider(original_provider, settings)
 
     # 修改 TableOCRService 类的 recognize_table 方法
-    def recognize_table(self, image_path: str) -> Dict[str, Any]:
+    def recognize_table(self, image_path: str, force_refresh: bool = False) -> Dict[str, Any]:
         """
         识别表格 - 主入口方法，增强错误处理
+        三级缓存：Redis → DB → 盘；成功写盘+写库+写Redis
         """
+
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"图片不存在: {image_path}")
 
         print(f"使用 {self.provider_type} OCR识别: {image_path}")
+        md5 = hashlib.md5(open(image_path, "rb").read()).hexdigest()
 
+        # ----- 1. 三级缓存命中（Redis → DB → 盘） -----
+        if not (tableconfig.OCR_FORCE_REFRESH or force_refresh):
+            # 1) Redis
+            cached = _redis.get(f"ocr:{md5}")
+            if cached:
+                print("OCR Redis hit")
+                return json.loads(gzip.decompress(cached))
+
+            # 2) DB + 盘存在性检查
+            hit = cache_get(md5, self.provider_type)
+            if hit:
+                file_path = Path(tableconfig.LOCAL_OBJECT_STORE) / hit["s3_key"]
+                if file_path.exists():
+                    data = json.loads(gzip.decompress(file_path.read_bytes()))
+                    # 回写 Redis（24h TTL）
+                    _redis.set(f"ocr:{md5}", gzip.compress(json.dumps(data).encode()), ex=86400)
+                    print("OCR cache hit, skip cost")
+                    return data
+                else:
+                    print("DB index hit but file missing, re-call OCR")
+
+        # ----- 2. 真调用 -----
         try:
-            # 调用相应提供商的识别方法
             ocr_result = self.ocr_provider.recognize(image_path)
 
-            print("=" * 60)
-            print(f"{self.provider_type} OCR原始响应:")
-            print(f"响应类型: {type(ocr_result)}")
-            print(f"响应键: {list(ocr_result.keys())[:10]}...")
+            # 原有调试/适配/统计逻辑保持不动
+            if tableconfig.debug_ocr:
+                raw_bytes = BytesIO()
+                json.dump(ocr_result, raw_bytes, ensure_ascii=False, indent=2)
+                if tableconfig.debug_ocr_keep_mb > 0:
+                    debug_filename = f"{self.provider_type}_ocr_raw.json"
+                    with open(debug_filename, "w", encoding="utf-8") as f:
+                        f.write(raw_bytes.getvalue().decode())
+                    print(f"原始响应已保存到: {debug_filename}")
 
-            # 保存原始结果用于调试
-            import json
-            debug_filename = f"{self.provider_type}_ocr_raw.json"
-            with open(debug_filename, "w", encoding="utf-8") as f:
-                json.dump(ocr_result, f, ensure_ascii=False, indent=2)
-            print(f"原始响应已保存到: {debug_filename}")
-            print("=" * 60)
-
-            # 使用适配器确保格式统一
             ocr_result = self.adapter.validate_and_adapt(ocr_result, self.provider_type)
 
-            # 确保包含必要的字段
             if "image_info" not in ocr_result:
                 ocr_result["image_info"] = {
                     "image_path": image_path,
                     "image_id": self.image_utils.generate_image_id(image_path)
                 }
 
-            # 添加统计信息
             if "orc_statistics" not in ocr_result:
                 ocr_result["orc_statistics"] = {
                     "processing_time": 0,
@@ -169,11 +203,19 @@ class TableOCRService:
 
             print(f"✅ OCR识别成功，找到 {len(ocr_result.get('tables_result', []))} 个表格")
 
-            # 保存最终结果
-            final_filename = f"{self.provider_type}_ocr_final.json"
-            with open(final_filename, "w", encoding="utf-8") as f:
-                json.dump(ocr_result, f, ensure_ascii=False, indent=2)
-            print(f"最终结果已保存到: {final_filename}")
+            if tableconfig.debug_ocr and tableconfig.debug_ocr_keep_mb > 0:
+                final_filename = f"{self.provider_type}_ocr_final.json"
+                with open(final_filename, "w", encoding="utf-8") as f:
+                    json.dump(ocr_result, f, ensure_ascii=False, indent=2)
+
+            # ----- 3. 成功落盘 + 写库 + 写 Redis -----
+            compressed = gzip.compress(json.dumps(ocr_result).encode())
+            s3_key = f"ocr/{md5}.json.gz"
+            put_object(s3_key, compressed)
+            cost_usd = 0.0  # 可按官方价计算
+            cache_upsert(md5, self.provider_type, self.provider_type,
+                         cost_usd, 0, 0, s3_key)
+            _redis.set(f"ocr:{md5}", compressed, ex=86400)  # 写内存 24h
 
             return ocr_result
 
@@ -182,3 +224,8 @@ class TableOCRService:
             import traceback
             traceback.print_exc()
             raise Exception(f"OCR识别失败: {str(e)}")
+
+
+
+if __name__ == '__main__':
+    from .cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert

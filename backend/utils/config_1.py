@@ -23,7 +23,7 @@ except ImportError:
     UPLOAD_FOLDER = 'backend/static/uploads'
     PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
     EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
-    DATABASE = 'data/backend/database.db'  # 修改：移动到 data/backend
+    DATABASE = 'backend/data/database.db'
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 
@@ -87,7 +87,7 @@ class Config:
                 "defaultModelId": "doubao-1-5-vision-pro-250328",
                 "maxTokens": 4000
             },
-            # 新增表格处理器配置部分 - 修改路径指向 data/backend
+            # 新增表格处理器配置部分
             "table_processor": {
                 "llm": {
                     "api_key": "90b9c47f-815c-4216-913a-3d1a567e35ac",
@@ -115,12 +115,7 @@ class Config:
                     "timeout": 30
                 },
                 "paths": {
-                    "temp_dir": "data/backend/temp_imgs",
-                    "obj_cache": "data/backend/obj_cache",
-                    "ocr_raw": "data/backend/ocr_raw",
-                    "ocr_final": "data/backend/ocr_final",
-                    "llm_cache": "data/backend/llm_cache",
-                    "outputs": "data/backend/outputs"
+                    "temp_dir": "temp_imgs"
                 }
             }
         }
@@ -155,7 +150,7 @@ class Config:
         self.LLM_DEFAULT_MODEL_ID = self._config['llm']['defaultModelId']
         self.LLM_MAX_TOKENS = self._config['llm']['maxTokens']
 
-        # 数据库配置 - 从 constants.py 导入（已修改为 data/backend）
+        # 数据库配置 - 从 constants.py 导入
         self.DATABASE_PATH = DATABASE
 
         # 允许的文件扩展名
@@ -197,13 +192,9 @@ class Config:
 
         # 路径配置
         paths_config = table_config.get('paths', {})
-        self.TABLE_TEMP_DIR = paths_config.get('temp_dir', "data/backend/temp_imgs")
-        self.TABLE_OBJ_CACHE_DIR = paths_config.get('obj_cache', "data/backend/obj_cache")
-        self.TABLE_OCR_RAW_DIR = paths_config.get('ocr_raw', "data/backend/ocr_raw")
-        self.TABLE_OCR_FINAL_DIR = paths_config.get('ocr_final', "data/backend/ocr_final")
-        self.TABLE_LLM_CACHE_DIR = paths_config.get('llm_cache', "data/backend/llm_cache")
+        self.TABLE_TEMP_DIR = paths_config.get('temp_dir', "temp_imgs")
 
-        # 输出目录使用主项目的输出目录
+        # 使用主项目的输出目录
         self.TABLE_OUTPUT_DIR = self.EXCEL_DATA_FOLDER
 
         # 创建目录
@@ -214,16 +205,11 @@ class Config:
         import os
         dirs_to_create = [
             self.TABLE_TEMP_DIR,
-            self.TABLE_OUTPUT_DIR,
-            self.TABLE_OBJ_CACHE_DIR,
-            self.TABLE_OCR_RAW_DIR,
-            self.TABLE_OCR_FINAL_DIR,
-            self.TABLE_LLM_CACHE_DIR
+            self.TABLE_OUTPUT_DIR
         ]
         for dir_path in dirs_to_create:
             if dir_path and not os.path.exists(dir_path):
                 os.makedirs(dir_path, exist_ok=True)
-                print(f"Config: 创建目录: {dir_path}")
 
     @property
     def backend_api_base_url(self):
@@ -279,6 +265,181 @@ class TableConfig:
         self.tencent_secret_id = self.config.TENCENT_SECRET_ID
         self.tencent_secret_key = self.config.TENCENT_SECRET_KEY
         self.tencent_region = self.config.TENCENT_REGION
+        self.ocr_timeout = self.config.OCR_TIMEOUT
+        self.ocr_max_retries = self.config.OCR_MAX_RETRIES
+
+        # 处理配置
+        self.extract_rows = self.config.EXTRACT_ROWS
+        self.extract_cols = self.config.EXTRACT_COLS
+        self.max_retries = self.config.MAX_RETRIES
+        self.timeout = self.config.TIMEOUT
+
+        # 路径配置
+        self.temp_dir = self.config.TABLE_TEMP_DIR
+        self.output_dir = self.config.TABLE_OUTPUT_DIR
+
+        # 环境变量配置
+        self._init_env_vars()
+
+    def _init_from_env_and_defaults(self):
+        """从环境变量和默认值初始化"""
+        # ========== LLM配置 ==========
+        self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+        self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
+        self.llm_model_name = "doubao-1-5-vision-pro-250328"
+
+        # ========== OCR配置 - 多OCR支持 ==========
+        self.ocr_provider = "tencent"  # 默认使用腾讯OCR，可选: "tencent" 或 "baidu"
+        self.ocr_api_key = "Id7EZH2q6IOSlivHbwHHbWwz"
+        self.ocr_secret_key = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+        self.tencent_secret_id = "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG"
+        self.tencent_secret_key = "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP"
+        self.tencent_region = "ap-shanghai"
+
+        # ========== 处理配置 ==========
+        self.ocr_timeout = 30
+        self.ocr_max_retries = 3
+        self.extract_rows = 10
+        self.extract_cols = 3
+        self.max_retries = 3
+        self.timeout = 30
+
+        # ========== 环境变量配置 ==========
+        self._init_env_vars()
+
+        # ========== 路径配置 ==========
+        # 输出目录 - 环境变量优先，默认值兜底
+        self.output_dir = os.getenv("OUTPUT_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/outputs"
+
+        # 临时目录
+        self.temp_dir = os.getenv("TEMP_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/temp"
+
+    def _init_env_vars(self):
+        """初始化环境变量相关配置"""
+        # OCR 调试：是否落盘/保留字节
+        self.debug_ocr = os.getenv("OCR_DEBUG", "false").lower() == "true"
+        self.debug_ocr_keep_mb = int(os.getenv("OCR_DEBUG_KEEP_MB", "0"))
+
+        # LLM 调试：是否打印 prompt
+        self.debug_llm = os.getenv("LLM_DEBUG", "false").lower() == "true"
+
+        # 缓存配置
+        self.CACHE_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")
+        self.OBJECT_STORE = os.getenv("OBJECT_STORE", "local")
+        self.LOCAL_OBJECT_STORE = os.getenv(
+            "LOCAL_OBJECT_STORE") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/obj_cache"
+        self.OBJECT_STORE_BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
+
+        # 强制刷新开关 - 这是你需要的属性
+        self.OCR_FORCE_REFRESH = os.getenv("OCR_FORCE_REFRESH", "false").lower() == "true"
+        self.LLM_FORCE_REFRESH = os.getenv("LLM_FORCE_REFRESH", "false").lower() == "true"
+
+    def _create_dirs(self):
+        """创建必要的目录"""
+        dirs_to_create = []
+
+        if hasattr(self, 'temp_dir') and self.temp_dir:
+            dirs_to_create.append(self.temp_dir)
+
+        if hasattr(self, 'output_dir') and self.output_dir:
+            dirs_to_create.append(self.output_dir)
+
+        if hasattr(self, 'LOCAL_OBJECT_STORE') and self.LOCAL_OBJECT_STORE:
+            dirs_to_create.append(self.LOCAL_OBJECT_STORE)
+
+        for dir_path in dirs_to_create:
+            if dir_path and not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+                print(f"创建目录: {dir_path}")
+
+    # 为了保持兼容性，添加属性访问器
+    @property
+    def LLM_API_KEY(self):
+        return self.llm_api_key
+
+    @property
+    def LLM_BASE_URL(self):
+        return self.llm_base_url
+
+    @property
+    def LLM_MODEL_NAME(self):
+        return self.llm_model_name
+
+    @property
+    def OCR_API_KEY(self):
+        return self.ocr_api_key
+
+    @property
+    def OCR_SECRET_KEY(self):
+        return self.ocr_secret_key
+
+    @property
+    def ocr_timeout(self):
+        return self.ocr_timeout
+
+    @property
+    def OCR_MAX_RETRIES(self):
+        return self.ocr_max_retries
+
+    @property
+    def TENCENT_SECRET_ID(self):
+        return self.tencent_secret_id
+
+    @property
+    def TENCENT_SECRET_KEY(self):
+        return self.tencent_secret_key
+
+    @property
+    def TENCENT_REGION(self):
+        return self.tencent_region
+
+    @property
+    def EXTRACT_ROWS(self):
+        return self.extract_rows
+
+    @property
+    def EXTRACT_COLS(self):
+        return self.extract_cols
+
+    @property
+    def MAX_RETRIES(self):
+        return self.max_retries
+
+    @property
+    def TIMEOUT(self):
+        return self.timeout
+
+
+class TableConfig:
+    """表格处理配置类 - 整合了table_processor的所有配置"""
+
+    def __init__(self, config: Config = None):
+        self.config = config
+
+        if self.config:
+            # 如果传入主配置，则从主配置读取
+            self._init_from_main_config()
+        else:
+            # 否则使用独立的配置
+            self._init_from_env_and_defaults()
+
+        # 确保目录存在
+        self._create_dirs()
+
+    def _init_from_main_config(self):
+        """从主配置读取"""
+        # LLM配置
+        self.llm_api_key = self.config.TABLE_LLM_API_KEY
+        self.llm_base_url = self.config.TABLE_LLM_BASE_URL
+        self.llm_model_name = self.config.TABLE_LLM_MODEL_NAME
+
+        # OCR配置
+        self.ocr_provider = self.config.OCR_PROVIDER
+        self.ocr_api_key = self.config.BAIDU_OCR_API_KEY
+        self.ocr_secret_key = self.config.BAIDU_OCR_SECRET_KEY
+        self.tencent_secret_id = self.config.TENCENT_SECRET_ID
+        self.tencent_secret_key = self.config.TENCENT_SECRET_KEY
+        self.tencent_region = self.config.TENCENT_REGION
 
         # 🔥 修复：使用不同的变量名，避免与 property 冲突
         self._ocr_timeout = self.config.OCR_TIMEOUT  # 使用下划线前缀
@@ -290,13 +451,9 @@ class TableConfig:
         self.max_retries = self.config.MAX_RETRIES
         self.timeout = self.config.TIMEOUT
 
-        # 路径配置 - 从主配置获取
+        # 路径配置
         self.temp_dir = self.config.TABLE_TEMP_DIR
         self.output_dir = self.config.TABLE_OUTPUT_DIR
-        self.obj_cache_dir = self.config.TABLE_OBJ_CACHE_DIR
-        self.ocr_raw_dir = self.config.TABLE_OCR_RAW_DIR
-        self.ocr_final_dir = self.config.TABLE_OCR_FINAL_DIR
-        self.llm_cache_dir = self.config.TABLE_LLM_CACHE_DIR
 
         # 环境变量配置
         self._init_env_vars()
@@ -324,28 +481,15 @@ class TableConfig:
         self.max_retries = 3
         self.timeout = 30
 
-        # ========== 路径配置 ==========
-        # 获取项目根目录
-        project_root = Path(__file__).parent.parent.parent
-        data_backend_dir = project_root / "data" / "backend"
-
-        # 确保 data/backend 目录存在
-        data_backend_dir.mkdir(parents=True, exist_ok=True)
-
-        # 输出目录 - 环境变量优先，默认值兜底
-        self.output_dir = os.getenv("OUTPUT_DIR") or str(data_backend_dir / "outputs")
-
-        # 临时目录
-        self.temp_dir = os.getenv("TEMP_DIR") or str(data_backend_dir / "temp_imgs")
-
-        # 缓存目录
-        self.obj_cache_dir = os.getenv("OBJ_CACHE_DIR") or str(data_backend_dir / "obj_cache")
-        self.ocr_raw_dir = os.getenv("OCR_RAW_DIR") or str(data_backend_dir / "ocr_raw")
-        self.ocr_final_dir = os.getenv("OCR_FINAL_DIR") or str(data_backend_dir / "ocr_final")
-        self.llm_cache_dir = os.getenv("LLM_CACHE_DIR") or str(data_backend_dir / "llm_cache")
-
         # ========== 环境变量配置 ==========
         self._init_env_vars()
+
+        # ========== 路径配置 ==========
+        # 输出目录 - 环境变量优先，默认值兜底
+        self.output_dir = os.getenv("OUTPUT_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/outputs"
+
+        # 临时目录
+        self.temp_dir = os.getenv("TEMP_DIR") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/temp"
 
     def _init_env_vars(self):
         """初始化环境变量相关配置"""
@@ -359,10 +503,8 @@ class TableConfig:
         # 缓存配置
         self.CACHE_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")
         self.OBJECT_STORE = os.getenv("OBJECT_STORE", "local")
-
-        # LOCAL_OBJECT_STORE 使用 obj_cache_dir
-        self.LOCAL_OBJECT_STORE = os.getenv("LOCAL_OBJECT_STORE") or self.obj_cache_dir
-
+        self.LOCAL_OBJECT_STORE = os.getenv(
+            "LOCAL_OBJECT_STORE") or r"F:\wills\codes\DocuVista\test_codes\table_analyzer_codes/obj_cache"
         self.OBJECT_STORE_BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
 
         # 强制刷新开关 - 这是你需要的属性
@@ -379,25 +521,13 @@ class TableConfig:
         if hasattr(self, 'output_dir') and self.output_dir:
             dirs_to_create.append(self.output_dir)
 
-        if hasattr(self, 'obj_cache_dir') and self.obj_cache_dir:
-            dirs_to_create.append(self.obj_cache_dir)
-
-        if hasattr(self, 'ocr_raw_dir') and self.ocr_raw_dir:
-            dirs_to_create.append(self.ocr_raw_dir)
-
-        if hasattr(self, 'ocr_final_dir') and self.ocr_final_dir:
-            dirs_to_create.append(self.ocr_final_dir)
-
-        if hasattr(self, 'llm_cache_dir') and self.llm_cache_dir:
-            dirs_to_create.append(self.llm_cache_dir)
-
         if hasattr(self, 'LOCAL_OBJECT_STORE') and self.LOCAL_OBJECT_STORE:
             dirs_to_create.append(self.LOCAL_OBJECT_STORE)
 
         for dir_path in dirs_to_create:
             if dir_path and not os.path.exists(dir_path):
                 os.makedirs(dir_path, exist_ok=True)
-                print(f"TableConfig: 创建目录: {dir_path}")
+                print(f"创建目录: {dir_path}")
 
     # 🔥 修改：将 property 改为使用下划线前缀的变量
     @property
@@ -417,19 +547,6 @@ class TableConfig:
     @property
     def OCR_MAX_RETRIES(self):
         return self.ocr_max_retries
-
-    # 添加 OCR 目录属性
-    @property
-    def OCR_RAW_DIR(self):
-        return getattr(self, 'ocr_raw_dir', 'data/backend/ocr_raw')
-
-    @property
-    def OCR_FINAL_DIR(self):
-        return getattr(self, 'ocr_final_dir', 'data/backend/ocr_final')
-
-    @property
-    def LLM_CACHE_DIR(self):
-        return getattr(self, 'llm_cache_dir', 'data/backend/llm_cache')
 
     # 🔥 添加：如果需要设置这些属性，添加 setter
     @ocr_timeout.setter
@@ -488,7 +605,6 @@ class TableConfig:
     @property
     def TIMEOUT(self):
         return self.timeout
-
 
 # 创建全局配置实例
 config = Config()

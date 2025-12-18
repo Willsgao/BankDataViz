@@ -1,3 +1,4 @@
+# backend/src/services/table_processor/ocr_gateway.py
 # -*- coding:utf-8 -*-
 
 import os
@@ -5,16 +6,17 @@ import json
 import requests
 import base64
 import urllib.parse
+import time
+import hashlib
+import gzip
+import uuid
 from io import BytesIO
 from typing import Dict, Any, List
-
-from backend.src.services import TableImageUtils
-from backend.utils.config import tableconfig as settings
-from backend.src.services import OCRProviderFactory, OCRAdapter
-from backend.src.services import ensure_table, get as cache_get, upsert as cache_upsert
-
-import hashlib, gzip, json, os
 from pathlib import Path
+
+from backend.src.services.table_processor.image_utils import TableImageUtils
+from backend.utils.config import tableconfig as settings
+from backend.src.services.table_processor.ocr_service import OCRProviderFactory, OCRAdapter
 
 # ----- 0. 三级缓存工具 -----
 from .object_store import get_object, put_object
@@ -138,74 +140,6 @@ class TableOCRService:
             self.provider_type = original_provider
             self.ocr_provider = OCRProviderFactory.create_provider(original_provider, settings)
 
-    # 修改 TableOCRService 类的 recognize_table 方法
-    def recognize_table11(self, image_path: str) -> Dict[str, Any]:
-        """
-        识别表格 - 主入口方法，增强错误处理
-        """
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"图片不存在: {image_path}")
-
-        print(f"使用 {self.provider_type} OCR识别: {image_path}")
-
-        try:
-            # 调用相应提供商的识别方法
-            ocr_result = self.ocr_provider.recognize(image_path)
-
-            print("=" * 60)
-            print(f"{self.provider_type} OCR原始响应:")
-            print(f"响应类型: {type(ocr_result)}")
-            print(f"响应键: {list(ocr_result.keys())[:10]}...")
-
-            # ---------- 调试开关 ----------
-            from backend.utils.config import tableconfig  # 已有，不用再 import
-            if tableconfig.debug_ocr:  # ① 开关
-                raw_bytes = BytesIO()
-                json.dump(ocr_result, raw_bytes, ensure_ascii=False, indent=2)
-                # 只有需要落盘才写文件
-                if tableconfig.debug_ocr_keep_mb > 0:
-                    debug_filename = f"{self.provider_type}_ocr_raw.json"
-                    with open(debug_filename, "w", encoding="utf-8") as f:
-                        f.write(raw_bytes.getvalue().decode())
-                    print(f"原始响应已保存到: {debug_filename}")
-
-            # print(f"原始响应已保存到: {debug_filename}")
-            print("=" * 60)
-
-            # 使用适配器确保格式统一
-            ocr_result = self.adapter.validate_and_adapt(ocr_result, self.provider_type)
-
-            # 确保包含必要的字段
-            if "image_info" not in ocr_result:
-                ocr_result["image_info"] = {
-                    "image_path": image_path,
-                    "image_id": self.image_utils.generate_image_id(image_path)
-                }
-
-            # 添加统计信息
-            if "orc_statistics" not in ocr_result:
-                ocr_result["orc_statistics"] = {
-                    "processing_time": 0,
-                    "tables_count": len(ocr_result.get('tables_result', [])),
-                    "cells_count": sum(len(table.get('body', [])) for table in ocr_result.get('tables_result', []))
-                }
-
-            print(f"✅ OCR识别成功，找到 {len(ocr_result.get('tables_result', []))} 个表格")
-
-            # 保存最终结果
-            if tableconfig.debug_ocr and tableconfig.debug_ocr_keep_mb > 0:
-                final_filename = f"{self.provider_type}_ocr_final.json"
-                with open(final_filename, "w", encoding="utf-8") as f:
-                    json.dump(ocr_result, f, ensure_ascii=False, indent=2)
-
-            return ocr_result
-
-        except Exception as e:
-            print(f"❌ {self.provider_type} OCR识别失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise Exception(f"OCR识别失败: {str(e)}")
-
     def recognize_table(self, image_path: str, force_refresh: bool = False) -> Dict[str, Any]:
         """
         识别表格 - 主入口方法，增强错误处理
@@ -243,16 +177,22 @@ class TableOCRService:
         try:
             ocr_result = self.ocr_provider.recognize(image_path)
 
-            # 原有调试/适配/统计逻辑保持不动
+            # 调试：保存原始响应到 data/backend/ocr_raw
             if tableconfig.debug_ocr:
-                raw_bytes = BytesIO()
-                json.dump(ocr_result, raw_bytes, ensure_ascii=False, indent=2)
-                if tableconfig.debug_ocr_keep_mb > 0:
-                    debug_filename = f"{self.provider_type}_ocr_raw.json"
-                    with open(debug_filename, "w", encoding="utf-8") as f:
-                        f.write(raw_bytes.getvalue().decode())
-                    print(f"原始响应已保存到: {debug_filename}")
+                # 确保 OCR 原始数据目录存在
+                raw_dir = getattr(tableconfig, 'OCR_RAW_DIR', 'data/backend/ocr_raw')
+                os.makedirs(raw_dir, exist_ok=True)
 
+                # 生成唯一的文件名
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = f"{self.provider_type}_ocr_raw_{timestamp}_{uuid.uuid4().hex[:8]}.json"
+                raw_path = os.path.join(raw_dir, filename)
+
+                with open(raw_path, "w", encoding="utf-8") as f:
+                    json.dump(ocr_result, f, ensure_ascii=False, indent=2)
+                print(f"原始响应已保存到: {raw_path}")
+
+            # 适配和验证结果
             ocr_result = self.adapter.validate_and_adapt(ocr_result, self.provider_type)
 
             if "image_info" not in ocr_result:
@@ -270,10 +210,19 @@ class TableOCRService:
 
             print(f"✅ OCR识别成功，找到 {len(ocr_result.get('tables_result', []))} 个表格")
 
+            # 调试：保存最终结果到 data/backend/ocr_final
             if tableconfig.debug_ocr and tableconfig.debug_ocr_keep_mb > 0:
-                final_filename = f"{self.provider_type}_ocr_final.json"
-                with open(final_filename, "w", encoding="utf-8") as f:
+                # 确保 OCR 最终数据目录存在
+                final_dir = getattr(tableconfig, 'OCR_FINAL_DIR', 'data/backend/ocr_final')
+                os.makedirs(final_dir, exist_ok=True)
+
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                final_filename = f"{self.provider_type}_ocr_final_{timestamp}_{uuid.uuid4().hex[:8]}.json"
+                final_path = os.path.join(final_dir, final_filename)
+
+                with open(final_path, "w", encoding="utf-8") as f:
                     json.dump(ocr_result, f, ensure_ascii=False, indent=2)
+                print(f"最终OCR结果已保存到: {final_path}")
 
             # ----- 3. 成功落盘 + 写库 + 写 Redis -----
             compressed = gzip.compress(json.dumps(ocr_result).encode())
@@ -291,7 +240,6 @@ class TableOCRService:
             import traceback
             traceback.print_exc()
             raise Exception(f"OCR识别失败: {str(e)}")
-
 
 
 if __name__ == '__main__':
