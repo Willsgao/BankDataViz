@@ -731,13 +731,129 @@ class TableReconstructor:
                         print(f"  ⚠️ 格式不一致: 行{row}列{col}='{value}'")
                         print(f"     其他单元格有%符号，但此单元格没有")
 
-    def _create_marked_table(self, table, row_checks, col_checks):
-        """创建带标记的表格"""
+    def is_numeric_value(self, cell_value):
+        """判断单元格值是否为数值类数据（包含百分数、空格、横杠）"""
+        if cell_value is None:
+            return True  # None视为数值类
+
+        cell_str = str(cell_value).strip()
+
+        # 空字符串或纯空格视为数值类
+        if cell_str == "":
+            return True  # ✅ 正确
+
+        # 横杠'-'视为数值类
+        if cell_str == "-":
+            return True  # ✅ 正确
+
+        # 检查是否是百分数（包含%）
+        if "%" in cell_str:
+            # 移除%和逗号，尝试转换为浮点数
+            try:
+                num_str = cell_str.replace("%", "").replace(",", "")
+                float(num_str)
+                return True
+            except:
+                # 如果转换失败，检查是否只是%号
+                if cell_str.replace("%", "").strip() == "":
+                    return True
+                return False
+
+        # 检查是否是常规数值（可能包含逗号、小数点、负号）
+        # 先移除逗号
+        cell_str_no_comma = cell_str.replace(",", "")
+
+        # 检查是否是纯数字（可能包含小数点和负号）
+        import re
+        # 匹配数字模式：可选负号，数字（可能包含小数点）
+        pattern = r'^-?\d+(\.\d+)?$'
+
+        if re.match(pattern, cell_str_no_comma):
+            return True
+
+        # 尝试转换为浮点数作为最后的手段
+        try:
+            float(cell_str_no_comma)
+            return True
+        except:
+            # 检查是否包含特殊数值字符
+            # 如：1.2.3.4这种格式可能不是标准数值
+            return False
+
+
+    def _create_marked_table(self, table, row_checks=None, col_checks=None):
+        """创建带标记的表格（根据数据类型标记）"""
+
+        print("&&&&&&&&&&&&&&&&&&&&&")
         if not table:
             return []
 
         num_rows = len(table)
         num_cols = len(table[0]) if table else 0
+
+        # 自动检测数据列：排除明显是标记的列
+        # 通常标记列的表头包含"标记"、"标识"等关键字
+        data_column_indices = []
+        for c in range(num_cols):
+            if c == 0:  # 第一列通常是行表头
+                continue
+            # 检查列标题是否包含标记相关词汇
+            header = str(table[0][c]) if table[0][c] else ""
+            if any(marker in header for marker in ["行标记", "列标记", "标记", "标识", "flag"]):
+                print(f"跳过标记列: 列{c}, 标题='{header}'")
+                continue
+            data_column_indices.append(c)
+
+        # 如果没有提供标记，则根据数据类型计算
+        if row_checks is None or col_checks is None:
+            # 初始化标记数组
+            row_checks = [0] * num_rows
+            col_checks = [0] * num_cols
+
+            # 计算行标记（从第1行开始，跳过表头行）
+            for r in range(1, num_rows):
+                numeric_count = 0
+                total_cells = 0
+
+                # 只检查数据列
+                for c in data_column_indices:
+                    cell_value = table[r][c]
+                    total_cells += 1
+                    if self.is_numeric_value(cell_value):
+                        numeric_count += 1
+
+                # 判断逻辑
+                print("numeric_count == total_cells", r, numeric_count, total_cells)
+                if total_cells == 0:
+                    row_checks[r] = 2
+                elif numeric_count == total_cells:
+                    row_checks[r] = 0
+                elif numeric_count > 0:
+                    row_checks[r] = 1
+                else:
+                    row_checks[r] = 2
+
+            # 计算列标记（只计算数据列）
+            for c in data_column_indices:
+                numeric_count = 0
+                total_cells = 0
+
+                # 从第1行开始，跳过表头行
+                for r in range(1, num_rows):
+                    cell_value = table[r][c]
+                    total_cells += 1
+                    if self.is_numeric_value(cell_value):
+                        numeric_count += 1
+
+                # 判断逻辑
+                if total_cells == 0:
+                    col_checks[c] = 2
+                elif numeric_count == total_cells:
+                    col_checks[c] = 0
+                elif numeric_count > 0:
+                    col_checks[c] = 1
+                else:
+                    col_checks[c] = 2
 
         # 创建新表格（增加一行一列用于标记）
         marked_table = []
@@ -749,19 +865,35 @@ class TableReconstructor:
             for c in range(num_cols):
                 marked_table[r][c] = table[r][c]
 
-        # 添加行标记（在最后一列）
+        # 添加行标记（在最后一列），并添加列标题"行标记"
         for r in range(num_rows):
             marked_table[r][num_cols] = row_checks[r]
 
-        # 添加列标记（在最后一行）
+        # 给行标记列添加表头（第0行，最后一列）
+        marked_table[0][num_cols] = "行标记"
+
+        # 添加列标记（在最后一行），并添加行标题"列标记"
         for c in range(num_cols):
             marked_table[num_rows][c] = col_checks[c]
 
-        # 右下角单元格标记总数
-        total_issues = sum(row_checks) + sum(col_checks)
-        marked_table[num_rows][num_cols] = f"问题:{total_issues}"
+        # 给列标记行添加表头（最后一行，第0列）
+        marked_table[num_rows][0] = "列标记"
+
+        # 右下角单元格标记总数（不同类型的问题统计）
+        # 注意：只统计数据列和数据行的标记
+        data_row_checks = row_checks[1:]  # 跳过表头行
+        data_col_checks = [col_checks[c] for c in data_column_indices]
+
+        total_zeros = sum(1 for x in data_row_checks + data_col_checks if x == 0)
+        total_ones = sum(1 for x in data_row_checks + data_col_checks if x == 1)
+        total_twos = sum(1 for x in data_row_checks + data_col_checks if x == 2)
+
+        final_vals = data_row_checks+data_col_checks
+
+        marked_table[num_rows][num_cols] = max(final_vals)
 
         return marked_table
+
 
     def _print_validation_results(self, row_checks, col_checks):
         """打印验证结果"""
@@ -864,70 +996,6 @@ class TableReconstructor:
             return "部分问题"
         else:
             return f"问题:{int((1 - score) * 100)}"
-
-    def step8_add_feature_marks11(self, validated_table, validation_marks):
-        """
-        添加特征标记：
-        - 最后一列：行标记（第一行写"行标记"作为列标题）
-        - 最后一行：列标记（第一列写"列标记"作为行标题）
-        - 最后一行最后一列：行标记和列标记的最大值
-        """
-        marked_table = [row[:] for row in validated_table]
-
-        # 添加调试信息
-        print(f"\n=== step8调试信息 ===")
-        print(f"输入表格行数: {len(validated_table)}")
-        print(f"行标记数量: {len(validation_marks['row_marks'])} - {validation_marks['row_marks']}")
-        print(f"列标记数量: {len(validation_marks['col_marks'])} - {validation_marks['col_marks']}")
-
-        if not marked_table:
-            return marked_table
-
-        row_marks = validation_marks["row_marks"]
-        col_marks = validation_marks["col_marks"]
-
-        # 1. 添加最后一列（行标记列）
-        print(f"\n添加行标记列:")
-        for i in range(len(marked_table)):
-            if i == 0:
-                # 第一行：写"行标记"作为列标题
-                marked_table[i].append("行标记")
-                print(f"  行{i}: 添加'行标记'（列标题）")
-            else:
-                # 其他行：直接使用对应的行标记
-                # row_marks对应validated_table的每一行，所以索引应该是i
-                mark_idx = i if i < len(row_marks) else len(row_marks) - 1
-                mark_value = str(row_marks[mark_idx]) if mark_idx >= 0 and mark_idx < len(row_marks) else "0"
-                marked_table[i].append(mark_value)
-                print(f"  行{i}: 添加行标记{mark_value} (使用row_marks[{mark_idx}])")
-
-        # 2. 添加最后一行（列标记行）
-        last_row = []
-        print(f"\n创建列标记行:")
-        for j in range(len(marked_table[0])):  # 包括新添加的最后一列
-            if j == 0:
-                # 第一列：写"列标记"作为行标题
-                last_row.append("列标记")
-                print(f"  列{j}: 添加'列标记'（行标题）")
-            else:
-                # 其他列：直接使用对应的列标记
-                # col_marks对应validated_table的每一列，所以索引应该是j-1（因为j=0是表头列）
-                mark_idx = j - 1 if (j - 1) < len(col_marks) else len(col_marks) - 1
-                mark_value = str(col_marks[mark_idx]) if mark_idx >= 0 and mark_idx < len(col_marks) else "0"
-                last_row.append(mark_value)
-                print(f"  列{j}: 添加列标记{mark_value} (使用col_marks[{mark_idx}])")
-
-        # 3. 修正最后一列最后一行的值（取行标记和列标记的最大值）
-        max_row_mark = max(row_marks) if row_marks else 0
-        max_col_mark = max(col_marks) if col_marks else 0
-        overall_mark = max(max_row_mark, max_col_mark)
-        last_row[-1] = str(overall_mark)  # 最后一行最后一列
-        print(f"\n最后一行最后一列: {overall_mark} (max({max_row_mark}, {max_col_mark}))")
-
-        marked_table.append(last_row)
-        print(f"最终表格: {len(marked_table)}行 × {len(marked_table[0])}列")
-
-        return marked_table
 
     def step8_add_feature_marks(self, validated_table, validation_marks):
         """
@@ -1235,6 +1303,40 @@ class TableReconstructor:
         except ValueError:
             return False
 
+    def _fix_llm_table_references(self, ocr_result, llm_result):
+        """修正LLM引用的表格索引，确保引用有数据的表格"""
+        ocr_tables = ocr_result.get('tables_result', [])
+
+        # 找出有数据的OCR表格
+        valid_ocr_indices = []
+        for i, table in enumerate(ocr_tables):
+            if table.get('body') and len(table['body']) > 0:
+                valid_ocr_indices.append(i)
+
+        print(f"有效OCR表格索引: {valid_ocr_indices}")
+
+        if not valid_ocr_indices:
+            print("⚠️ 没有找到有数据的OCR表格")
+            return
+
+        # 修正每个LLM表格的引用
+        llm_tables = llm_result.get('tables_structure', {}).get('tables', [])
+        for llm_table in llm_tables:
+            original_refs = llm_table.get('ocr_tables', [])
+
+            # 检查引用的表格是否有数据
+            valid_refs = []
+            for ref_idx in original_refs:
+                if ref_idx in valid_ocr_indices:
+                    valid_refs.append(ref_idx)
+
+            # 如果没有有效的引用，使用第一个有效表格
+            if not valid_refs and valid_ocr_indices:
+                valid_refs = [valid_ocr_indices[0]]
+                print(f"⚠️ 表格'{llm_table.get('name')}'的引用无效，修正为: {valid_refs}")
+
+            llm_table['ocr_tables'] = valid_refs
+
     # ========== 核心7步 ==========
     def step1_prepare_data(self, ocr_result, llm_result):
         """第1步：准备数据"""
@@ -1263,6 +1365,19 @@ class TableReconstructor:
         """合并OCR表格 - 修正版"""
         ocr_table_indices = llm_table_info.get('ocr_tables', [])
         print(f"要合并的OCR表格索引: {ocr_table_indices}")
+
+        # 🔥 添加调试：查看整个OCR数据结构
+        print(f"\n🔍 OCR表格数据结构调试:")
+        for i, table in enumerate(ocr_tables):
+            print(f"OCR表格{i} 类型: {type(table)}")
+            if isinstance(table, dict):
+                print(f"  键: {list(table.keys())}")
+                if 'body' in table:
+                    print(f"  body类型: {type(table['body'])}, 长度: {len(table['body']) if table['body'] else 0}")
+                if 'cell_set' in table:
+                    print(f"  cell_set长度: {len(table['cell_set']) if table['cell_set'] else 0}")
+
+
 
         all_cells = []
         row_offset = 0
@@ -1442,22 +1557,90 @@ class TableReconstructor:
 
         return table
 
-    def step6_add_row_headers_intelligent11(self, table, row_headers, table_boundaries=None):
-        """第6步：智能匹配 - 考虑OCR表格内部顺序"""
-        if not table or not row_headers:
-            print("表格或行表头为空")
+    def step5_add_column_headers(self, table, col_headers):
+        """
+        优化版：保持单行，但清理和验证列标题
+        """
+        if not col_headers:
+            print("无列标题")
             return table
 
-        print(f"=== 第6步：智能匹配行表头（考虑表格边界） ===")
+        if not table:
+            print("表格为空")
+            return table
 
-        # 如果有表格边界信息，使用它
-        if table_boundaries:
-            print(f"表格边界: {table_boundaries}")
-            # 这里添加基于表格边界的匹配逻辑
-            return self._match_with_table_boundaries(table, row_headers, table_boundaries)
-        else:
-            # 原有逻辑（向后兼容）
-            return self._match_without_boundaries(table, row_headers)
+        current_cols = len(table[0])  # OCR表格的列数
+        target_cols = len(col_headers)  # LLM的最终列数
+
+        print(f"OCR列数: {current_cols}, LLM列数: {target_cols}")
+
+        # 1. 清理列标题
+        cleaned_headers = []
+        for header in col_headers:
+            # 移除空白和空值
+            if not header or str(header).strip() == '':
+                cleaned_headers.append("")
+                continue
+
+            header_str = str(header).strip()
+
+            # 标准化分隔符
+            header_str = header_str.replace('><', '>>')
+            header_str = header_str.replace('＞＞', '>>')
+
+            # 移除多余空格
+            header_str = '>>'.join([part.strip() for part in header_str.split('>>')])
+
+            # 特别处理：如果标题就是">>"，设为空
+            if header_str == '>>':
+                header_str = ""
+
+            cleaned_headers.append(header_str)
+
+        # 2. 验证列结构
+        print(f"清理后的列标题: {cleaned_headers}")
+
+        # 检查是否有合理的季度/年份信息
+        has_year_info = any(any(year in h for year in ['2024', '2023', '年']) for h in cleaned_headers if h)
+        if not has_year_info:
+            print("⚠️ 列标题中缺少年份/季度信息")
+
+        # 3. 调整列数匹配（原有逻辑）
+        # 情况1：OCR列数 > LLM列数（需要删除左侧多余的列）
+        if current_cols > target_cols:
+            excess_cols = current_cols - target_cols
+            print(f"需要删除左侧{excess_cols}列")
+
+            for i in range(len(table)):
+                table[i] = table[i][excess_cols:]
+
+            current_cols = target_cols
+
+        # 情况2：OCR列数 < LLM列数（需要补充左侧空列）
+        elif current_cols < target_cols:
+            needed_cols = target_cols - current_cols
+            print(f"需要补充左侧{needed_cols}列")
+
+            for i in range(len(table)):
+                table[i] = [None] * needed_cols + table[i]
+
+            current_cols = target_cols
+
+        print(f"调整后表格列数: {current_cols}")
+
+        # 4. 在顶部添加一行用于列标题
+        table.insert(0, [None] * current_cols)
+
+        # 5. 从右向左填充清理后的列标题
+        cleaned_headers_copy = cleaned_headers.copy()
+        for col in range(current_cols - 1, -1, -1):
+            if cleaned_headers_copy:
+                table[0][col] = cleaned_headers_copy.pop()
+
+        print("列标题填充完成")
+        print(f"第0行（列标题）: {table[0]}")
+
+        return table
 
     def _looks_like_numeric_data(self, text):
         """判断文本是否看起来像数值型数据"""
@@ -1489,394 +1672,322 @@ class TableReconstructor:
 
         return False
 
-    def step6_add_row_headers_intelligent111(self, table, row_headers, table_boundaries=None):
-        """第6步：多轮对齐 - 检查前三列寻找表头"""
+    def step6_add_row_headers_intelligent(self, table, row_headers, table_boundaries=None):
+        """第6步：优化版 - 利用层级关系和相邻位置插入"""
 
-        print(f"=== 第6步：多轮对齐（检查前三列） ===")
+        # [1] 首先尝试匹配所有LLM表头
+        llm_to_ocr_match = {}
+        ocr_to_llm_match = {}
 
-        if not table or len(table) < 2 or not row_headers:
-            return table
+        for llm_idx, llm_header in enumerate(row_headers):
+            header_text = str(llm_header)
 
-        # 清空第一列（用于存放最终的表头）
-        for row_idx in range(1, len(table)):
-            if len(table[row_idx]) > 0:
-                table[row_idx][0] = None
+            # 使用更灵活的匹配策略
+            best_match_row = -1
+            best_match_score = 0.0
 
-        # ========== 第1轮：准备工作 ==========
-        print(f"\n[准备工作]")
-        print(f"表格: {len(table)}行 × {len(table[0])}列")
-        print(f"LLM表头数: {len(row_headers)}")
+            for ocr_row in range(1, len(table)):
+                if ocr_row in ocr_to_llm_match:
+                    continue
 
-        # 提取LLM表头的关键词（最后一级）
-        llm_keywords = []
-        for header in row_headers:
-            header_str = str(header)
-            if '>>' in header_str:
-                parts = header_str.split('>>')
-                llm_keywords.append(parts[-1].strip())
+                # 计算匹配分数
+                row_score = self._calculate_header_match_score(header_text, table[ocr_row])
+
+                if row_score > best_match_score:
+                    best_match_score = row_score
+                    best_match_row = ocr_row
+
+            # 动态调整匹配阈值
+            threshold = self._get_dynamic_threshold(header_text)
+            if best_match_score >= threshold:
+                llm_to_ocr_match[llm_idx] = (best_match_row, best_match_score)
+                ocr_to_llm_match[best_match_row] = llm_idx
+
+        # [2] 分析LLM表头的层级关系
+        header_hierarchy = self._analyze_header_hierarchy(row_headers)
+
+        # [3] 为每个LLM表头确定插入位置
+        llm_insert_positions = {}
+
+        for llm_idx, llm_header in enumerate(row_headers):
+            if llm_idx in llm_to_ocr_match:
+                # 有精确匹配
+                ocr_row, score = llm_to_ocr_match[llm_idx]
+                llm_insert_positions[llm_idx] = ('exact', ocr_row)
             else:
-                llm_keywords.append(header_str.strip())
+                # 无匹配，需要找插入位置
+                insert_info = self._find_best_insert_position(
+                    llm_idx, llm_header, row_headers,
+                    llm_to_ocr_match, header_hierarchy, table
+                )
+                llm_insert_positions[llm_idx] = insert_info
 
-        print(f"LLM关键词（前10个）:")
-        for i in range(min(10, len(llm_keywords))):
-            print(f"  [{i}]: {llm_keywords[i][:30]}...")
+        # [4] 按LLM顺序构建表格
+        new_table = []
+        if len(table) > 0:
+            new_table.append(table[0].copy())
 
-        # ========== 第2轮：双向对齐 ==========
-        print(f"\n[第2轮] 双向对齐（检查前三列）:")
+        # 记录已处理的OCR行
+        processed_ocr_rows = set()
 
-        # 结果存储
-        top_down_matches = {}  # 行索引 → LLM索引
-        bottom_up_matches = {}  # 行索引 → LLM索引
+        # 按LLM顺序处理
+        for llm_idx in range(len(row_headers)):
+            insert_type, ref_info = llm_insert_positions[llm_idx]
 
-        # A. 从上到下对齐
-        print("A. 从上到下对齐:")
-        llm_idx = 0
-        rows_checked = 0
+            if insert_type == 'exact':
+                # 处理精确匹配
+                ocr_row = ref_info
+                if ocr_row not in processed_ocr_rows:
+                    new_row = table[ocr_row].copy()
+                    new_row[0] = row_headers[llm_idx]
+                    new_table.append(new_row)
+                    processed_ocr_rows.add(ocr_row)
+            elif insert_type == 'before':
+                # 在参考行之前插入
+                ref_row = ref_info
+                if ref_row in processed_ocr_rows:
+                    # 找到参考行在新表格中的位置
+                    ref_position = self._find_row_in_new_table(new_table, ref_row)
+                    if ref_position != -1:
+                        blank_row = [None] * len(table[0]) if table else []
+                        blank_row[0] = row_headers[llm_idx]
+                        new_table.insert(ref_position, blank_row)
+            elif insert_type == 'after':
+                # 在参考行之后插入
+                ref_row = ref_info
+                if ref_row in processed_ocr_rows:
+                    ref_position = self._find_row_in_new_table(new_table, ref_row)
+                    if ref_position != -1:
+                        blank_row = [None] * len(table[0]) if table else []
+                        blank_row[0] = row_headers[llm_idx]
+                        new_table.insert(ref_position + 1, blank_row)
 
-        for row_idx in range(1, len(table)):
-            if llm_idx >= len(llm_keywords) or rows_checked >= 20:  # 最多检查20行
-                break
+        # 假设new_table中的行顺序和原始table中匹配的行顺序一致
+        complete_table = []
 
-            # 检查前三列的任意一列
-            matched = False
-            match_column = -1
-            match_text = ""
+        # 添加表头行
+        if len(new_table) > 0:
+            complete_table.append(new_table[0].copy())
 
-            for col_idx in range(min(3, len(table[row_idx]))):  # 检查前3列！
-                cell = table[row_idx][col_idx]
-                if not cell:
-                    continue
+        # 遍历原始table的行
+        new_table_index = 1  # 跳过表头
+        for ocr_row in range(1, len(table)):
+            if ocr_row in ocr_to_llm_match:
+                # 这行应该有LLM匹配，应该在new_table中
+                if new_table_index < len(new_table):
+                    complete_table.append(new_table[new_table_index].copy())
+                    new_table_index += 1
+            else:
+                # 这行没有LLM匹配，直接使用原始行
+                complete_table.append(table[ocr_row].copy())
 
-                cell_text = str(cell).strip()
-                llm_keyword = llm_keywords[llm_idx]
+        # 处理new_table中可能剩余的行
+        while new_table_index < len(new_table):
+            complete_table.append(new_table[new_table_index].copy())
+            new_table_index += 1
 
-                # 相似度计算
-                similarity = self.calculate_similarity_v2(llm_keyword, cell_text)
-
-                if similarity > 0.6:  # 阈值可以调整
-                    matched = True
-                    match_column = col_idx
-                    match_text = cell_text
-                    break
-
-            if matched:
-                top_down_matches[row_idx] = llm_idx
-                print(f"  行{row_idx} 列{match_column} → LLM[{llm_idx}]")
-                print(f"    OCR文本: '{match_text[:30]}...'")
-                print(f"    LLM关键词: '{llm_keywords[llm_idx][:30]}...'")
-                llm_idx += 1
-
-            rows_checked += 1
-
-        # B. 从下到上对齐
-        print(f"\nB. 从下到上对齐:")
-        llm_idx = len(llm_keywords) - 1
-        rows_checked = 0
-
-        for row_idx in range(len(table) - 1, 0, -1):
-            if llm_idx < 0 or rows_checked >= 20:
-                break
-
-            # 跳过已匹配的行
-            if row_idx in top_down_matches:
-                continue
-
-            # 检查前三列
-            matched = False
-            match_column = -1
-            match_text = ""
-
-            for col_idx in range(min(3, len(table[row_idx]))):  # 检查前3列！
-                cell = table[row_idx][col_idx]
-                if not cell:
-                    continue
-
-                cell_text = str(cell).strip()
-                llm_keyword = llm_keywords[llm_idx]
-
-                similarity = self.calculate_similarity_v2(llm_keyword, cell_text)
-
-                if similarity > 0.6:
-                    matched = True
-                    match_column = col_idx
-                    match_text = cell_text
-                    break
-
-            if matched:
-                bottom_up_matches[row_idx] = llm_idx
-                print(f"  行{row_idx} 列{match_column} → LLM[{llm_idx}]")
-                print(f"    OCR文本: '{match_text[:30]}...'")
-                print(f"    LLM关键词: '{llm_keywords[llm_idx][:30]}...'")
-                llm_idx -= 1
-
-            rows_checked += 1
-
-        # ========== 第3轮：确认一致匹配 ==========
-        print(f"\n[第3轮] 确认一致匹配:")
-
-        confirmed_matches = {}
-
-        # 找出双向匹配一致的行
-        all_matched_rows = set(top_down_matches.keys()) | set(bottom_up_matches.keys())
-
-        for row_idx in all_matched_rows:
-            top_llm = top_down_matches.get(row_idx)
-            bottom_llm = bottom_up_matches.get(row_idx)
-
-            if top_llm is not None and bottom_llm is not None:
-                # 双向匹配，检查是否一致
-                if top_llm == bottom_llm:
-                    confirmed_matches[row_idx] = top_llm
-                    table[row_idx][0] = row_headers[top_llm]
-                    print(f"  ✅ 行{row_idx} → LLM[{top_llm}] (双向确认)")
-                else:
-                    print(f"  ⚠️ 行{row_idx}: 双向匹配不一致 (上:{top_llm}, 下:{bottom_llm})")
-            elif top_llm is not None:
-                # 只有从上到下匹配
-                confirmed_matches[row_idx] = top_llm
-                table[row_idx][0] = row_headers[top_llm]
-                print(f"  ⚠️ 行{row_idx} → LLM[{top_llm}] (仅从上到下)")
-            elif bottom_llm is not None:
-                # 只有从下到上匹配
-                confirmed_matches[row_idx] = bottom_llm
-                table[row_idx][0] = row_headers[bottom_llm]
-                print(f"  ⚠️ 行{row_idx} → LLM[{bottom_llm}] (仅从下到上)")
-
-        # ========== 第4轮：顺序填充剩余 ==========
-        print(f"\n[第4轮] 顺序填充剩余:")
-
-        used_llm_indices = set(confirmed_matches.values())
-        used_row_indices = set(confirmed_matches.keys())
-
-        # 剩余的LLM表头
-        remaining_llm = [i for i in range(len(row_headers)) if i not in used_llm_indices]
-        # 剩余的OCR行（从已确认匹配的最后一行开始）
-        remaining_rows = []
-
-        if confirmed_matches:
-            last_confirmed_row = max(confirmed_matches.keys())
-            start_from = last_confirmed_row + 1
-        else:
-            start_from = 1
-
-        # 收集剩余的有内容的行
-        for row_idx in range(start_from, len(table)):
-            if row_idx in used_row_indices:
-                continue
-
-            # 检查该行是否有内容（前三列）
-            has_content = False
-            for col_idx in range(min(3, len(table[row_idx]))):
-                if table[row_idx][col_idx] and str(table[row_idx][col_idx]).strip():
-                    has_content = True
-                    break
-
-            if has_content:
-                remaining_rows.append(row_idx)
-
-        print(f"剩余LLM表头: {len(remaining_llm)}个")
-        print(f"剩余有内容行: {len(remaining_rows)}个")
-        print(f"从行{start_from}开始顺序填充")
-
-        # 一对一顺序填充
-        for i in range(min(len(remaining_llm), len(remaining_rows))):
-            row_idx = remaining_rows[i]
-            llm_idx = remaining_llm[i]
-            table[row_idx][0] = row_headers[llm_idx]
-            print(f"  ↳ 行{row_idx} → LLM[{llm_idx}] (顺序填充)")
-
-        # ========== 最终验证 ==========
-        print(f"\n[最终验证] 前15行结果:")
-
-        total_assigned = sum(1 for row in range(1, len(table)) if table[row][0])
-
-        for i in range(1, min(16, len(table))):
-            header = table[i][0][:40] + "..." if table[i][0] else ""
-
-            # 显示该行数据（前三列）
-            data_preview = []
-            for j in range(min(3, len(table[i]))):
-                if table[i][j]:
-                    data_preview.append(str(table[i][j])[:10])
-
-            data_str = " | ".join(data_preview) if data_preview else "空"
-
-            # 状态标记
-            status = "?"
-            if i in confirmed_matches:
-                status = "✅"  # 双向确认
-            elif table[i][0]:
-                status = "⚠️"  # 顺序填充
-
-            print(f"  行{i:2d} {status}: {header:<45} | 数据: {data_str}")
-
-        print(f"\n对齐统计:")
-        print(f"总分配表头: {total_assigned}/{len(row_headers)}")
+        table[:] = complete_table
 
         return table
 
-    def step6_add_row_headers_intelligent(self, table, row_headers, table_boundaries=None):
-        """第6步：调试版 - 打印所有关键信息"""
+    def _find_best_insert_position(self, llm_idx, llm_header, row_headers,
+                                   llm_to_ocr_match, header_hierarchy, table):
+        """
+        为无匹配的LLM表头找到最佳插入位置
+        """
+        header_text = str(llm_header)
 
-        print(f"\n{'=' * 80}")
-        print(f"=== 第6步：开始调试 ===")
-        print(f"{'=' * 80}")
+        # 1. 检查层级关系：如果是分类标题，应该在其子项之前
+        if llm_idx in header_hierarchy['parents']:
+            children = header_hierarchy['parents'][llm_idx]
+            # 找到第一个有匹配的子项
+            for child_idx in children:
+                if child_idx in llm_to_ocr_match:
+                    ocr_row, score = llm_to_ocr_match[child_idx]
+                    return ('before', ocr_row)  # 在子项之前插入
 
-        if not table or len(table) < 2:
-            print("表格为空或太小")
-            return table
+        # 2. 向后查找相邻的有匹配表头
+        next_idx = llm_idx + 1
+        while next_idx < len(row_headers):
+            if next_idx in llm_to_ocr_match:
+                ocr_row, score = llm_to_ocr_match[next_idx]
+                return ('before', ocr_row)  # 在后一个匹配表头之前插入
+            next_idx += 1
 
-        if not row_headers:
-            print("LLM表头为空")
-            return table
+        # 3. 向前查找相邻的有匹配表头
+        prev_idx = llm_idx - 1
+        while prev_idx >= 0:
+            if prev_idx in llm_to_ocr_match:
+                ocr_row, score = llm_to_ocr_match[prev_idx]
+                return ('after', ocr_row)  # 在前一个匹配表头之后插入
+            prev_idx -= 1
 
-        # 打印OCR表格的完整结构
-        print(f"\n[1] OCR表格完整结构 ({len(table)}行 × {len(table[0])}列):")
-        for i in range(len(table)):
-            row_str = f"行{i:2d}: "
-            for j in range(min(5, len(table[i]))):  # 只显示前5列
-                cell = table[i][j]
-                if cell:
-                    cell_str = str(cell).strip()
-                    row_str += f"列{j}: '{cell_str[:15]}' | "
-                else:
-                    row_str += f"列{j}: [空] | "
-            print(row_str)
+        # 4. 都没有找到，使用默认位置
+        return ('end', -1)
 
-        # 打印LLM表头
-        print(f"\n[2] LLM表头 ({len(row_headers)}个):")
-        for i in range(len(row_headers)):
-            header = row_headers[i]
-            print(f"  [{i:2d}]: {str(header)[:50]}...")
+    def _calculate_header_match_score(self, header_text, table_row):
+        """
+        计算表头与表格行的匹配分数
+        不使用硬编码的关键词
+        """
+        # 提取表头关键词（最后一个>>后的部分）
+        if '>>' in header_text:
+            match_text = header_text.split('>>')[-1].strip()
+        else:
+            match_text = header_text.strip()
 
-        # 清空第一列
-        print(f"\n[3] 清空第一列...")
-        for row_idx in range(1, len(table)):
-            if len(table[row_idx]) > 0:
-                table[row_idx][0] = None
+        if not match_text:
+            return 0.0
 
-        # 关键调试：尝试找到对齐点
-        print(f"\n[4] 尝试找到对齐点:")
+        best_score = 0.0
+        for cell in table_row:
+            if not cell:
+                continue
 
-        # 检查前10行OCR内容和前10个LLM表头的匹配
-        print("前10行OCR内容 vs 前10个LLM表头:")
+            cell_text = str(cell).strip()
 
-        for ocr_row in range(1, min(11, len(table))):
-            print(f"\n--- 检查OCR行{ocr_row} ---")
+            # 使用模糊匹配
+            similarity = self.calculate_similarity_v2(match_text, cell_text)
 
-            # 显示该行的所有列
-            for col in range(min(3, len(table[ocr_row]))):  # 只检查前3列
-                cell = table[ocr_row][col]
-                if cell:
-                    cell_str = str(cell).strip()
-                    print(f"  列{col}: '{cell_str}'")
+            # 考虑长度比例：短文本完全匹配更重要
+            len_ratio = min(len(match_text), len(cell_text)) / max(len(match_text), len(cell_text), 1)
+            adjusted_score = similarity * len_ratio
 
-            # 检查与LLM表头的匹配
-            for llm_idx in range(min(10, len(row_headers))):
-                llm_header = row_headers[llm_idx]
-                llm_text = str(llm_header)
+            if adjusted_score > best_score:
+                best_score = adjusted_score
 
-                # 提取关键部分
-                if '>>' in llm_text:
-                    parts = llm_text.split('>>')
-                    llm_key = parts[-1].strip()
-                else:
-                    llm_key = llm_text.strip()
+        return best_score
 
-                # 在该行的所有列中搜索匹配
-                for col in range(min(3, len(table[ocr_row]))):
-                    cell = table[ocr_row][col]
-                    if not cell:
-                        continue
+    def _analyze_header_hierarchy(self, row_headers):
+        """
+        分析表头的层级关系
+        """
+        hierarchy = {
+            'parents': {},  # parent_idx -> [child_idx1, child_idx2, ...]
+            'children': {},  # child_idx -> parent_idx
+            'depths': {}  # idx -> depth
+        }
 
-                    cell_str = str(cell).strip()
+        for i, header in enumerate(row_headers):
+            header_text = str(header)
 
-                    # 简单匹配检查
-                    similarity = self.calculate_similarity_v2(llm_key, cell_str)
-                    if similarity > 0.3:  # 低阈值，先看看
-                        print(f"    LLM[{llm_idx}] '{llm_key}' -> 列{col} '{cell_str}' (相似度: {similarity:.2f})")
+            # 计算深度（>>的数量）
+            depth = header_text.count('>>') + 1
+            hierarchy['depths'][i] = depth
 
-        # 现在尝试最保守的对齐：找到第一个真正的数值数据行
-        print(f"\n[5] 寻找第一个真正的数值数据行:")
+            # 如果是子项，寻找父级
+            if '>>' in header_text:
+                # 提取父级路径
+                parts = header_text.split('>>')
+                parent_path = '>>'.join(parts[:-1])
 
-        first_data_row = -1
-        for row_idx in range(1, len(table)):
-            has_numeric_data = False
-
-            # 检查该行是否有数值数据（跳过第一列）
-            for col_idx in range(1, len(table[row_idx])):
-                cell = table[row_idx][col_idx]
-                if not cell:
-                    continue
-
-                cell_str = str(cell).strip()
-                # 检查是否包含数字（但不是日期）
-                if any(c.isdigit() for c in cell_str):
-                    # 排除明显的表头文本
-                    if ('年' not in cell_str and '月' not in cell_str and
-                            '日' not in cell_str and len(cell_str) < 20):
-                        has_numeric_data = True
-                        print(f"  行{row_idx}列{col_idx}: 发现数值数据 '{cell_str}'")
+                # 寻找父级索引
+                for j in range(i - 1, -1, -1):
+                    if str(row_headers[j]) == parent_path:
+                        hierarchy['children'][i] = j
+                        if j not in hierarchy['parents']:
+                            hierarchy['parents'][j] = []
+                        hierarchy['parents'][j].append(i)
                         break
 
-            if has_numeric_data:
-                first_data_row = row_idx
-                print(f"  → 第一个数值数据行: 行{first_data_row}")
+        return hierarchy
+
+    def _get_dynamic_threshold(self, header_text):
+        """
+        动态调整匹配阈值
+        """
+        # 短文本需要更高的匹配度
+        text_len = len(header_text)
+
+        if text_len <= 3:
+            return 0.9  # 短文本要求高匹配度
+        elif text_len <= 10:
+            return 0.7
+        else:
+            return 0.6  # 长文本允许较低的匹配度
+
+    def _find_row_in_new_table(self, new_table, ocr_row):
+        """
+        在新表格中查找原始OCR行的位置
+        """
+        for i, row in enumerate(new_table):
+            # 这里需要根据实际情况实现
+            # 可能需要额外的标记来追踪原始行号
+            pass
+        return -1
+
+    def _merge_and_remove_columns(self, table):
+        """
+        合并行表头并删除列：
+        1. 如果列标题行左侧有2个及以上连续空表头
+        2. 对每一行：
+           - 如果第一列不为空，则将后面连续空表头列的数据合并到第一列
+           - 如果第一列为空，则不合并
+        3. 删除后面连续的空表头列（保留第一列）
+        """
+
+        if not table or len(table) < 2:
+            return table
+
+        # 获取列标题行（第0行）
+        header_row = table[0]
+
+        # 统计左侧连续空表头的数量
+        empty_header_count = 0
+        for header in header_row:
+            if not header or str(header).strip() == "":
+                empty_header_count += 1
+            else:
                 break
 
-        if first_data_row == -1:
-            print("  未找到数值数据行")
-            first_data_row = 1
+        # 如果左侧连续空表头少于2个，不处理
+        if empty_header_count < 2:
+            print(f"左侧连续空表头数: {empty_header_count}，少于2个，不处理")
+            return table
 
-        # 尝试从第一个数据行开始对齐
-        print(f"\n[6] 尝试从行{first_data_row}开始对齐:")
+        # 第一步：逐行处理，条件性合并
+        for i in range(1, len(table)):
+            row = table[i]
 
-        llm_idx = 0
-        for row_idx in range(first_data_row, len(table)):
-            if llm_idx >= len(row_headers):
-                break
+            # 跳过完全空的行
+            if not any(cell for cell in row if cell and str(cell).strip() != ""):
+                continue
 
-            # 分配LLM表头
-            table[row_idx][0] = row_headers[llm_idx]
+            # 如果第一列不为空，才进行合并
+            if row[0] and str(row[0]).strip() != "":
+                print(f"行{i}: 第一列='{row[0]}'，进行合并")
 
-            # 显示该行的数据
-            data_preview = []
-            for col in range(1, min(4, len(table[row_idx]))):
-                if table[row_idx][col]:
-                    data_preview.append(str(table[row_idx][col])[:10])
+                # 构建合并后的内容
+                merged_parts = [str(row[0]).strip()]
 
-            data_str = " | ".join(data_preview) if data_preview else "空"
-            print(f"  行{row_idx} → LLM[{llm_idx}] '{row_headers[llm_idx][:30]}...' | 数据: {data_str}")
+                # 添加后续连续空表头列的内容
+                for j in range(1, empty_header_count):
+                    if j < len(row) and row[j] and str(row[j]).strip() != "":
+                        merged_parts.append(str(row[j]).strip())
 
-            llm_idx += 1
+                # 如果有多部分内容，用>>连接
+                if len(merged_parts) > 1:
+                    table[i][0] = ">>".join(merged_parts)
+                    print(f"  合并为: '{table[i][0]}'")
+            else:
+                print(f"行{i}: 第一列为空，不合并")
 
-        # 显示最终结果
-        print(f"\n[7] 最终对齐结果:")
-        print(f"对齐起始行: {first_data_row}")
-        print(f"已对齐行数: {llm_idx}")
-        print(f"剩余LLM表头: {len(row_headers) - llm_idx}")
+        # 第二步：无论如何都删除后面连续的空表头列（保留第一列）
+        # 要删除的列索引：1 到 empty_header_count-1
+        columns_to_remove = list(range(1, empty_header_count))
 
-        print(f"\n前15行最终结果:")
-        for i in range(1, min(16, len(table))):
-            header = table[i][0][:40] + "..." if table[i][0] else "[空]"
+        if columns_to_remove:
+            print(f"删除列索引: {columns_to_remove}")
 
-            # 显示数据
-            data_preview = []
-            for j in range(1, min(4, len(table[i]))):
-                if table[i][j]:
-                    data_preview.append(str(table[i][j])[:10])
-
-            data_str = " | ".join(data_preview) if data_preview else "空"
-
-            print(f"  行{i:2d}: {header:<45} | 数据: {data_str}")
-
-        print(f"\n{'=' * 80}")
-        print(f"=== 第6步：调试结束 ===")
-        print(f"{'=' * 80}")
+            # 对每一行，删除指定列
+            for i in range(len(table)):
+                # 从右向左删除，避免索引错位
+                for col_idx in sorted(columns_to_remove, reverse=True):
+                    if col_idx < len(table[i]):
+                        del table[i][col_idx]
 
         return table
-    
-    
+
     def step7_save_to_excel(self, tables_data, output_file):
         """
             将多个表格保存到Excel，每个表格一个Sheet
@@ -2047,13 +2158,13 @@ class TableReconstructor:
             table_boundaries=merged_data.get('table_boundaries')
         )
 
-        # 第7步：数据验证（只检查数据区域，保留表头）
-        validated_table, validation_marks = self.step7_validate_and_mark_preserve_headers(final_table)
+        # 第7步：合并行表头并删除列
+        final_table = self._merge_and_remove_columns(final_table)
 
-        # 第8步：添加特征值标记
-        table_with_features = self.step8_add_feature_marks(validated_table, validation_marks)
+        # 第8步：添加行列标记（根据数据类型）
+        marked_table = self._create_marked_table(final_table)
 
-        return table_with_features
+        return marked_table
 
 
     def process_all_tables(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx"):
@@ -2061,6 +2172,9 @@ class TableReconstructor:
                 完整处理流程：第1-7步 - 增强版（支持表格合并）
                 """
         print("开始表格重构流程...")
+
+        # 🔥 修正：检查并修正LLM引用的表格索引
+        self._fix_llm_table_references(ocr_result, llm_result)
 
         # 第1步：准备数据
         ocr_result, llm_result = self.step1_prepare_data(ocr_result, llm_result)
@@ -2141,7 +2255,8 @@ class TableReconstructor:
             self.log_issue("无表格数据生成")
             return False
 
-        # 第7步：保存到Excel
+
+        # 第8步：保存到Excel
         success = self.step7_save_to_excel(all_final_tables, output_file)
 
         if not success:

@@ -287,8 +287,8 @@ if __name__ == "__main__":
 
     # === 2. 图片 & 输出目录也用 PROJECT_ROOT 拼 ===
     image_path = PROJECT_ROOT / "test_codes/pngs/123.png"
-
-    png_dir    = Path(r"C:\Users\1\Desktop\pngs2")          # ← 转成 Path
+    png_dir_str = r"E:\Datas\base_pros\DocuVista\test_codes\png2"
+    png_dir    = Path(png_dir_str)          # ← 转成 Path
     image_paths = [str(png_dir / f) for f in os.listdir(png_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
     output_dir = PROJECT_ROOT / "test_codes/table_analyzer_codes/outputs2"

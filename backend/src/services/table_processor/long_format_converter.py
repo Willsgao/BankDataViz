@@ -1007,7 +1007,8 @@ class FinalDataConverter:
         """
         # 合并表头文本用于检查
         header_text = f"{row_header}{col_header}".lower()
-
+        row_header = str(row_header)
+        col_header = str(col_header)
         # 1. 检查是否包含百分比
         if ('%' in row_header or '%' in col_header or
                 '百分比' in header_text or '比例' in header_text or
