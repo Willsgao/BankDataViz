@@ -1,54 +1,45 @@
 # -*- coding:utf-8 -*-
 import json
 import time
+import os
+import hashlib
+import gzip
 from typing import Dict, Any
 from openai import OpenAI
 
-from backend.utils.config import tableconfig as settings
-from backend.utils.config import config
+from backend.utils.config import config, tableconfig
+from backend.src.services.table_processor.cache_gateway import get as cache_get, upsert as cache_upsert, delete as cache_delete
+from backend.src.services.table_processor.object_store import get_object, put_object
+from backend.src.services.table_processor.image_utils import TableImageUtils
+
+# 全局常量
+LLM_FORCE_REFRESH = os.getenv("LLM_FORCE_REFRESH", "false").lower() == "true"
+print(f"[LLM] 强制刷新设置: {LLM_FORCE_REFRESH} (env), {tableconfig.LLM_FORCE_REFRESH} (config)")
 
 
 class EnhancedFinancialTableAnalyzer:
     """增强版金融表格分析器 - 表格结构分析"""
 
     def __init__(self):
-        # 兼容新旧配置结构
-        if hasattr(settings, 'llm_base_url'):
-            # 新配置结构（直接属性）
-            base_url = settings.llm_base_url
-            api_key = settings.llm_api_key
-            model_name = settings.llm_model_name
-        else:
-            # 旧配置结构（属性访问器）
-            base_url = settings.LLM_BASE_URL
-            api_key = settings.LLM_API_KEY
-            model_name = settings.LLM_MODEL_NAME
-
-        # 使用统一配置
         self.client = OpenAI(
-            base_url=config.TABLE_LLM_BASE_URL,  # 使用 config.TABLE_LLM_BASE_URL
-            api_key=config.TABLE_LLM_API_KEY  # 使用 config.TABLE_LLM_API_KEY
+            base_url=config.TABLE_LLM_BASE_URL,
+            api_key=config.TABLE_LLM_API_KEY
         )
-        self.model_name = config.TABLE_LLM_MODEL_NAME  # 使用 config.TABLE_LLM_MODEL_NAME
-
-        self.max_sample_rows = 3  # 每个表格采样前3行
-        self.max_sample_cols = 3  # 每个表格采样前3列
+        self.model_name = config.TABLE_LLM_MODEL_NAME
+        self.max_sample_rows = 3
+        self.max_sample_cols = 3
 
     def _prepare_ocr_summary(self, ocr_result: Dict[str, Any]) -> str:
         """准备OCR数据摘要 - 增强版，支持多种格式"""
         ocr_tables = ocr_result.get("tables_result", [])
-
         print(f"🔍 准备OCR摘要，表格数量: {len(ocr_tables)}")
 
         tables_info = []
         for i, table in enumerate(ocr_tables):
-            # 从body数据推断表格维度
             body_cells = table.get("body", [])
-
             print(f"🔍 表格{i}: {len(body_cells)} 个单元格")
 
             if not body_cells:
-                # 空表格
                 tables_info.append({
                     "ocr_table_id": i,
                     "dimensions": {"rows": 0, "cols": 0},
@@ -61,43 +52,33 @@ class EnhancedFinancialTableAnalyzer:
                 print(f"表格{i}: 空表格")
                 continue
 
-            # 调试：打印前几个单元格的信息
             if body_cells:
                 print(f"表格{i} 第一个单元格: {body_cells[0]}")
 
-            # 找到最大的行索引和列索引
             max_row_idx = 0
             max_col_idx = 0
             for cell in body_cells:
-                # 兼容不同字段名
                 row_end = cell.get("row_end", cell.get("RowBr", 0))
                 col_end = cell.get("col_end", cell.get("ColBr", 0))
                 max_row_idx = max(max_row_idx, row_end)
                 max_col_idx = max(max_col_idx, col_end)
 
-            # 确定表格实际大小（索引从0开始，所以最大索引+1 = 实际行/列数）
             rows = max_row_idx
             cols = max_col_idx
-
             print(f"表格{i}: {rows}行 × {cols}列")
 
-            # 创建单元格矩阵，初始化为空字符串
             cell_matrix = [["" for _ in range(cols)] for _ in range(rows)]
 
-            # 填充单元格矩阵
             for cell in body_cells:
-                # 兼容不同字段名
                 row_start = cell.get("row_start", cell.get("RowTl", 0))
                 col_start = cell.get("col_start", cell.get("ColTl", 0))
                 words = cell.get("words", cell.get("Text", cell.get("content", "")))
 
-                # 确保行列索引在范围内
                 if 0 <= row_start < rows and 0 <= col_start < cols:
                     cell_matrix[row_start][col_start] = words
                 else:
                     print(f"⚠️ 表格{i}: 单元格超出范围 行{row_start},列{col_start}")
 
-            # 提取前三行所有列
             top_rows = []
             for r in range(min(self.max_sample_rows, rows)):
                 row_data = []
@@ -106,7 +87,6 @@ class EnhancedFinancialTableAnalyzer:
                     row_data.append(cell_text if cell_text else "")
                 top_rows.append(row_data)
 
-            # 提取前三列所有行
             left_cols = []
             for c in range(min(self.max_sample_cols, cols)):
                 col_data = []
@@ -115,7 +95,6 @@ class EnhancedFinancialTableAnalyzer:
                     col_data.append(cell_text if cell_text else "")
                 left_cols.append(col_data)
 
-            # 提取文本特征
             text_features = []
             for r in range(min(3, rows)):
                 for c in range(min(3, cols)):
@@ -138,210 +117,6 @@ class EnhancedFinancialTableAnalyzer:
         result = json.dumps({"ocr_tables": tables_info}, ensure_ascii=False, indent=2)
         print(f"🔍 OCR摘要准备完成，长度: {len(result)} 字符")
         return result
-
-    def _build_global_analysis_prompt111(self, ocr_summary: str) -> str:
-        """构建全局分析prompt - 强制关注OCR文本"""
-        return f"""
-    【任务】分析图片中的表格，提取表头结构，只输出组合好的表头文本。
-
-    【OCR数据参考】{ocr_summary}
-
-    【OCR文本特征强制规则】
-    1、ocr_summary中给出的前三行、前三列的数据你要都看一遍，来判断表格的表头
-    2. 你必须基于OCR识别出的实际文本来分析表格，不能忽略这些文本内容
-    3. 如果OCR识别出具体文本（如日期、数字、中文），绝对不能输出为字母或占位符
-    4. 当图片模糊或难以辨认时，以OCR文本内容为准
-
-    【横向表头规则 - 重点修正】
-    1. 横向表头是指表格顶部的标题行，通常是第0行（第一行）
-    2. 对每一列，识别该列顶部的标题文本
-    3. 如果某列顶部没有明确标题（例如第一列常常是项目名称列），则输出空字符串""作为占位符
-    4. 格式："顶层>>中层>>底层"，如果只有一层就直接输出文本
-    5. 必须包含表格中每一列的表头路径，数量与列数相同，不能省略
-    6. 特别注意：不要将数据行中的内容误判为横向表头！
-    7. 判断标准：横向表头通常具有概括性，如"全年业绩"、"项目"、"指标"等，而不是具体数据项如"资产总额"
-
-    【纵向表头规则】
-    1. 识别分组：如果某行在数据区为空或只有表头文本，这是高级表头
-    2. 组合方式：高级表头 + 次级表头 + 具体数据文本
-    3. 格式："高级表头>>次级表头>>数据内容"
-    4. 每个有数据的行都要有一条对应的路径，并且符合语义层面的包含关系
-    5. 输出为字符串数组，一定不能为空
-
-    【其他特别注意 - 新增】
-    1、表头内容要基于图片和ocr_summary给出
-    2、一定不能漏掉横向或纵向的表头信息
-    3、各自存在独立的横向表头的表格，不能当成同一个表格
-    4、对于表头检查一定要仔细，层级关系绝对不能丢
-    5、特别注意区分：横向表头（顶部标题） vs 纵向表头（左侧项目）
-    6、如果第一列的顶部没有明确标题（常见于财务报表），横向表头的第一个元素应为空字符串""
-
-    【分组表示例】
-    表格：
-    | 地区 | 城市 | 销售额 |
-    |------|------|--------|
-    | 华东 |      |        |
-    |      | 上海 | 100    |
-    |      | 南京 | 90     |
-    | 华北 |      |        |
-    |      | 北京 | 120    |
-
-    正确输出：
-    {{
-      "tables": [
-        {{
-          "id": "1",
-          "name":"租赁负债财务表",          
-          "ocr_tables": [0],
-          "headers": {{
-            "cols": ["地区", "城市", "销售额"],
-            "rows": [
-              "地区>>华东>>城市>>上海",
-              "地区>>华东>>城市>>南京", 
-              "地区>>华北>>城市>>北京"
-            ]
-          }}
-        }}
-      ]
-    }}
-
-    【财务报表示例 - 新增】
-    对于财务报表（如资产表、损益表）：
-    1. 第一列通常是"项目"或"指标"列，顶部可能没有标题
-    2. 横向表头第一列应为空字符串""
-    3. 后续列是年份或其他维度
-    例如：cols: ["", "2024年", "2023年", "变化(%)"]
-
-    【注意】
-    1. 只输出JSON，不要解释
-    2. 路径用>>连接，不要空格
-    3. 确保横向表头覆盖每一列
-    4. 纵向表头要识别分组结构并组合
-    5. 要给表格一个合适的表格名"name"
-    6. "ocr_tables"中的数字是指该表格在ocr_summary中对应的表格的序号ocr_table_id
-
-    现在分析，直接输出：
-    """
-
-    def _build_global_analysis_prompt222(self, ocr_summary: str) -> str:
-        """构建全局分析prompt - 强制关注OCR文本"""
-        return f"""
-    【任务】分析图片中的表格，提取表头结构和表格元数据，只输出组合好的表头文本。
-
-    【OCR数据参考】{ocr_summary}
-
-    【OCR文本特征强制规则】
-    1、ocr_summary中给出的前三行、前三列的数据你要都看一遍，来判断表格的表头
-    2. 你必须基于OCR识别出的实际文本来分析表格，不能忽略这些文本内容
-    3. 如果OCR识别出具体文本（如日期、数字、中文），绝对不能输出为字母或占位符
-    4. 当图片模糊或难以辨认时，以OCR文本内容为准
-
-    【横向表头规则 - 重点修正】
-    1. 横向表头是指表格顶部的标题行，通常是第0行（第一行）
-    2. 对每一列，识别该列顶部的标题文本
-    3. 如果某列顶部没有明确标题（例如第一列常常是项目名称列），则输出空字符串""作为占位符
-    4. 格式："顶层>>中层>>底层"，如果只有一层就直接输出文本
-    5. 必须包含表格中每一列的表头路径，数量与列数相同，不能省略
-    6. 特别注意：不要将数据行中的内容误判为横向表头！
-    7. 判断标准：横向表头通常具有概括性，如"全年业绩"、"项目"、"指标"等，而不是具体数据项如"资产总额"
-
-    【纵向表头规则】
-    1. 识别分组：如果某行在数据区为空或只有表头文本，这是高级表头
-    2. 组合方式：高级表头 + 次级表头 + 具体数据文本
-    3. 格式："高级表头>>次级表头>>数据内容"
-    4. 每个有数据的行都要有一条对应的路径，并且符合语义层面的包含关系
-    5. 输出为字符串数组，一定不能为空
-
-    【表格元数据识别规则 - 新增】
-    1. 默认币种：观察表格左上角、右上角、标题行或表头区域中出现的货币符号或货币名称
-       - 常见币种：人民币、美元、欧元、日元、港元等
-       - 常见符号：¥、$、€、￡、HK$等
-       - 如果没有明确币种信息，输出空字符串""
-
-    2. 默认报告期：观察表格标题、表头或上方文本中的时间信息
-       - 识别表格的报告期间，按实际识别结果输出
-       - 常见格式："2024年"、"2024年度"、"2024年第一季度"、"2024年上半年"、"截至2024年12月31日"等
-       - 按识别到的实际文本输出，保持原格式
-       - 如果没有明确报告期信息，输出空字符串""
-
-    3. 默认单位：观察表格中的数字单位或表格右上角的单位说明
-       - 常见单位：元、万元、亿元、百万、千元、百分比(%)等
-       - 如果没有明确单位信息，输出空字符串""
-
-    4. 识别位置：主要观察以下区域：
-       - 表格左上角或右上角的小字
-       - 表格标题行
-       - 表头行中的括号说明
-       - 表格上方的描述文本
-
-    【其他特别注意 - 新增】
-    1、表头内容要基于图片和ocr_summary给出
-    2、一定不能漏掉横向或纵向的表头信息
-    3、各自存在独立的横向表头的表格，不能当成同一个表格
-    4、对于表头检查一定要仔细，层级关系绝对不能丢
-    5、特别注意区分：横向表头（顶部标题） vs 纵向表头（左侧项目）
-    6、如果第一列的顶部没有明确标题（常见于财务报表），横向表头的第一个元素应为空字符串""
-
-    【分组表示例】
-    表格：
-    | 地区 | 城市 | 销售额 |
-    |------|------|--------|
-    | 华东 |      |        |
-    |      | 上海 | 100    |
-    |      | 南京 | 90     |
-    | 华北 |      |        |
-    |      | 北京 | 120    |
-
-    正确输出：
-    {{
-      "tables": [
-        {{
-          "id": "1",
-          "name":"租赁负债财务表",          
-          "ocr_tables": [0],
-          "headers": {{
-            "cols": ["地区", "城市", "销售额"],
-            "rows": [
-              "地区>>华东>>城市>>上海",
-              "地区>>华东>>城市>>南京", 
-              "地区>>华北>>城市>>北京"
-            ]
-          }},
-          "default_currency": "人民币",
-          "default_report_period": "2024年第一季度",
-          "default_unit": "万元"
-        }}
-      ]
-    }}
-
-    【财务报表示例 - 新增】
-    对于财务报表（如资产表、损益表）：
-    1. 第一列通常是"项目"或"指标"列，顶部可能没有标题
-    2. 横向表头第一列应为空字符串""
-    3. 后续列是年份或其他维度
-    例如：cols: ["", "2024年", "2023年", "变化(%)"]
-    4. 注意观察表格上方的币种、单位信息
-
-    【元数据示例】
-    1. 表格右上角有"单位：万元" → "default_unit": "万元"
-    2. 表格标题有"2024年度财务报告" → "default_report_period": "2024年度"
-    3. 表格中有"¥"符号 → "default_currency": "人民币"
-    4. 表格标题"2024年第三季度报告" → "default_report_period": "2024年第三季度"
-    5. 表格标题"截至2024年12月31日" → "default_report_period": "截至2024年12月31日"
-    6. 表格标题"2024年上半年业绩" → "default_report_period": "2024年上半年"
-    7. 没有明确信息 → 对应字段输出空字符串""
-
-    【注意】
-    1. 只输出JSON，不要解释
-    2. 路径用>>连接，不要空格
-    3. 确保横向表头覆盖每一列
-    4. 纵向表头要识别分组结构并组合
-    5. 要给表格一个合适的表格名"name"
-    6. "ocr_tables"中的数字是指该表格在ocr_summary中对应的表格的序号ocr_table_id
-    7. 新增三个字段：default_currency、default_report_period、default_unit，如果无法识别请输出空字符串""
-
-    现在分析，直接输出：
-    """
 
     def _build_global_analysis_prompt(self, ocr_summary: str) -> str:
         """构建全局分析prompt - 强制关注OCR文本，改进多层表头处理"""
@@ -523,7 +298,6 @@ class EnhancedFinancialTableAnalyzer:
         elapsed = time.time() - start_time
         content = response.choices[0].message.content.strip()
 
-        # 提取JSON
         try:
             if content.startswith("```"):
                 lines = content.split("\n")
@@ -531,7 +305,6 @@ class EnhancedFinancialTableAnalyzer:
 
             result = json.loads(content)
 
-            # 验证格式 - 简化验证
             if "tables" not in result:
                 raise ValueError("响应缺少tables字段")
 
@@ -546,7 +319,6 @@ class EnhancedFinancialTableAnalyzer:
         except (json.JSONDecodeError, ValueError) as e:
             raise ValueError(f"LLM响应解析失败: {e}\n原始内容: {content[:200]}...")
 
-        # 计算token消耗
         usage = response.usage if hasattr(response, 'usage') else None
         token_usage = {
             "prompt_tokens": usage.prompt_tokens if usage else 0,
@@ -560,92 +332,55 @@ class EnhancedFinancialTableAnalyzer:
             "token_usage": token_usage
         }
 
-    def analyze_image111(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
-        """分析单张图片中的所有表格"""
-        from backend.src.services.table_processor.image_utils import TableImageUtils
-
-        # 1. 准备数据
-        image_utils = TableImageUtils()
-        base64_image = image_utils.encode_image_to_base64(image_path)
-        ocr_summary = self._prepare_ocr_summary(ocr_result)
-
-        # 2. 调用LLM全局分析
-        prompt = self._build_global_analysis_prompt(ocr_summary)
-
-        print("####################################")
-        print(prompt)
-        print("####################################")
-
-        llm_result = self._call_llm_global(base64_image, prompt)
-
-        # 3. 构建最终结果
-        return {
-            "success": True,
-            "image_info": ocr_result.get("image_info", {}),
-            "tables_structure": {  # 改为tables_structure字段
-                "tables": llm_result["tables"]
-            },
-            "processing_stats": {
-                "analysis_time_sec": llm_result["time_sec"],
-                "ocr_tables_count": len(ocr_result.get("tables_result", [])),
-                "visual_tables_count": len(llm_result["tables"]),  # 改为tables字段
-                "token_usage": llm_result["token_usage"]
-            }
-        }
-
     def analyze_image(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """分析单张图片中的所有表格"""
-        # ===== 0. 缓存相关导入 =====
-        from .cache_gateway import get as cache_get, upsert as cache_upsert
-        from .object_store import get_object, put_object
-        from backend.utils.config import tableconfig
-        import hashlib, gzip, json
-
-        # ===== 1. 准备数据 =====
-        from backend.src.services.table_processor.image_utils import TableImageUtils
-        image_utils = TableImageUtils()
-        base64_image = image_utils.encode_image_to_base64(image_path)
-
-        # ===== 2. 计算指纹 & 缓存命中 =====
+        base64_image = TableImageUtils.encode_image_to_base64(image_path)
         md5 = hashlib.md5(base64_image.encode()).hexdigest()
         provider_key = f"llm:{self.model_name}"
-        if not tableconfig.LLM_FORCE_REFRESH:
+
+        if not LLM_FORCE_REFRESH:
             hit = cache_get(md5, provider_key)
             if hit:
                 print("LLM cache hit, skip cost")
-                llm_result = json.loads(gzip.decompress(get_object(hit["s3_key"])))
-                # 直接组装返回，跳过下面付费调用
-                return {
-                    "success": True,
-                    "image_info": ocr_result.get("image_info", {}),
-                    "tables_structure": {"tables": llm_result["tables"]},
-                    "processing_stats": {
-                        "analysis_time_sec": 0,
-                        "ocr_tables_count": len(ocr_result.get("tables_result", [])),
-                        "visual_tables_count": len(llm_result["tables"]),
-                        "token_usage": hit.get("token_usage", {})
+                try:
+                    llm_result = json.loads(gzip.decompress(get_object(hit["s3_key"])))
+                    return {
+                        "success": True,
+                        "image_info": ocr_result.get("image_info", {}),
+                        "tables_structure": {"tables": llm_result["tables"]},
+                        "processing_stats": {
+                            "analysis_time_sec": 0,
+                            "ocr_tables_count": len(ocr_result.get("tables_result", [])),
+                            "visual_tables_count": len(llm_result["tables"]),
+                            "token_usage": hit.get("token_usage", {})
+                        }
                     }
-                }
+                except FileNotFoundError as e:
+                    print(f"⚠️ 缓存文件缺失: {e}")
+                    print("  继续执行LLM调用...")
+                    try:
+                        cache_delete(md5, provider_key)
+                        print(f"  已删除无效缓存记录")
+                    except:
+                        pass
 
-        # ===== 3. 原有逻辑继续 =====
+        print("[LLM] 执行LLM分析（缓存跳过或强制刷新）")
         ocr_summary = self._prepare_ocr_summary(ocr_result)
         prompt = self._build_global_analysis_prompt(ocr_summary)
-        print("####################################")
-        print(prompt)
-        print("####################################")
+        print(f"[LLM] Prompt长度: {len(prompt)} 字符")
+
         llm_result = self._call_llm_global(base64_image, prompt)
 
-        # ===== 4. 成功写缓存 =====
         compressed = gzip.compress(json.dumps(llm_result).encode())
         s3_key = f"llm/{md5}.json.gz"
         put_object(s3_key, compressed)
-        cost_usd = 0.0  # 可按 token 估算
+
+        cost_usd = 0.0
         prompt_tokens = llm_result.get("token_usage", {}).get("prompt_tokens", 0)
         completion_tokens = llm_result.get("token_usage", {}).get("completion_tokens", 0)
         cache_upsert(md5, provider_key, self.model_name,
                      cost_usd, prompt_tokens, completion_tokens, s3_key)
 
-        # ===== 5. 原有返回保持不动 =====
         return {
             "success": True,
             "image_info": ocr_result.get("image_info", {}),
@@ -662,30 +397,21 @@ class EnhancedFinancialTableAnalyzer:
 # 使用示例
 if __name__ == "__main__":
     analyzer = EnhancedFinancialTableAnalyzer()
-
-    # 假设已有OCR服务
     from backend.src.services import TableOCRService
+    from pprint import pprint
 
     ocr_service = TableOCRService()
     image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\123.png"
-    # image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\7d4a49dd-9b72-4c02-a7ee-d09a0921ca4b_014.png"
 
-    # 1. OCR识别
     ocr_result = ocr_service.recognize_table(image_path)
-
     print("ocr_result:", ocr_result)
-
-    # 2. 全局分析
-    from pprint import pprint
 
     result = analyzer.analyze_image(image_path, ocr_result)
     print("llm_result:", result)
-
     pprint(result)
 
     print(f"分析完成，发现{result['processing_stats']['visual_tables_count']}个表格")
 
-    # 3. 使用映射关系提取数据
     for table in result["tables_structure"]["tables"]:
         print(f"\n表格ID: {table.get('id')}")
         print(f"横向表头({len(table['headers']['cols'])}个):")

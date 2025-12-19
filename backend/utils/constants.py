@@ -7,6 +7,38 @@ MAIN_ROOT = os.getcwd()
 print("MAIN_ROOT:, MAIN_ROOT", MAIN_ROOT)
 
 
+# 🔥 新增：正确计算项目根目录
+def get_project_root():
+    """获取项目根目录"""
+    try:
+        # constants.py 在 backend/utils/constants.py
+        # 向上3级：constants.py → utils → backend → 项目根目录
+        current_file = Path(__file__).resolve()
+        project_root = current_file.parent.parent.parent
+
+        # 验证是否为项目根目录
+        if (project_root / "project-config.json").exists() or (project_root / "backend").exists():
+            print(f"[Constants] 计算的项目根目录: {project_root}")
+            return project_root
+        else:
+            # 如果不在预期位置，向上查找
+            for parent in current_file.parents:
+                if (parent / "project-config.json").exists() or (parent / "backend").exists():
+                    print(f"[Constants] 查找到的项目根目录: {parent}")
+                    return parent
+
+            print(f"[Constants] 未找到项目根目录，使用当前目录: {project_root}")
+            return project_root
+    except Exception as e:
+        print(f"[Constants] 计算项目根目录失败: {e}")
+        return Path.cwd()
+
+
+# 新增常量：正确的项目根目录
+PROJECT_ROOT = get_project_root()
+PROJECT_ROOT_STR = str(PROJECT_ROOT)
+
+
 # 百度表格识别
 # 百度OCR配置
 BAIDU_OCR_CONFIG = {
@@ -56,11 +88,11 @@ CROPPED_TABLES_DIR = STATIC_DIR / "cropped_tables"  # 裁剪表格目录
 EXCEL_DATA_URL_PREFIX = "/api/excel-data"
 EXCEL_DATA_RELATIVE_PATH = "static/excel_data"
 
-# 确保所有目录存在
-for directory in [STATIC_DIR, EXCEL_DATA_DIR, UPLOAD_DIR, PNG_OUTPUT_DIR,
-                  JOINED_TABLES_DIR, LAYOUT_OUTPUT_DIR, CROPPED_TABLES_DIR]:
-    directory.mkdir(parents=True, exist_ok=True)
-    print(f"✅ 确保目录存在: {directory}")
+# # 确保所有目录存在
+# for directory in [STATIC_DIR, EXCEL_DATA_DIR, UPLOAD_DIR, PNG_OUTPUT_DIR,
+#                   JOINED_TABLES_DIR, LAYOUT_OUTPUT_DIR, CROPPED_TABLES_DIR]:
+#     directory.mkdir(parents=True, exist_ok=True)
+#     print(f"✅ 确保目录存在: {directory}")
 
 # constants.py 中增加以下内容
 

@@ -1,16 +1,19 @@
 # -*- coding:utf-8 -*-
 
+# ========== 标准库导入 ==========
 import os
-import requests
+import time
+import json
+import uuid
 import base64
 import urllib.parse
 from typing import Dict, Any, List
+import requests
 
+# ========== 项目模块导入 ==========
 from backend.src.services.table_processor.image_utils import TableImageUtils
-from backend.utils.config import tableconfig as settings
 from backend.src.services.table_processor.ocr_response_unifier import OCRProviderFactory, OCRAdapter
-
-from backend.utils.config import config  # 导入统一配置
+from backend.utils.config import config, tableconfig  # 一次导入，两个对象
 
 
 class TableOCRService:
@@ -23,24 +26,20 @@ class TableOCRService:
         self.image_utils = TableImageUtils()
 
         # 确定使用的OCR提供商 - 使用统一配置
-        self.provider_type = provider_type or config.OCR_PROVIDER  # 使用 config.OCR_PROVIDER
+        # 明确优先级：参数 > config.OCR_PROVIDER > 默认值
+        self.provider_type = provider_type or config.OCR_PROVIDER or 'tencent'
 
         print(f"初始化OCR服务，使用提供商: {self.provider_type}")
 
-        # 🔥 修复：使用正确的配置对象
-        # tableconfig 是专门为表格处理器设计的配置
-        from backend.utils.config import tableconfig
-
-        print(f"[DEBUG] 使用 tableconfig 作为配置源")
-        print(f"  tableconfig.ocr_api_key: {getattr(tableconfig, 'ocr_api_key', '未找到')}")
-        print(f"  tableconfig.OCR_API_KEY: {getattr(tableconfig, 'OCR_API_KEY', '未找到')}")
+        print(f"[DEBUG] 使用 tableconfig 作为OCR配置源")
+        print(f"  提供商: {self.provider_type}")
+        print(f"  API Key: {getattr(tableconfig, 'OCR_API_KEY', '未找到')[:10]}...")
 
         # 创建OCR提供商实例 - 传入 tableconfig
         try:
             self.ocr_provider = OCRProviderFactory.create_provider(self.provider_type, tableconfig)
         except Exception as e:
             print(f"⚠️ 创建OCR提供商失败: {e}，回退到百度OCR")
-            # 回退到百度OCR
             self.provider_type = 'baidu'
             self.ocr_provider = OCRProviderFactory.create_provider('baidu', tableconfig)
 
@@ -48,7 +47,6 @@ class TableOCRService:
         self.adapter = OCRAdapter()
 
         print(f"✅ OCR服务初始化完成，使用: {self.provider_type}")
-
 
     def _get_access_token(self) -> str:
         """获取百度OCR访问令牌 - 兼容原有代码"""
@@ -122,7 +120,7 @@ class TableOCRService:
         # 临时切换回百度OCR
         original_provider = self.provider_type
         self.provider_type = "baidu"
-        self.ocr_provider = OCRProviderFactory.create_provider("baidu", settings)
+        self.ocr_provider = OCRProviderFactory.create_provider("baidu", tableconfig)
 
         try:
             result = self.recognize_table(image_path)
@@ -130,12 +128,12 @@ class TableOCRService:
         finally:
             # 恢复原始提供商
             self.provider_type = original_provider
-            self.ocr_provider = OCRProviderFactory.create_provider(original_provider, settings)
+            self.ocr_provider = OCRProviderFactory.create_provider(original_provider, tableconfig)
 
     # 修改 TableOCRService 类的 recognize_table 方法
     def recognize_table(self, image_path: str) -> Dict[str, Any]:
         """
-        识别表格 - 主入口方法，增强错误处理
+        识别表格 - 主入口方法，使用配置的目录
         """
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"图片不存在: {image_path}")
@@ -143,33 +141,51 @@ class TableOCRService:
         print(f"使用 {self.provider_type} OCR识别: {image_path}")
 
         try:
-            # 调用相应提供商的识别方法
+            # 1. OCR识别
             ocr_result = self.ocr_provider.recognize(image_path)
 
-            print("=" * 60)
-            print(f"{self.provider_type} OCR原始响应:")
-            print(f"响应类型: {type(ocr_result)}")
-            print(f"响应键: {list(ocr_result.keys())[:10]}...")
+            # 2. 准备保存路径（使用配置）
+            # 从配置获取目录，带默认值
+            ocr_raw_dir = getattr(tableconfig, 'OCR_RAW_DIR', 'data/backend/ocr_raw')
+            ocr_final_dir = getattr(tableconfig, 'OCR_FINAL_DIR', 'data/backend/ocr_final')
 
-            # 保存原始结果用于调试
-            import json
-            debug_filename = f"{self.provider_type}_ocr_raw.json"
-            with open(debug_filename, "w", encoding="utf-8") as f:
+            print("++++++++++++++++++++++>>ocr_raw_dir:", tableconfig.OCR_RAW_DIR, ocr_raw_dir)
+            print("++++++++++++++++++++++>>ocr_final_dir:", ocr_final_dir)
+
+            # 确保目录存在
+            os.makedirs(ocr_raw_dir, exist_ok=True)
+            os.makedirs(ocr_final_dir, exist_ok=True)
+
+            # 3. 生成唯一文件名
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            unique_id = uuid.uuid4().hex[:8]
+
+            # 原始响应文件
+            raw_filename = f"{self.provider_type}_ocr_raw_{timestamp}_{unique_id}.json"
+            raw_filepath = os.path.join(ocr_raw_dir, raw_filename)
+
+            # 最终结果文件
+            final_filename = f"{self.provider_type}_ocr_final_{timestamp}_{unique_id}.json"
+            final_filepath = os.path.join(ocr_final_dir, final_filename)
+
+            # 4. 保存原始响应
+            print("=" * 60)
+            print(f"保存原始响应到: {raw_filepath}")
+
+            with open(raw_filepath, "w", encoding="utf-8") as f:
                 json.dump(ocr_result, f, ensure_ascii=False, indent=2)
-            print(f"原始响应已保存到: {debug_filename}")
-            print("=" * 60)
 
-            # 使用适配器确保格式统一
+            # 5. 格式适配
             ocr_result = self.adapter.validate_and_adapt(ocr_result, self.provider_type)
 
-            # 确保包含必要的字段
+            # 6. 添加元数据
             if "image_info" not in ocr_result:
                 ocr_result["image_info"] = {
                     "image_path": image_path,
                     "image_id": self.image_utils.generate_image_id(image_path)
                 }
 
-            # 添加统计信息
+            # 7. 添加统计信息
             if "orc_statistics" not in ocr_result:
                 ocr_result["orc_statistics"] = {
                     "processing_time": 0,
@@ -179,11 +195,11 @@ class TableOCRService:
 
             print(f"✅ OCR识别成功，找到 {len(ocr_result.get('tables_result', []))} 个表格")
 
-            # 保存最终结果
-            final_filename = f"{self.provider_type}_ocr_final.json"
-            with open(final_filename, "w", encoding="utf-8") as f:
+            # 8. 保存最终结果
+            with open(final_filepath, "w", encoding="utf-8") as f:
                 json.dump(ocr_result, f, ensure_ascii=False, indent=2)
-            print(f"最终结果已保存到: {final_filename}")
+            print(f"最终结果已保存到: {final_filepath}")
+            print("=" * 60)
 
             return ocr_result
 
@@ -194,5 +210,5 @@ class TableOCRService:
             raise Exception(f"OCR识别失败: {str(e)}")
 
 
-# 修改 ocr_service.py 中的 TableOCRService.__init__
+
 

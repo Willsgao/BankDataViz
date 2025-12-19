@@ -1,6 +1,7 @@
 # backend/utils/config.py
 """
 后端配置管理 - 增强版，包含表格处理器配置
+所有路径都必须基于 PROJECT_ROOT_STR 作为根目录
 """
 
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 # 导入常量配置
 try:
     from .constants import (
-        MAIN_ROOT,
+        PROJECT_ROOT_STR,
         UPLOAD_FOLDER,
         PNG_OUTPUT_ROOT,
         EXCEL_OUTPUT_ROOT,
@@ -19,11 +20,11 @@ try:
     )
 except ImportError:
     # 如果导入失败，使用默认值
-    MAIN_ROOT = os.getcwd()
+    PROJECT_ROOT_STR = os.getcwd()
     UPLOAD_FOLDER = 'backend/static/uploads'
     PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
     EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
-    DATABASE = 'data/backend/database.db'  # 修改：移动到 data/backend
+    DATABASE = 'data/backend/database.db'
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 
@@ -31,16 +32,22 @@ class Config:
     """主配置类 - 整合表格处理器配置"""
 
     def __init__(self):
+        # 首先确保 PROJECT_ROOT_STR 是绝对路径
+        self.PROJECT_ROOT = Path(PROJECT_ROOT_STR).resolve()
+        self.MAIN_ROOT = str(self.PROJECT_ROOT)
+
+        print(f"[Config] 项目根目录（绝对路径）: {self.MAIN_ROOT}")
+
         self._config = self._load_config()
         self._setup_derived_config()
-        self._setup_table_processor_config()  # 新增：表格处理器配置
+        self._setup_table_processor_config()
 
     def _load_config(self):
-        """加载配置文件"""
+        """加载配置文件 - 所有路径基于 PROJECT_ROOT"""
         try:
-            # 获取项目根目录路径
-            project_root = Path(__file__).parent.parent.parent
-            config_path = project_root / 'project-config.json'
+            config_path = self.PROJECT_ROOT / 'project-config.json'
+
+            print(f"[Config] 配置文件路径: {config_path}")
 
             if config_path.exists():
                 with open(config_path, 'r', encoding='utf-8') as f:
@@ -53,7 +60,7 @@ class Config:
             return self._get_default_config()
 
     def _get_default_config(self):
-        """默认配置 - 包含表格处理器配置"""
+        """默认配置"""
         return {
             "project": {
                 "name": "DocuVista",
@@ -87,7 +94,6 @@ class Config:
                 "defaultModelId": "doubao-1-5-vision-pro-250328",
                 "maxTokens": 4000
             },
-            # 新增表格处理器配置部分 - 修改路径指向 data/backend
             "table_processor": {
                 "llm": {
                     "api_key": "90b9c47f-815c-4216-913a-3d1a567e35ac",
@@ -95,7 +101,7 @@ class Config:
                     "model_name": "doubao-1-5-vision-pro-250328"
                 },
                 "ocr": {
-                    "provider": "tencent",  # baidu 或 tencent
+                    "provider": "tencent",
                     "timeout": 30,
                     "max_retries": 3
                 },
@@ -126,7 +132,7 @@ class Config:
         }
 
     def _setup_derived_config(self):
-        """设置衍生配置"""
+        """设置衍生配置 - 所有路径基于 PROJECT_ROOT"""
         # 后端配置
         self.BACKEND_HOST = os.getenv('BACKEND_HOST', self._config['servers']['backend']['host'])
         self.BACKEND_PORT = int(os.getenv('BACKEND_PORT', self._config['servers']['backend']['port']))
@@ -143,26 +149,26 @@ class Config:
         self.STATIC_PREFIX = os.getenv('STATIC_PREFIX', self._config['api']['staticPrefix'])
         self.UPLOAD_PREFIX = os.getenv('UPLOAD_PREFIX', self._config['api']['uploadPrefix'])
 
-        # 文件路径配置 - 从 constants.py 导入
-        self.UPLOAD_FOLDER = UPLOAD_FOLDER
-        self.EXCEL_DATA_FOLDER = EXCEL_OUTPUT_ROOT
-        self.JOINED_TABLES_FOLDER = self._config['paths']['joinedTablesFolder']
-        self.PNG_OUTPUT_ROOT = PNG_OUTPUT_ROOT
-        self.MAIN_ROOT = Path(MAIN_ROOT)
+        # 🔥 关键修改：所有路径都基于 PROJECT_ROOT
+        # 文件路径配置 - 基于项目根目录
+        self.UPLOAD_FOLDER = self._get_absolute_path(UPLOAD_FOLDER)
+        self.EXCEL_DATA_FOLDER = self._get_absolute_path(EXCEL_OUTPUT_ROOT)
+        self.JOINED_TABLES_FOLDER = self._get_absolute_path(self._config['paths']['joinedTablesFolder'])
+        self.PNG_OUTPUT_ROOT = self._get_absolute_path(PNG_OUTPUT_ROOT)
 
         # LLM配置（通用）
         self.LLM_DEFAULT_BASE_URL = self._config['llm']['defaultBaseUrl']
         self.LLM_DEFAULT_MODEL_ID = self._config['llm']['defaultModelId']
         self.LLM_MAX_TOKENS = self._config['llm']['maxTokens']
 
-        # 数据库配置 - 从 constants.py 导入（已修改为 data/backend）
-        self.DATABASE_PATH = DATABASE
+        # 数据库配置 - 基于项目根目录
+        self.DATABASE_PATH = self._get_absolute_path(DATABASE)
 
         # 允许的文件扩展名
         self.ALLOWED_EXTENSIONS = ALLOWED_EXTENSIONS
 
     def _setup_table_processor_config(self):
-        """设置表格处理器专用配置"""
+        """设置表格处理器专用配置 - 所有路径基于 PROJECT_ROOT"""
         table_config = self._config.get('table_processor', {})
 
         # LLM配置（表格专用）
@@ -195,23 +201,43 @@ class Config:
         self.MAX_RETRIES = processing_config.get('max_retries', 3)
         self.TIMEOUT = processing_config.get('timeout', 30)
 
-        # 路径配置
+        # 🔥 关键修复：表格处理器所有路径都使用 table_processor 配置中的路径
+        # 不要引用主项目中的任何 backend/static/ 路径
         paths_config = table_config.get('paths', {})
-        self.TABLE_TEMP_DIR = paths_config.get('temp_dir', "data/backend/temp_imgs")
-        self.TABLE_OBJ_CACHE_DIR = paths_config.get('obj_cache', "data/backend/obj_cache")
-        self.TABLE_OCR_RAW_DIR = paths_config.get('ocr_raw', "data/backend/ocr_raw")
-        self.TABLE_OCR_FINAL_DIR = paths_config.get('ocr_final', "data/backend/ocr_final")
-        self.TABLE_LLM_CACHE_DIR = paths_config.get('llm_cache', "data/backend/llm_cache")
 
-        # 输出目录使用主项目的输出目录
-        self.TABLE_OUTPUT_DIR = self.EXCEL_DATA_FOLDER
+        # 临时目录
+        self.TABLE_TEMP_DIR = self._get_absolute_path(paths_config.get('temp_dir', "data/backend/temp_imgs"))
+
+        # 缓存目录
+        self.TABLE_OBJ_CACHE_DIR = self._get_absolute_path(paths_config.get('obj_cache', "data/backend/obj_cache"))
+        self.TABLE_OCR_RAW_DIR = self._get_absolute_path(paths_config.get('ocr_raw', "data/backend/ocr_raw"))
+        self.TABLE_OCR_FINAL_DIR = self._get_absolute_path(paths_config.get('ocr_final', "data/backend/ocr_final"))
+        self.TABLE_LLM_CACHE_DIR = self._get_absolute_path(paths_config.get('llm_cache', "data/backend/llm_cache"))
+
+        # 🔥 输出目录：使用 table_processor 自己的 outputs，不要用主项目的 EXCEL_DATA_FOLDER
+        table_output_dir = paths_config.get('outputs', "data/backend/outputs")
+        self.TABLE_OUTPUT_DIR = self._get_absolute_path(table_output_dir)
+
+        print(f"[Config] 表格处理器输出目录: {self.TABLE_OUTPUT_DIR}")
 
         # 创建目录
         self._create_table_dirs()
 
+    def _get_absolute_path(self, relative_path):
+        """将相对路径转换为基于 PROJECT_ROOT 的绝对路径"""
+        if not relative_path:
+            return ""
+
+        # 如果已经是绝对路径，直接返回
+        if os.path.isabs(relative_path):
+            return relative_path
+
+        # 基于 PROJECT_ROOT 转换为绝对路径
+        absolute_path = self.PROJECT_ROOT / relative_path
+        return str(absolute_path.resolve())
+
     def _create_table_dirs(self):
         """创建表格处理需要的目录"""
-        import os
         dirs_to_create = [
             self.TABLE_TEMP_DIR,
             self.TABLE_OUTPUT_DIR,
@@ -223,7 +249,7 @@ class Config:
         for dir_path in dirs_to_create:
             if dir_path and not os.path.exists(dir_path):
                 os.makedirs(dir_path, exist_ok=True)
-                print(f"Config: 创建目录: {dir_path}")
+                print(f"[Config] 创建目录: {dir_path}")
 
     @property
     def backend_api_base_url(self):
@@ -248,18 +274,18 @@ class Config:
             return f"{self.BACKEND_BASE_URL}{path}"
 
 
-# 修改后的 TableConfig 类 - 融合两个版本
 class TableConfig:
-    """表格处理配置类 - 整合了table_processor的所有配置"""
+    """表格处理配置类 - 所有路径基于主配置的 PROJECT_ROOT"""
 
     def __init__(self, config: Config = None):
         self.config = config
+        self.PROJECT_ROOT = config.PROJECT_ROOT if config else Path(PROJECT_ROOT_STR).resolve()
 
         if self.config:
             # 如果传入主配置，则从主配置读取
             self._init_from_main_config()
         else:
-            # 否则使用独立的配置
+            # 否则使用独立的配置（也基于 PROJECT_ROOT）
             self._init_from_env_and_defaults()
 
         # 确保目录存在
@@ -280,36 +306,36 @@ class TableConfig:
         self.tencent_secret_key = self.config.TENCENT_SECRET_KEY
         self.tencent_region = self.config.TENCENT_REGION
 
-        # 🔥 修复：使用不同的变量名，避免与 property 冲突
-        self._ocr_timeout = self.config.OCR_TIMEOUT  # 使用下划线前缀
-        self._ocr_max_retries = self.config.OCR_MAX_RETRIES  # 使用下划线前缀
-
         # 处理配置
+        self._ocr_timeout = self.config.OCR_TIMEOUT
+        self._ocr_max_retries = self.config.OCR_MAX_RETRIES
         self.extract_rows = self.config.EXTRACT_ROWS
         self.extract_cols = self.config.EXTRACT_COLS
         self.max_retries = self.config.MAX_RETRIES
         self.timeout = self.config.TIMEOUT
 
-        # 路径配置 - 从主配置获取
+        # 🔥 路径配置 - 确保使用表格处理器自己的路径
         self.temp_dir = self.config.TABLE_TEMP_DIR
-        self.output_dir = self.config.TABLE_OUTPUT_DIR
+        self.output_dir = self.config.TABLE_OUTPUT_DIR  # 使用 TABLE_OUTPUT_DIR 而不是 TABLE_OUTPUT_DIR
         self.obj_cache_dir = self.config.TABLE_OBJ_CACHE_DIR
         self.ocr_raw_dir = self.config.TABLE_OCR_RAW_DIR
         self.ocr_final_dir = self.config.TABLE_OCR_FINAL_DIR
         self.llm_cache_dir = self.config.TABLE_LLM_CACHE_DIR
 
+        print(f"[TableConfig] 输出目录设置为: {self.output_dir}")
+
         # 环境变量配置
         self._init_env_vars()
 
     def _init_from_env_and_defaults(self):
-        """从环境变量和默认值初始化"""
+        """从环境变量和默认值初始化 - 所有路径基于 PROJECT_ROOT"""
         # ========== LLM配置 ==========
         self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
         self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
         self.llm_model_name = "doubao-1-5-vision-pro-250328"
 
         # ========== OCR配置 - 多OCR支持 ==========
-        self.ocr_provider = "tencent"  # 默认使用腾讯OCR，可选: "tencent" 或 "baidu"
+        self.ocr_provider = "tencent"
         self.ocr_api_key = "Id7EZH2q6IOSlivHbwHHbWwz"
         self.ocr_secret_key = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
         self.tencent_secret_id = "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG"
@@ -317,57 +343,82 @@ class TableConfig:
         self.tencent_region = "ap-shanghai"
 
         # ========== 处理配置 ==========
-        self._ocr_timeout = 30  # 🔥 使用下划线前缀
-        self._ocr_max_retries = 3  # 🔥 使用下划线前缀
+        self._ocr_timeout = 30
+        self._ocr_max_retries = 3
         self.extract_rows = 10
         self.extract_cols = 3
         self.max_retries = 3
         self.timeout = 30
 
         # ========== 路径配置 ==========
-        # 获取项目根目录
-        project_root = Path(__file__).parent.parent.parent
-        data_backend_dir = project_root / "data" / "backend"
+        # 🔥 所有路径都基于 PROJECT_ROOT
+        print(f"[TableConfig] 使用项目根目录: {self.PROJECT_ROOT}")
 
-        # 确保 data/backend 目录存在
+        data_backend_dir = self.PROJECT_ROOT / "data" / "backend"
         data_backend_dir.mkdir(parents=True, exist_ok=True)
 
-        # 输出目录 - 环境变量优先，默认值兜底
-        self.output_dir = os.getenv("OUTPUT_DIR") or str(data_backend_dir / "outputs")
+        # 输出目录 - 环境变量优先，但都转换为基于 PROJECT_ROOT 的绝对路径
+        output_dir_env = os.getenv("OUTPUT_DIR")
+        if output_dir_env:
+            self.output_dir = self._to_absolute_path(output_dir_env)
+        else:
+            self.output_dir = str(data_backend_dir / "outputs")
 
-        # 临时目录
-        self.temp_dir = os.getenv("TEMP_DIR") or str(data_backend_dir / "temp_imgs")
-
-        # 缓存目录
-        self.obj_cache_dir = os.getenv("OBJ_CACHE_DIR") or str(data_backend_dir / "obj_cache")
-        self.ocr_raw_dir = os.getenv("OCR_RAW_DIR") or str(data_backend_dir / "ocr_raw")
-        self.ocr_final_dir = os.getenv("OCR_FINAL_DIR") or str(data_backend_dir / "ocr_final")
-        self.llm_cache_dir = os.getenv("LLM_CACHE_DIR") or str(data_backend_dir / "llm_cache")
+        # 其他目录
+        self.temp_dir = self._to_absolute_path(os.getenv("TEMP_DIR") or str(data_backend_dir / "temp_imgs"))
+        self.obj_cache_dir = self._to_absolute_path(os.getenv("OBJ_CACHE_DIR") or str(data_backend_dir / "obj_cache"))
+        self.ocr_raw_dir = self._to_absolute_path(os.getenv("OCR_RAW_DIR") or str(data_backend_dir / "ocr_raw"))
+        self.ocr_final_dir = self._to_absolute_path(os.getenv("OCR_FINAL_DIR") or str(data_backend_dir / "ocr_final"))
+        self.llm_cache_dir = self._to_absolute_path(os.getenv("LLM_CACHE_DIR") or str(data_backend_dir / "llm_cache"))
 
         # ========== 环境变量配置 ==========
         self._init_env_vars()
 
+    def _to_absolute_path(self, path):
+        """将路径转换为基于 PROJECT_ROOT 的绝对路径"""
+        if not path:
+            return ""
+
+        if os.path.isabs(path):
+            return path
+
+        # 基于 PROJECT_ROOT
+        return str((self.PROJECT_ROOT / path).resolve())
+
     def _init_env_vars(self):
         """初始化环境变量相关配置"""
-        # OCR 调试：是否落盘/保留字节
+        # OCR 调试
         self.debug_ocr = os.getenv("OCR_DEBUG", "false").lower() == "true"
         self.debug_ocr_keep_mb = int(os.getenv("OCR_DEBUG_KEEP_MB", "0"))
 
-        # LLM 调试：是否打印 prompt
+        # LLM 调试
         self.debug_llm = os.getenv("LLM_DEBUG", "false").lower() == "true"
 
-        # 缓存配置
-        self.CACHE_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")
+        # 对象存储配置
         self.OBJECT_STORE = os.getenv("OBJECT_STORE", "local")
-
-        # LOCAL_OBJECT_STORE 使用 obj_cache_dir
-        self.LOCAL_OBJECT_STORE = os.getenv("LOCAL_OBJECT_STORE") or self.obj_cache_dir
-
+        local_store = os.getenv("LOCAL_OBJECT_STORE")
+        self.LOCAL_OBJECT_STORE = self._to_absolute_path(local_store) if local_store else self.obj_cache_dir
         self.OBJECT_STORE_BUCKET = os.getenv("OBJECT_STORE_BUCKET", "")
 
-        # 强制刷新开关 - 这是你需要的属性
+        # 强制刷新开关
         self.OCR_FORCE_REFRESH = os.getenv("OCR_FORCE_REFRESH", "false").lower() == "true"
         self.LLM_FORCE_REFRESH = os.getenv("LLM_FORCE_REFRESH", "false").lower() == "true"
+
+        # 🔥 数据库配置 - 基于 PROJECT_ROOT
+        env_db_url = os.getenv("CACHE_URL")
+        if env_db_url:
+            self.CACHE_URL = env_db_url
+        else:
+            # 创建缓存目录（绝对路径）
+            cache_dir = self.PROJECT_ROOT / "data" / "backend" / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_path = cache_dir / "api_cache.db"
+
+            # 🔥 使用绝对路径
+            abs_cache_path = cache_path.resolve()
+            self.CACHE_URL = f"sqlite:///{abs_cache_path}"
+
+        print(f"[TableConfig] 数据库连接URL: {self.CACHE_URL}")
 
     def _create_dirs(self):
         """创建必要的目录"""
@@ -397,12 +448,28 @@ class TableConfig:
         for dir_path in dirs_to_create:
             if dir_path and not os.path.exists(dir_path):
                 os.makedirs(dir_path, exist_ok=True)
-                print(f"TableConfig: 创建目录: {dir_path}")
+                print(f"[TableConfig] 创建目录: {dir_path}")
 
-    # 🔥 修改：将 property 改为使用下划线前缀的变量
+    # 🔥 简化方法，直接返回属性（已经是绝对路径）
+    def get_absolute_ocr_raw_dir(self):
+        """获取OCR原始数据目录的绝对路径"""
+        return getattr(self, 'ocr_raw_dir', '')
+
+    def get_absolute_ocr_final_dir(self):
+        """获取OCR最终数据目录的绝对路径"""
+        return getattr(self, 'ocr_final_dir', '')
+
+    # 属性访问器
+    @property
+    def OCR_RAW_DIR(self):
+        return self.get_absolute_ocr_raw_dir()
+
+    @property
+    def OCR_FINAL_DIR(self):
+        return self.get_absolute_ocr_final_dir()
+
     @property
     def ocr_timeout(self):
-        """小写兼容属性"""
         return getattr(self, '_ocr_timeout', 30)
 
     @property
@@ -411,27 +478,16 @@ class TableConfig:
 
     @property
     def ocr_max_retries(self):
-        """小写兼容属性"""
         return getattr(self, '_ocr_max_retries', 3)
 
     @property
     def OCR_MAX_RETRIES(self):
         return self.ocr_max_retries
 
-    # 添加 OCR 目录属性
-    @property
-    def OCR_RAW_DIR(self):
-        return getattr(self, 'ocr_raw_dir', 'data/backend/ocr_raw')
-
-    @property
-    def OCR_FINAL_DIR(self):
-        return getattr(self, 'ocr_final_dir', 'data/backend/ocr_final')
-
     @property
     def LLM_CACHE_DIR(self):
-        return getattr(self, 'llm_cache_dir', 'data/backend/llm_cache')
+        return getattr(self, 'llm_cache_dir', '')
 
-    # 🔥 添加：如果需要设置这些属性，添加 setter
     @ocr_timeout.setter
     def ocr_timeout(self, value):
         self._ocr_timeout = value
@@ -440,7 +496,7 @@ class TableConfig:
     def ocr_max_retries(self, value):
         self._ocr_max_retries = value
 
-    # 为了保持兼容性，添加属性访问器
+    # 兼容性属性
     @property
     def LLM_API_KEY(self):
         return self.llm_api_key
@@ -514,7 +570,7 @@ FILE_PATHS = {
     'EXCEL_DATA_FOLDER': config.EXCEL_DATA_FOLDER,
     'JOINED_TABLES_FOLDER': config.JOINED_TABLES_FOLDER,
     'PNG_OUTPUT_ROOT': config.PNG_OUTPUT_ROOT,
-    'MAIN_ROOT': str(config.MAIN_ROOT)
+    'MAIN_ROOT': config.MAIN_ROOT
 }
 
 API_PATHS = {

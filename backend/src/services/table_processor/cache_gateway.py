@@ -1,10 +1,16 @@
 # backend/services/table_processor/cache_gateway.py
-import os, gzip, json
-from sqlalchemy import create_engine, text
+import os
 from datetime import datetime
+from sqlalchemy import create_engine, text
+from backend.utils.config import tableconfig
 
-DB_URL = os.getenv("CACHE_URL", "sqlite:///./cache.db")   # 开发默认 SQLite
+# 使用 tableconfig 中的 CACHE_URL
+DB_URL = tableconfig.CACHE_URL
+print(f"[Cache] 使用配置中的数据库URL: {DB_URL}")
+
 engine = create_engine(DB_URL, future=True, pool_pre_ping=True)
+print("DB_URL:::::", DB_URL)
+
 
 def ensure_table():
     ddl = """
@@ -37,9 +43,19 @@ def get(md5: str, provider: str):
     """)
     with engine.connect() as conn:
         row = conn.execute(sql, {"md5": md5, "provider": provider}).first()
-        return row._mapping if row else None      # ← 改这里
+        return row._mapping if row else None
 
-# backend/services/table_processor/cache_gateway.py
+
+def delete(md5: str, provider: str):
+    """删除缓存记录"""
+    sql = text("""
+        DELETE FROM api_call_log
+        WHERE md5 = :md5 AND provider = :provider
+    """)
+    with engine.begin() as conn:
+        conn.execute(sql, {"md5": md5, "provider": provider})
+
+
 def upsert(md5: str, provider: str, model_id: str,
            cost_usd: float, prompt_tokens: int, completion_tokens: int,
            s3_key: str):
@@ -66,4 +82,3 @@ def upsert(md5: str, provider: str, model_id: str,
             "s3_key": s3_key,
             "created_at": datetime.utcnow()
         })
-

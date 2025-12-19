@@ -1,14 +1,19 @@
-import time
-from typing import Dict, Any, List
 
+import os
+import sys
+import time
+import traceback
+from pathlib import Path
+from typing import Dict, Any, List
 
 # ====================================
 # 1. OCR服务（复用analyzer中的OCR服务）
 # ====================================
-
+from backend.utils.config import tableconfig
 from backend.src.services.table_processor.ocr_service import TableOCRService
 from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
 from backend.src.services.table_processor.table_rebuilder import TableReconstructor
+
 
 
 
@@ -60,33 +65,35 @@ class TableReconstructionPipeline:
 
         # 2. LLM分析表头结构
         print("步骤2: LLM分析表格结构...")
-        try:
-            llm_result = self.llm_analyzer.analyze_image(image_path, ocr_result)
+        # try:
+        llm_result = self.llm_analyzer.analyze_image(image_path, ocr_result)
 
-            print("llm_resultllm_result:")
-            from pprint import pprint
-            pprint(llm_result)
+        print("llm_resultllm_result:")
+        from pprint import pprint
+        pprint(llm_result)
 
-            if not llm_result.get('success'):
-                print(f"❌ LLM分析失败: {llm_result.get('error', '未知错误')}")
-                self.stats['failed'] += 1
-                return {'success': False, 'error': 'LLM分析失败'}
-
-            print(f"✅ LLM分析完成，识别到{llm_result['processing_stats']['visual_tables_count']}个逻辑表格")
-
-        except Exception as e:
-            print(f"❌ LLM分析失败: {str(e)}")
+        if not llm_result.get('success'):
+            print(f"❌ LLM分析失败222: {llm_result.get('error', '未知错误')}")
             self.stats['failed'] += 1
-            return {'success': False, 'error': f'LLM分析失败: {str(e)}'}
+            return {'success': False, 'error': 'LLM分析失败'}
+
+        print(f"✅ LLM分析完成，识别到{llm_result['processing_stats']['visual_tables_count']}个逻辑表格")
+
+        # except Exception as e:
+        #     print(f"❌ LLM分析失败111: {str(e)}")
+        #     self.stats['failed'] += 1
+        #     return {'success': False, 'error': f'LLM分析失败: {str(e)}'}
 
         # 3. 表格重构
         print("步骤3: 重构表格数据...")
         try:
             # 生成输出文件名
             if output_excel is None:
-                import os
                 image_name = os.path.splitext(os.path.basename(image_path))[0]
-                output_excel = f"{image_name}_reconstructed.xlsx"
+                # 🔥 使用 tableconfig 中的绝对输出目录
+                output_dir = Path(tableconfig.output_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_excel = str(output_dir / f"{image_name}_reconstructed.xlsx")
 
 
             # 重构表格
@@ -138,16 +145,18 @@ class TableReconstructionPipeline:
         for i, image_path in enumerate(image_paths, 1):
             print(f"\n处理图片 {i}/{len(image_paths)}")
 
-
             # 生成输出路径
             output_excel = None
             final_output_file = None
             if output_dir:
-                import os
                 image_name = os.path.splitext(os.path.basename(image_path))[0]
-                output_excel = os.path.join(output_dir, f"{image_name}_reconstructed.xlsx")
-                final_output_file = os.path.join(output_dir, f"{image_name}_final.xlsx")  # 修复：使用 final_output_file
 
+                # 确保 output_dir 是 Path 对象
+                output_dir_path = Path(tableconfig.output_dir)
+                output_dir_path.mkdir(parents=True, exist_ok=True)
+
+                output_excel = str(output_dir_path / f"{image_name}_reconstructed.xlsx")
+                final_output_file = str(output_dir_path / f"{image_name}_final.xlsx")
 
             # 处理单张图片
             result = self.process_single_image(image_path, output_excel, final_output_file)
@@ -173,10 +182,6 @@ class TableReconstructionPipeline:
 # ====================================
 # 5. 配置和主函数
 # ====================================
-
-# -*- coding:utf-8 -*-
-
-
 def create_pipeline(config_instance=None):
     """
     创建完整的处理管道
@@ -221,7 +226,7 @@ def main(image_path):
     except Exception as e:
         print(f"❌ 创建管道失败: {e}")
         print("尝试检查analyzer的构造函数...")
-        import traceback
+
         traceback.print_exc()
         return
 
@@ -247,13 +252,11 @@ def batch_example(image_paths, output_dir=None):
 
     # 如果没有指定输出目录，使用配置中的目录
     if output_dir is None:
-        from backend.utils.config import tableconfig
         output_dir = tableconfig.output_dir
 
     print(f"输出目录: {output_dir}")
 
     # 确保目录存在
-    import os
     os.makedirs(output_dir, exist_ok=True)
 
     # 批量处理
@@ -263,36 +266,65 @@ def batch_example(image_paths, output_dir=None):
 
 
 if __name__ == "__main__":
-    import os, sys
-    from pathlib import Path
+    """简洁测试入口 - 只关注核心逻辑"""
 
-    from backend.src.services.table_processor.cache_gateway import  ensure_table
 
+
+    # 1. 设置项目根路径
+    SCRIPT_DIR = Path(__file__).parent
+    PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent.parent
+    print("PROJECT_ROOT::", PROJECT_ROOT)
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+    # 2. 导入必需模块（一次导入）
+    try:
+        from backend.src.services.table_processor.end_to_end_pipeline import batch_example
+        from backend.src.services.table_processor.cache_gateway import ensure_table
+    except ImportError as e:
+        print(f"导入失败: {e}")
+        print(f"请在项目根目录运行: cd {PROJECT_ROOT.parent}")
+        sys.exit(1)
+
+    # 3. 初始化缓存（使用config.py中的配置）
     ensure_table()
 
-    # === 0. 锚定项目根（文件所在路径 → 向上 4 级就是仓库根） ===
-    SCRIPT_DIR   = Path(__file__).resolve().parent          # .../table_processor
-    PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent          # DocuVista 仓库根
-    sys.path.insert(0, str(PROJECT_ROOT))                   # 保证 import backend 不报错
+    # 4. 设置测试图片路径
+    # 优先使用配置，否则用默认
+    test_images_dir = PROJECT_ROOT / "test_codes" / "png2"
+    if not test_images_dir.exists():
+        print(f"测试图片目录不存在: {test_images_dir}")
+        sys.exit(1)
 
-    # === 1. 建表 & 环境变量全部用绝对路径 ===
-    os.environ.setdefault("CACHE_URL",              f"sqlite:///{PROJECT_ROOT}/cache.db")
-    os.environ.setdefault("LOCAL_OBJECT_STORE",     f"{PROJECT_ROOT}/obj_cache")
-    os.environ.setdefault("OUTPUT_DIR",             f"{PROJECT_ROOT}/outputs")
-    os.environ.setdefault("TEMP_DIR",               f"{PROJECT_ROOT}/temp")
+    image_files = [
+        str(test_images_dir / f)
+        for f in os.listdir(test_images_dir)
+        if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+    ]
 
-    from backend.src.services.table_processor.cache_gateway import ensure_table
+    if not image_files:
+        print(f"没有找到图片文件: {test_images_dir}")
+        sys.exit(1)
 
-    ensure_table()          # 首次建表
+    print(f"找到 {len(image_files)} 张测试图片")
 
-    # === 2. 图片 & 输出目录也用 PROJECT_ROOT 拼 ===
-    image_path = PROJECT_ROOT / "test_codes/pngs/123.png"
-    png_dir_str = r"E:\Datas\base_pros\DocuVista\test_codes\png2"
-    png_dir    = Path(png_dir_str)          # ← 转成 Path
-    image_paths = [str(png_dir / f) for f in os.listdir(png_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    # 5. 设置输出目录（优先使用配置）
+    try:
+        output_dir = Path(tableconfig.output_dir)
+    except:
+        # 回退到data/backend/outputs
+        output_dir = PROJECT_ROOT / "data" / "backend" / "outputs"
 
-    output_dir = PROJECT_ROOT / "test_codes/table_analyzer_codes/outputs2"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # === 3. 跑批 ===
-    batch_example(image_paths, str(output_dir))
+    # 6. 执行批处理
+    print(f"输出目录: {output_dir}")
+    print("开始处理...\n")
+
+    result = batch_example(image_files, str(output_dir))
+
+    # 7. 简单结果输出
+    if result.get('success'):
+        print(f"✅ 完成! 成功: {result['stats']['successful']} 失败: {result['stats']['failed']}")
+    else:
+        print(f"⚠️  处理完成但有失败")
+

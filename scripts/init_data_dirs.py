@@ -137,7 +137,7 @@ def check_existing_data():
         project_root / "backend" / "data",
         project_root / "test_codes" / "table_analyzer_codes",
         project_root / "obj_cache",
-        project_root / "cache.db"
+        project_root / "api_cache.db"
     ]
 
     existing_old = []
