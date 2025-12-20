@@ -55,13 +55,8 @@ class TableReconstructionPipeline:
 
         # 1. OCR识别
         print("步骤1: OCR识别表格...")
-        # try:
         ocr_result = self.ocr_service.recognize_table(image_path)
         print(f"✅ OCR完成，识别到{len(ocr_result.get('tables_result', []))}个表格")
-        # except Exception as e:
-        #     print(f"❌ OCR识别失败: {str(e)}")
-        #     self.stats['failed'] += 1
-        #     return {'success': False, 'error': f'OCR失败: {str(e)}'}
 
         # 2. LLM分析表头结构
         print("步骤2: LLM分析表格结构...")
@@ -78,11 +73,6 @@ class TableReconstructionPipeline:
             return {'success': False, 'error': 'LLM分析失败'}
 
         print(f"✅ LLM分析完成，识别到{llm_result['processing_stats']['visual_tables_count']}个逻辑表格")
-
-        # except Exception as e:
-        #     print(f"❌ LLM分析失败111: {str(e)}")
-        #     self.stats['failed'] += 1
-        #     return {'success': False, 'error': f'LLM分析失败: {str(e)}'}
 
         # 3. 表格重构
         print("步骤3: 重构表格数据...")
@@ -101,7 +91,8 @@ class TableReconstructionPipeline:
                 ocr_result=ocr_result,
                 llm_result=llm_result,
                 output_file=output_excel,
-                final_output_file=final_output_file
+                final_output_file=final_output_file,
+                image_path=image_path
             )
 
             if success:
@@ -291,6 +282,9 @@ if __name__ == "__main__":
     # 4. 设置测试图片路径
     # 优先使用配置，否则用默认
     test_images_dir = PROJECT_ROOT / "test_codes" / "png2"
+
+    print("test_images_dir::", test_images_dir)
+
     if not test_images_dir.exists():
         print(f"测试图片目录不存在: {test_images_dir}")
         sys.exit(1)

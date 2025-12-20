@@ -1,5 +1,9 @@
 
+import re
+import os
 from backend.src.services.table_processor.long_format_converter import FinalDataConverter
+from backend.src.services.table_processor.marked_table_processor import MarkedTableProcessor
+
 
 class TableReconstructor:
     """表格重构器：整合7步流程"""
@@ -10,6 +14,9 @@ class TableReconstructor:
         # 新增：记忆前一个表格的列结构
         self.prev_table_header_structure = None
         self.final_data_converter = FinalDataConverter()
+
+        # 新增：独立的标记表格处理器
+        self.marked_table_processor = MarkedTableProcessor()
 
     def _unify_headers_across_tables(self, llm_tables):
         """
@@ -116,7 +123,6 @@ class TableReconstructor:
         similarity = same_count / len(pattern1) if pattern1 else 0
 
         return similarity >= 0.6
-
 
     # ========== 工具函数 ==========
     def log_warning(self, message):
@@ -449,816 +455,255 @@ class TableReconstructor:
         print(f"\n匹配结果: {filled_count}/{len(row_headers)} 个行表头已填充")
         return table
 
-    def _validate_table_data(self, table):
+
+    def _analyze_cell_type(self, cell_value):
         """
-        验证表格数据，标记可疑的行和列
-        返回: (marked_table, row_checks, col_checks)
-        其中 row_checks 和 col_checks 是标记数组
+        分析单元格类型
+        返回: "blank", "text", "std_num", "minor_num", "error_num"
         """
-        if not table or len(table) == 0:
-            return table, [], []
-
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
-
-        if num_rows == 0 or num_cols == 0:
-            return table, [], []
-
-        print(f"\n=== 开始表格数据验证 ===")
-        print(f"表格尺寸: {num_rows}行 × {num_cols}列")
-
-        # 初始化标记数组
-        row_checks = [0] * num_rows  # 0=正常, 1=可疑
-        col_checks = [0] * num_cols  # 0=正常, 1=可疑
-
-        # 先分析每列的数据特征
-        col_features = self._analyze_column_features(table)
-
-        # 1. 检查孤立数据问题（主要问题）
-        self._check_isolated_data(table, row_checks, col_checks)
-
-        # 2. 检查数据类型不一致
-        self._check_data_type_inconsistency(table, row_checks, col_checks, col_features)
-
-        # 3. 检查空值模式异常
-        self._check_null_patterns(table, row_checks, col_checks)
-
-        # 4. 检查格式不规范
-        self._check_format_inconsistency(table, row_checks, col_checks)
-
-        # 创建带标记的表格（不修改原数据）
-        marked_table = self._create_marked_table(table, row_checks, col_checks)
-
-        # 输出验证结果
-        self._print_validation_results(row_checks, col_checks)
-
-        return marked_table, row_checks, col_checks
-
-    def _analyze_column_features(self, table):
-        """分析每列的数据特征"""
-        if not table:
-            return {}
-
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
-
-        col_features = {}
-
-        for col in range(num_cols):
-            # 统计该列的数据类型
-            numeric_count = 0
-            text_count = 0
-            empty_count = 0
-            has_percent = False
-            has_currency = False
-
-            for row in range(num_rows):
-                value = table[row][col]
-                if value is None or str(value).strip() == '':
-                    empty_count += 1
-                elif self._is_numeric_value(value):
-                    numeric_count += 1
-                    val_str = str(value)
-                    if '%' in val_str:
-                        has_percent = True
-                    if any(symbol in val_str for symbol in ['¥', '$', '€', '￡', 'HK$']):
-                        has_currency = True
-                else:
-                    text_count += 1
-
-            total_non_empty = num_rows - empty_count
-
-            # 确定主要数据类型
-            main_data_type = "unknown"
-            if total_non_empty > 0:
-                if numeric_count / total_non_empty > 0.7:
-                    main_data_type = "numeric"
-                elif text_count / total_non_empty > 0.7:
-                    main_data_type = "text"
-                else:
-                    main_data_type = "mixed"
-
-            col_features[col] = {
-                "main_data_type": main_data_type,
-                "numeric_count": numeric_count,
-                "text_count": text_count,
-                "empty_count": empty_count,
-                "has_percent": has_percent,
-                "has_currency": has_currency,
-                "total_non_empty": total_non_empty
-            }
-
-        return col_features
-
-    def _check_isolated_data(self, table, row_checks, col_checks):
-        """检查孤立数据问题"""
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
-
-        for row in range(num_rows):
-            for col in range(1, num_cols):  # 从第1列开始（第0列是行表头）
-                value = table[row][col]
-
-                # 如果有数据
-                if value and str(value).strip() != '':
-                    # 检查这一行的第一列是否为空
-                    row_header = table[row][0] if 0 < num_cols else None
-
-                    if row_header is None or str(row_header).strip() == '':
-                        # 检查上一行的第一列是否有内容
-                        prev_row_header = table[row - 1][0] if row > 0 and 0 < num_cols else None
-
-                        if prev_row_header and str(prev_row_header).strip() != '':
-                            # 检查上一行的同列是否为空
-                            prev_row_same_col = table[row - 1][col] if row > 0 else None
-
-                            if prev_row_same_col is None or str(prev_row_same_col).strip() == '':
-                                # 发现孤立数据！
-                                row_checks[row] = 1
-                                col_checks[col] = 1
-
-                                # 也标记上一行（可能需要合并）
-                                if row > 0:
-                                    row_checks[row - 1] = 1
-
-                                print(f"  ⚠️ 发现孤立数据: 行{row}列{col}='{value}'")
-                                print(f"     当前行表头为空，上一行表头为'{prev_row_header}'")
-
-    def _check_data_type_inconsistency(self, table, row_checks, col_checks, col_features):
-        """检查数据类型不一致"""
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
-
-        for col in range(num_cols):
-            if col not in col_features:
-                continue
-
-            features = col_features[col]
-            main_type = features["main_data_type"]
-
-            if main_type in ["numeric", "text"]:
-                for row in range(num_rows):
-                    value = table[row][col]
-                    if value is None or str(value).strip() == '':
-                        continue
-
-                    # 检查是否与主要类型不一致
-                    is_numeric = self._is_numeric_value(value)
-
-                    if main_type == "numeric" and not is_numeric:
-                        # 应该是数字但不是数字
-                        row_checks[row] = 1
-                        col_checks[col] = 1
-                        print(f"  ⚠️ 数据类型不一致: 行{row}列{col}='{value}'")
-                        print(f"     该列主要类型为数字，但此单元格为文本")
-
-                    elif main_type == "text" and is_numeric:
-                        # 应该是文本但是数字
-                        row_checks[row] = 1
-                        col_checks[col] = 1
-                        print(f"  ⚠️ 数据类型不一致: 行{row}列{col}='{value}'")
-                        print(f"     该列主要类型为文本，但此单元格为数字")
-
-    def _check_null_patterns(self, table, row_checks, col_checks):
-        """检查空值模式异常"""
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
-
-        # 检查列的空值模式
-        for col in range(num_cols):
-            empty_positions = []
-            for row in range(num_rows):
-                value = table[row][col]
-                if value is None or str(value).strip() == '':
-                    empty_positions.append(row)
-
-            # 如果该列只有少数几个空值，标记这些行
-            if 0 < len(empty_positions) < num_rows * 0.3:  # 少于30%为空
-                for row in empty_positions:
-                    # 检查该行的其他列是否有数据
-                    has_other_data = False
-                    for c in range(num_cols):
-                        if c != col:
-                            val = table[row][c]
-                            if val and str(val).strip() != '':
-                                has_other_data = True
-                                break
-
-                    if has_other_data:
-                        row_checks[row] = 1
-                        col_checks[col] = 1
-                        print(f"  ⚠️ 异常空值: 行{row}列{col}为空，但该行其他列有数据")
-
-    def _check_format_inconsistency(self, table, row_checks, col_checks):
-        """检查格式不规范"""
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
-
-        for col in range(num_cols):
-            # 收集该列所有数值的格式特征
-            has_comma = False
-            has_dot = False
-            has_percent_in_any = False
-
-            for row in range(num_rows):
-                value = table[row][col]
-                if value and str(value).strip() != '':
-                    val_str = str(value)
-                    if ',' in val_str:
-                        has_comma = True
-                    if '.' in val_str and any(ch.isdigit() for ch in val_str):
-                        has_dot = True
-                    if '%' in val_str:
-                        has_percent_in_any = True
-
-            # 检查格式一致性
-            for row in range(num_rows):
-                value = table[row][col]
-                if value and str(value).strip() != '':
-                    val_str = str(value)
-
-                    # 检查千分位格式不一致
-                    if has_comma and ',' not in val_str and self._is_numeric_value(value):
-                        # 其他单元格有逗号，但这个没有
-                        row_checks[row] = 1
-                        col_checks[col] = 1
-                        print(f"  ⚠️ 格式不一致: 行{row}列{col}='{value}'")
-                        print(f"     其他单元格使用千分位逗号，但此单元格没有")
-
-                    # 检查百分比格式不一致
-                    if has_percent_in_any and '%' not in val_str and self._looks_like_percentage(value):
-                        # 看起来像百分比但没有%符号
-                        row_checks[row] = 1
-                        col_checks[col] = 1
-                        print(f"  ⚠️ 格式不一致: 行{row}列{col}='{value}'")
-                        print(f"     其他单元格有%符号，但此单元格没有")
-
-    def is_numeric_value(self, cell_value):
-        """判断单元格值是否为数值类数据（包含百分数、空格、横杠）"""
         if cell_value is None:
-            return True  # None视为数值类
+            return "blank"
 
-        cell_str = str(cell_value).strip()
+        text = str(cell_value).strip()
 
-        # 空字符串或纯空格视为数值类
-        if cell_str == "":
-            return True  # ✅ 正确
+        # 1. 空白单元格
+        if text == "":
+            return "blank"
 
-        # 横杠'-'视为数值类
-        if cell_str == "-":
-            return True  # ✅ 正确
+        # 2. 检查是否为纯文本（不包含数字）
+        if not any(c.isdigit() for c in text):
+            return "text"
 
-        # 检查是否是百分数（包含%）
-        if "%" in cell_str:
-            # 移除%和逗号，尝试转换为浮点数
-            try:
-                num_str = cell_str.replace("%", "").replace(",", "")
-                float(num_str)
-                return True
-            except:
-                # 如果转换失败，检查是否只是%号
-                if cell_str.replace("%", "").strip() == "":
-                    return True
-                return False
+        # ========== 新增：检查%号前是否有逗号 ==========
+        if '%' in text:
+            # 找到%号的位置
+            percent_pos = text.find('%')
+            # 检查%号前面是否有逗号
+            if percent_pos > 0 and ',' in text[:percent_pos]:
+                # %号前面有逗号，这是错误格式（如"0,82%"）
+                # 但是要排除类似"1,234.56%"的情况
+                # 检查逗号是否在正确的位置
+                before_percent = text[:percent_pos]
+                if '.' in before_percent:
+                    # 有小数点，检查逗号和小数点的关系
+                    dot_pos = before_percent.find('.')
+                    for i, char in enumerate(before_percent):
+                        if char == ',' and i > dot_pos:
+                            # 逗号在小数点后面，这是错误格式
+                            return "error_num"
+                else:
+                    # 没有小数点，%号前不应该有逗号
+                    return "error_num"
 
-        # 检查是否是常规数值（可能包含逗号、小数点、负号）
-        # 先移除逗号
-        cell_str_no_comma = cell_str.replace(",", "")
+        # 3. 检查负值格式
+        cleaned = text
 
-        # 检查是否是纯数字（可能包含小数点和负号）
-        import re
-        # 匹配数字模式：可选负号，数字（可能包含小数点）
-        pattern = r'^-?\d+(\.\d+)?$'
+        # 处理括号负数
+        is_parenthesis_negative = (
+                cleaned.startswith('(') and
+                cleaned.endswith(')') and
+                '(' not in cleaned[1:-1] and
+                ')' not in cleaned[1:-1]
+        )
 
-        if re.match(pattern, cell_str_no_comma):
-            return True
+        if is_parenthesis_negative:
+            # 检查括号内是否还有负号
+            inside = cleaned[1:-1].strip()
+            if inside.startswith('-') or inside.endswith('-'):
+                return "error_num"  # 如"(-450)"或"(450-)"，错误格式
+            cleaned = '-' + inside
 
-        # 尝试转换为浮点数作为最后的手段
+        # 4. 检查多个负号或负号位置错误
+        if cleaned.count('-') > 1:
+            return "error_num"  # 如"--450"
+
+        if '-' in cleaned and not cleaned.startswith('-'):
+            return "error_num"  # 如"450-"
+
+        # 5. 移除负号、逗号、小数点、%号用于数值转换
+        test_str = cleaned
+        if '-' in test_str:
+            test_str = test_str.replace('-', '', 1)
+
+        # 记录原始符号用于格式检查
+        has_percent = '%' in test_str
+        dot_count = test_str.count('.')
+        comma_count = test_str.count(',')
+
+        # 用于数值转换的字符串
+        numeric_test = test_str.replace(',', '').replace('.', '').replace('%', '')
+
+        # 6. 尝试转换为数值
         try:
-            float(cell_str_no_comma)
-            return True
-        except:
-            # 检查是否包含特殊数值字符
-            # 如：1.2.3.4这种格式可能不是标准数值
+            # 如果转换失败，说明不是有效数值
+            float(numeric_test)
+        except ValueError:
+            return "text"  # 包含数字但不是有效数值
+
+        # 7. 格式检查
+        # 检查%号
+        if has_percent:
+            if not cleaned.endswith('%'):
+                return "error_num"  # %不在末尾
+            if cleaned.count('%') > 1:
+                return "error_num"  # 多个%
+
+        # 检查小数点
+        if dot_count > 1:
+            return "error_num"  # 多个小数点
+
+        # 检查逗号位置（如果有小数点）
+        if dot_count == 1 and comma_count > 0:
+            dot_pos = cleaned.find('.')
+            # 检查逗号是否都在小数点前面
+            for i, char in enumerate(cleaned):
+                if char == ',' and i > dot_pos:
+                    return "error_num"  # 逗号在小数点后面
+
+        # 8. 检查是否为标准格式
+        # 标准格式：有逗号时必须在正确位置，%在末尾等
+        if self._is_standard_format(cleaned):
+            return "std_num"
+        else:
+            return "minor_num"
+
+    def _is_standard_format(self, text):
+        """
+        判断是否为标准数值格式
+        标准格式要求：
+        1. 千分位逗号格式正确（每3位一个逗号）
+        2. 如果有小数点，后面通常有数字
+        3. 没有多余的空格或其他字符
+        """
+        if not text:
             return False
 
+        # 移除负号和%号
+        test_text = text
+        if test_text.startswith('-'):
+            test_text = test_text[1:]
+        if test_text.endswith('%'):
+            test_text = test_text[:-1]
 
-    def _create_marked_table(self, table, row_checks=None, col_checks=None):
-        """创建带标记的表格（根据数据类型标记）"""
+        # 检查逗号格式
+        if ',' in test_text:
+            # 分割整数和小数部分
+            if '.' in test_text:
+                int_part, dec_part = test_text.split('.', 1)
+            else:
+                int_part, dec_part = test_text, ""
 
-        if not table:
-            return []
+            # 检查整数部分的逗号格式
+            groups = int_part.split(',')
+            # 第一组可以是1-3位
+            if not (1 <= len(groups[0]) <= 3):
+                return False
 
-        num_rows = len(table)
-        num_cols = len(table[0]) if table else 0
+            # 后面的每组必须正好是3位
+            for group in groups[1:]:
+                if len(group) != 3:
+                    return False
 
-        # 自动检测数据列：排除明显是标记的列
-        # 通常标记列的表头包含"标记"、"标识"等关键字
-        data_column_indices = []
-        for c in range(num_cols):
-            if c == 0:  # 第一列通常是行表头
-                continue
-            # 检查列标题是否包含标记相关词汇
-            header = str(table[0][c]) if table[0][c] else ""
-            if any(marker in header for marker in ["行标记", "列标记", "标记", "标识", "flag"]):
-                print(f"跳过标记列: 列{c}, 标题='{header}'")
-                continue
-            data_column_indices.append(c)
+        return True
 
-        # 如果没有提供标记，则根据数据类型计算
-        if row_checks is None or col_checks is None:
-            # 初始化标记数组
-            row_checks = [0] * num_rows
-            col_checks = [0] * num_cols
+    def _fill_blank_cells(self, cell_types):
+        """
+        填充空白单元格的类型（根据同行/同列的众数类型）
+        """
+        if not cell_types:
+            return
 
-            # 计算行标记（从第1行开始，跳过表头行）
-            for r in range(1, num_rows):
-                numeric_count = 0
-                total_cells = 0
+        num_rows = len(cell_types)
+        num_cols = len(cell_types[0]) if num_rows > 0 else 0
 
-                # 只检查数据列
-                for c in data_column_indices:
-                    cell_value = table[r][c]
-                    total_cells += 1
-                    if self.is_numeric_value(cell_value):
-                        numeric_count += 1
-
-                # 判断逻辑
-                print("numeric_count == total_cells", r, numeric_count, total_cells)
-                if total_cells == 0:
-                    row_checks[r] = 2
-                elif numeric_count == total_cells:
-                    row_checks[r] = 0
-                elif numeric_count > 0:
-                    row_checks[r] = 1
-                else:
-                    row_checks[r] = 2
-
-            # 计算列标记（只计算数据列）
-            for c in data_column_indices:
-                numeric_count = 0
-                total_cells = 0
-
-                # 从第1行开始，跳过表头行
-                for r in range(1, num_rows):
-                    cell_value = table[r][c]
-                    total_cells += 1
-                    if self.is_numeric_value(cell_value):
-                        numeric_count += 1
-
-                # 判断逻辑
-                if total_cells == 0:
-                    col_checks[c] = 2
-                elif numeric_count == total_cells:
-                    col_checks[c] = 0
-                elif numeric_count > 0:
-                    col_checks[c] = 1
-                else:
-                    col_checks[c] = 2
-
-        # 创建新表格（增加一行一列用于标记）
-        marked_table = []
-        for r in range(num_rows + 1):
-            marked_table.append([None] * (num_cols + 1))
-
-        # 复制原始数据
         for r in range(num_rows):
             for c in range(num_cols):
-                marked_table[r][c] = table[r][c]
+                if cell_types[r][c] == "blank":
+                    # 查找同行和同列的非空白类型
+                    row_types = []
+                    col_types = []
 
-        # 添加行标记（在最后一列），并添加列标题"行标记"
-        for r in range(num_rows):
-            marked_table[r][num_cols] = row_checks[r]
+                    # 同行
+                    for cc in range(num_cols):
+                        if cc != c and cell_types[r][cc] != "blank":
+                            row_types.append(cell_types[r][cc])
 
-        # 给行标记列添加表头（第0行，最后一列）
-        marked_table[0][num_cols] = "行标记"
+                    # 同列
+                    for rr in range(num_rows):
+                        if rr != r and cell_types[rr][c] != "blank":
+                            col_types.append(cell_types[rr][c])
 
-        # 添加列标记（在最后一行），并添加行标题"列标记"
-        for c in range(num_cols):
-            marked_table[num_rows][c] = col_checks[c]
+                    # 合并所有类型
+                    all_types = row_types + col_types
 
-        # 给列标记行添加表头（最后一行，第0列）
-        marked_table[num_rows][0] = "列标记"
+                    if all_types:
+                        # 找出众数类型
+                        from collections import Counter
+                        type_counts = Counter(all_types)
+                        most_common = type_counts.most_common(1)
 
-        # 右下角单元格标记总数（不同类型的问题统计）
-        # 注意：只统计数据列和数据行的标记
-        data_row_checks = row_checks[1:]  # 跳过表头行
-        data_col_checks = [col_checks[c] for c in data_column_indices]
+                        if most_common:
+                            cell_types[r][c] = most_common[0][0]
 
-        final_vals = data_row_checks+data_col_checks
-
-        marked_table[num_rows][num_cols] = max(final_vals)
-
-        return marked_table
-
-
-    def _print_validation_results(self, row_checks, col_checks):
-        """打印验证结果"""
-        suspicious_rows = [i for i, check in enumerate(row_checks) if check == 1]
-        suspicious_cols = [i for i, check in enumerate(col_checks) if check == 1]
-
-        print(f"\n=== 验证结果 ===")
-        print(f"可疑行: {len(suspicious_rows)}个")
-        if suspicious_rows:
-            print(f"  行索引: {suspicious_rows}")
-
-        print(f"可疑列: {len(suspicious_cols)}个")
-        if suspicious_cols:
-            print(f"  列索引: {suspicious_cols}")
-
-        total_cells = len(row_checks) * len(col_checks) if row_checks and col_checks else 0
-        suspicious_cells = sum(row_checks) * sum(col_checks)  # 粗略估计
-
-        print(f"总检查点: {total_cells}")
-        print(f"可疑单元格估计: {suspicious_cells}")
-        print("=" * 40)
-
-    # 工具函数
-    def _looks_like_percentage(self, value):
-        """判断是否看起来像百分比"""
-        if not value:
-            return False
-
-        value_str = str(value).strip()
-
-        # 已经包含%符号
-        if '%' in value_str:
-            return True
-
-        # 检查是否为0-100之间的数字（可能是百分比）
-        try:
-            cleaned = value_str.replace(',', '').replace(' ', '')
-            num = float(cleaned)
-            return 0 <= num <= 100
-        except:
-            return False
-
-    def _check_cell_validity(self, cell, row_idx, col_idx):
+    def _determine_row_column_mark(self, cell_types, label):
         """
-        检查单元格数据的有效性
+        根据单元格类型列表确定行或列的标记
         """
-        if cell is None or cell == "":
-            return False
+        # 过滤掉空白单元格
+        non_blank_types = [t for t in cell_types if t != "blank"]
 
-        # 检查是否为数值型数据
-        if isinstance(cell, (int, float)):
-            return True
+        if not non_blank_types:
+            return 0  # 全空白，视为纯文本
 
-        # 检查是否为可转换的数值字符串
-        cell_str = str(cell).strip()
+        # 检查是否有文本
+        has_text = "text" in non_blank_types
+        has_std_num = "std_num" in non_blank_types
+        has_minor_num = "minor_num" in non_blank_types
+        has_error_num = "error_num" in non_blank_types
 
-        # 移除括号（表示负数的括号表示法）
-        if cell_str.startswith('(') and cell_str.endswith(')'):
-            cell_str = '-' + cell_str[1:-1]
+        # 4. 混合类型（包含文本和任何数值）
+        if has_text and (has_std_num or has_minor_num or has_error_num):
+            print(f"  {label}: 标记4 - 混合类型 (文本+数值)")
+            return 4
 
-        # 检查是否为数字（包括负数和小数）
-        try:
-            # 移除百分比符号等
-            clean_str = cell_str.replace('%', '').replace(',', '')
-            float(clean_str)
-            return True
-        except ValueError:
-            # 可能是文本或混合内容
-            return cell_str not in ['N/A', 'null', '--', '---']
+        # 3. 很可能错误的数值
+        if has_error_num:
+            print(f"  {label}: 标记3 - 可能错误的数值")
+            return 3
 
-    def _generate_row_feature(self, score):
+        # 现在只包含数值类型
+        # 2. 有小问题的数值（有minor_num，可能也有std_num）
+        if has_minor_num:
+            print(f"  {label}: 标记2 - 格式问题数值")
+            return 2
+
+        # 1. 完全正确的数值（全是std_num）
+        if has_std_num and not has_minor_num and not has_error_num:
+            print(f"  {label}: 标记1 - 标准数值")
+            return 1
+
+        # 0. 纯文本
+        if not has_std_num and not has_minor_num and not has_error_num:
+            print(f"  {label}: 标记0 - 纯文本")
+            return 0
+
+        # 默认返回0
+        return 0
+
+    def _count_marks(self, marks_list):
         """
-        根据行数据质量生成特征标记
+        统计标记数量
         """
-        if score >= 0.9:
-            return "1"  # 高质量行
-        elif score >= 0.7:
-            return "0"  # 中等质量行
-        else:
-            return "问题"  # 低质量行，需要检查
-
-    def _generate_col_feature(self, score):
-        """
-        根据列数据质量生成特征标记
-        """
-        if score >= 0.9:
-            return "1"  # 高质量列
-        elif score >= 0.7:
-            return "0"  # 中等质量列
-        else:
-            return "检查"  # 低质量列
-
-    def _generate_overall_feature(self, score):
-        """
-        生成整体表格的特征标记
-        """
-        if score >= 0.9:
-            return "表格完整"
-        elif score >= 0.7:
-            return "部分问题"
-        else:
-            return f"问题:{int((1 - score) * 100)}"
-
-    def step8_add_feature_marks(self, validated_table, validation_marks):
-        """
-        添加特征标记 - 修复最后一列表头问题
-        """
-        marked_table = [row[:] for row in validated_table]  # 深拷贝
-
-        print(f"\n=== step8调试信息 ===")
-        print(f"输入表格行数: {len(validated_table)}")
-        print(f"行标记数量: {len(validation_marks['row_marks'])}")
-        print(f"列标记数量: {len(validation_marks['col_marks'])}")
-
-        if not marked_table:
-            return marked_table
-
-        row_marks = validation_marks["row_marks"]
-        col_marks = validation_marks["col_marks"]
-
-        # 1. 添加最后一列（行标记列）
-        print(f"\n添加行标记列:")
-
-        for i in range(len(marked_table)):
-            if i == 0:
-                # 第一行：添加"行标记"作为列标题
-                marked_table[i].append("行标记")
-                print(f"  行{i}: 添加'行标记'（列标题）")
-            else:
-                # 其他行：添加对应的行标记值
-                mark_idx = i - 1 if (i - 1) < len(row_marks) else len(row_marks) - 1
-                mark_value = str(row_marks[mark_idx]) if mark_idx >= 0 and mark_idx < len(row_marks) else "0"
-                marked_table[i].append(mark_value)
-                print(f"  行{i}: 添加行标记值{mark_value}")
-
-        # 2. 添加最后一行（列标记行）
-        last_row = []
-        print(f"\n创建列标记行:")
-
-        # 第一列：写"列标记"作为行标题
-        last_row.append("列标记")
-        print(f"  列0: 添加'列标记'（行标题）")
-
-        # 其他列：添加列标记（注意索引对齐）
-        # 这里要包括新增的行标记列，所以从第1列到最后一列
-        for j in range(1, len(marked_table[0])):
-            mark_idx = j - 1  # 因为第0列是行表头列
-
-            if mark_idx < len(col_marks):
-                mark_value = str(col_marks[mark_idx])
-            else:
-                # 对于行标记列（最后一列），给它一个特殊的列标记值
-                if j == len(marked_table[0]) - 1:
-                    mark_value = "1"  # 行标记列的列标记
-                else:
-                    mark_value = "0"
-
-            last_row.append(mark_value)
-            print(f"  列{j}: 添加列标记值{mark_value}")
-
-        marked_table.append(last_row)
-
-        # 输出最终表格信息
-        print(f"最终表格: {len(marked_table)}行 × {len(marked_table[0])}列")
-
-        # 打印第一行看看
-        print(f"第一行（应包含'行标记'表头）: {marked_table[0]}")
-
-        return marked_table
-
-    def _is_numeric_value(self, cell):
-        """
-        判断是否为数值
-        """
-        if cell is None:
-            return False
-
-        cell_str = str(cell).strip()
-
-        # 如果已经是标记，不算数值
-        if cell_str in ["0", "1", "2", "3"]:
-            return False
-
-        # 尝试转换为数值
-        try:
-            # 处理括号表示法
-            if cell_str.startswith('(') and cell_str.endswith(')'):
-                cell_str = '-' + cell_str[1:-1]
-
-            # 清理字符
-            clean_str = cell_str.replace(',', '').replace(' ', '')
-
-            float(clean_str)
-            return True
-        except ValueError:
-            # 检查是否包含数字（可能是文本数字混合）
-            import re
-            if re.search(r'\d', cell_str):
-                # 包含数字但不完全是数字，算是文本
-                return False
-            # 纯文本
-            return False
-
-    def _contains_digits(self, cell):
-        """
-        判断是否包含数字
-        """
-        if cell is None:
-            return False
-
-        import re
-        cell_str = str(cell)
-        return bool(re.search(r'\d', cell_str))
-
-    def step7_validate_and_mark_preserve_headers(self, final_table):
-        """
-        验证数据并记录标记（保留表头，只检查数据区域）
-        """
-        validated_table = [row[:] for row in final_table]
-
-        if not validated_table:
-            return validated_table, {"row_marks": [], "col_marks": []}
-
-        # 记录每行的标记（基于数据区域）
-        row_marks = []
-
-        for i, row in enumerate(validated_table):
-            if not row:  # 空行
-                row_marks.append(0)
-                continue
-
-            # 检查该行是否有数据（跳过第一列表头）
-            has_data = False
-            for j in range(1, len(row)):  # 从第二列开始检查
-                cell = row[j]
-                if cell is not None and cell != "":
-                    has_data = True
-                    break
-
-            if not has_data:  # 这行没有数据
-                row_marks.append(0)
-                continue
-
-            # 分析数据区域的类型（跳过第一列）
-            numeric_count = 0
-            text_count = 0
-            empty_count = 0  # 新增：记录空单元格数量
-
-            for j in range(1, len(row)):  # 跳过第一列（表头）
-                cell = row[j]
-                if cell is None or cell == "":
-                    empty_count += 1  # 记录空单元格
-                    continue
-
-                if self._is_pure_numeric(cell):
-                    numeric_count += 1
-                else:
-                    text_count += 1
-
-            total_count = numeric_count + text_count + empty_count  # 包括空单元格
-
-            # 打印调试信息
-            print(f"行 {i}: numeric={numeric_count}, text={text_count}, empty={empty_count}, total={total_count}")
-
-            if total_count == 0:
-                row_marks.append(0)
-                continue
-
-            # 判断标记
-            mark = 0
-
-            # 首先检查空单元格
-            if empty_count > 0:
-                # 有空单元格，至少标记1
-                mark = 1
-
-                # 打印调试信息
-                print(f"  行 {i}: 有空单元格 {empty_count}个，标记至少为1")
-
-                # 如果只有很少的数值，标记2
-                if numeric_count > 0 and numeric_count <= 1:
-                    mark = 2
-                    print(f"  行 {i}: 只有{numeric_count}个数值，标记为2")
-
-            # 条件2：最需要检查 - 数值很少（没有空单元格的情况）
-            elif numeric_count > 0:
-                numeric_ratio = numeric_count / total_count if total_count > 0 else 0
-                if numeric_ratio < 0.2 or numeric_count <= 1:
-                    mark = 2
-                    print(f"  行 {i}: 数值很少({numeric_count}/{total_count})，标记为2")
-
-            # 条件1：需要检查 - 混合类型
-            if numeric_count > 0 and text_count > 0 and mark < 2:  # 如果还没标记2
-                mark = 1
-                print(f"  行 {i}: 混合类型({numeric_count}数值+{text_count}文本)，标记为1")
-
-            # 如果没有标记任何问题，标记0
-            if mark == 0:
-                print(f"  行 {i}: 格式一致，标记为0")
-
-            row_marks.append(mark)
-
-        # 记录每列的标记（基于数据区域）
-        col_marks = []
-
-        if validated_table and validated_table[0]:
-            num_cols = len(validated_table[0])
-            for j in range(num_cols):
-                # 检查该列是否有数据（跳过第一行表头）
-                has_data = False
-                for i in range(1, len(validated_table)):  # 从第二行开始检查
-                    if j < len(validated_table[i]):
-                        cell = validated_table[i][j]
-                        if cell is not None and cell != "":
-                            has_data = True
-                            break
-
-                if not has_data:  # 这列没有数据
-                    col_marks.append(0)
-                    continue
-
-                # 分析数据区域的类型（跳过第一行）
-                numeric_count = 0
-                text_count = 0
-                empty_count = 0  # 新增
-
-                for i in range(1, len(validated_table)):  # 跳过第一行（表头）
-                    if j >= len(validated_table[i]):
-                        empty_count += 1  # 缺失的单元格
-                        continue
-
-                    cell = validated_table[i][j]
-                    if cell is None or cell == "":
-                        empty_count += 1
-                        continue
-
-                    if self._is_pure_numeric(cell):
-                        numeric_count += 1
-                    else:
-                        text_count += 1
-
-                total_count = numeric_count + text_count + empty_count
-
-                # 打印列调试信息
-                print(f"列 {j}: numeric={numeric_count}, text={text_count}, empty={empty_count}, total={total_count}")
-
-                if total_count == 0:
-                    col_marks.append(0)
-                    continue
-
-                # 判断标记
-                mark = 0
-
-                # 首先检查空单元格
-                if empty_count > 0:
-                    mark = 1
-                    print(f"  列 {j}: 有空单元格 {empty_count}个，标记至少为1")
-
-                    if numeric_count > 0 and numeric_count <= 1:
-                        mark = 2
-                        print(f"  列 {j}: 只有{numeric_count}个数值，标记为2")
-
-                # 条件2：最需要检查 - 数值很少
-                elif numeric_count > 0 and numeric_count < total_count / 3:
-                    mark = 2
-                    print(f"  列 {j}: 数值很少({numeric_count}/{total_count})，标记为2")
-
-                # 条件1：需要检查 - 混合类型
-                elif numeric_count > 0 and text_count > 0:
-                    mark = 1
-                    print(f"  列 {j}: 混合类型({numeric_count}数值+{text_count}文本)，标记为1")
-
-                if mark == 0:
-                    print(f"  列 {j}: 格式一致，标记为0")
-
-                col_marks.append(mark)
-
-        print(f"最终行标记: {row_marks}")
-        print(f"最终列标记: {col_marks}")
-
-        return validated_table, {"row_marks": row_marks, "col_marks": col_marks}
-
-    def _is_pure_numeric(self, cell):
-        """
-        判断是否为纯数值
-        """
-        if cell is None:
-            return False
-
-        cell_str = str(cell).strip()
-
-        # 如果已经是标记，不算数值
-        if cell_str in ["0", "1", "2"]:
-            return False
-
-        # 尝试转换为数值
-        try:
-            # 处理括号表示法
-            if cell_str.startswith('(') and cell_str.endswith(')'):
-                cell_str = '-' + cell_str[1:-1]
-
-            # 清理字符
-            clean_str = cell_str.replace(',', '').replace(' ', '')
-
-            float(clean_str)
-            return True
-        except ValueError:
-            return False
+        from collections import Counter
+        counter = Counter(marks_list)
+
+        result = []
+        for mark in range(5):
+            count = counter.get(mark, 0)
+            if count > 0:
+                result.append(f"标记{mark}:{count}个")
+
+        return ", ".join(result)
 
     def _fix_llm_table_references(self, ocr_result, llm_result):
         """修正LLM引用的表格索引，确保引用有数据的表格"""
@@ -1454,69 +899,10 @@ class TableReconstructor:
 
         return table
 
-    def step5_add_column_headers(self, table, col_headers):
-        """
-        最终版：LLM列数是最终列数，从右向左确定列
-        """
-        if not col_headers:
-            print("无列标题")
-            return table
-
-        if not table:
-            print("表格为空")
-            return table
-
-        current_cols = len(table[0])  # OCR表格的列数
-        target_cols = len(col_headers)  # LLM的最终列数
-
-        # 情况1：OCR列数 > LLM列数（需要删除左侧多余的列）
-        if current_cols > target_cols:
-            excess_cols = current_cols - target_cols
-            print(f"需要删除左侧{excess_cols}列")
-
-            # 删除左侧多余的列（从每行删除）
-            for i in range(len(table)):
-                # 保留右侧的target_cols列，删除左侧的excess_cols列
-                table[i] = table[i][excess_cols:]
-
-            current_cols = target_cols  # 更新列数
-
-        # 情况2：OCR列数 < LLM列数（需要补充左侧空列）
-        elif current_cols < target_cols:
-            needed_cols = target_cols - current_cols
-            print(f"需要补充左侧{needed_cols}列")
-
-            # 在每行左侧补充空列
-            for i in range(len(table)):
-                table[i] = [None] * needed_cols + table[i]
-
-            current_cols = target_cols  # 更新列数
-
-        # 现在表格列数 = LLM列数
-        print(f"调整后表格列数: {current_cols}")
-
-        # 在顶部添加一行用于列标题
-        table.insert(0, [None] * current_cols)
-
-        # 从右向左填充列标题
-        def change_name(name):
-            if name == '>>':
-                name = ""
-            return name
-        col_headers = [change_name(col) for col in col_headers]
-        col_headers_copy = col_headers.copy()
-        for col in range(current_cols - 1, -1, -1):
-            if col_headers_copy:
-                table[0][col] = col_headers_copy.pop()
-
-        print("列标题填充完成")
-        print(f"第0行（列标题）: {table[0]}")
-
-        return table
 
     def step5_add_column_headers(self, table, col_headers):
         """
-        优化版：保持单行，但清理和验证列标题
+        优化版：清理和验证列标题，调整列数匹配
         """
         if not col_headers:
             print("无列标题")
@@ -1545,24 +931,26 @@ class TableReconstructor:
             header_str = header_str.replace('><', '>>')
             header_str = header_str.replace('＞＞', '>>')
 
+            # 修复可能的分隔符错误
+            if '>' in header_str and '>' in header_str[1:]:
+                # 处理类似 "b>2024年12月31日" 的情况
+                parts = header_str.split('>')
+                if len(parts) == 2:
+                    header_str = f"{parts[0]}>>{parts[1]}"
+
             # 移除多余空格
             header_str = '>>'.join([part.strip() for part in header_str.split('>>')])
 
             # 特别处理：如果标题就是">>"，设为空
-            if header_str == '>>':
+            if header_str == '>>' or header_str == '>':
                 header_str = ""
 
             cleaned_headers.append(header_str)
 
-        # 2. 验证列结构
-        print(f"清理后的列标题: {cleaned_headers}")
+        # 2. 验证列标题有效性
+        self._validate_cleaned_headers(cleaned_headers)
 
-        # 检查是否有合理的季度/年份信息
-        has_year_info = any(any(year in h for year in ['2024', '2023', '年']) for h in cleaned_headers if h)
-        if not has_year_info:
-            print("⚠️ 列标题中缺少年份/季度信息")
-
-        # 3. 调整列数匹配（原有逻辑）
+        # 3. 调整列数匹配
         # 情况1：OCR列数 > LLM列数（需要删除左侧多余的列）
         if current_cols > target_cols:
             excess_cols = current_cols - target_cols
@@ -1582,6 +970,8 @@ class TableReconstructor:
                 table[i] = [None] * needed_cols + table[i]
 
             current_cols = target_cols
+        else:
+            print("列数已匹配，无需调整")
 
         print(f"调整后表格列数: {current_cols}")
 
@@ -1598,6 +988,33 @@ class TableReconstructor:
         print(f"第0行（列标题）: {table[0]}")
 
         return table
+
+    def _validate_cleaned_headers(self, cleaned_headers):
+        """
+        验证清理后的列标题
+        """
+        print(f"清理后的列标题: {cleaned_headers}")
+
+        # 统计空列标题
+        empty_count = sum(1 for h in cleaned_headers if not h)
+        if empty_count > 0:
+            print(f"⚠️ 有{empty_count}个空列标题")
+
+        # 检查是否有非空的列标题
+        non_empty_count = len(cleaned_headers) - empty_count
+        if non_empty_count == 0:
+            print("⚠️ 所有列标题都为空，请检查LLM输出")
+
+        # 检查列标题格式（可选，仅用于信息提示）
+        for i, header in enumerate(cleaned_headers):
+            if header:
+                # 检查是否有分隔符但格式异常
+                if '>>' in header:
+                    parts = header.split('>>')
+                    if len(parts) > 2:
+                        print(f"  列{i}: 包含多层分隔符 -> {header}")
+                elif '>' in header:
+                    print(f"  列{i}: 使用单层分隔符 -> {header}")
 
     def _looks_like_numeric_data(self, text):
         """判断文本是否看起来像数值型数据"""
@@ -1663,6 +1080,11 @@ class TableReconstructor:
         # [2] 分析LLM表头的层级关系
         header_hierarchy = self._analyze_header_hierarchy(row_headers)
 
+        print("1111111111111111111111111row_headers:", row_headers)
+        print("2222222222222header_hierarchy2222222222222")
+        print(header_hierarchy)
+
+
         # [3] 为每个LLM表头确定插入位置
         llm_insert_positions = {}
 
@@ -1670,6 +1092,8 @@ class TableReconstructor:
             if llm_idx in llm_to_ocr_match:
                 # 有精确匹配
                 ocr_row, score = llm_to_ocr_match[llm_idx]
+
+
                 llm_insert_positions[llm_idx] = ('exact', ocr_row)
             else:
                 # 无匹配，需要找插入位置
@@ -1945,17 +1369,117 @@ class TableReconstructor:
 
         return table
 
-    def step9_save_to_excel(self, tables_data, output_file):
+    # 新增：标记表格的代理方法
+    def step7_create_marked_table(self, table, row_checks=None, col_checks=None):
+        """代理到独立的标记表格处理器"""
+        return self.marked_table_processor.create_marked_table(table, row_checks, col_checks)
+
+    def step8_add_feature_marks(self, validated_table, validation_marks):
+        """代理到独立的标记表格处理器"""
+        return self.marked_table_processor.add_feature_marks(validated_table, validation_marks)
+
+    def is_numeric_value(self, cell_value):
+        """代理到独立的标记表格处理器"""
+        return self.marked_table_processor.is_numeric_value(cell_value)
+
+    def _is_pure_numeric(self, cell):
+        """代理到独立的标记表格处理器"""
+        return self.marked_table_processor._is_pure_numeric(cell)
+
+
+    # ========== 完整流程 ==========
+    def process_single_table(self, ocr_tables, llm_table_info):
         """
-            将多个表格保存到Excel，每个表格一个Sheet
-            tables_data: 列表，每个元素是一个表格的完整数据
-            """
+        处理单个表格的完整流程
+        """
+        print(f"\n{'=' * 60}")
+        print(f"开始处理表格")
+        print(f"{'=' * 60}")
+
+        # 第3步：合并OCR表格
+        merged_data = self.step3_merge_ocr_tables(ocr_tables, llm_table_info)
+        if not merged_data:
+            self.log_issue("表格合并失败")
+            return None
+
+        # 第4步：创建基础表格
+        base_table = self.step4_create_base_data_table(merged_data)
+        if not base_table:
+            self.log_issue("创建基础表格失败")
+            return None
+
+        # 第5步：添加列标题
+        col_headers = merged_data.get('headers', {}).get('cols', [])
+        table_with_cols = self.step5_add_column_headers(base_table, col_headers)
+
+        # 第6步：添加行标题
+        row_headers = merged_data.get('headers', {}).get('rows', [])
+        final_table = self.step6_add_row_headers_intelligent(
+            table_with_cols,
+            row_headers,
+            table_boundaries=merged_data.get('table_boundaries')
+        )
+
+        # 第7步：合并行表头并删除列
+        final_table = self._merge_and_remove_columns(final_table)
+
+        # 第8步：添加行列标记（根据数据类型）
+        marked_table = self.step7_create_marked_table(final_table)
+
+        return marked_table
+
+
+    def _clean_sheet_name(self, name):
+        """
+        清理Sheet名称，确保符合Excel要求
+        Excel Sheet名称限制：
+        1. 不超过31个字符
+        2. 不能包含字符：: \ / ? * [ ]
+        3. 不能为空
+        4. 不能以'开头
+        """
+        if not name or not isinstance(name, str):
+            return "未命名表格"
+
+        # 替换非法字符
+        illegal_chars = [':', '\\', '/', '?', '*', '[', ']']
+        for char in illegal_chars:
+            name = name.replace(char, '_')
+
+        # 移除首尾空格
+        name = name.strip()
+
+        # 如果以'开头，移除
+        if name.startswith("'"):
+            name = name[1:]
+
+        # 截断到31个字符
+        if len(name) > 31:
+            name = name[:31]
+
+        # 确保不为空
+        if not name:
+            name = "未命名表格"
+
+        return name
+
+    def step9_save_to_excel(self, tables_data, output_file, table_names=None):
+        """
+        将多个表格保存到Excel，每个表格一个Sheet
+        tables_data: 列表，每个元素是一个表格的完整数据
+        output_file: 输出Excel文件路径
+        table_names: 可选，表格名称列表，用于Sheet名称
+        """
         import openpyxl
         from openpyxl.styles import Alignment, Font, Border, Side
         from openpyxl.utils import get_column_letter
 
         print(f"\n=== 第7步：保存到Excel ===")
         print(f"要保存{len(tables_data)}个表格到: {output_file}")
+
+        # 如果有表格名称，显示它们
+        if table_names:
+            print(f"使用的表格名称列表: {table_names}")
 
         # 创建新的工作簿
         wb = openpyxl.Workbook()
@@ -1972,9 +1496,15 @@ class TableReconstructor:
                 continue
 
             # 创建Sheet名称（Excel限制31字符）
-            sheet_name = f"Table{table_idx + 1}"
-            if len(sheet_name) > 31:
-                sheet_name = sheet_name[:31]
+            # 如果提供了table_names，使用表格名称，否则使用默认名称
+            if table_names and table_idx < len(table_names):
+                table_name = table_names[table_idx]
+                # 清理Sheet名称
+                sheet_name = self._clean_sheet_name(table_name)
+            else:
+                sheet_name = f"Table{table_idx + 1}"
+
+            print(f"  表格{table_idx + 1}: {len(table)}行 × {len(table[0]) if table else 0}列 -> Sheet: '{sheet_name}'")
 
             # 检查Sheet名称是否重复
             original_name = sheet_name
@@ -1989,8 +1519,6 @@ class TableReconstructor:
             # 获取表格尺寸
             num_rows = len(table)
             num_cols = len(table[0]) if num_rows > 0 else 0
-
-            print(f"  表格{table_idx + 1}: {num_rows}行 × {num_cols}列 -> Sheet: '{sheet_name}'")
 
             # 填充数据到Excel
             for r in range(num_rows):
@@ -2031,7 +1559,7 @@ class TableReconstructor:
                         # 计算文本长度（中文算2个字符）
                         text_len = 0
                         for char in str(cell_value):
-                            if '\u4e00-\u9fff' in char:  # 中文字符
+                            if '\u4e00' <= char <= '\u9fff':  # 中文字符
                                 text_len += 2
                             else:
                                 text_len += 1
@@ -2082,96 +1610,125 @@ class TableReconstructor:
             print(f"\n❌ 保存Excel文件失败: {str(e)}")
             return False
 
-    # ========== 完整流程 ==========
-    def process_single_table(self, ocr_tables, llm_table_info):
+    def _extract_page_number_from_image_path(self, image_path):
         """
-        处理单个表格的完整流程
+        从图片路径中提取页码信息
+        例如: "XXX_015.png" -> "P015"
+              "514001_152.png" -> "P152"  # 假设152是页码
+              "document_123_page_045.jpg" -> "P045"
+              "img_001.png" -> "P001"
         """
-        print(f"\n{'=' * 60}")
-        print(f"开始处理表格")
-        print(f"{'=' * 60}")
+        if not image_path:
+            print("  图片路径为空")
+            return ""
 
-        # 第3步：合并OCR表格
-        merged_data = self.step3_merge_ocr_tables(ocr_tables, llm_table_info)
-        if not merged_data:
-            self.log_issue("表格合并失败")
-            return None
+        # 获取文件名（不含路径和扩展名）
+        file_name = os.path.basename(image_path)
+        base_name = os.path.splitext(file_name)[0]
 
-        # 第4步：创建基础表格
-        base_table = self.step4_create_base_data_table(merged_data)
-        if not base_table:
-            self.log_issue("创建基础表格失败")
-            return None
+        print(f"解析图片文件名: '{base_name}'")
 
-        # 第5步：添加列标题
-        col_headers = merged_data.get('headers', {}).get('cols', [])
-        table_with_cols = self.step5_add_column_headers(base_table, col_headers)
+        # 先尝试从文件名中直接提取可能的页码（通常是最后一段数字）
+        # 对于类似"514001_152"的文件名，152可能是页码
+        parts = base_name.split('_')
+        if len(parts) >= 2:
+            last_part = parts[-1]
+            if last_part.isdigit() and len(last_part) >= 2:
+                # 假设最后一部分数字是页码
+                page_num = last_part.zfill(3)  # 格式化为3位
+                result = f"P{page_num}"
+                print(f"  从最后一部分提取页码: {last_part} -> {result}")
+                return result
 
-        # 第6步：添加行标题
-        row_headers = merged_data.get('headers', {}).get('rows', [])
-        final_table = self.step6_add_row_headers_intelligent(
-            table_with_cols,
-            row_headers,
-            table_boundaries=merged_data.get('table_boundaries')
-        )
+        # 尝试匹配各种页码格式
+        patterns = [
+            r'_(\d{3})$',  # 匹配_015（3位数字结尾）
+            r'_(\d{2})$',  # 匹配_15（2位数字结尾）
+            r'[pP]age_?(\d+)',  # 匹配page_15, Page45等
+            r'p(\d+)',  # 匹配p15, P123等
+            r'(\d{3})[._]',  # 匹配数字后跟点或下划线
+            r'\D(\d{3})\D',  # 匹配被非数字包围的3位数字
+        ]
 
-        # 第7步：合并行表头并删除列
-        final_table = self._merge_and_remove_columns(final_table)
+        for pattern in patterns:
+            match = re.search(pattern, base_name)
+            if match:
+                page_num = match.group(1)
+                # 格式化页码，确保有前导零
+                page_num_formatted = page_num.zfill(3)  # 至少3位，如015
+                result = f"P{page_num_formatted}"
+                print(f"  正则匹配到页码: {page_num} -> {result} (模式: {pattern})")
+                return result
 
-        # 第8步：添加行列标记（根据数据类型）
-        marked_table = self._create_marked_table(final_table)
+        # 如果没有匹配到，尝试提取所有数字
+        all_digits = re.findall(r'\d+', base_name)
+        if all_digits:
+            # 取最长的一组数字（通常页码较长）
+            longest_digits = max(all_digits, key=len)
+            if len(longest_digits) >= 2:  # 至少2位才认为是页码
+                page_num_formatted = longest_digits.zfill(3)
+                result = f"P{page_num_formatted}"
+                print(f"  提取最长数字作为页码: {longest_digits} -> {result}")
+                return result
 
-        return marked_table
+        print(f"  未找到页码信息，返回空字符串")
+        return ""
 
-
-    def process_all_tables(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx"):
+    def process_all_tables(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx",
+                           image_path=None):
         """
-                完整处理流程：第1-7步 - 增强版（支持表格合并）
-                """
-        print("开始表格重构流程...")
+        完整处理流程：第1-7步 - 增强版（支持表格合并）
+        主要改进：提取LLM表格的name字段作为Excel Sheet名称，并添加页码前缀
+        image_path: 新增参数，原始图片路径，用于提取页码信息
+        """
+        print("开始表格重构流程...", image_path)
 
+        # ========== 新增：提取图片页码信息 ==========
+        page_prefix = ""
+        if image_path:
+            page_prefix = self._extract_page_number_from_image_path(image_path)
+            print(f"从图片路径提取页码前缀: {page_prefix}")
+
+        # ========== 第0步：数据预处理和验证 ==========
         # 🔥 修正：检查并修正LLM引用的表格索引
         self._fix_llm_table_references(ocr_result, llm_result)
 
-        # 第1步：准备数据
+        # ========== 第1步：准备数据 ==========
         ocr_result, llm_result = self.step1_prepare_data(ocr_result, llm_result)
 
-        # 第2步：提取表格数据
+        # ========== 第2步：提取表格数据 ==========
         ocr_tables, llm_tables = self.step2_extract_table_data(ocr_result, llm_result)
 
-        print("ocr_tables数量:", len(ocr_tables))
-        print("llm_tables数量:", len(llm_tables))
+        # 调试信息
+        print(f"OCR表格数量: {len(ocr_tables)}")
+        print(f"LLM表格结构数量: {len(llm_tables)}")
 
         if not ocr_tables or not llm_tables:
             self.log_issue("提取表格数据失败")
             return False
 
-        print(f"OCR表格数: {len(ocr_tables)}")
-        print(f"LLM表格结构数: {len(llm_tables)}")
-
-        # === 新增：列标题统一化处理 ===
+        # ========== 第3步：列标题统一化处理 ==========
         print("\n=== 开始列标题统一化处理 ===")
         llm_tables = self._unify_headers_across_tables(llm_tables)
 
-        # === 新增：检测需要合并的表格 ===
+        # ========== 第4步：检测需要合并的表格 ==========
         merge_groups = self._detect_tables_to_merge(llm_tables)
 
         # 分离需要合并的表格和独立处理的表格
         all_indices = set(range(len(llm_tables)))
         merged_indices = set()
 
+        # 收集所有合并组的索引
         for group in merge_groups:
             for idx in group:
                 merged_indices.add(idx)
 
         independent_indices = all_indices - merged_indices
 
-        print(f"\n表格处理策略:")
-        print(f"  需要合并的表格: {merged_indices}")
-        print(f"  独立处理的表格: {independent_indices}")
-
-        # 处理每个表格（先处理合并的，再处理独立的）
-        all_final_tables = []
+        # ========== 第5步：处理所有表格并收集结果 ==========
+        all_final_tables = []  # 存储表格数据
+        all_table_names = []  # 存储表格名称（用于Sheet名称）
+        all_table_full_names = []  # 存储完整Sheet名称（带页码前缀）
 
         # 1. 处理合并的表格组
         for group_idx, group in enumerate(merge_groups):
@@ -2180,13 +1737,24 @@ class TableReconstructor:
             print(f"包含表格索引: {group}")
             print(f"{'=' * 60}")
 
-            # 暂时跳过合并逻辑（下一步实现）
             # 先按独立表格处理（保持原有行为）
             for table_idx in group:
                 llm_table_info = llm_tables[table_idx]
-                print(f"\n处理表格 {table_idx + 1}/{len(llm_tables)} (合并组)")
 
-                # 原有独立处理逻辑（暂时保持）
+                # 🔥 提取表格名称
+                table_name = llm_table_info.get('name', f'表格{table_idx + 1}')
+
+                # 🔥 构建完整Sheet名称（带页码前缀）
+                full_table_name = f"{page_prefix}_{table_name}" if page_prefix else table_name
+
+                all_table_names.append(table_name)  # 原始表格名称
+                all_table_full_names.append(full_table_name)  # 完整Sheet名称
+
+                print(f"处理表格 {table_idx + 1}/{len(llm_tables)} (合并组)")
+                print(f"表格名称: '{table_name}'")
+                print(f"完整Sheet名称: '{full_table_name}'")
+
+                # 原有独立处理逻辑
                 final_table = self.process_single_table(ocr_tables, llm_table_info)
 
                 if final_table:
@@ -2198,29 +1766,62 @@ class TableReconstructor:
 
             llm_table_info = llm_tables[table_idx]
 
+            print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXllm_table_info")
+            print(llm_table_info)
+
+            # 🔥 提取表格名称
+            table_name = llm_table_info.get('name', f'表格{table_idx + 1}')
+
+            # 🔥 构建完整Sheet名称（带页码前缀）
+            full_table_name = f"{page_prefix}_{table_name}" if page_prefix else table_name
+
+            all_table_names.append(table_name)  # 原始表格名称
+            all_table_full_names.append(full_table_name)  # 完整Sheet名称
+
+            print(f"表格名称: '{table_name}'")
+            print(f"完整Sheet名称: '{full_table_name}'")
+
             # 原有独立处理逻辑
             final_table = self.process_single_table(ocr_tables, llm_table_info)
 
             if final_table:
                 all_final_tables.append(final_table)
 
+        # 检查是否生成了表格
         if not all_final_tables:
             self.log_issue("无表格数据生成")
             return False
 
-        if not all_final_tables:
-            self.log_issue("无表格数据生成")
-            return False
+        # 验证表格名称和表格数据数量一致
+        if len(all_final_tables) != len(all_table_names):
+            print(f"⚠️ 警告：表格数据({len(all_final_tables)})和表格名称({len(all_table_names)})数量不一致")
+            # 补齐名称列表
+            while len(all_table_names) < len(all_final_tables):
+                default_name = f"表格{len(all_table_names) + 1}"
+                all_table_names.append(default_name)
+                full_name = f"{page_prefix}_{default_name}" if page_prefix else default_name
+                all_table_full_names.append(full_name)
 
+        print(f"\n所有表格名称列表:")
+        for i, (name, full_name) in enumerate(zip(all_table_names, all_table_full_names)):
+            print(f"  表格{i + 1}: '{name}' -> Sheet: '{full_name}'")
 
-        # 第8步：保存到Excel
-        success = self.step9_save_to_excel(all_final_tables, output_file)
+        # ========== 第6步：保存到Excel（使用带页码前缀的完整Sheet名） ==========
+        print(f"\n=== 开始保存到Excel ===")
+        print(f"输出文件: {output_file}")
+
+        # 🔥 关键修改：传入带页码前缀的完整表格名称
+        success = self.step9_save_to_excel(
+            tables_data=all_final_tables,
+            output_file=output_file,
+            table_names=all_table_full_names  # 🔥 传入带页码前缀的完整表格名称
+        )
 
         if not success:
             self.log_issue("保存原始Excel失败")
             return False
 
-        # 新增：生成最终数据Excel
+        # ========== 第7步：生成最终数据Excel ==========
         try:
             print(f"\n开始生成最终数据Excel...")
             print(f"最终数据输出路径: {final_output_file}")
@@ -2243,7 +1844,8 @@ class TableReconstructor:
             print(f"要转换的表格数: {len(all_final_tables)}")
             print(f"LLM表格元数据数: {len(llm_table_list)}")
 
-            # 调用转换器
+            # 调用转换器（不使用table_names参数，因为FinalDataConverter不支持）
+            print(f"注意：FinalDataConverter不支持自定义Sheet名称，使用默认Sheet名称")
             final_success = self.final_data_converter.batch_convert_tables(
                 all_tables_data=all_final_tables,
                 all_llm_tables=llm_table_list,
@@ -2266,7 +1868,7 @@ class TableReconstructor:
             traceback.print_exc()
             return success  # 即使最终数据转换失败，也返回原始表格保存成功
 
-        # 输出统计信息
+        # ========== 第8步：输出统计信息 ==========
         print(f"\n{'=' * 60}")
         print(f"处理完成统计:")
         print(f"  成功处理表格: {len(all_final_tables)}个")
@@ -2274,18 +1876,16 @@ class TableReconstructor:
         print(f"  警告: {len(self.warnings)}个")
         print(f"  问题: {len(self.issues)}个")
         print(f"  原始输出文件: {output_file}")
-        if final_success:
+        if 'final_success' in locals():
             print(f"  最终数据文件: {final_output_file}")
         print(f"{'=' * 60}")
 
-
-
+        return success
 
 
 # ====================================
 # 使用示例
 # ====================================
-
 def main():
     # 你的数据
     ocr_result = {}

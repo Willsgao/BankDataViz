@@ -1,0 +1,1635 @@
+{
+  "tables_result": [
+    {
+      "body": [
+        {
+          "row_start": 0,
+          "col_start": 0,
+          "row_end": 1,
+          "col_end": 1,
+          "words": "项 目 投资损失(减:收益)",
+          "confidence": 0.9971132278442383,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 1,
+          "row_end": 1,
+          "col_end": 2,
+          "words": "2023年 -140,411,765.95",
+          "confidence": 0.9806668758392334,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 2,
+          "row_end": 1,
+          "col_end": 3,
+          "words": "2022年 -56,493,113.27",
+          "confidence": 0.9850685596466064,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 0,
+          "row_end": 4,
+          "col_end": 1,
+          "words": "递延所得税资产减少(减:增加) 递延所得税负债增加(减:减少) 经营性应收项目的减少(减;增加)",
+          "confidence": 0.9843971729278564,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 1,
+          "row_end": 2,
+          "col_end": 2,
+          "words": "-44,878,769.18",
+          "confidence": 0.986460268497467,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 2,
+          "row_end": 2,
+          "col_end": 3,
+          "words": "-23,516,297.95",
+          "confidence": 0.9814313650131226,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 1,
+          "row_end": 3,
+          "col_end": 2,
+          "words": "139,280,757.94",
+          "confidence": 0.9853945970535278,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 2,
+          "row_end": 4,
+          "col_end": 3,
+          "words": ",239,913.98 -4,494,294,537.54",
+          "confidence": 0.9756157398223877,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 1,
+          "row_end": 4,
+          "col_end": 2,
+          "words": "-5,683,009,135.42",
+          "confidence": 0.9844865202903748,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 0,
+          "row_end": 5,
+          "col_end": 1,
+          "words": "经营性应付项目的增加(减:减少)",
+          "confidence": 0.9796808958053589,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 1,
+          "row_end": 5,
+          "col_end": 2,
+          "words": "9,397,771,343.98",
+          "confidence": 0.9847994446754456,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 2,
+          "row_end": 5,
+          "col_end": 3,
+          "words": "6,651,514,213.65",
+          "confidence": 0.9961525201797485,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 0,
+          "row_end": 6,
+          "col_end": 1,
+          "words": "经营活动产生的现金流量净额",
+          "confidence": 0.9999997615814209,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 1,
+          "row_end": 6,
+          "col_end": 2,
+          "words": "4,785,971.228.85",
+          "confidence": 0.9403142333030701,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 2,
+          "row_end": 6,
+          "col_end": 3,
+          "words": "2,909,365,025.39",
+          "confidence": 0.9094276428222656,
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "body": []
+    },
+    {
+      "body": [
+        {
+          "row_start": 0,
+          "col_start": 0,
+          "row_end": 2,
+          "col_end": 1,
+          "words": "法人股东名称",
+          "confidence": 0.9999952912330627,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 1,
+          "row_end": 1,
+          "col_end": 3,
+          "words": "2023 年 12月 31日",
+          "confidence": 0.9982162117958069,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 3,
+          "row_end": 1,
+          "col_end": 5,
+          "words": "2022 年 12 月 31 日",
+          "confidence": 0.999474823474884,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 1,
+          "row_end": 2,
+          "col_end": 2,
+          "words": "持股金额",
+          "confidence": 0.9848366975784302,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 2,
+          "row_end": 2,
+          "col_end": 3,
+          "words": "持股比例",
+          "confidence": 0.999951183795929,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 3,
+          "row_end": 2,
+          "col_end": 4,
+          "words": "持股金额",
+          "confidence": 0.9998770952224731,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 4,
+          "row_end": 2,
+          "col_end": 5,
+          "words": "持股比例",
+          "confidence": 0.9973684549331665,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 0,
+          "row_end": 4,
+          "col_end": 1,
+          "words": "浙江卫星控股股份有限公司 中法控股集团有限公司",
+          "confidence": 0.9997793436050415,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 1,
+          "row_end": 3,
+          "col_end": 2,
+          "words": "4,722,88",
+          "confidence": 0.8954795002937317,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 2,
+          "row_end": 3,
+          "col_end": 3,
+          "words": "5.98%",
+          "confidence": 0.8944899439811707,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 3,
+          "row_end": 3,
+          "col_end": 4,
+          "words": "3,937,20",
+          "confidence": 0.8367716073989868,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 4,
+          "row_end": 3,
+          "col_end": 5,
+          "words": "5.23%",
+          "confidence": 0.9976457357406616,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 1,
+          "row_end": 4,
+          "col_end": 2,
+          "words": "4,134.06",
+          "confidence": 0.9407086372375488,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 2,
+          "row_end": 4,
+          "col_end": 3,
+          "words": "5.23%",
+          "confidence": 0.9992936253547668,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 3,
+          "row_end": 4,
+          "col_end": 4,
+          "words": "3,937.20",
+          "confidence": 0.9848841428756714,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 4,
+          "row_end": 4,
+          "col_end": 5,
+          "words": "5.23%",
+          "confidence": 0.9024556279182434,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 0,
+          "row_end": 5,
+          "col_end": 1,
+          "words": "浙江聚优非织造材料科技有限公司",
+          "confidence": 0.9999939799308777,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 1,
+          "row_end": 5,
+          "col_end": 2,
+          "words": "2,128.45",
+          "confidence": 0.9648092985153198,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 2,
+          "row_end": 5,
+          "col_end": 3,
+          "words": "2.69%",
+          "confidence": 0.9998205304145813,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 3,
+          "row_end": 5,
+          "col_end": 4,
+          "words": "2,027.10",
+          "confidence": 0.9967976212501526,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 4,
+          "row_end": 5,
+          "col_end": 5,
+          "words": "2.69%",
+          "confidence": 0.9346563220024109,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 0,
+          "row_end": 6,
+          "col_end": 1,
+          "words": "嘉兴农昕贸易有限公司",
+          "confidence": 0.9996721148490906,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 1,
+          "row_end": 6,
+          "col_end": 2,
+          "words": "2,110.71",
+          "confidence": 0.9733084440231323,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 2,
+          "row_end": 6,
+          "col_end": 3,
+          "words": "2.67%",
+          "confidence": 0.9935252070426941,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 3,
+          "row_end": 6,
+          "col_end": 4,
+          "words": "2,010.20",
+          "confidence": 0.9927676320075989,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 4,
+          "row_end": 6,
+          "col_end": 5,
+          "words": "2.67%",
+          "confidence": 0.9865821003913879,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 0,
+          "row_end": 7,
+          "col_end": 1,
+          "words": "嘉兴洁琪污水管网有限公司",
+          "confidence": 0.998565673828125,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 1,
+          "row_end": 7,
+          "col_end": 2,
+          "words": "1,773.77",
+          "confidence": 0.9607675075531006,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 2,
+          "row_end": 7,
+          "col_end": 3,
+          "words": "2.24%",
+          "confidence": 0.9995737075805664,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 3,
+          "row_end": 7,
+          "col_end": 4,
+          "words": "1,689, 30",
+          "confidence": 0.9323459267616272,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 4,
+          "row_end": 7,
+          "col_end": 5,
+          "words": "2.24%",
+          "confidence": 0.9881528615951538,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 0,
+          "row_end": 8,
+          "col_end": 1,
+          "words": "浙江荣祥纺织股份有限公司",
+          "confidence": 0.9984893202781677,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 1,
+          "row_end": 8,
+          "col_end": 2,
+          "words": "1,185.26",
+          "confidence": 0.9471664428710938,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 2,
+          "row_end": 9,
+          "col_end": 3,
+          "words": "1.50% 1.49%",
+          "confidence": 0.9932655692100525,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 3,
+          "row_end": 8,
+          "col_end": 4,
+          "words": "1,128.82",
+          "confidence": 0.9480909705162048,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 4,
+          "row_end": 8,
+          "col_end": 5,
+          "words": "1.50%",
+          "confidence": 0.9964678883552551,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 0,
+          "row_end": 9,
+          "col_end": 1,
+          "words": "梦迪集团有限公司",
+          "confidence": 0.9999985694885254,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 1,
+          "row_end": 9,
+          "col_end": 2,
+          "words": "1,177.63",
+          "confidence": 0.9363716244697571,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 3,
+          "row_end": 9,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 4,
+          "row_end": 9,
+          "col_end": 5,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 0,
+          "row_end": 10,
+          "col_end": 1,
+          "words": "浙江鸣春纺织股份有限公司",
+          "confidence": 0.9998195767402649,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 1,
+          "row_end": 10,
+          "col_end": 2,
+          "words": "649.35",
+          "confidence": 0.999725341796875,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 2,
+          "row_end": 10,
+          "col_end": 3,
+          "words": "0.82%",
+          "confidence": 0.9318876266479492,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 3,
+          "row_end": 10,
+          "col_end": 4,
+          "words": "618.42",
+          "confidence": 0.9183862805366516,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 4,
+          "row_end": 10,
+          "col_end": 5,
+          "words": "0,82%",
+          "confidence": 0.8802016973495483,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 0,
+          "row_end": 11,
+          "col_end": 1,
+          "words": "浙江天之华控股有限公司",
+          "confidence": 0.9997115731239319,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 1,
+          "row_end": 11,
+          "col_end": 2,
+          "words": "649.35",
+          "confidence": 0.9996066689491272,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 2,
+          "row_end": 11,
+          "col_end": 3,
+          "words": "0.82%",
+          "confidence": 0.9997237324714661,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 3,
+          "row_end": 11,
+          "col_end": 4,
+          "words": "618.42",
+          "confidence": 0.9725518226623535,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 4,
+          "row_end": 11,
+          "col_end": 5,
+          "words": "0,82%",
+          "confidence": 0.9869630932807922,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 0,
+          "row_end": 12,
+          "col_end": 1,
+          "words": "嘉兴市荣成织造有限公司",
+          "confidence": 0.999939501285553,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 1,
+          "row_end": 12,
+          "col_end": 2,
+          "words": "590.65",
+          "confidence": 0.9986514449119568,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 2,
+          "row_end": 12,
+          "col_end": 3,
+          "words": "0.75%",
+          "confidence": 0.9997926950454712,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 3,
+          "row_end": 12,
+          "col_end": 4,
+          "words": "562.52",
+          "confidence": 0.999299943447113,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 4,
+          "row_end": 12,
+          "col_end": 5,
+          "words": "(0.75%",
+          "confidence": 0.9514191150665283,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 0,
+          "row_end": 13,
+          "col_end": 1,
+          "words": "浙江卫星商贸有限公司",
+          "confidence": 0.9999719858169556,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 1,
+          "row_end": 13,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 2,
+          "row_end": 13,
+          "col_end": 3,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 3,
+          "row_end": 13,
+          "col_end": 4,
+          "words": "560.78",
+          "confidence": 0.9990911483764648,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 4,
+          "row_end": 13,
+          "col_end": 5,
+          "words": "0.75%",
+          "confidence": 0.9998183250427246,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 0,
+          "row_end": 14,
+          "col_end": 1,
+          "words": "合 计",
+          "confidence": 0.9999096393585205,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 1,
+          "row_end": 14,
+          "col_end": 2,
+          "words": "19,122.11",
+          "confidence": 0.9285312294960022,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 2,
+          "row_end": 14,
+          "col_end": 3,
+          "words": "24.19%",
+          "confidence": 0.9741024374961853,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 3,
+          "row_end": 14,
+          "col_end": 4,
+          "words": "17.089.96",
+          "confidence": 0.9298749566078186,
+          "type": "body"
+        },
+        {
+          "row_start": 13,
+          "col_start": 4,
+          "row_end": 14,
+          "col_end": 5,
+          "words": "22,70%",
+          "confidence": 0.8861381411552429,
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "body": []
+    },
+    {
+      "body": [
+        {
+          "row_start": 0,
+          "col_start": 0,
+          "row_end": 2,
+          "col_end": 1,
+          "words": "股东名称",
+          "confidence": 0.9999923706054688,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 1,
+          "row_end": 2,
+          "col_end": 2,
+          "words": "银行现职",
+          "confidence": 0.9999964833259583,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 2,
+          "row_end": 1,
+          "col_end": 4,
+          "words": "2023年 12 月 31 日",
+          "confidence": 0.99979567527771,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 4,
+          "row_end": 1,
+          "col_end": 6,
+          "words": "2022 年 12 月 31 日",
+          "confidence": 0.9997793436050415,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 2,
+          "row_end": 2,
+          "col_end": 3,
+          "words": "持股金额",
+          "confidence": 0.99996417760849,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 3,
+          "row_end": 2,
+          "col_end": 4,
+          "words": "持股比例",
+          "confidence": 0.999751091003418,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 4,
+          "row_end": 2,
+          "col_end": 5,
+          "words": "持股金额",
+          "confidence": 0.9998866319656372,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 5,
+          "row_end": 2,
+          "col_end": 6,
+          "words": "持股比例",
+          "confidence": 0.9999829530715942,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 0,
+          "row_end": 3,
+          "col_end": 1,
+          "words": "景文学",
+          "confidence": 0.9999998211860657,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 1,
+          "row_end": 3,
+          "col_end": 2,
+          "words": "调研员",
+          "confidence": 0.9996719360351562,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 2,
+          "row_end": 3,
+          "col_end": 3,
+          "words": "176.28",
+          "confidence": 0.9997932314872742,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 3,
+          "row_end": 3,
+          "col_end": 4,
+          "words": "0.22%",
+          "confidence": 0.9008805155754089,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 4,
+          "row_end": 3,
+          "col_end": 5,
+          "words": "167.89",
+          "confidence": 0.9472923278808594,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 5,
+          "row_end": 3,
+          "col_end": 6,
+          "words": "0.22%",
+          "confidence": 0.9502485394477844,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 0,
+          "row_end": 4,
+          "col_end": 1,
+          "words": "钱跃生",
+          "confidence": 0.9999541640281677,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 1,
+          "row_end": 4,
+          "col_end": 2,
+          "words": "退休",
+          "confidence": 0.9999587535858154,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 2,
+          "row_end": 4,
+          "col_end": 3,
+          "words": "176.28",
+          "confidence": 0.9902083277702332,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 3,
+          "row_end": 4,
+          "col_end": 4,
+          "words": "0.22%",
+          "confidence": 0.9498637914657593,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 4,
+          "row_end": 4,
+          "col_end": 5,
+          "words": "167.89",
+          "confidence": 0.9412729740142822,
+          "type": "body"
+        },
+        {
+          "row_start": 3,
+          "col_start": 5,
+          "row_end": 4,
+          "col_end": 6,
+          "words": "0.22%",
+          "confidence": 0.8266273736953735,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 0,
+          "row_end": 5,
+          "col_end": 1,
+          "words": "高民华",
+          "confidence": 0.9999920725822449,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 1,
+          "row_end": 5,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 2,
+          "row_end": 5,
+          "col_end": 3,
+          "words": "168.71",
+          "confidence": 0.9998311400413513,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 3,
+          "row_end": 5,
+          "col_end": 4,
+          "words": "0.21%",
+          "confidence": 0.9389737844467163,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 4,
+          "row_end": 5,
+          "col_end": 5,
+          "words": "160.68",
+          "confidence": 0.9985007643699646,
+          "type": "body"
+        },
+        {
+          "row_start": 4,
+          "col_start": 5,
+          "row_end": 5,
+          "col_end": 6,
+          "words": "0.21%",
+          "confidence": 0.9594871401786804,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 0,
+          "row_end": 6,
+          "col_end": 1,
+          "words": "姚法林",
+          "confidence": 0.9999983906745911,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 1,
+          "row_end": 6,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 2,
+          "row_end": 6,
+          "col_end": 3,
+          "words": "142.34",
+          "confidence": 0.999514639377594,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 3,
+          "row_end": 6,
+          "col_end": 4,
+          "words": "0.18%",
+          "confidence": 0.9845257997512817,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 4,
+          "row_end": 6,
+          "col_end": 5,
+          "words": "101.67",
+          "confidence": 0.9962460398674011,
+          "type": "body"
+        },
+        {
+          "row_start": 5,
+          "col_start": 5,
+          "row_end": 6,
+          "col_end": 6,
+          "words": "0.149%",
+          "confidence": 0.9636962413787842,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 0,
+          "row_end": 7,
+          "col_end": 1,
+          "words": "张亚英",
+          "confidence": 0.9999986290931702,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 1,
+          "row_end": 7,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 2,
+          "row_end": 7,
+          "col_end": 3,
+          "words": "142.34",
+          "confidence": 0.991098940372467,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 3,
+          "row_end": 7,
+          "col_end": 4,
+          "words": "0,18%",
+          "confidence": 0.9543350338935852,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 4,
+          "row_end": 7,
+          "col_end": 5,
+          "words": "135.56",
+          "confidence": 0.9630205035209656,
+          "type": "body"
+        },
+        {
+          "row_start": 6,
+          "col_start": 5,
+          "row_end": 7,
+          "col_end": 6,
+          "words": "0.18%",
+          "confidence": 0.9654827117919922,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 0,
+          "row_end": 8,
+          "col_end": 1,
+          "words": "马小星",
+          "confidence": 0.9997267723083496,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 1,
+          "row_end": 8,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 2,
+          "row_end": 8,
+          "col_end": 3,
+          "words": "124.55",
+          "confidence": 0.9873600602149963,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 3,
+          "row_end": 8,
+          "col_end": 4,
+          "words": "0.16%",
+          "confidence": 0.9929826855659485,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 4,
+          "row_end": 8,
+          "col_end": 5,
+          "words": "118.62",
+          "confidence": 0.9998752474784851,
+          "type": "body"
+        },
+        {
+          "row_start": 7,
+          "col_start": 5,
+          "row_end": 8,
+          "col_end": 6,
+          "words": "0.16%",
+          "confidence": 0.9981256723403931,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 0,
+          "row_end": 10,
+          "col_end": 1,
+          "words": "冯建强 何雪根",
+          "confidence": 0.9995484948158264,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 1,
+          "row_end": 9,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 2,
+          "row_end": 9,
+          "col_end": 3,
+          "words": "117.58",
+          "confidence": 0.9986689686775208,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 3,
+          "row_end": 9,
+          "col_end": 4,
+          "words": "}.15%",
+          "confidence": 0.8355536460876465,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 4,
+          "row_end": 9,
+          "col_end": 5,
+          "words": "111.98",
+          "confidence": 0.9573671221733093,
+          "type": "body"
+        },
+        {
+          "row_start": 8,
+          "col_start": 5,
+          "row_end": 9,
+          "col_end": 6,
+          "words": "0.15%",
+          "confidence": 0.8912687301635742,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 1,
+          "row_end": 10,
+          "col_end": 2,
+          "words": "调研员",
+          "confidence": 0.9999990463256836,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 2,
+          "row_end": 10,
+          "col_end": 3,
+          "words": "117.58",
+          "confidence": 0.9821021556854248,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 3,
+          "row_end": 10,
+          "col_end": 4,
+          "words": "0.15%",
+          "confidence": 0.9960277676582336,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 4,
+          "row_end": 10,
+          "col_end": 5,
+          "words": "111.98",
+          "confidence": 0.9996180534362793,
+          "type": "body"
+        },
+        {
+          "row_start": 9,
+          "col_start": 5,
+          "row_end": 10,
+          "col_end": 6,
+          "words": "0.15%",
+          "confidence": 0.9455606341362,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 0,
+          "row_end": 11,
+          "col_end": 1,
+          "words": "康利军",
+          "confidence": 0.9999949336051941,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 1,
+          "row_end": 11,
+          "col_end": 2,
+          "words": "退休",
+          "confidence": 0.999679684638977,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 2,
+          "row_end": 11,
+          "col_end": 3,
+          "words": "117.58",
+          "confidence": 0.999311625957489,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 3,
+          "row_end": 11,
+          "col_end": 4,
+          "words": "0.15%",
+          "confidence": 0.999276340007782,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 4,
+          "row_end": 11,
+          "col_end": 5,
+          "words": "111.98",
+          "confidence": 0.9943569302558899,
+          "type": "body"
+        },
+        {
+          "row_start": 10,
+          "col_start": 5,
+          "row_end": 11,
+          "col_end": 6,
+          "words": "0.15%",
+          "confidence": 0.9982333183288574,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 0,
+          "row_end": 12,
+          "col_end": 1,
+          "words": "杭琴",
+          "confidence": 0.9988373517990112,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 1,
+          "row_end": 12,
+          "col_end": 2,
+          "words": "退休",
+          "confidence": 0.9908071756362915,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 2,
+          "row_end": 12,
+          "col_end": 3,
+          "words": "117.58",
+          "confidence": 0.9991104006767273,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 3,
+          "row_end": 12,
+          "col_end": 4,
+          "words": "0.15%",
+          "confidence": 0.9123379588127136,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 4,
+          "row_end": 12,
+          "col_end": 5,
+          "words": "111.98",
+          "confidence": 0.9955937266349792,
+          "type": "body"
+        },
+        {
+          "row_start": 11,
+          "col_start": 5,
+          "row_end": 12,
+          "col_end": 6,
+          "words": "0.15%",
+          "confidence": 0.9943550229072571,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 0,
+          "row_end": 13,
+          "col_end": 1,
+          "words": "合 计",
+          "confidence": 0.9990562200546265,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 1,
+          "row_end": 13,
+          "col_end": 2,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 2,
+          "row_end": 13,
+          "col_end": 3,
+          "words": "1400.82",
+          "confidence": 0.9419209361076355,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 3,
+          "row_end": 13,
+          "col_end": 4,
+          "words": "1.77%",
+          "confidence": 0.9648029208183289,
+          "type": "body"
+        },
+        {
+          "row_start": 12,
+          "col_start": 4,
+          "row_end": 13,
+          "col_end": 6,
+          "words": "1.300.23 1.73%",
+          "confidence": 0.9682462811470032,
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "body": []
+    },
+    {
+      "body": [
+        {
+          "row_start": 0,
+          "col_start": 0,
+          "row_end": 1,
+          "col_end": 1,
+          "words": "序 号",
+          "confidence": 0.9998422265052795,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 1,
+          "row_end": 1,
+          "col_end": 2,
+          "words": "企业股东名称",
+          "confidence": 0.9999909400939941,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 2,
+          "row_end": 1,
+          "col_end": 3,
+          "words": "贷款余额",
+          "confidence": 0.9997907876968384,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 3,
+          "row_end": 1,
+          "col_end": 4,
+          "words": "贴 现",
+          "confidence": 0.9911898970603943,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 4,
+          "row_end": 1,
+          "col_end": 6,
+          "words": "五级分类 银行承兑汇 状态 票",
+          "confidence": 0.9995617866516113,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 6,
+          "row_end": 1,
+          "col_end": 7,
+          "words": "开出信用 证",
+          "confidence": 0.9975177049636841,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 7,
+          "row_end": 1,
+          "col_end": 8,
+          "words": "合计",
+          "confidence": 0.9999982714653015,
+          "type": "body"
+        },
+        {
+          "row_start": 0,
+          "col_start": 8,
+          "row_end": 2,
+          "col_end": 9,
+          "words": "占资本净额的 比例 0.01%",
+          "confidence": 0.9679763913154602,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 0,
+          "row_end": 2,
+          "col_end": 1,
+          "words": "一",
+          "confidence": 0.5950572490692139,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 1,
+          "row_end": 2,
+          "col_end": 2,
+          "words": "浙江聚优非织造材料科技 有限公司",
+          "confidence": 0.9999878406524658,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 2,
+          "row_end": 2,
+          "col_end": 3,
+          "words": "100.00",
+          "confidence": 0.998093843460083,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 3,
+          "row_end": 2,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 4,
+          "row_end": 2,
+          "col_end": 5,
+          "words": "正常",
+          "confidence": 0.9999988675117493,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 5,
+          "row_end": 2,
+          "col_end": 6,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 6,
+          "row_end": 2,
+          "col_end": 7,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 1,
+          "col_start": 7,
+          "row_end": 2,
+          "col_end": 8,
+          "words": "100.00",
+          "confidence": 0.9730919003486633,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 0,
+          "row_end": 3,
+          "col_end": 1,
+          "words": "2",
+          "confidence": 0.9995298385620117,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 1,
+          "row_end": 3,
+          "col_end": 2,
+          "words": "浙江荣祥纺织股份有限公 司",
+          "confidence": 0.9999411702156067,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 2,
+          "row_end": 3,
+          "col_end": 3,
+          "words": "2,750.00",
+          "confidence": 0.991005003452301,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 3,
+          "row_end": 3,
+          "col_end": 4,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 4,
+          "row_end": 3,
+          "col_end": 5,
+          "words": "正常",
+          "confidence": 0.9999902248382568,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 5,
+          "row_end": 3,
+          "col_end": 6,
+          "words": "3,200.00",
+          "confidence": 0.9825605154037476,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 6,
+          "row_end": 3,
+          "col_end": 7,
+          "words": "",
+          "confidence": 0.0,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 7,
+          "row_end": 3,
+          "col_end": 8,
+          "words": "5,950.00",
+          "confidence": 0.9905073046684265,
+          "type": "body"
+        },
+        {
+          "row_start": 2,
+          "col_start": 8,
+          "row_end": 3,
+          "col_end": 9,
+          "words": "0.72%",
+          "confidence": 0.9971387982368469,
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "body": []
+    }
+  ],
+  "image_info": {
+    "image_path": "F:\\wills\\codes\\DocuVista\\test_codes\\png2\\514001_152.png",
+    "image_id": "img_fb305071252b"
+  },
+  "log_id": "",
+  "orc_statistics": {
+    "processing_time": 2.5844130516052246,
+    "tables_count": 8,
+    "cells_count": 177
+  }
+}
