@@ -147,14 +147,6 @@ def upload_file():
 
             print(f"✅ 数据库插入成功 - 新记录ID: {new_id}")
 
-            # # 验证记录是否真的插入
-            # c.execute("SELECT id, filename, raw_filename, file_type, deleted FROM files WHERE id = ?", (new_id,))
-            # verified_row = c.fetchone()
-            # if verified_row:
-            #     print(f"🔍 数据库验证成功 - 记录: {dict(verified_row)}")
-            # else:
-            #     print("❌ 数据库验证失败 - 未找到插入的记录")
-
             # 在数据库插入成功后，修改验证代码：
             print(f"✅ 数据库插入成功 - 新记录ID: {new_id}")
 

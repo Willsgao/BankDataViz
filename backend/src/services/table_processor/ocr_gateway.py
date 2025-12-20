@@ -18,7 +18,7 @@ import redis
 
 from backend.src.services.table_processor.image_utils import TableImageUtils
 from backend.utils.config import tableconfig as settings
-from backend.src.services.table_processor.ocr_service import OCRProviderFactory, OCRAdapter
+from backend.src.services.table_processor.ocr_response_unifier import OCRProviderFactory, OCRAdapter
 
 # 导入缓存相关模块
 from .cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert

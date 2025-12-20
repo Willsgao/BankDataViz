@@ -7,7 +7,7 @@ DocuVista 主入口
 from flask import Flask, send_from_directory
 from backend.api.upload import upload_bp
 from backend.api.file import file_bp
-from backend.api.convert import convert_bp
+from backend.api.convert_apis import convert_bp
 from backend.api.text import text_bp
 from backend.api.llm_routes import llm_bp
 from backend.api.baidu_ocr_routes import baidu_ocr_bp

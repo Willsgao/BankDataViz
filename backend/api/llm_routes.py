@@ -7,6 +7,7 @@ import time
 import uuid
 import asyncio
 import logging
+from pathlib import Path
 from flask import Blueprint, request, jsonify, send_from_directory
 
 
@@ -50,8 +51,6 @@ from backend.llm_services.task_management_service import (
 )
 
 
-# :colHeaders="columns.map(col => col.header || col.title)"
-
 from backend.utils.constants import EXCEL_DATA_DIR, STATIC_DIR
 
 # 路由定义部分保持不变，只是函数实现移到服务模块
@@ -69,7 +68,7 @@ def test_connection():
         logger.error(f"测试连接错误: {str(e)}")
         return jsonify({"success": False, "error": f"测试连接错误: {str(e)}"}), 500
 
-# ... 其他路由定义保持不变，只是调用对应的服务函数 ...
+
 # 连接相关路由
 @llm_bp.route('/llm/available-models', methods=['GET'])
 def get_available_models_route():
@@ -247,8 +246,6 @@ def batch_process_non_financial():
 
     else:
         return jsonify({"error": result.get("error", "处理失败")}), 500
-
-from pathlib import Path
 
 
 

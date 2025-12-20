@@ -4,7 +4,7 @@ from flask import Flask
 from flask_cors import CORS
 from backend.api.upload import upload_bp
 from backend.api.file import file_bp
-from backend.api.convert import convert_bp
+from backend.api.convert_apis import convert_bp
 from backend.models.database_manager import DatabaseManager
 
 def create_app() -> Flask:
