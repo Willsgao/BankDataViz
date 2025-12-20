@@ -43,7 +43,7 @@ class TableReconstructionPipeline:
             'processing_time': 0
         }
 
-    def process_single_image(self, image_path: str, output_excel: str = None, final_output_file: str=None) -> Dict[str, Any]:
+    def process_single_image(self, image_path: str, output_excel: str = None, final_output_file: str=None, bank_name="") -> Dict[str, Any]:
         """
         处理单张图片的完整流程
         """
@@ -92,7 +92,8 @@ class TableReconstructionPipeline:
                 llm_result=llm_result,
                 output_file=output_excel,
                 final_output_file=final_output_file,
-                image_path=image_path
+                image_path=image_path,
+                bank_name=bank_name
             )
 
             if success:
@@ -122,7 +123,7 @@ class TableReconstructionPipeline:
             self.stats['failed'] += 1
             return {'success': False, 'error': f'表格重构失败: {str(e)}'}
 
-    def process_batch_images(self, image_paths: List[str], output_dir: str = None) -> Dict[str, Any]:
+    def process_batch_images(self, image_paths: List[str], output_dir: str = None, bank_name="") -> Dict[str, Any]:
         """
         批量处理多张图片
         """
@@ -150,7 +151,7 @@ class TableReconstructionPipeline:
                 final_output_file = str(output_dir_path / f"{image_name}_final.xlsx")
 
             # 处理单张图片
-            result = self.process_single_image(image_path, output_excel, final_output_file)
+            result = self.process_single_image(image_path, output_excel, final_output_file, bank_name=bank_name)
             result['image_path'] = image_path
             results.append(result)
 
@@ -234,7 +235,7 @@ def main(image_path):
         print(f"\n❌ 处理失败: {result.get('error', '未知错误')}")
 
 
-def batch_example(image_paths, output_dir=None):
+def batch_example(image_paths, output_dir=None, bank_name=""):
     """
     批量处理示例
     """
@@ -251,7 +252,7 @@ def batch_example(image_paths, output_dir=None):
     os.makedirs(output_dir, exist_ok=True)
 
     # 批量处理
-    result = pipeline.process_batch_images(image_paths, output_dir)
+    result = pipeline.process_batch_images(image_paths, output_dir, bank_name=bank_name)
 
     return result
 
@@ -313,8 +314,8 @@ if __name__ == "__main__":
     # 6. 执行批处理
     print(f"输出目录: {output_dir}")
     print("开始处理...\n")
-
-    result = batch_example(image_files, str(output_dir))
+    bank_name = "中国建设银行"
+    result = batch_example(image_files, str(output_dir), bank_name)
 
     # 7. 简单结果输出
     if result.get('success'):

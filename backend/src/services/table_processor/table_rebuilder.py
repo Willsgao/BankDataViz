@@ -1675,7 +1675,7 @@ class TableReconstructor:
         return ""
 
     def process_all_tables(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx",
-                           image_path=None):
+                           image_path=None, bank_name="未知银行"):
         """
         完整处理流程：第1-7步 - 增强版（支持表格合并）
         主要改进：提取LLM表格的name字段作为Excel Sheet名称，并添加页码前缀
@@ -1850,7 +1850,7 @@ class TableReconstructor:
                 all_tables_data=all_final_tables,
                 all_llm_tables=llm_table_list,
                 output_excel_path=final_output_file,
-                bank_name="中国建设银行"
+                bank_name=bank_name
             )
 
             if final_success:
@@ -1914,7 +1914,8 @@ def main():
     success = reconstructor.process_all_tables(
         ocr_result=ocr_result,
         llm_result=llm_result,
-        output_file="../../../../test_codes/enhanced_table_analyzer/reconstructed_tables2.xlsx"
+        output_file="../../../../test_codes/enhanced_table_analyzer/reconstructed_tables2.xlsx",
+        bank_name="中国建设银行"
     )
 
     if success:
