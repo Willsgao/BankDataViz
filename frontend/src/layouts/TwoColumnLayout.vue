@@ -12,6 +12,7 @@
         :convert-cache="convertCache"
         :batch-crop-loading="batchCropLoading"
         :joined-results="joinedResults"
+        :parsing-progress-map="parsingProgressMap"
         @delete="$emit('deleteFile', $event)"
         @crop="$emit('cutTable', $event)"
         @convert="$emit('convertAndPreview', $event)"
@@ -108,7 +109,11 @@ defineProps({
   convertCache: Object,
   batchCropLoading: Object,
   joinedResults: Object,
-  currentExcelData: Object
+  currentExcelData: Object,
+  parsingProgressMap: {  // 添加这个
+    type: Object,
+    default: () => ({})
+  }
 })
 
 // 定义emit事件 - 所有需要向父组件触发的事件
@@ -128,7 +133,9 @@ defineEmits([
   'openVisualization',
   'saveExcelData',
   'exportAllData',
-  'updateExcelContent'
+  'updateExcelContent',
+  'handleScreenImages',  // 新增
+  'handleScreenImagesCompleted'  // 新增完成事件
 ])
 </script>
 

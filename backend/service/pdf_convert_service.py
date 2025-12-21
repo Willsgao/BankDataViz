@@ -10,6 +10,7 @@ from __future__ import annotations
 import time, logging, os, tempfile, subprocess, shutil
 from pathlib import Path
 from typing import List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pdf2image import convert_from_path
 
@@ -20,195 +21,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-# ------------------------------------------------------------------
-# ① 后台任务：流式 + 表格页 300 DPI，其余 150 DPI
-# ------------------------------------------------------------------
-def background_convert11(
-    pdf_path: Path,
-    out_dir: Path,
-    job_id: str,
-    progress_dict: dict,
-    *,
-    preview_dpi: int = 72,
-    table_dpi: int = 300,
-    normal_dpi: int = 150,
-) -> None:
-    """
-    线程池内执行：
-    1. 逐页 72 dpi 预览 → 单页接口 detect_table_page 判表格
-    2. 根据结果决定正式 dpi（表格页 300，其余 150）
-    3. 逐页正式渲染并立即释放，峰值内存≈1 张图
-    """
-    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
-
-    try:
-        # 毫秒级拿总页数
-        total = PdfConvertService._get_page_count(pdf_path)
-        progress_dict[job_id]["total"] = total
-
-        table_flags: List[bool] = []
-        # ---- ① 预览：逐页 72 dpi，立即释放 ----
-        for page_0b in range(total):
-            img = convert_from_path(
-                pdf_path, dpi=preview_dpi, first_page=page_0b + 1, last_page=page_0b + 1
-            )[0]
-            box = detect_table_page(pdf_path, page_0b, dpi=preview_dpi)
-            table_flags.append(box is not None)
-            del img  # 立即释放
-
-        # ---- ② 正式渲染 ----
-        for page_0b in range(total):
-            dpi = table_dpi if table_flags[page_0b] else normal_dpi
-            img = convert_from_path(
-                pdf_path, dpi=dpi, first_page=page_0b + 1, last_page=page_0b + 1
-            )[0]
-            png_path = out_dir / f"{pdf_path.stem}_{page_0b + 1:03d}.png"
-            img.save(png_path, "PNG")
-            del img  # 立即释放
-
-            # 实时进度
-            progress_dict[job_id]["finished"] = page_0b + 1
-            progress_dict[job_id]["percent"] = round((page_0b + 1) / total * 100)
-
-        logger.info(f"[{job_id}] 全部完成，共 {total} 页，表格页：{sum(table_flags)} 张")
-    except Exception as e:
-        logger.exception(f"[{job_id}] 转换失败")
-        progress_dict[job_id]["error"] = str(e)
-        progress_dict[job_id]["percent"] = -1
-
-
+from PIL import Image, ImageEnhance
 
 # ------------ 精准 + 高效 ------------
 from pathlib import Path
 import fitz, os, logging
 from backend.service.table_page_detector import detect_table_page
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 
 logger = logging.getLogger(__name__)
-
-def background_convert1(
-    pdf_path: Path,
-    out_dir: Path,
-    job_id: str,
-    progress_dict: dict,
-    *,
-    preview_dpi: int = 72,
-    table_dpi: int = 300,
-    normal_dpi: int = 150,
-) -> None:
-    """分级 DPI + PyMuPDF 多进程，既精准又高效"""
-    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
-
-    try:
-        # 1. 单进程快速判表（72 dpi 足够）
-        doc = fitz.open(pdf_path)
-        total = doc.page_count
-        progress_dict[job_id]["total"] = total
-        table_pages = {p for p in range(total)
-                       if detect_table_page(pdf_path, p, preview_dpi)}
-        doc.close()
-        logger.info(f"[{job_id}] 表格页：{sorted(table_pages)}")
-
-        # 2. 多进程渲染（每个 worker 独立打开文件，线程安全）
-        def render_one(p: int) -> None:
-            dpi = table_dpi if p in table_pages else normal_dpi
-            doc = fitz.open(pdf_path)          # 独立句柄
-            page = doc.load_page(p)
-            mat = fitz.Matrix(dpi / 72, dpi / 72)
-            pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
-            out_path = out_dir / f"{pdf_path.stem}_{p+1:03d}.png"
-            pix.save(str(out_path))
-            doc.close()
-            return p
-
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as exe:
-            for p in exe.map(render_one, range(total)):
-                progress_dict[job_id]["finished"] = p + 1
-                progress_dict[job_id]["percent"] = round((p + 1) / total * 100)
-
-        logger.info(f"[{job_id}] 全部完成，共 {total} 页")
-    except Exception as e:
-        logger.exception(f"[{job_id}] 转换失败")
-        progress_dict[job_id]["error"] = str(e)
-        progress_dict[job_id]["percent"] = -1
-
-
 
 
 # ------------------------------------------------------------------
 # ② 后台任务：仅转表格页，300 DPI，PyMuPDF 截图式流式
 # ------------------------------------------------------------------
-def background_convert_table_only1(
-    pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
-) -> None:
-    """
-    流式 + detect_table_page 单页判表 + 仅表格页 300 dpi
-    内存峰值 ≈ 1 张 300 dpi 图片；彻底摆脱 poppler
-    """
-    import os, time, logging
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    import fitz  # PyMuPDF
-    from PIL import Image, ImageOps, ImageEnhance
-    from backend.service.table_page_detector import detect_table_page
-
-    logger = logging.getLogger(__name__)
-    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
-
-    try:
-        t0 = time.time()
-        total = PdfConvertService._get_page_count(pdf_path)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        progress_dict[job_id]["total"] = total
-
-        # ① 逐页 72 dpi 判表（PyMuPDF 渲染）
-        doc = fitz.open(pdf_path)
-        table_pages: set[int] = set()
-        for page_0b in range(total):
-            page = doc.load_page(page_0b)
-            pix = page.get_pixmap(dpi=72, colorspace=fitz.csRGB)
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            if detect_table_page(pdf_path, page_0b, dpi=72) is not None:
-                table_pages.add(page_0b)
-            del img, pix
-        doc.close()
-        t1 = time.time()
-        logger.info(f"[{job_id}] 判表完成，表格页：{sorted(table_pages)}，耗时：{t1 - t0:.2f}s")
-
-        # ② 并发渲染：仅表格页 300 dpi， deepen 增强
-        def render_if_table(page_0b: int):
-            idx = page_0b + 1
-            if page_0b not in table_pages:
-                return idx          # 跳过非表格页
-            doc = fitz.open(pdf_path)          # 每个 worker 独立 doc，线程安全
-            page = doc.load_page(page_0b)
-            pix = page.get_pixmap(dpi=300, colorspace=fitz.csRGB)
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            # 可选：加深对比度
-            img = ImageOps.autocontrast(img, cutoff=2)
-            img = ImageEnhance.Contrast(img).enhance(1.3)
-            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
-            img.save(out_path, "PNG", compress_level=1)
-            del img, pix
-            doc.close()
-            return idx
-        print("os.cpu_count():", os.cpu_count())
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as exe:
-            futures = {exe.submit(render_if_table, p): p for p in range(total)}
-            for fut in as_completed(futures):
-                finished = fut.result()
-                progress_dict[job_id]["finished"] = finished
-                progress_dict[job_id]["percent"] = round(finished / total * 100)
-
-        t2 = time.time()
-        logger.info(f"[{job_id}] 全部完成，总耗时：{t2 - t0:.2f}s")
-
-    except Exception as e:
-        logger.exception(f"[{job_id}] 转换失败")
-        progress_dict[job_id]["error"] = str(e)
-        progress_dict[job_id]["percent"] = -1
-
-
 def background_convert(
         pdf_path: Path,
         out_dir: Path,
@@ -263,100 +89,250 @@ def background_convert(
         progress_dict[job_id]["percent"] = -1
 
 
+
+def background_convert_all_pages(
+        pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict,
+        dpi: int = 200  # 统一DPI
+) -> None:
+    """
+    将PDF所有页面转换为PNG（不区分表格页）
+    专为pdf_converter.py的convert_pdf_async函数设计
+    """
+
+    logger = logging.getLogger(__name__)
+
+    # 1. 初始化进度
+    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0, "status": "processing"}
+
+    try:
+        start_time = time.time()
+
+        # 2. 获取PDF总页数（使用PyMuPDF，避免Poppler路径问题）
+        doc = fitz.open(pdf_path)
+        total_pages = doc.page_count
+        doc.close()
+
+        progress_dict[job_id]["total"] = total_pages
+        logger.info(f"[{job_id}] 开始转换: {pdf_path.name}, 总页数: {total_pages}")
+
+        # 3. 确保输出目录存在
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # 4. 多线程并发转换所有页面
+        def convert_page(page_0b: int) -> bool:
+            """转换单个页面"""
+            idx = page_0b + 1  # 转换为1-based页码
+
+            try:
+                # 每个线程独立打开文档（线程安全）
+                doc = fitz.open(pdf_path)
+                page = doc.load_page(page_0b)
+
+                # 计算缩放矩阵
+                zoom = dpi / 72
+                matrix = fitz.Matrix(zoom, zoom)
+
+                # 渲染页面为图片
+                pix = page.get_pixmap(
+                    matrix=matrix,
+                    colorspace="rgb",
+                    alpha=False
+                )
+
+                # 保存为PNG
+                out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
+                pix.save(str(out_path))
+
+                # 清理资源
+                del pix, page
+                doc.close()
+
+                return True
+
+            except Exception as e:
+                logger.error(f"[{job_id}] 页面{idx}转换失败: {e}")
+                return False
+
+        # 5. 并发处理（控制并发数，避免资源耗尽）
+        max_workers = min(os.cpu_count() or 4, 6)
+        completed = 0
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有页面的转换任务
+            future_to_page = {
+                executor.submit(convert_page, page_num): page_num
+                for page_num in range(total_pages)
+            }
+
+            # 处理结果
+            for future in as_completed(future_to_page):
+                page_num = future_to_page[future]
+
+                try:
+                    success = future.result(timeout=60)  # 每页最多60秒
+
+                    if success:
+                        completed += 1
+                        progress_dict[job_id]["finished"] = completed
+                        progress_dict[job_id]["percent"] = round(completed / total_pages * 100)
+
+                        # 每10页或最后1页打印进度
+                        if completed % 10 == 0 or completed == total_pages:
+                            logger.info(
+                                f"[{job_id}] 进度: {completed}/{total_pages} ({progress_dict[job_id]['percent']}%)")
+                    else:
+                        logger.warning(f"[{job_id}] 页面{page_num + 1}转换失败，但继续处理其他页面")
+
+                except Exception as e:
+                    logger.error(f"[{job_id}] 页面{page_num + 1}处理异常: {e}")
+                    # 继续处理其他页面
+
+        # 6. 完成处理
+        elapsed_time = time.time() - start_time
+        logger.info(f"[{job_id}] 转换完成! 总页数: {total_pages}, 耗时: {elapsed_time:.1f}秒")
+
+        progress_dict[job_id].update({
+            "status": "completed",
+            "elapsed_time": elapsed_time,
+            "avg_time_per_page": elapsed_time / total_pages if total_pages > 0 else 0
+        })
+
+    except Exception as e:
+        logger.exception(f"[{job_id}] PDF转换失败")
+        progress_dict[job_id].update({
+            "status": "error",
+            "error": str(e),
+            "percent": -1
+        })
+
+
 def background_convert_table_only(
         pdf_path: Path, out_dir: Path, job_id: str, progress_dict: dict
 ) -> None:
     """
-    优化版：确保清晰不变黑，保持高性能
+    兼容性包装器：调用新的全页面转换函数
+    保持原有函数签名，但实际转换为所有页面
     """
-    import os, time, logging
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    import fitz  # PyMuPDF
-    from PIL import Image, ImageEnhance
-    from backend.service.table_page_detector import detect_table_page
+    # 直接调用全页面转换函数
+    background_convert_all_pages(pdf_path, out_dir, job_id, progress_dict, dpi=200)
 
-    logger = logging.getLogger(__name__)
-    progress_dict[job_id] = {"total": 0, "finished": 0, "percent": 0}
+
+def _process_missing_pages_only(
+        pdf_path: Path,
+        out_dir: Path,
+        pages_to_process: list,
+        job_id: str,
+        progress_dict: dict
+) -> None:
+    """只处理缺失的页面"""
+    logger.info(f"[{job_id}] 🚀 开始处理缺失的 {len(pages_to_process)} 页")
 
     try:
-        t0 = time.time()
-        total = PdfConvertService._get_page_count(pdf_path)
+        total = progress_dict[job_id]["total"]
+        base_finished = progress_dict[job_id]["finished"]  # 已缓存的数量
+
+        # 确保输出目录存在
         out_dir.mkdir(parents=True, exist_ok=True)
-        progress_dict[job_id]["total"] = total
 
-        # ① 逐页 72 dpi 判表（优化渲染参数）
+        # 只检测需要处理的页面中的表格页
         doc = fitz.open(pdf_path)
-        table_pages: set[int] = set()
-        for page_0b in range(total):
-            page = doc.load_page(page_0b)
-            pix = page.get_pixmap(
-                dpi=72,
-                colorspace="rgb",  # 使用字符串
-                alpha=False  # 禁用alpha通道
-            )
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            if detect_table_page(pdf_path, page_0b, dpi=72) is not None:
-                table_pages.add(page_0b)
-            del img, pix
-        doc.close()
-        t1 = time.time()
-        logger.info(f"[{job_id}] 判表完成，表格页：{sorted(table_pages)}，耗时：{t1 - t0:.2f}s")
+        table_pages = set()
 
-        # ② 并发渲染：优化的图像处理
-        def render_if_table(page_0b: int):
-            idx = page_0b + 1
-            if page_0b not in table_pages:
-                return idx  # 跳过非表格页
+        logger.info(f"[{job_id}] 🔍 检测缺失页面中的表格...")
 
-            doc = fitz.open(pdf_path)  # 每个 worker 独立 doc，线程安全
-            page = doc.load_page(page_0b)
-
-            # 使用优化的渲染参数
-            pix = page.get_pixmap(
-                dpi=300,
-                colorspace="rgb",  # 使用字符串
-                alpha=False  # 禁用alpha通道
-            )
-
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-
-            # 优化的图像增强（避免过度处理导致变黑）
-            # 轻微提高对比度，但限制增强幅度
+        for page_0b in pages_to_process:
             try:
-                # 先检查图像是否过暗
-                brightness = ImageEnhance.Brightness(img).enhance(1.05)  # 轻微提亮
-                # 适度增强对比度
-                enhanced_img = ImageEnhance.Contrast(brightness).enhance(1.15)
-                img = enhanced_img
-            except Exception:
-                # 如果增强失败，使用原图
-                pass
+                page = doc.load_page(page_0b)
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(72 / 72, 72 / 72),
+                    colorspace="rgb",
+                    alpha=False
+                )
+                img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
 
-            out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
+                if detect_table_page(pdf_path, page_0b, dpi=72) is not None:
+                    table_pages.add(page_0b)
 
-            # 使用高质量PNG保存
-            img.save(out_path, "PNG", compress_level=3)  # 平衡质量和文件大小
+                del img, pix, page
 
-            del img, pix
-            doc.close()
-            return idx
+            except Exception as e:
+                logger.warning(f"[{job_id}] 页面{page_0b}检测失败: {e}")
+                continue
 
-        print("os.cpu_count():", os.cpu_count())
-        with ThreadPoolExecutor(max_workers=min(os.cpu_count(), 6)) as exe:
-            futures = {exe.submit(render_if_table, p): p for p in range(total)}
-            for fut in as_completed(futures):
-                finished = fut.result()
-                progress_dict[job_id]["finished"] = finished
-                progress_dict[job_id]["percent"] = round(finished / total * 100)
+        doc.close()
 
-        t2 = time.time()
-        logger.info(f"[{job_id}] 全部完成，总耗时：{t2 - t0:.2f}s")
+        # 只转换表格页
+        pages_to_convert = [p for p in pages_to_process if p in table_pages]
+
+        if not pages_to_convert:
+            logger.info(f"[{job_id}] ℹ️ 缺失页面中没有表格页，无需转换")
+            progress_dict[job_id]["status"] = "completed"
+            progress_dict[job_id]["finished"] = total
+            progress_dict[job_id]["percent"] = 100
+            return
+
+        logger.info(f"[{job_id}] ✅ 缺失页面中有 {len(pages_to_convert)} 个表格页需要转换")
+
+        # 分批处理这些页面
+        batch_size = 50
+        batches = [pages_to_convert[i:i + batch_size] for i in range(0, len(pages_to_convert), batch_size)]
+
+        completed = base_finished
+
+        for batch_idx, batch in enumerate(batches):
+            logger.info(f"[{job_id}] 🔄 处理批次 {batch_idx + 1}/{len(batches)} ({len(batch)}页)")
+
+            batch_doc = fitz.open(pdf_path)
+            for page_0b in batch:
+                idx = page_0b + 1
+                try:
+                    page = batch_doc.load_page(page_0b)
+                    pix = page.get_pixmap(
+                        matrix=fitz.Matrix(300 / 72, 300 / 72),
+                        colorspace="rgb",
+                        alpha=False
+                    )
+                    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+                    # 图像增强
+                    try:
+                        brightness = ImageEnhance.Brightness(img).enhance(1.05)
+                        enhanced_img = ImageEnhance.Contrast(brightness).enhance(1.15)
+                        img = enhanced_img
+                    except Exception:
+                        pass
+
+                    out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
+                    img.save(out_path, "PNG", compress_level=3)
+
+                    del img, pix, page
+
+                    # 更新进度
+                    completed += 1
+                    progress_dict[job_id]["finished"] = completed
+                    progress_dict[job_id]["percent"] = round(completed / total * 100)
+
+                except Exception as e:
+                    logger.error(f"[{job_id}] ❌ 页面{idx}转换失败: {e}")
+                    # 跳过失败的页面，继续处理
+
+            batch_doc.close()
+
+            # 每批完成后强制GC
+            import gc
+            gc.collect()
+
+            # 每批处理完记录日志
+            logger.info(f"[{job_id}] 📊 进度: {completed}/{total} ({progress_dict[job_id]['percent']}%)")
+
+        logger.info(f"[{job_id}] 🎉 缺失页面处理完成")
+        progress_dict[job_id]["status"] = "completed"
 
     except Exception as e:
-        logger.exception(f"[{job_id}] 转换失败")
+        logger.exception(f"[{job_id}] 处理缺失页面失败")
         progress_dict[job_id]["error"] = str(e)
         progress_dict[job_id]["percent"] = -1
-
+        progress_dict[job_id]["status"] = "error"
 
 
 # ------------------------------------------------------------------
@@ -378,13 +354,12 @@ class PdfConvertService:
 
     @staticmethod
     def convert(
-        pdf_path: str | Path,
-        output_dir: str | Path,
-        *,
-        dpi: int = 150,
-        prefix: str | None = None,
+            pdf_path: str | Path,
+            output_dir: str | Path,
+            *,
+            dpi: int = 150,
+            prefix: str | None = None,
     ) -> List[Path]:
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         pdf_path, output_dir = Path(pdf_path), Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -408,11 +383,11 @@ class PdfConvertService:
 
     @staticmethod
     def convert_and_overwrite(
-        pdf_path: str | Path,
-        output_dir: str | Path,
-        *,
-        dpi: int = 150,
-        prefix: str | None = None,
+            pdf_path: str | Path,
+            output_dir: str | Path,
+            *,
+            dpi: int = 150,
+            prefix: str | None = None,
     ) -> List[Path]:
         pdf_path, output_dir = Path(pdf_path), Path(output_dir)
         if prefix is None:
@@ -423,11 +398,11 @@ class PdfConvertService:
 
     @staticmethod
     def convert_table_pages_only(
-        pdf_path: Path,
-        out_dir: Path,
-        *,
-        preview_dpi: int = 72,
-        table_dpi: int = 300,
+            pdf_path: Path,
+            out_dir: Path,
+            *,
+            preview_dpi: int = 72,
+            table_dpi: int = 300,
     ) -> list[Path]:
         """
         保持原逻辑，但内部已自动改用 detect_table_page 单页接口
@@ -460,11 +435,10 @@ if __name__ == "__main__":
     t0 = time.time()
     try:
         # ① 快速测试最新流式逻辑
-        from concurrent.futures import ThreadPoolExecutor
-        import threading, queue
+        # import threading, queue
 
         progress = {}
-        background_convert(test_pdf, out_dir, "job-001", progress)
+        background_convert_table_only(test_pdf, out_dir, "job-001", progress)
         print("测试完成，最终进度：", progress["job-001"])
 
         # ② 也可以直接调工具类

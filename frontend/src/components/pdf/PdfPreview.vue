@@ -43,8 +43,10 @@
           :convert-cache="convertCache"
           :batch-crop-loading="batchCropLoading"
           :has-batch-results="hasBatchCropResults(currentPDF.disk_name)"
+          :parsing-progress="getParsingProgress(currentPDF.disk_name)"
+          :has-screened-images="hasScreenedImages[currentPDF.disk_name] || false"
           @delete="$emit('delete', currentPDF.filename)"
-          @crop="$emit('crop', currentPDF.filename)"
+          @screen-images="$emit('screen-images', currentPDF.disk_name)"
           @convert="$emit('convert', currentPDF.disk_name)"
           @batch-crop="$emit('batch-crop', currentPDF.disk_name)"
           @parse-tables="$emit('parse-tables', currentPDF.disk_name)"
@@ -150,13 +152,23 @@ const props = defineProps({
   llmLoading: {
     type: Object,
     default: () => ({})
+  },
+  parsingProgressMap: {  // 添加这个
+    type: Object,
+    default: () => ({})
+  },
+  // 新增：接收图片筛选成功的状态
+  screenedImagesMap: {
+    type: Object,
+    default: () => ({})
   }
+
 })
 
 const emit = defineEmits([
   'switch-pdf',
   'delete',
-  'crop',
+  'screen-images',
   'convert',
   'batch-crop',
   'clear-cache',
@@ -167,11 +179,14 @@ const emit = defineEmits([
   'open-llm-config',
   'update:llmLoading',
   'ocr-completed',
-  'parse-tables'  // 添加这个
+  'parse-tables'
 ])
 
 // 折叠状态
 const isCollapsed = ref(false)
+
+// 图片筛选状态管理
+const hasScreenedImages = ref({})
 
 // 切换折叠状态
 const toggleCollapse = () => {
@@ -186,7 +201,6 @@ const otherPDFs = computed(() => props.pdfFiles.filter((_, index) => index !== p
 const safeJoinedResults = computed(() => {
   return props.joinedResults || {}
 })
-
 
 // 工具函数
 const hasBatchCropResults = (pdfDiskName) => {
@@ -205,6 +219,19 @@ const handleForceResetLoading = (data) => {
     emit('update:llmLoading', updatedLoading)
   }
 }
+
+// 获取当前PDF的解析进度
+const getParsingProgress = (diskName) => {
+  if (!diskName || !props.parsingProgressMap) return null
+  const key = diskName.replace(/\.pdf$/i, '')  // 移除.pdf后缀
+  return props.parsingProgressMap[key] || null
+}
+
+// 监听父组件传递的图片筛选状态
+watch(() => props.screenedImagesMap, (newMap) => {
+  console.log('🔄 PdfPreview 收到图片筛选状态更新:', newMap)
+  hasScreenedImages.value = { ...newMap }
+}, { deep: true })
 
 // 监听批量裁切完成，自动展开
 watch(() => props.joinedResults, (newVal) => {
@@ -227,7 +254,6 @@ watch(
   },
   { immediate: true }
 )
-
 
 </script>
 

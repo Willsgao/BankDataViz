@@ -1,3 +1,8 @@
+
+import openpyxl
+from openpyxl.styles import Alignment, Font, Border, Side
+from openpyxl.utils import get_column_letter
+
 class TableReconstructor:
     """表格重构器：整合7步流程"""
 
@@ -496,9 +501,6 @@ class TableReconstructor:
             将多个表格保存到Excel，每个表格一个Sheet
             tables_data: 列表，每个元素是一个表格的完整数据
             """
-        import openpyxl
-        from openpyxl.styles import Alignment, Font, Border, Side
-        from openpyxl.utils import get_column_letter
 
         print(f"\n=== 第7步：保存到Excel ===")
         print(f"要保存{len(tables_data)}个表格到: {output_file}")
@@ -732,7 +734,6 @@ class TableReconstructor:
 # ====================================
 # 使用示例
 # ====================================
-
 def main():
     # 你的数据
     ocr_result = {}

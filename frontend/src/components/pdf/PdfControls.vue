@@ -9,17 +9,25 @@
       <el-button type="danger" size="small" icon="el-icon-delete"
                  @click="$emit('delete', pdf.filename)">删除</el-button>
 
-      <el-button type="primary" size="small" icon="el-icon-crop"
-                 @click="$emit('crop', pdf.filename)"
-                 :loading="!!cropLoading[pdf.filename]">图表切割</el-button>
-
       <el-button type="success" size="small" icon="el-icon-picture"
                  @click="$emit('convert', pdf.disk_name)"
                  :loading="!!converting[pdf.filename]">转图并预览</el-button>
 
-      <!-- 表格解析按钮：仅在已转图或已有解析结果时显示 -->
+      <!-- 图片筛选按钮：仅在已转图时显示 -->
       <el-button
-        v-if="shouldShowParseButton"
+        v-if="hasConvertCache"
+        type="primary"
+        size="small"
+        icon="el-icon-filter"
+        @click="$emit('screen-images', pdf.disk_name)"
+        :loading="isScreening"
+        :title="hasScreenedImages ? '重新筛选表格图片' : '筛选出含表格的图片'">
+        {{ hasScreenedImages ? '重新筛选' : '图片筛选' }}
+      </el-button>
+
+      <!-- 表格解析按钮：仅在已筛选图片后显示 -->
+      <el-button
+        v-if="shouldShowParseButton && hasScreenedImages"
         type="primary"
         size="small"
         icon="el-icon-document"
@@ -27,6 +35,29 @@
         :loading="isParsing">
         {{ hasResults ? '重新解析' : '表格解析' }}
       </el-button>
+
+      <!-- 筛选结果信息 -->
+      <div v-if="screeningResult" class="screening-info">
+        <el-tag size="small" type="success" v-if="screeningResult.has_table_count > 0">
+          有表格: {{ screeningResult.has_table_count }}张
+        </el-tag>
+        <el-tag size="small" type="info" v-if="screeningResult.no_table_count > 0">
+          无表格: {{ screeningResult.no_table_count }}张
+        </el-tag>
+      </div>
+
+      <!-- 解析进度显示 -->
+      <div v-if="parsingProgress" class="parsing-progress">
+        <div class="progress-text">表格解析中...</div>
+        <el-progress
+          :percentage="parsingProgress.percentage"
+          :status="parsingProgress.status"
+          :stroke-width="8"
+          :show-text="false"
+          style="width: 120px; margin: 0 8px;"
+        />
+        <span class="progress-detail">{{ parsingProgress.message }}</span>
+      </div>
 
       <el-button
         v-if="hasBatchResults"
@@ -42,7 +73,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   pdf: {
@@ -76,104 +107,79 @@ const props = defineProps({
   hasResults: {
     type: Boolean,
     default: false
+  },
+  parsingProgress: {
+    type: Object,
+    default: null
+  },
+  // 新增：筛选相关状态
+  hasScreenedImages: {
+    type: Boolean,
+    default: false
+  },
+  isScreening: {  // 筛选loading状态
+    type: Boolean,
+    default: false
+  },
+  screeningResult: {  // 筛选结果
+    type: Object,
+    default: null
   }
 })
 
-const emit = defineEmits(['delete', 'crop', 'convert', 'batch-crop', 'clear-cache', 'parse-tables'])
+const emit = defineEmits(['delete', 'screen-images', 'convert', 'batch-crop', 'clear-cache', 'parse-tables'])
 
-// 调试函数：输出当前状态
-const debugStatus = () => {
-  console.log('📊 PdfControls 状态调试:')
-  console.log('pdf.disk_name:', props.pdf.disk_name)
-  console.log('convertCache:', props.convertCache)
-  console.log('convertCache[disk_name]:', props.convertCache[props.pdf.disk_name])
-  console.log('hasResults:', props.hasResults)
-  console.log('shouldShowParseButton:', shouldShowParseButton.value)
-}
+// 计算是否已转图
+const hasConvertCache = computed(() => {
+  const cacheKey = props.pdf.disk_name.replace(/\.pdf$/i, '')
+  const cacheData = props.convertCache[cacheKey]
+  return cacheData && Array.isArray(cacheData) && cacheData.length > 0
+})
 
-// 计算是否显示表格解析按钮
 // 计算是否显示表格解析按钮
 const shouldShowParseButton = computed(() => {
   const diskName = props.pdf.disk_name
-
-  // 移除 .pdf 后缀进行匹配（因为 convertCache 使用不带后缀的键）
   const cacheKey = diskName.replace(/\.pdf$/i, '')
-
-  // 检查 convertCache 中是否有该文件的数据
   const hasConvertCache = !!props.convertCache[cacheKey]
-
-  // 如果已经有解析结果，也显示按钮
-  const shouldShow = hasConvertCache || props.hasResults
-
-  // 调试输出
-  if (shouldShow) {
-    console.log(`✅ 应该显示表格解析按钮: ${diskName}`)
-    console.log(`   - 缓存键: ${cacheKey}`)
-    console.log(`   - hasConvertCache: ${hasConvertCache}`)
-    console.log(`   - hasResults: ${props.hasResults}`)
-    console.log(`   - convertCache[${cacheKey}]:`, props.convertCache[cacheKey])
-  }
-
-  return shouldShow
+  return hasConvertCache || props.hasResults
 })
-
-// 监听 convertCache 的变化
-watch(() => props.convertCache, (newCache) => {
-  console.log('🔄 convertCache 发生变化:', newCache)
-  console.log(`检查 ${props.pdf.disk_name} 是否在新缓存中:`, newCache[props.pdf.disk_name])
-}, { deep: true })
-
-// 监听该文件是否在转图中
-watch(() => props.converting[props.pdf.filename], (isConverting, wasConverting) => {
-  // 如果之前正在转图，但现在不是了（转图完成）
-  if (wasConverting && !isConverting) {
-    console.log(`🔄 转图完成: ${props.pdf.filename}`)
-    console.log(`检查缓存:`, props.convertCache[props.pdf.disk_name])
-  }
-}, { immediate: true })
 
 const formatDate = (ts) => {
   if (!ts) return '未知时间'
   const d = new Date(ts)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-
-// 组件挂载时调试
-onMounted(() => {
-  console.log('📄 PdfControls 挂载:', props.pdf.filename)
-  debugStatus()
-})
 </script>
 
 <style scoped>
-.pdf-controls {
-  padding: 16px;
-  background: #fafafa;
-  border-top: 1px solid #eee;
-  flex-shrink: 0;
-}
+/* 保持原有样式不变，添加新的样式 */
 
-.file-info {
-  text-align: center;
-  margin-bottom: 12px;
-}
-
-.file-name {
-  color: #333;
-  font-weight: bold;
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.file-date {
-  color: #666;
-  font-size: 12px;
-}
-
-.pdf-actions {
+.screening-info {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.parsing-progress {
+  display: flex;
+  align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
+  padding: 4px 8px;
+  background: #f0f9ff;
+  border-radius: 4px;
+  border: 1px solid #bae6fd;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #0284c7;
+  margin-right: 8px;
+}
+
+.progress-detail {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: 8px;
 }
 </style>

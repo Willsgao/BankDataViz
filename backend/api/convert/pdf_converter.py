@@ -4,6 +4,7 @@ PDF转图模块
 import uuid
 import sqlite3
 from flask import jsonify
+from backend.service.pdf_convert_service import background_convert_all_pages
 
 def convert_pdf_async(pdf_name, upload_dir, output_dir, db_manager, progress_tracker):
     """接收中文或 UUID 文件名 → 返回 jobId"""
@@ -33,9 +34,9 @@ def convert_pdf_async(pdf_name, upload_dir, output_dir, db_manager, progress_tra
 
     # 5. 提交后台任务
     job_id = uuid.uuid4().hex
-    from backend.service.pdf_convert_service import background_convert_table_only
+
     progress_tracker.init_job(job_id)
-    background_convert_table_only(pdf_path, out_dir, job_id, progress_tracker.PROGRESS)
+    background_convert_all_pages(pdf_path, out_dir, job_id, progress_tracker.PROGRESS)
 
     return jsonify({"jobId": job_id, "message": "任务已提交"})
 

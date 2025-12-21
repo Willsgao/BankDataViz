@@ -5,7 +5,9 @@ from datetime import datetime
 
 # 保存到数据库
 from backend.utils.constants import DATABASE_PATH
-from backend.models.new_database import NewDatabaseManager
+# from backend.models.new_database import NewDatabaseManager
+from backend.models.unified_db import NewDatabaseManager
+
 
 class ProgressManager:
     """进度管理器"""

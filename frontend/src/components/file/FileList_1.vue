@@ -42,7 +42,6 @@
       @recognize-table="handleRecognizeTable"
       @recognize-non-financial-table="handleRecognizeNonFinancialTable"
       @ocr-completed="handleOcrCompleted"
-      @screen-images="handleScreenImages"
     />
 
     <!-- 非PDF文件 -->
@@ -429,7 +428,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'delete', 'crop', 'convert', 'batchCrop', 'clearCache', 'openLLMConfig',
-  'recognize-table', 'excel-data-received', 'parse-tables', 'screen-images'
+  'recognize-table', 'excel-data-received', 'parse-tables'
 ])
 
 // 表格类型状态
@@ -571,94 +570,6 @@ watch(previewDialogVisible, (newVal) => {
   }
 })
 
-
-// 图片筛选处理函数
-const handleScreenImages = async (pdfDiskName) => {
-  console.log('🔍 开始图片筛选:', pdfDiskName)
-
-  try {
-    // 获取PDF文件夹名（去掉.pdf后缀）
-    const pdfFolder = pdfDiskName.replace('.pdf', '')
-
-    // 检查是否有已转换的图片
-    const cacheKey = pdfFolder
-    if (!props.convertCache[cacheKey] || props.convertCache[cacheKey].length === 0) {
-      ElMessage.warning('请先进行PDF转图操作')
-      return
-    }
-
-    const pngs = props.convertCache[cacheKey]
-    console.log('📸 可筛选的图片列表:', pngs)
-
-    ElMessage.info('开始筛选表格图片...')
-
-    // 调用后端图片筛选API
-    const response = await axios.post(`/api/screen-table-images/${pdfFolder}`, {
-      png_names: pngs,
-      filter_only: true,  // 只返回有表格的图片
-      copy_to_dir: `static/joined_tables/${pdfFolder}`,  // 可选：复制到指定目录
-      use_llm: true,  // 使用大模型辅助判断
-      audit_rate: 0.1  // 10%的审计比例
-    })
-
-    console.log('✅ 图片筛选响应:', response.data)
-
-    if (response.data.success) {
-      const result = response.data
-      ElMessage.success(`表格筛选完成: 共${result.total_images}张，有表格${result.has_table_count}张`)
-
-      // 如果筛选出了表格图片，可以更新joinedResults
-      if (result.filtered_images && result.filtered_images.length > 0) {
-        // 转换为完整URL
-        const fullImageUrls = result.filtered_images_full.map(imgPath => {
-          if (imgPath.startsWith('http')) {
-            return imgPath
-          } else if (imgPath.includes('joined_tables/')) {
-            return getBackendUrl(`/${imgPath}`)
-          } else if (imgPath.startsWith('static/')) {
-            return getBackendUrl(`/${imgPath.replace('static/', '')}`)
-          } else {
-            return getStaticUrl(imgPath)
-          }
-        })
-
-        // 更新joinedResults
-        emit('update-joined-results', {
-          pdfDiskName: pdfDiskName,
-          images: fullImageUrls
-        })
-
-        // 发送事件通知父组件图片筛选完成
-        emit('screen-images-completed', {
-          pdfDiskName: pdfDiskName,
-          hasTableImages: result.has_table_count,
-          totalImages: result.total_images
-        })
-      }
-
-      // 显示筛选报告
-      if (result.screening_report) {
-        console.log('📊 筛选报告:', result.screening_report)
-        ElMessage.info(
-          `筛选结果: ${result.screening_report.has_table_count}张有表格, ` +
-          `${result.screening_report.no_table_count}张无表格, ` +
-          `${result.screening_report.uncertain_count}张不确定`
-        )
-      }
-
-    } else {
-      ElMessage.error(`图片筛选失败: ${response.data.error}`)
-    }
-
-  } catch (error) {
-    console.error('💥 图片筛选失败:', error)
-    let errorMessage = error.message || '筛选失败'
-    if (error.response?.data?.error) {
-      errorMessage = error.response.data.error
-    }
-    ElMessage.error(`图片筛选失败: ${errorMessage}`)
-  }
-}
 
 
 // 识别表格处理 - 根据表格类型分发

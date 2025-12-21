@@ -83,6 +83,7 @@ STATIC_CONVERTED_PREFIX = "/static/joined_tables"
 CONVERTED_IMAGES_DIR = PNG_OUTPUT_DIR  # 转换后的图片目录
 LAYOUT_OUTPUT_DIR = STATIC_DIR / "layout_output"  # 版面分析输出目录
 CROPPED_TABLES_DIR = STATIC_DIR / "cropped_tables"  # 裁剪表格目录
+FILTERED_TABLES_DIR = STATIC_DIR / "filtered_tables"  # 裁剪表格目录
 
 # 在 constants.py 中添加
 EXCEL_DATA_URL_PREFIX = "/api/excel-data"

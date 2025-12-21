@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from backend.utils.constants import DATABASE_PATH
-from backend.models.new_database import NewDatabaseManager
+from backend.utils.constants import DATABASE_PATH, PNG_OUTPUT_ROOT
+# from backend.models.new_database import NewDatabaseManager
+from backend.models.unified_db import NewDatabaseManager
+
 
 # ========== 1. 导入表格处理管道 ==========
 try:
@@ -404,12 +406,8 @@ def submit_table_processing_task(pdf_folder, png_output_root, request, progress_
 
                 # 🔧 根据表格类型选择处理方法
                 print(f"📊 表格类型: {table_type}")
-                if table_type == 'financial':
-                    result = service.process_images(pdf_folder, valid_images, bank_name)
-                elif table_type == 'non_financial':
-                    result = service.process_non_financial_images(pdf_folder, valid_images, bank_name)
-                else:
-                    raise ValueError(f"未知的表格类型: {table_type}")
+
+                result = service.process_images(pdf_folder, valid_images, bank_name)
 
                 print(f"✅ 任务处理完成: {job_id}, 结果: {result.get('success', False)}")
 
@@ -1144,7 +1142,7 @@ def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir
                 llm_result=llm_result,
                 output_file=excel_file,
                 final_output_file=excel_file,
-                image_path=str(JOINED_TABLES_DIR / pdf_folder / png_name),
+                image_path=str(PNG_OUTPUT_ROOT / pdf_folder / png_name),
                 bank_name=""
             )
 
