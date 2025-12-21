@@ -2,6 +2,7 @@
 PDF转图模块
 """
 import uuid
+import sqlite3
 from flask import jsonify
 
 def convert_pdf_async(pdf_name, upload_dir, output_dir, db_manager, progress_tracker):
@@ -50,8 +51,7 @@ def _map_to_disk_file(filename, db_manager):
         return None
 
     try:
-        from sqlite3 import Cursor
-        c: Cursor = conn.cursor()
+        c = conn.cursor()
         c.execute(
             "SELECT filename FROM files "
             "WHERE (raw_filename = ? OR filename = ?) AND deleted = 0",
@@ -60,17 +60,29 @@ def _map_to_disk_file(filename, db_manager):
         row = c.fetchone()
 
         if row:
-            print(f"✅ 找到文件映射: {filename} -> {row['filename']}")
-            return row["filename"]
+            # 安全访问：先尝试字典访问，再尝试元组访问
+            try:
+                filename_value = row["filename"]
+            except (KeyError, TypeError):
+                # 如果不能用列名访问，尝试索引访问
+                filename_value = row[0] if row else None
+
+            print(f"✅ 找到文件映射: {filename} -> {filename_value}")
+            return filename_value
         else:
             print(f"❌ 未找到文件映射: {filename}")
             # 打印所有可用文件用于调试
             c.execute("SELECT filename, raw_filename, deleted FROM files")
             all_files = c.fetchall()
-            print(f"📋 数据库中所有文件: {all_files}")
+            print(f"📋 数据库中所有文件数量: {len(all_files)}")
+            for file_row in all_files:
+                print(f"  文件: {dict(file_row)}")  # 转换为字典显示
             return None
     except Exception as e:
         print(f"❌ 数据库查询错误: {e}")
+        import traceback
+        traceback.print_exc()
         return None
     finally:
         conn.close()
+

@@ -2,7 +2,8 @@
 文件相关蓝图
 """
 from flask import Blueprint, request, jsonify, send_from_directory
-from backend.models.database_manager import DatabaseManager
+# from backend.models.database_manager import OldDatabaseManager
+from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
 
@@ -11,8 +12,9 @@ from backend.service.file_mapping_service import file_mapping_service
 
 file_bp = Blueprint('file', __name__)
 
-db = DatabaseManager(DATABASE)
-
+db = OldDatabaseManager(DATABASE)
+import os
+print("&&&&&&&&&&&&&&:DATABASE", DATABASE, os.getcwd())
 
 
 @file_bp.get('/files')

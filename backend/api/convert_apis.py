@@ -6,12 +6,12 @@ from pathlib import Path
 
 # 导入拆分后的模块
 from backend.api.convert import (
-    pdf_converter,
-    image_operations,
-    table_processor,
-    database_handler,
-    progress_manager,
-    utils
+    pdf_converter,           # 正确
+    image_operations,        # 正确
+    table_processor,         # 正确
+    database_handler,        # 正确
+    progress_manager,        # 正确
+    utils                   # 正确
 )
 
 # 从常量导入
@@ -27,7 +27,7 @@ PNG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 convert_bp = Blueprint('convert', __name__)
 
 # 初始化管理器
-db_manager = database_handler.DatabaseManager(DATABASE_PATH)
+db_manager = database_handler.NewDatabaseManager(DATABASE_PATH)
 progress_tracker = progress_manager.ProgressManager()
 
 # ---------------- 1. 提交异步转图 ----------------
@@ -124,7 +124,7 @@ def api_available_steps():
 def api_process_tables(pdf_folder: str):
     return table_processor.submit_table_processing_task(
         pdf_folder,
-        JOINED_TABLES_DIR,
+        PNG_OUTPUT_ROOT,
         request,
         progress_tracker
     )

@@ -18,14 +18,14 @@ from backend.init_file_mapping import init_existing_files_mapping
 
 # ⭐⭐⭐ 新增：导入WebSocket模块 ⭐⭐⭐
 from backend.api.websocket_routes import websocket_bp, init_websocket
-from backend.models.database_manager import DatabaseManager
-
+# from backend.models.database_manager import OldDatabaseManager
+from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 
 # ----------- 初始化 Flask -----------
 app = Flask(__name__)
 
 # ----------- 初始化数据库 -----------
-db_mgr = DatabaseManager()
+db_mgr = OldDatabaseManager()
 db_mgr.init_database()
 
 # ⭐⭐⭐ 新增：初始化WebSocket ⭐⭐⭐

@@ -24,7 +24,7 @@ except ImportError:
     UPLOAD_FOLDER = 'backend/static/uploads'
     PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
     EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
-    DATABASE = 'data/backend/database.db'
+    DATABASE = 'data/database.db'
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 

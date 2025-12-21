@@ -2,8 +2,7 @@
 
 from flask import Blueprint, request, jsonify, make_response
 from backend.utils.constants import UPLOAD_FOLDER, DATABASE, MAIN_ROOT
-from backend.models.database_manager import DatabaseManager
-import hashlib, pathlib, uuid, os
+import uuid, os
 from pathlib import Path
 import sqlite3
 

@@ -47,6 +47,7 @@
           @crop="$emit('crop', currentPDF.filename)"
           @convert="$emit('convert', currentPDF.disk_name)"
           @batch-crop="$emit('batch-crop', currentPDF.disk_name)"
+          @parse-tables="$emit('parse-tables', currentPDF.disk_name)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
         />
 
@@ -165,7 +166,8 @@ const emit = defineEmits([
   'single-llm-process',
   'open-llm-config',
   'update:llmLoading',
-  'ocr-completed'
+  'ocr-completed',
+  'parse-tables'  // 添加这个
 ])
 
 // 折叠状态

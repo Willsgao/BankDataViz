@@ -15,7 +15,7 @@ from datetime import datetime
 import sys
 
 
-class DatabaseManager:
+class OldDatabaseManager:
     def __init__(self, db_path='data/database.db'):
         self.db_path = db_path
         self.uploads_dir = '../static/uploads'
@@ -316,7 +316,7 @@ def show_database_info(db_manager):
 
 
 def main():
-    db_manager = DatabaseManager()
+    db_manager = OldDatabaseManager()
 
     # 确保数据库已初始化
     if not os.path.exists(db_manager.db_path):

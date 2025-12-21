@@ -17,7 +17,8 @@ from backend.schemas.table_schemas import ProcessingResult, ExcelSaveConfig
 from backend.service.excel_storage_service import ExcelStorageService
 from backend.utils.data_processor import DataProcessor
 from backend.utils.image_utils import ImageUtils
-from backend.models.database_manager import DatabaseManager
+# from backend.models.database_manager import OldDatabaseManager
+from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class NonFinancialTableService:
         # 数据库日志记录
         self.enable_db_logging = enable_db_logging
         if enable_db_logging:
-            self.db_manager = DatabaseManager()
+            self.db_manager = OldDatabaseManager()
 
     def _calculate_max_tokens(self, img_size: int) -> int:
         """计算最大token数"""

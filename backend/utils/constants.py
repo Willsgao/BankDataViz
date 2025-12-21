@@ -62,7 +62,7 @@ UPLOAD_FOLDER = r'backend/static/uploads'
 PNG_OUTPUT_ROOT = r'backend/static/pdf2pngs'
 EXCEL_OUTPUT_ROOT = r'backend/static/excel_data'
 JOINED_TABLES_ROOT = r'backend/static/joined_tables'
-DATABASE = r'backend/data/database.db'
+DATABASE = r'data/database.db'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 # ⭐⭐⭐ 新增：完整的静态文件路径常量 ⭐⭐⭐
@@ -88,13 +88,6 @@ CROPPED_TABLES_DIR = STATIC_DIR / "cropped_tables"  # 裁剪表格目录
 EXCEL_DATA_URL_PREFIX = "/api/excel-data"
 EXCEL_DATA_RELATIVE_PATH = "static/excel_data"
 
-# # 确保所有目录存在
-# for directory in [STATIC_DIR, EXCEL_DATA_DIR, UPLOAD_DIR, PNG_OUTPUT_DIR,
-#                   JOINED_TABLES_DIR, LAYOUT_OUTPUT_DIR, CROPPED_TABLES_DIR]:
-#     directory.mkdir(parents=True, exist_ok=True)
-#     print(f"✅ 确保目录存在: {directory}")
-
-# constants.py 中增加以下内容
 
 # 在 ALLOWED_EXTENSIONS 后面添加
 NON_FINANCIAL_PROMPT = """

@@ -32,6 +32,7 @@
       @crop="handleCrop"
       @convert="handleConvert"
       @batch-crop="handleBatchCrop"
+      @parse-tables="handleParseTables"
       @clear-cache="handleClearCache"
       @close-pdf="switchToNextPDF"
       @preview-image="previewImage"
@@ -70,6 +71,7 @@
 </template>
 
 <script setup>
+import axios from 'axios'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
@@ -421,7 +423,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'delete', 'crop', 'convert', 'batchCrop', 'clearCache', 'openLLMConfig',
-  'recognize-table', 'excel-data-received'
+  'recognize-table', 'excel-data-received', 'parse-tables'
 ])
 
 // 表格类型状态
@@ -1174,6 +1176,7 @@ const startStatusPolling = (taskId, pdfDiskName) => {
 }
 
 
+
 const checkTaskResult = (taskId, pdfDiskName, tableType) => {
   console.log('🔄 启动任务结果检查:', { taskId, pdfDiskName, tableType })
 
@@ -1365,6 +1368,83 @@ const handleSingleLLMProcess = async (params) => {
   }
 }
 
+
+const handleParseTables = async (pdfDiskName) => {
+  console.log('📊 表格解析按钮被点击:', pdfDiskName);
+
+  try {
+    const folderName = pdfDiskName.replace('.pdf', '');
+
+    // 1. 获取已切好的表格图片
+    const listResponse = await axios.get(`/api/png-list/${folderName}`);
+    const tableImages = listResponse.data?.pngs || [];
+
+    if (tableImages.length === 0) {
+      ElMessage.warning('请先完成表格裁切');
+      return;
+    }
+
+    console.log('📸 找到裁切图片:', tableImages.length);
+
+    // 2. 调用表格解析接口
+    ElMessage.info(`开始解析 ${tableImages.length} 张表格...`);
+
+    // 使用绝对路径，避免代理问题
+    const baseUrl = window.location.origin; // 获取当前页面的基础URL
+    const apiUrl = `/api/process-tables/${folderName}`; // 相对路径
+
+    console.log('🔗 调用API:', apiUrl);
+
+    const processResponse = await axios.post(
+      apiUrl,
+      {
+        png_names: tableImages,
+        bank_name: '中国建设银行',
+        table_type: tableType.value
+      }
+    );
+
+    const data = processResponse.data;
+
+    console.log('✅ API响应:', data);
+
+    if (data.success) {
+      ElMessage.success(`任务已提交 (ID: ${data.job_id})`);
+
+      // 如果返回了任务ID，可以开始WebSocket连接
+      if (data.task_id) {
+        console.log('🎯 获取到任务ID:', data.task_id);
+        // 开始WebSocket连接或轮询
+        await initWebSocket(data.task_id, pdfDiskName);
+      } else if (data.job_id) {
+        console.log('🎯 获取到任务ID (旧版):', data.job_id);
+        // 开始轮询
+        startSimplePolling(data.job_id, pdfDiskName, tableType.value);
+      }
+
+    } else {
+      ElMessage.error('提交失败: ' + (data.error || '未知错误'));
+    }
+
+  } catch (error) {
+    console.error('表格解析失败:', error);
+
+    // 更详细的错误信息
+    let errorMessage = '请求失败';
+    if (error.response) {
+      console.error('响应状态:', error.response.status);
+      console.error('响应数据:', error.response.data);
+      errorMessage = `请求失败 (${error.response.status}): ${error.response.data?.error || '未知错误'}`;
+    } else if (error.request) {
+      console.error('请求未收到响应:', error.request);
+      errorMessage = '服务器无响应，请检查后端是否运行';
+    } else {
+      errorMessage = error.message;
+    }
+
+    ElMessage.error(errorMessage);
+  }
+};
 
 
 // FileList.vue 中的 checkLLMStatus 函数

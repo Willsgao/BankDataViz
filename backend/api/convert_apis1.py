@@ -8,7 +8,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 from flask import Blueprint, request, jsonify, send_from_directory
-from backend.models.database_manager import DatabaseManager
+# from backend.models.database_manager import OldDatabaseManager
+from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.service.pdf_convert_service import background_convert_table_only
 from backend.service.layout_service import batch_cut_tables, execute_single_step, processing_pipeline
 
@@ -34,7 +35,7 @@ print(f"🔍 输出目录设置为: {PNG_OUTPUT_DIR}")
 print(f"🔍 输出目录是否存在: {PNG_OUTPUT_DIR.exists()}")
 
 convert_bp = Blueprint('convert', __name__)
-db = DatabaseManager(DATABASE_PATH)
+db = OldDatabaseManager(DATABASE_PATH)
 
 
 # ---------------- 1. 提交异步转图 ----------------
