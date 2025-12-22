@@ -25,6 +25,11 @@ import json
 import time
 from pathlib import Path
 from flask import jsonify
+import tempfile
+import os
+import time
+import shutil
+from flask import Blueprint, request, jsonify, send_file  # 确保有 send_file
 
 # 初始化输出目录
 PNG_OUTPUT_DIR = Path(MAIN_ROOT) / PNG_OUTPUT_ROOT
@@ -56,6 +61,8 @@ def api_progress(job_id: str):
 # ---------------- 3. 列出某 PDF 的所有 PNG ----------------
 @convert_bp.get('/png-list/<pdf_folder>')
 def api_png_list(pdf_folder: str):
+    print("pdf_folder, PNG_OUTPUT_DIR:::")
+    print(pdf_folder, PNG_OUTPUT_DIR)
     return image_operations.get_png_list(pdf_folder, PNG_OUTPUT_DIR)
 
 # ---------------- 4. 单张 PNG 访问 ----------------
@@ -174,8 +181,6 @@ def _map_to_disk(filename: str) -> str | None:
     return utils.map_to_disk(filename, db_manager)
 
 
-# 在 convert_apis.py 中添加以下代码
-
 
 # ---------------- 20. 表格图片预筛选 API ----------------
 @convert_bp.route('/screen-table-images/<pdf_folder>', methods=['POST', 'OPTIONS'])
@@ -203,12 +208,50 @@ def api_screen_table_images(pdf_folder: str):
 
         # 验证PDF文件夹存在
         pdf_folder_path = PNG_OUTPUT_DIR / pdf_folder
+
         if not pdf_folder_path.exists():
             return jsonify({
                 "success": False,
                 "error": f"PDF文件夹不存在: {pdf_folder}"
             }), 404
 
+        # ---------------- 0. 缓存检查 ----------------
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        tables_dir = output_dir / "tables"
+        no_tables_dir = output_dir / "no_tables"
+
+        # 若已存在分类结果，直接返回缓存
+        if tables_dir.exists() or no_tables_dir.exists():
+            cached_tables = [f.name for f in tables_dir.glob("*.png")] if tables_dir.exists() else []
+            cached_no_tables = [f.name for f in no_tables_dir.glob("*.png")] if no_tables_dir.exists() else []
+
+            if cached_tables or cached_no_tables:
+                return jsonify({
+                    "success": True,
+                    "cached": True,
+                    "message": "使用已有筛选结果",
+                    "classified_data": {
+                        "tables": [
+                            {"name": n, "relative_path": f"filtered_tables/{pdf_folder}/tables/{n}",
+                             "type": "tables", "cached": True}
+                            for n in cached_tables
+                        ],
+                        "no_tables": [
+                            {"name": n, "relative_path": f"filtered_tables/{pdf_folder}/no_tables/{n}",
+                             "type": "no_tables", "cached": True}
+                            for n in cached_no_tables
+                        ],
+                        "uncertain": []
+                    },
+                    "stats": {
+                        "tables_count": len(cached_tables),
+                        "no_tables_count": len(cached_no_tables),
+                        "uncertain_count": 0,
+                        "total": len(cached_tables) + len(cached_no_tables)
+                    }
+                })
+
+        # ---------------- 1. 构建图片路径列表（原有代码） ----------------
         # 构建图片路径列表
         image_paths = []
         missing_images = []
@@ -263,30 +306,128 @@ def api_screen_table_images(pdf_folder: str):
                 output_dir=str(output_dir)
             )
 
-            # 构建响应数据
+            # 1. 获取检测结果中的置信度信息
+            detection_info = {}
+            if hasattr(report, 'detection_results'):
+                for result in report.detection_results:
+                    if hasattr(result, 'image_name') and hasattr(result, 'confidence'):
+                        img_name = Path(result.image_name).name
+                        detection_info[img_name] = {
+                            'confidence': result.confidence,
+                            'processing_time': getattr(result, 'processing_time', 0.0)
+                        }
+
+            # 2. 获取有表格的图片实际路径 - 基于检测结果
+            tables_images = []
+            tables_dir = output_dir / "tables"
+
+            # 确保 report.has_table_images 存在
+            if hasattr(report, 'has_table_images') and tables_dir.exists():
+                for img_name in report.has_table_images:
+                    img_file = tables_dir / img_name
+                    if img_file.exists():
+                        info = detection_info.get(img_name, {})
+                        tables_images.append({
+                            "name": img_name,
+                            "path": str(img_file),  # 绝对路径
+                            "relative_path": f"filtered_tables/{pdf_folder}/tables/{img_name}",
+                            "web_url": f"/static/filtered_tables/{pdf_folder}/tables/{img_name}",
+                            "type": "tables",
+                            "source_dir": str(pdf_folder_path),
+                            "confidence": info.get('confidence', 0.9),
+                            "processing_time": info.get('processing_time', 0.0),
+                            "detected_at": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "size": img_file.stat().st_size,
+                            "modified_at": img_file.stat().st_mtime
+                        })
+                    else:
+                        print(f"⚠️ 警告: 有表格图片 {img_name} 在目录中不存在")
+
+            # 3. 获取无表格的图片实际路径 - 基于检测结果
+            no_tables_images = []
+            no_tables_dir = output_dir / "no_tables"
+
+            # 确保 report.no_table_images 存在
+            if hasattr(report, 'no_table_images') and no_tables_dir.exists():
+                for img_name in report.no_table_images:
+                    img_file = no_tables_dir / img_name
+                    if img_file.exists():
+                        info = detection_info.get(img_name, {})
+                        no_tables_images.append({
+                            "name": img_name,
+                            "path": str(img_file),  # 绝对路径
+                            "relative_path": f"filtered_tables/{pdf_folder}/no_tables/{img_name}",
+                            "web_url": f"/static/filtered_tables/{pdf_folder}/no_tables/{img_name}",
+                            "type": "no_tables",
+                            "source_dir": str(pdf_folder_path),
+                            "confidence": info.get('confidence', 0.9),
+                            "processing_time": info.get('processing_time', 0.0),
+                            "detected_at": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "size": img_file.stat().st_size,
+                            "modified_at": img_file.stat().st_mtime
+                        })
+                    else:
+                        print(f"⚠️ 警告: 无表格图片 {img_name} 在目录中不存在")
+
+            # 4. 检查是否有不确定的图片
+            uncertain_images = []
+            if hasattr(report, 'uncertain_images') and report.uncertain_images:
+                for img_name in report.uncertain_images:
+                    # 不确定的图片可能在原始目录
+                    img_file = pdf_folder_path / img_name
+                    if img_file.exists():
+                        info = detection_info.get(img_name, {})
+                        uncertain_images.append({
+                            "name": img_name,
+                            "path": str(img_file),
+                            "relative_path": f"pdf2pngs/{pdf_folder}/{img_name}",
+                            "web_url": f"/static/pdf2pngs/{pdf_folder}/{img_name}",
+                            "type": "uncertain",
+                            "source_dir": str(pdf_folder_path),
+                            "confidence": info.get('confidence', 0.5),
+                            "processing_time": info.get('processing_time', 0.0),
+                            "detected_at": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "size": img_file.stat().st_size,
+                            "modified_at": img_file.stat().st_mtime
+                        })
+
+            # 5. 构建响应数据
             response_data = {
                 "success": True,
                 "pdf_folder": pdf_folder,
                 "total_images": len(image_paths),
-                "has_table_count": len(report.has_table_images),
-                "no_table_count": len(report.no_table_images),
+                "has_table_count": len(tables_images),  # 使用实际数量
+                "no_table_count": len(no_tables_images),  # 使用实际数量
+                "uncertain_count": len(uncertain_images),  # 新增
                 "output_dir": str(output_dir),
-                "tables_dir": str(output_dir / "tables"),
-                "no_tables_dir": str(output_dir / "no_tables"),
+                "output_relative_path": f"filtered_tables/{pdf_folder}",
+                "tables_dir": str(tables_dir),
+                "tables_relative_dir": f"filtered_tables/{pdf_folder}/tables",
+                "no_tables_dir": str(no_tables_dir),
+                "no_tables_relative_dir": f"filtered_tables/{pdf_folder}/no_tables",
                 "screening_report": report.to_dict(),
-                "has_table_images": report.has_table_images,
-                "no_table_images": report.no_table_images
+                "has_table_images": report.has_table_images,  # 原始检测结果
+                "no_table_images": report.no_table_images,  # 原始检测结果
+                "uncertain_images": getattr(report, 'uncertain_images', []),  # 原始检测结果
+                "classified_data": {
+                    "tables": tables_images,
+                    "no_tables": no_tables_images,
+                    "uncertain": uncertain_images
+                },
+                "stats": {
+                    "tables_count": len(tables_images),
+                    "no_tables_count": len(no_tables_images),
+                    "uncertain_count": len(uncertain_images),
+                    "total": len(image_paths)
+                }
             }
 
-            # 如果只需要有表格的图片列表
-            if filter_only:
-                response_data["filtered_images"] = report.has_table_images
-
-            print(f"✅ 表格筛选完成: 有表格{len(report.has_table_images)}张，无表格{len(report.no_table_images)}张")
             return jsonify(response_data)
 
         except Exception as e:
             print(f"💥 筛选过程异常: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 "success": False,
                 "error": f"筛选过程失败: {str(e)}"
@@ -300,6 +441,7 @@ def api_screen_table_images(pdf_folder: str):
             "success": False,
             "error": f"表格筛选失败: {str(e)}"
         }), 500
+
 
 # ---------------- 21. 获取筛选结果详情 API ----------------
 @convert_bp.get('/screen-results/<pdf_folder>')
@@ -531,11 +673,6 @@ def api_cleanup_screening_temp():
         older_than_hours = float(request.args.get('older_than_hours', 24))
         pdf_folder = request.args.get('pdf_folder')
 
-        import tempfile
-        import os
-        import time
-        import shutil
-
         temp_dir = tempfile.gettempdir()
         deleted_count = 0
         deleted_size = 0
@@ -590,4 +727,689 @@ def api_cleanup_screening_temp():
             "success": False,
             "error": f"清理临时文件失败: {str(e)}"
         }), 500
+
+
+# ---------------- 24. 图片分类 API ----------------
+# convert_apis.py - 修改 api_get_classified_images 函数
+@convert_bp.route('/classified-images/<pdf_folder>', methods=['GET'])
+def api_get_classified_images(pdf_folder: str):
+    """
+    API: 获取已分类的图片列表
+    功能: 返回指定PDF文件夹中已分类的图片列表
+    """
+    try:
+        # 验证PDF文件夹存在
+        pdf_folder_path = PNG_OUTPUT_DIR / pdf_folder
+        if not pdf_folder_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"PDF文件夹不存在: {pdf_folder}"
+            }), 404
+
+        # 检查筛选输出目录
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        tables_dir = output_dir / "tables"
+        no_tables_dir = output_dir / "no_tables"
+
+        # 检查是否有筛选结果
+        if not output_dir.exists():
+            return jsonify({
+                "success": True,
+                "data": {
+                    "tables": [],
+                    "no_tables": [],
+                    "uncertain": []
+                },
+                "message": "尚未进行图片筛选",
+                "stats": {
+                    "tables_count": 0,
+                    "no_tables_count": 0,
+                    "uncertain_count": 0,
+                    "total": 0
+                }
+            })
+
+        # 构建分类图片数据
+        classified_data = {
+            "tables": [],
+            "no_tables": [],
+            "uncertain": []
+        }
+
+        # 读取有表格图片
+        if tables_dir.exists():
+            for img_file in tables_dir.glob("*.png"):
+                classified_data["tables"].append({
+                    "name": img_file.name,
+                    "path": str(img_file),
+                    "relative_path": f"filtered_tables/{pdf_folder}/tables/{img_file.name}",
+                    "url": f"/api/filtered-tables-image/{pdf_folder}/tables/{img_file.name}",
+                    "type": "tables",
+                    "size": img_file.stat().st_size,
+                    "modified_at": img_file.stat().st_mtime
+                })
+
+        # 读取无表格图片
+        if no_tables_dir.exists():
+            for img_file in no_tables_dir.glob("*.png"):
+                classified_data["no_tables"].append({
+                    "name": img_file.name,
+                    "path": str(img_file),
+                    "relative_path": f"filtered_tables/{pdf_folder}/no_tables/{img_file.name}",
+                    "url": f"/api/filtered-tables-image/{pdf_folder}/no_tables/{img_file.name}",
+                    "type": "no_tables",
+                    "size": img_file.stat().st_size,
+                    "modified_at": img_file.stat().st_mtime
+                })
+
+        # 计算统计信息
+        stats = {
+            "tables_count": len(classified_data["tables"]),
+            "no_tables_count": len(classified_data["no_tables"]),
+            "uncertain_count": len(classified_data["uncertain"]),
+            "total": len(classified_data["tables"]) + len(classified_data["no_tables"]) + len(classified_data["uncertain"])
+        }
+
+        response_data = {
+            "success": True,
+            "data": classified_data,  # 将数据包装在 data 字段中
+            "stats": stats,
+            "directories": {
+                "tables_dir": str(tables_dir),
+                "no_tables_dir": str(no_tables_dir),
+                "output_dir": str(output_dir)
+            }
+        }
+        print("response_data:", response_data)
+        result = jsonify(response_data)
+        print("Content-Type:", result.headers.get('Content-Type'))
+
+        # 关键修复：返回标准格式
+        return result
+
+    except Exception as e:
+        import traceback
+        print(f"💥 获取分类图片失败: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"获取分类图片失败: {str(e)}"
+        }), 500
+
+
+# ---------------- 25. 移动单张图片 API ----------------
+@convert_bp.route('/move-screened-image/<pdf_folder>', methods=['POST'])
+def api_move_screened_image(pdf_folder: str):
+    """
+    API: 移动单张图片到不同分类
+    功能: 将有表格/无表格的图片移动到另一个分类
+    """
+    try:
+        # 解析请求数据
+        data = request.get_json() or {}
+        image_name = data.get('image_name')
+        from_type = data.get('from_type')  # 'tables' 或 'no_tables'
+        to_type = data.get('to_type')  # 'tables' 或 'no_tables'
+        move_physically = data.get('move_physically', True)
+
+        # 验证参数
+        if not image_name:
+            return jsonify({
+                "success": False,
+                "error": "请提供图片名称 (image_name)"
+            }), 400
+
+        if not from_type or not to_type:
+            return jsonify({
+                "success": False,
+                "error": "请提供来源分类和目标分类 (from_type, to_type)"
+            }), 400
+
+        if from_type not in ['tables', 'no_tables', 'uncertain']:
+            return jsonify({
+                "success": False,
+                "error": "来源分类必须是 'tables', 'no_tables' 或 'uncertain'"
+            }), 400
+
+        if to_type not in ['tables', 'no_tables', 'uncertain']:
+            return jsonify({
+                "success": False,
+                "error": "目标分类必须是 'tables', 'no_tables' 或 'uncertain'"
+            }), 400
+
+        if from_type == to_type:
+            return jsonify({
+                "success": False,
+                "error": "来源分类和目标分类不能相同"
+            }), 400
+
+        # 构建目录路径
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        from_dir = output_dir / from_type
+        to_dir = output_dir / to_type
+
+        # 确保目录存在
+        to_dir.mkdir(parents=True, exist_ok=True)
+
+        # 构建完整文件路径
+        from_path = from_dir / image_name
+        to_path = to_dir / image_name
+
+        # 检查源文件是否存在
+        if not from_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"源文件不存在: {from_path}"
+            }), 404
+
+        print(f"📂 移动图片: {image_name}")
+        print(f"   从: {from_path}")
+        print(f"   到: {to_path}")
+
+        # 处理文件名冲突（如果目标文件已存在）
+        counter = 1
+        final_to_path = to_path
+        while final_to_path.exists():
+            stem = Path(image_name).stem
+            suffix = Path(image_name).suffix
+            new_name = f"{stem}_{counter}{suffix}"
+            final_to_path = to_dir / new_name
+            counter += 1
+
+            if counter > 100:
+                return jsonify({
+                    "success": False,
+                    "error": "生成唯一文件名失败"
+                }), 500
+
+        moved = False
+        actual_to_name = final_to_path.name
+
+        # 物理移动文件
+        if move_physically:
+            try:
+                # 复制文件到新位置
+                shutil.copy2(str(from_path), str(final_to_path))
+
+                # 可选：删除源文件（如果需要）
+                # from_path.unlink()
+
+                moved = True
+                print(f"✅ 文件已复制到: {final_to_path}")
+
+            except Exception as e:
+                print(f"❌ 文件移动失败: {e}")
+                return jsonify({
+                    "success": False,
+                    "error": f"文件移动失败: {str(e)}"
+                }), 500
+        else:
+            # 仅逻辑移动（更新记录）
+            moved = True
+            print(f"📝 逻辑移动: {image_name} -> {to_type}")
+
+        # 构建响应
+        response_data = {
+            "success": True,
+            "message": f"图片已成功移动到{to_type}分类",
+            "data": {
+                "original_name": image_name,
+                "actual_name": actual_to_name,
+                "from_type": from_type,
+                "to_type": to_type,
+                "from_path": str(from_path),
+                "to_path": str(final_to_path),
+                "moved_physically": move_physically,
+                "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+            },
+            "file_info": {
+                "new_name": actual_to_name,
+                "new_path": str(final_to_path),
+                "new_url": f"/api/filtered-tables/{pdf_folder}/{to_type}/{actual_to_name}"
+            }
+        }
+
+        # 如果是物理移动且成功，可以尝试删除源文件
+        if moved and move_physically:
+            try:
+                from_path.unlink()
+                print(f"🗑️  已删除源文件: {from_path}")
+                response_data["data"]["source_deleted"] = True
+            except Exception as e:
+                print(f"⚠️  删除源文件失败（可忽略）: {e}")
+                response_data["data"]["source_deleted"] = False
+                response_data["data"]["delete_error"] = str(e)
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        import traceback
+        print(f"💥 移动图片失败: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"移动图片失败: {str(e)}"
+        }), 500
+
+# ---------------- 26. 批量移动图片 API ----------------
+@convert_bp.route('/batch-move-images/<pdf_folder>', methods=['POST'])
+def api_batch_move_images(pdf_folder: str):
+    """
+    API: 批量移动图片
+    功能: 批量将多张图片移动到指定分类
+    """
+    try:
+        # 解析请求数据
+        data = request.get_json() or {}
+        images = data.get('images', [])  # 图片名称列表
+        to_type = data.get('to_type')  # 目标分类
+        move_physically = data.get('move_physically', True)
+
+        # 验证参数
+        if not images:
+            return jsonify({
+                "success": False,
+                "error": "请提供要移动的图片列表 (images)"
+            }), 400
+
+        if not to_type or to_type not in ['tables', 'no_tables', 'uncertain']:
+            return jsonify({
+                "success": False,
+                "error": "请提供有效的目标分类 (to_type)"
+            }), 400
+
+        # 构建目录路径
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        to_dir = output_dir / to_type
+
+        # 确保目标目录存在
+        to_dir.mkdir(parents=True, exist_ok=True)
+
+        print(f"📦 批量移动 {len(images)} 张图片到 {to_type} 分类")
+
+        results = []
+        success_count = 0
+        failed_count = 0
+
+        # 遍历所有图片，确定它们当前所在的分类
+        for image_name in images:
+            try:
+                # 查找图片当前所在位置
+                found = False
+                current_type = None
+                current_path = None
+
+                # 在所有分类目录中查找
+                for category in ['tables', 'no_tables', 'uncertain']:
+                    category_dir = output_dir / category
+                    if category_dir.exists():
+                        image_path = category_dir / image_name
+                        if image_path.exists():
+                            found = True
+                            current_type = category
+                            current_path = image_path
+                            break
+
+                if not found:
+                    results.append({
+                        "image_name": image_name,
+                        "success": False,
+                        "error": "图片不存在",
+                        "current_type": None
+                    })
+                    failed_count += 1
+                    continue
+
+                # 如果已经在目标分类，跳过
+                if current_type == to_type:
+                    results.append({
+                        "image_name": image_name,
+                        "success": True,
+                        "skipped": True,
+                        "message": "图片已在目标分类",
+                        "current_type": current_type,
+                        "to_type": to_type
+                    })
+                    success_count += 1
+                    continue
+
+                # 构建目标路径
+                to_path = to_dir / image_name
+
+                # 处理文件名冲突
+                counter = 1
+                final_to_path = to_path
+                while final_to_path.exists():
+                    stem = Path(image_name).stem
+                    suffix = Path(image_name).suffix
+                    new_name = f"{stem}_{counter}{suffix}"
+                    final_to_path = to_dir / new_name
+                    counter += 1
+
+                # 移动文件
+                if move_physically:
+                    # 复制到新位置
+                    shutil.copy2(str(current_path), str(final_to_path))
+
+                    # 删除源文件
+                    try:
+                        current_path.unlink()
+                        source_deleted = True
+                    except Exception as e:
+                        source_deleted = False
+                        delete_error = str(e)
+
+                # 记录结果
+                result = {
+                    "image_name": image_name,
+                    "success": True,
+                    "from_type": current_type,
+                    "to_type": to_type,
+                    "from_path": str(current_path),
+                    "to_path": str(final_to_path),
+                    "actual_name": final_to_path.name,
+                    "moved_physically": move_physically,
+                    "source_deleted": source_deleted if move_physically else None,
+                    "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+                }
+
+                if move_physically and not source_deleted:
+                    result["warning"] = "源文件删除失败"
+                    result["delete_error"] = delete_error
+
+                results.append(result)
+                success_count += 1
+
+                print(f"  ✅ {image_name}: {current_type} -> {to_type}")
+
+            except Exception as e:
+                print(f"  ❌ {image_name}: 移动失败 - {e}")
+                results.append({
+                    "image_name": image_name,
+                    "success": False,
+                    "error": str(e),
+                    "current_type": current_type if 'current_type' in locals() else None
+                })
+                failed_count += 1
+
+        # 构建响应
+        return jsonify({
+            "success": True,
+            "message": f"批量移动完成: 成功 {success_count} 个, 失败 {failed_count} 个",
+            "summary": {
+                "total": len(images),
+                "success": success_count,
+                "failed": failed_count,
+                "target_type": to_type
+            },
+            "results": results,
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"💥 批量移动失败: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"批量移动失败: {str(e)}"
+        }), 500
+
+#
+# ---------------- 27. 重新检测图片 API ----------------
+@convert_bp.route('/re-screen-image/<pdf_folder>', methods=['POST'])
+def api_re_screen_image(pdf_folder: str):
+    """
+    API: 重新检测单张图片
+    功能: 对单张图片重新进行表格检测
+    """
+    try:
+        # 解析请求数据
+        data = request.get_json() or {}
+        image_name = data.get('image_name')
+        current_type = data.get('current_type')
+        use_llm = data.get('use_llm', True)
+        force_redetect = data.get('force_redetect', False)
+
+        # 验证参数
+        if not image_name:
+            return jsonify({
+                "success": False,
+                "error": "请提供图片名称 (image_name)"
+            }), 400
+
+        # 构建图片路径
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+
+        # 尝试在所有分类目录中找到图片
+        image_path = None
+        found_type = None
+
+        for category in ['tables', 'no_tables', 'uncertain']:
+            category_dir = output_dir / category
+            if category_dir.exists():
+                potential_path = category_dir / image_name
+                if potential_path.exists():
+                    image_path = potential_path
+                    found_type = category
+                    break
+
+        if not image_path:
+            return jsonify({
+                "success": False,
+                "error": f"图片不存在: {image_name}"
+            }), 404
+
+        print(f"🔄 重新检测图片: {image_name}")
+        print(f"   当前分类: {found_type}")
+        print(f"   使用LLM: {use_llm}")
+
+        # 导入表格检测模块
+        try:
+            from backend.api.convert.table_detection_screening import TableScreeningPipeline
+        except ImportError as e:
+            return jsonify({
+                "success": False,
+                "error": f"表格检测模块导入失败: {str(e)}"
+            }), 500
+
+        # 创建筛选管道
+        pipeline = TableScreeningPipeline()
+
+        # 重新检测图片
+        try:
+            # 使用传统检测器直接检测
+            from backend.api.convert.table_detection_screening import TraditionalTableDetector
+
+            detector = TraditionalTableDetector()
+            screening_result, confidence, features = detector.detect(str(image_path))
+
+            # 如果需要，使用LLM进行判断
+            detected_type = 'no_tables'
+            llm_used = False
+
+            if screening_result.name == 'HAS_TABLE':
+                detected_type = 'tables'
+            elif screening_result.name == 'UNCERTAIN' and use_llm:
+                # 使用LLM判断
+                from backend.api.convert.table_detection_screening import LLMTableDetector
+                llm_detector = LLMTableDetector()
+                has_table, llm_confidence = llm_detector.detect_with_llm(str(image_path))
+                detected_type = 'tables' if has_table else 'no_tables'
+                llm_used = True
+                confidence = llm_confidence if has_table else 1 - llm_confidence
+            elif screening_result.name == 'NO_TABLE':
+                detected_type = 'no_tables'
+
+            print(f"   🔍 检测结果: {detected_type} (置信度: {confidence:.2f})")
+
+            # 构建响应
+            response_data = {
+                "success": True,
+                "message": f"重新检测完成: {detected_type}",
+                "data": {
+                    "image_name": image_name,
+                    "original_type": found_type,
+                    "detected_type": detected_type,
+                    "confidence": float(confidence),
+                    "features": features,
+                    "llm_used": llm_used,
+                    "force_redetect": force_redetect,
+                    "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+                },
+                "recommendation": {
+                    "move_required": detected_type != found_type,
+                    "action": f"移动到{detected_type}" if detected_type != found_type else "无需移动"
+                }
+            }
+
+            return jsonify(response_data)
+
+        except Exception as e:
+            print(f"❌ 重新检测失败: {e}")
+            return jsonify({
+                "success": False,
+                "error": f"重新检测失败: {str(e)}"
+            }), 500
+
+    except Exception as e:
+        import traceback
+        print(f"💥 重新检测API失败: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"重新检测失败: {str(e)}"
+        }), 500
+
+# ---------------- 28. 获取统计信息 ------ API ----------------
+@convert_bp.route('/screening-statistics/<pdf_folder>', methods=['GET'])
+def api_get_screening_statistics(pdf_folder: str):
+    """
+    API: 获取筛选统计信息
+    功能: 返回指定PDF文件夹的筛选统计信息
+    """
+    try:
+        # 构建目录路径
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        tables_dir = output_dir / "tables"
+        no_tables_dir = output_dir / "no_tables"
+
+        # 检查是否有筛选结果
+        if not output_dir.exists():
+            return jsonify({
+                "success": True,
+                "data": {
+                    "has_screening": False,
+                    "message": "尚未进行图片筛选",
+                    "stats": {
+                        "tables_count": 0,
+                        "no_tables_count": 0,
+                        "uncertain_count": 0,
+                        "total": 0
+                    }
+                }
+            })
+
+        # 计算统计信息
+        tables_count = len(list(tables_dir.glob("*.png"))) if tables_dir.exists() else 0
+        no_tables_count = len(list(no_tables_dir.glob("*.png"))) if no_tables_dir.exists() else 0
+        total = tables_count + no_tables_count
+
+        # 如果有历史记录文件，可以读取更多统计信息
+        accuracy = None
+        false_positives = 0
+        false_negatives = 0
+
+        # 检查是否有审计日志
+        audit_log = Path("false_negatives.log")
+        if audit_log.exists():
+            try:
+                with open(audit_log, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if pdf_folder in content:
+                        # 简单统计漏检数量
+                        false_negatives = content.count(pdf_folder)
+            except:
+                pass
+
+        # 构建响应
+        stats = {
+            "tables_count": tables_count,
+            "no_tables_count": no_tables_count,
+            "uncertain_count": 0,  # 如果有不确定分类可以添加
+            "total": total,
+            "tables_percentage": (tables_count / total * 100) if total > 0 else 0,
+            "no_tables_percentage": (no_tables_count / total * 100) if total > 0 else 0,
+            "false_positives": false_positives,
+            "false_negatives": false_negatives,
+            "estimated_accuracy": accuracy,
+            "last_updated": time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        return jsonify({
+            "success": True,
+            "data": stats,
+            "directories": {
+                "tables_dir": str(tables_dir),
+                "no_tables_dir": str(no_tables_dir),
+                "output_dir": str(output_dir)
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"💥 获取统计信息失败: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"获取统计信息失败: {str(e)}"
+        }), 500
+
+
+
+# ---------------- 25.5. 提供筛选分类图片 API ----------------
+@convert_bp.route('/filtered-tables-image/<pdf_folder>/<category>/<filename>')
+def api_filtered_tables_image(pdf_folder: str, category: str, filename: str):
+    """
+    API: 提供筛选分类后的图片
+    功能: 返回筛选后的分类图片文件（tables/no_tables）
+    """
+    try:
+        # 验证分类
+        if category not in ['tables', 'no_tables', 'uncertain']:
+            return jsonify({
+                "success": False,
+                "error": f"无效的分类: {category}"
+            }), 400
+
+        # 构建文件路径
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        image_path = output_dir / category / filename
+
+        print(f"📤 提供筛选图片: {image_path}")
+
+        if not image_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"筛选图片不存在: {filename}"
+            }), 404
+
+        # 返回图片文件
+        return send_file(str(image_path), mimetype='image/png')
+
+    except Exception as e:
+        import traceback
+        print(f"💥 提供筛选图片失败: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"提供筛选图片失败: {str(e)}"
+        }), 500
+
+
+
+
+
+
+
 

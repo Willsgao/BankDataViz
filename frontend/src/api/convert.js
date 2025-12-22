@@ -23,3 +23,14 @@ export const getPngUrl = (folder, pngName) => {
 export const getStaticResourceUrl = (path) => {
   return getStaticUrl(path)
 }
+
+// 在convert.js中确保有这个导出
+export const screenTableImages = (pdfFolder, pngNames, options = {}) => {
+  return http.post(`/screen-table-images/${pdfFolder}`, {
+    png_names: pngNames,
+    filter_only: options.filter_only || false,
+    use_llm: options.use_llm !== false,
+    audit_rate: options.audit_rate || 0.1,
+    ...options
+  }).then(res => res.data)
+}

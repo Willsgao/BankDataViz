@@ -45,12 +45,14 @@
           :has-batch-results="hasBatchCropResults(currentPDF.disk_name)"
           :parsing-progress="getParsingProgress(currentPDF.disk_name)"
           :has-screened-images="hasScreenedImages[currentPDF.disk_name] || false"
+          :screening-result="screeningResultMap?.[currentPDF.disk_name] || null"
           @delete="$emit('delete', currentPDF.filename)"
           @screen-images="$emit('screen-images', currentPDF.disk_name)"
           @convert="$emit('convert', currentPDF.disk_name)"
           @batch-crop="$emit('batch-crop', currentPDF.disk_name)"
           @parse-tables="$emit('parse-tables', currentPDF.disk_name)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
+          @open-classification="$emit('open-classification', currentPDF.disk_name)"
         />
 
         <!-- 单个裁切结果 -->
@@ -69,6 +71,7 @@
           @open-config="$emit('open-llm-config')"
           @preview-image="$emit('preview-image', $event, $event.index)"
           @llm-process="$emit('llm-process', $event)"
+          :screening-result="screeningResultMap?.[currentPDF.disk_name] || null"
           @single-llm-process="$emit('single-llm-process', $event)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
           @force-reset-loading="handleForceResetLoading"
@@ -159,6 +162,10 @@ const props = defineProps({
   },
   // 新增：接收图片筛选成功的状态
   screenedImagesMap: {
+    type: Object,
+    default: () => ({})
+  },
+  screeningResultMap: {  // 接收筛选结果
     type: Object,
     default: () => ({})
   }

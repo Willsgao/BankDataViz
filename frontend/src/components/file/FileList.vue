@@ -43,6 +43,9 @@
       @recognize-non-financial-table="handleRecognizeNonFinancialTable"
       @ocr-completed="handleOcrCompleted"
       @screen-images="handleScreenImages"
+      :screened-images-map="hasScreenedImages"
+      :screening-result-map="screeningResultMap"
+      @open-classification="handleOpenClassification"
     />
 
     <!-- 非PDF文件 -->
@@ -78,7 +81,10 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
 import { getBackendUrl, getStaticUrl, getFullUrl, getConfig } from '@/utils/config'  // 导入统一配置
+import { screenTableImages } from '@/api/convert'
 
+import { convertPdf, getPngList } from '@/api/convert'
+import screeningApi from '@/api/screening'
 import PdfPreviewSection from '@/components/pdf/PdfPreview.vue'
 import NonPdfFilesSection from '@/components/file/NonPdfFilesSection.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -98,6 +104,13 @@ const websocketConnected = ref(false)
 const handleOcrCompleted = (data) => {
   console.log('📤 FileList 收到 ocr-completed，转发:', data)
   emit('ocr-completed', data)
+}
+
+// 添加处理函数：
+const handleOpenClassification = (pdfDiskName) => {
+  console.log('📁 打开分类管理:', pdfDiskName)
+  // 这里可以直接触发父组件的事件，或者调用已有函数
+  emit('open-classification', pdfDiskName)
 }
 
 // 在 FileList.vue 中改进 initWebSocket 函数
@@ -572,16 +585,15 @@ watch(previewDialogVisible, (newVal) => {
 })
 
 
-// 图片筛选处理函数
+
+// FileList.vue 中修改 handleScreenImages 函数：
 const handleScreenImages = async (pdfDiskName) => {
   console.log('🔍 开始图片筛选:', pdfDiskName)
 
   try {
-    // 获取PDF文件夹名（去掉.pdf后缀）
     const pdfFolder = pdfDiskName.replace('.pdf', '')
-
-    // 检查是否有已转换的图片
     const cacheKey = pdfFolder
+
     if (!props.convertCache[cacheKey] || props.convertCache[cacheKey].length === 0) {
       ElMessage.warning('请先进行PDF转图操作')
       return
@@ -592,71 +604,63 @@ const handleScreenImages = async (pdfDiskName) => {
 
     ElMessage.info('开始筛选表格图片...')
 
-    // 调用后端图片筛选API
-    const response = await axios.post(`/api/screen-table-images/${pdfFolder}`, {
-      png_names: pngs,
-      filter_only: true,  // 只返回有表格的图片
-      copy_to_dir: `static/joined_tables/${pdfFolder}`,  // 可选：复制到指定目录
-      use_llm: true,  // 使用大模型辅助判断
-      audit_rate: 0.1  // 10%的审计比例
+    const response = await fetch(`/api/screen-table-images/${pdfFolder}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        png_names: pngs,
+        filter_only: false,
+        use_llm: true
+      })
     })
 
-    console.log('✅ 图片筛选响应:', response.data)
+    console.log('📊 原始响应状态:', response.status)
 
-    if (response.data.success) {
-      const result = response.data
-      ElMessage.success(`表格筛选完成: 共${result.total_images}张，有表格${result.has_table_count}张`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
 
-      // 如果筛选出了表格图片，可以更新joinedResults
-      if (result.filtered_images && result.filtered_images.length > 0) {
-        // 转换为完整URL
-        const fullImageUrls = result.filtered_images_full.map(imgPath => {
-          if (imgPath.startsWith('http')) {
-            return imgPath
-          } else if (imgPath.includes('joined_tables/')) {
-            return getBackendUrl(`/${imgPath}`)
-          } else if (imgPath.startsWith('static/')) {
-            return getBackendUrl(`/${imgPath.replace('static/', '')}`)
-          } else {
-            return getStaticUrl(imgPath)
-          }
+    const responseText = await response.text()
+    console.log('📊 原始响应文本:', responseText.substring(0, 500) + '...')
+
+    const result = JSON.parse(responseText)
+    console.log('✅ 解析后的结果:', result)
+
+    if (result.success) {
+      const successMsg = `表格筛选完成: 共${result.total_images}张，有表格${result.has_table_count}张，无表格${result.no_table_count}张`
+      ElMessage.success(successMsg)
+
+      // ⭐⭐ 修改这里：直接调用父组件的方法 ⭐⭐
+      // 假设有一个通过props传递的方法
+      if (props.onScreeningComplete) {
+        props.onScreeningComplete({
+          pdfDiskName,
+          hasScreened: true,
+          screeningResult: result
         })
-
-        // 更新joinedResults
-        emit('update-joined-results', {
-          pdfDiskName: pdfDiskName,
-          images: fullImageUrls
-        })
-
-        // 发送事件通知父组件图片筛选完成
-        emit('screen-images-completed', {
-          pdfDiskName: pdfDiskName,
-          hasTableImages: result.has_table_count,
-          totalImages: result.total_images
+      } else {
+        // 或者使用emit
+        emit('screening-complete', {
+          pdfDiskName,
+          hasScreened: true,
+          screeningResult: result
         })
       }
 
-      // 显示筛选报告
-      if (result.screening_report) {
-        console.log('📊 筛选报告:', result.screening_report)
-        ElMessage.info(
-          `筛选结果: ${result.screening_report.has_table_count}张有表格, ` +
-          `${result.screening_report.no_table_count}张无表格, ` +
-          `${result.screening_report.uncertain_count}张不确定`
-        )
+      if (result.classified_data) {
+        setTimeout(() => {
+          emit('open-classification', pdfDiskName)
+        }, 1000)
       }
-
     } else {
-      ElMessage.error(`图片筛选失败: ${response.data.error}`)
+      ElMessage.error(`图片筛选失败: ${result.error}`)
     }
 
   } catch (error) {
     console.error('💥 图片筛选失败:', error)
-    let errorMessage = error.message || '筛选失败'
-    if (error.response?.data?.error) {
-      errorMessage = error.response.data.error
-    }
-    ElMessage.error(`图片筛选失败: ${errorMessage}`)
+    ElMessage.error(`图片筛选失败: ${error.message}`)
   }
 }
 

@@ -1,3 +1,4 @@
+<!-- 在现有的"图片筛选"按钮旁边添加"分类管理"按钮 -->
 <template>
   <div class="pdf-controls" v-if="pdf">
     <div class="file-info">
@@ -25,16 +26,34 @@
         {{ hasScreenedImages ? '重新筛选' : '图片筛选' }}
       </el-button>
 
-      <!-- 表格解析按钮：仅在已筛选图片后显示 -->
+      <!-- 分类管理按钮：仅在已筛选图片后显示 -->
       <el-button
-        v-if="shouldShowParseButton && hasScreenedImages"
-        type="primary"
+        v-if="hasScreenedImages"
+        type="warning"
         size="small"
-        icon="el-icon-document"
-        @click="$emit('parse-tables', pdf.disk_name)"
-        :loading="isParsing">
-        {{ hasResults ? '重新解析' : '表格解析' }}
+        icon="el-icon-folder-checked"
+        @click="$emit('open-classification', pdf.disk_name)"
+        :title="'管理分类图片（有表格: ' + (screeningResult?.has_table_count || 0) + '张, 无表格: ' + (screeningResult?.no_table_count || 0) + '张）'">
+        分类管理
+        <el-badge
+          v-if="screeningResult"
+          :value="(screeningResult.has_table_count || 0) + (screeningResult.no_table_count || 0)"
+          :max="99"
+          class="classification-badge"
+        />
       </el-button>
+
+      <!-- 表格解析按钮：只要已转图就显示 -->
+        <el-button
+          v-if="shouldShowParseButton"
+          type="primary"
+          size="small"
+          icon="el-icon-document"
+          @click="$emit('parse-tables', pdf.disk_name)"
+          :loading="isParsing"
+          :title="hasScreenedImages ? '基于筛选结果解析表格' : '解析所有图片中的表格'">
+          {{ hasResults ? '重新解析' : '表格解析' }}
+        </el-button>
 
       <!-- 筛选结果信息 -->
       <div v-if="screeningResult" class="screening-info">
@@ -127,7 +146,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['delete', 'screen-images', 'convert', 'batch-crop', 'clear-cache', 'parse-tables'])
+const emit = defineEmits(['delete', 'screen-images', 'convert', 'batch-crop', 'clear-cache', 'parse-tables', 'open-classification'])
 
 // 计算是否已转图
 const hasConvertCache = computed(() => {
@@ -137,12 +156,24 @@ const hasConvertCache = computed(() => {
 })
 
 // 计算是否显示表格解析按钮
+// 计算是否显示表格解析按钮
 const shouldShowParseButton = computed(() => {
+  // 只要已转图就显示表格解析按钮
+  // 不再依赖 hasScreenedImages，因为可以先解析后筛选
   const diskName = props.pdf.disk_name
   const cacheKey = diskName.replace(/\.pdf$/i, '')
   const hasConvertCache = !!props.convertCache[cacheKey]
-  return hasConvertCache || props.hasResults
+
+  console.log('🔍 表格解析按钮条件:', {
+    diskName,
+    hasConvertCache,
+    hasScreenedImages: props.hasScreenedImages,
+    shouldShow: hasConvertCache  // 只检查是否已转图
+  })
+
+  return hasConvertCache  // 只要已转图就可以解析
 })
+
 
 const formatDate = (ts) => {
   if (!ts) return '未知时间'
@@ -182,4 +213,18 @@ const formatDate = (ts) => {
   color: #64748b;
   margin-left: 8px;
 }
+
+/* 分类管理按钮的徽章样式 */
+:deep(.classification-badge) {
+  margin-left: 4px;
+
+  .el-badge__content {
+    font-size: 10px;
+    height: 16px;
+    line-height: 16px;
+    padding: 0 4px;
+    background-color: #f56c6c;
+  }
+}
+
 </style>
