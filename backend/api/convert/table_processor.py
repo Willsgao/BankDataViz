@@ -12,6 +12,9 @@ from datetime import datetime
 from backend.utils.constants import DATABASE_PATH, FILTERED_TABLES_DIR
 # from backend.models.new_database import NewDatabaseManager
 from backend.models.unified_db import NewDatabaseManager
+from backend.src.services.table_processor.table_rebuilder import TableReconstructor
+from backend.src.services.table_processor.ocr_gateway import TableOCRService
+from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
 
 
 # ========== 1. 导入表格处理管道 ==========
@@ -687,13 +690,11 @@ class HighVolumeTableProcessor:
 
     def _ocr_recognize(self, image_path: str) -> Dict[str, Any]:
         """OCR识别"""
-        from backend.src.services.table_processor.ocr_gateway import TableOCRService
         ocr_service = TableOCRService()
         return ocr_service.recognize_table(image_path)
 
     def _llm_analyze(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """LLM分析（GPU密集型）"""
-        from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
         analyzer = EnhancedFinancialTableAnalyzer()
         return analyzer.analyze_image(image_path, ocr_result)
 
@@ -701,7 +702,6 @@ class HighVolumeTableProcessor:
                            llm_result: Dict[str, Any],
                            image_path: str, bank_name: str) -> Dict[str, Any]:
         """表格重构"""
-        from backend.src.services.table_processor.table_rebuilder import TableReconstructor
         reconstructor = TableReconstructor()
 
         # 生成输出文件路径
@@ -1007,8 +1007,6 @@ def execute_single_step_handler(step_name, output_dir, request):
 def execute_ocr_step(pdf_folder, png_names, output_dir):
     """执行OCR步骤"""
     try:
-        from backend.src.services.table_processor.ocr_gateway import TableOCRService
-
         results = {}
         ocr_service = TableOCRService()
 
@@ -1047,7 +1045,6 @@ def execute_ocr_step(pdf_folder, png_names, output_dir):
 def execute_llm_step(pdf_folder, png_names, previous_context, output_dir):
     """执行LLM分析步骤"""
     try:
-        from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
 
         # 检查是否有OCR结果
         ocr_results = previous_context.get('ocr_results', {})
@@ -1105,7 +1102,6 @@ def execute_llm_step(pdf_folder, png_names, previous_context, output_dir):
 def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir):
     """执行表格重构步骤"""
     try:
-        from backend.src.services.table_processor.table_rebuilder import TableReconstructor
 
         # 检查前置结果
         ocr_results = previous_context.get('ocr_results', {})
@@ -1120,8 +1116,6 @@ def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir
 
         results = {}
         reconstructor = TableReconstructor()
-
-        print("BBBBBBBBpng_names:", png_names)
 
         for png_name in png_names:
             # 获取前置结果
