@@ -19,6 +19,7 @@
         @batch-crop="$emit('handleBatchCrop', $event)"
         @open-llm-config="$emit('openLLMConfig')"
         @image-selected="$emit('handleImageSelected', $event)"
+        @update-screening-status="$emit('handleUpdateScreeningStatus', $event)"
         @ocr-completed="(data) => {
           console.log('🧩 TwoColumnLayout 收到 ocr-completed:', data);
           $emit('handleOcrCompleted', data);
@@ -28,6 +29,7 @@
           console.log('🧩 TwoColumnLayout 收到并转发 excel-data-received:', data);
           $emit('handleExcelDataReceived', data);
         }"
+        @open-classification="$emit('handleOpenClassification', $event)"
       />
     </div>
 
@@ -135,7 +137,9 @@ defineEmits([
   'exportAllData',
   'updateExcelContent',
   'handleScreenImages',  // 新增
-  'handleScreenImagesCompleted'  // 新增完成事件
+  'handleScreenImagesCompleted',
+  'handleOpenClassification',
+  'handleUpdateScreeningStatus'
 ])
 </script>
 

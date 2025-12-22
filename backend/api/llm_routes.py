@@ -158,53 +158,6 @@ def check_llm_config_route():
 
 
 # 批量处理路由
-@llm_bp.route('/llm/batch-process1', methods=['POST'])
-def batch_process_images_route1():
-    """批量处理图片 - 立即返回任务ID"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                "success": False,
-                "error": "请求体不能为空"
-            }), 400
-
-        # 强制设置表格类型
-        data['table_type'] = 'financial'
-        print(f"🔄 金融表格批量处理 - 图片数量: {len(data.get('image_paths', []))}")
-
-        # 立即生成任务ID并返回
-        task_id = str(uuid.uuid4())
-
-        # 启动异步处理（不阻塞当前请求）
-        import threading
-        def run_async():
-            try:
-                _batch_process_images_sync(data, task_id)
-            except Exception as e:
-                logger.error(f"异步处理异常: {str(e)}")
-
-        thread = threading.Thread(target=run_async)
-        thread.daemon = True
-        thread.start()
-
-        print(f"🎯 立即返回任务ID: {task_id}")
-
-        return jsonify({
-            "success": True,
-            "task_id": task_id,
-            "message": "批量处理任务已开始，请等待WebSocket通知",
-            "status": "started"
-        })
-
-    except Exception as e:
-        logger.error(f"批量处理错误: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"批量处理错误: {str(e)}"
-        }), 500
-
-
 import threading
 @llm_bp.route('/llm/batch-process', methods=['POST'])
 def batch_process_financial():
@@ -246,7 +199,6 @@ def batch_process_non_financial():
 
     else:
         return jsonify({"error": result.get("error", "处理失败")}), 500
-
 
 
 

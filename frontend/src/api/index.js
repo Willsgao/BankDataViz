@@ -3,7 +3,7 @@ import axios from 'axios'
 import { getBackendUrl } from '@/utils/config'
 
 // ① 后端地址：环境变量 > 默认 localhost
-const backendBase = process.env.VUE_APP_API_BASE || 'http://localhost:8080'
+const backendBase = process.env.VUE_APP_API_BASE || 'http://localhost:5000'
 
 export const http = axios.create({
   baseURL: backendBase,   // ② 不再出现 127.0.0.1

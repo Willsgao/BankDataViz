@@ -16,7 +16,7 @@ const getDefaultConfig = () => ({
   },
   servers: {
     backend: {
-      host: "127.0.0.1",
+      host: "localhost",
       port: 5000,
       // 关键：用环境变量，本地不传就 localhost，服务器传入 172.17.0.1:5000
       baseUrl: process.env.VUE_APP_API_BASE || "http://localhost:5000"

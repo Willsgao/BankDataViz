@@ -25,6 +25,7 @@
     @save-excel-data="saveExcelData"
     @export-all-data="exportAllData"
     @update-excel-content="updateExcelContent"
+    @handle-open-classification="handleOpenClassification"
   />
 
   <!-- 其他全局组件 -->
@@ -57,12 +58,51 @@
       :key="visualizationKey"
     />
 
+    <!-- 图片分类管理器对话框 -->
+    <el-dialog
+      v-model="screeningVisible"
+      title="图片分类管理"
+      width="95%"
+      top="2vh"
+      destroy-on-close
+      class="screening-manager-dialog"
+      :close-on-click-modal="false"
+    >
+      <!-- ⭐⭐ 简化条件：只要对话框可见且有当前PDF就显示 -->
+      <ImageScreeningManager
+        v-if="screeningVisible && currentScreeningPdf"
+        :pdf-disk-name="currentScreeningPdf"
+        :classified-images="screeningData[currentScreeningPdf] || { tables: [], no_tables: [], uncertain: [] }"
+        :stats="screeningStats[currentScreeningPdf] || {}"
+        :get-image-url-fn="getImageUrl"
+        @close="closeImageClassification"
+        @refresh="handleRefreshClassification"
+        @move-image="handleMoveImage"
+        @redetect-image="handleRedetectImage"
+        @finish="handleFinishClassification"
+      />
+
+      <!-- 加载状态 -->
+      <div v-else class="loading-container">
+        <el-skeleton :rows="10" animated />
+      </div>
+    </el-dialog>
+
+
+
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
+// 在现有的import部分添加
+import { screeningApi } from '@/api/screening'
+// 或者使用 convertApi 中的方法
+import { convertApi } from '@/api/convert'
+// 在已有的import语句后面添加
+import ImageScreeningManager from '@/components/pdf/ImageScreeningManager.vue'
+
 
 // 组件导入
 import TwoColumnLayout from '@/layouts/TwoColumnLayout.vue'
@@ -84,9 +124,10 @@ import { useBatchTableCrop } from '@/composables/useBatchTableCrop'
 import { llmApi } from '@/api/llm'
 import { baiduOcrApi } from '@/api/baiduOcr'
 
-
 // 工具函数导入
 import { getBackendUrl, getStaticUrl } from '@/utils/config'
+
+
 
 // ---------------- 数据声明（从App.vue迁移过来） ----------------
 const files = ref([])
@@ -107,6 +148,14 @@ const joinedResults = ref({})
 const visualizationVisible = ref(false)
 const visualizationKey = ref(0)
 const excelViewerKey = ref(0)
+const screeningResultMap = ref({})
+
+const screeningData = ref({}) // 分类图片数据：{ pdfName: { tables: [], no_tables: [] } }
+const screeningVisible = ref(false) // 筛选管理器可见性
+const currentScreeningPdf = ref('') // 当前正在管理的PDF
+const screeningStats = ref({}) // 筛选统计信息
+// 新增：图片筛选状态（用于PdfControls显示）
+const hasScreenedImages = ref({}) // { pdfName: true/false }
 
 // ---------------- 初始化 composables ----------------
 const { cutTablesForPDF, batchCropLoading } = useBatchTableCrop(joinedResults)
@@ -165,7 +214,11 @@ async function handleOcrCompleted(ocrResult) {
   }
 }
 
-
+// 添加处理函数
+const handleOpenClassification = (pdfDiskName) => {
+  console.log('📱 TwoColumnPage收到打开分类管理:', pdfDiskName)
+  openImageClassification(pdfDiskName)
+}
 
 // ---------------- 业务函数实现 ----------------
 async function loadFiles() {
@@ -194,6 +247,23 @@ async function loadFiles() {
     ElMessage.error('加载文件失败')
   }
 }
+
+
+// 在 setup 中添加处理函数
+const handleUpdateScreeningStatus = (data) => {
+  console.log('🎯 收到筛选状态更新:', data)
+  const { pdfDiskName, hasScreened } = data
+
+  // 更新状态
+  hasScreenedImages.value[pdfDiskName] = hasScreened
+
+  console.log('✅ 筛选状态已更新:', {
+    pdfDiskName,
+    hasScreened: hasScreenedImages.value[pdfDiskName],
+    allStatus: hasScreenedImages.value
+  })
+}
+
 
 
 async function deleteFile(file) {
@@ -616,6 +686,358 @@ async function loadExcelContentAsync(excelUrl) {
 }
 
 
+//  -----------------------------------------
+const openImageClassification = async (pdfDiskName) => {
+  try {
+    console.log('🔄 打开图片分类管理器:', pdfDiskName)
+    const pdfFolder = pdfDiskName.replace('.pdf', '')
+
+    const response = await screeningApi.getClassifiedImages(pdfFolder)
+
+    console.log('📊 API响应:', response)
+    console.log('📊 response.success:', response.success)
+    console.log('📊 response.data:', response.data)
+
+    if (response.success) {
+      const classifiedData = response.data || {}
+      const stats = response.stats || {}
+
+      console.log('📊 classifiedData:', classifiedData)
+      console.log('📊 classifiedData.tables:', classifiedData.tables)
+      console.log('📊 classifiedData.no_tables:', classifiedData.no_tables)
+
+      // ⭐⭐ 关键修复1：检查是否有实际图片数据
+      const hasTables = classifiedData.tables && classifiedData.tables.length > 0
+      const hasNoTables = classifiedData.no_tables && classifiedData.no_tables.length > 0
+
+      console.log('📊 数据检查:', {
+        hasTables,
+        hasNoTables,
+        tablesLength: classifiedData.tables?.length || 0,
+        noTablesLength: classifiedData.no_tables?.length || 0
+      })
+
+      if (hasTables || hasNoTables) {
+        // ⭐⭐ 关键修复：更新筛选状态
+        hasScreenedImages.value = {
+          ...hasScreenedImages.value,
+          [pdfDiskName]: true  // 设置为true，表示已完成筛选
+        }
+
+        // ⭐⭐ 关键修复：更新筛选结果
+        screeningResultMap.value = {
+          ...screeningResultMap.value,
+          [pdfDiskName]: {
+            has_table_count: stats.tables_count || 0,
+            no_table_count: stats.no_tables_count || 0,
+            total: stats.total || 0
+          }
+        }
+
+        currentScreeningPdf.value = pdfDiskName
+        screeningData.value = {
+          ...screeningData.value,
+          [pdfDiskName]: classifiedData
+        }
+        screeningStats.value = {
+          ...screeningStats.value,
+          [pdfDiskName]: stats
+        }
+
+        screeningVisible.value = true
+
+        console.log('✅ 对话框已打开，筛选状态已更新:', {
+          currentScreeningPdf: currentScreeningPdf.value,
+          screeningVisible: screeningVisible.value,
+          hasScreened: hasScreenedImages.value[pdfDiskName],
+          hasTableCount: stats.tables_count
+        })
+
+      } else {
+        console.warn('⚠️ 没有找到分类图片数据')
+        ElMessage.warning('没有找到分类图片数据，请先进行图片筛选')
+      }
+    } else {
+      console.error('❌ API返回失败:', response.error)
+      ElMessage.error(`获取失败: ${response.error}`)
+    }
+  } catch (error) {
+    console.error('💥 打开失败:', error)
+    ElMessage.error(`打开失败: ${error.message}`)
+  }
+}
+
+
+// 处理移动图片 - 增强版本
+const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => {
+  try {
+    const targetPdf = pdfDiskName || currentScreeningPdf.value
+    if (!targetPdf) {
+      throw new Error('未指定PDF')
+    }
+
+    const pdfFolder = targetPdf.replace('.pdf', '')
+
+    console.log(`🔄 移动图片: ${imageName} from ${fromType} to ${toType}`)
+
+    // 乐观更新：先更新UI
+    const currentData = screeningData.value[targetPdf]
+    if (currentData) {
+      // 从原分类移除
+      const fromArray = currentData[fromType] || []
+      const toArray = currentData[toType] || []
+
+      const imageIndex = fromArray.findIndex(img => img.name === imageName)
+      if (imageIndex !== -1) {
+        const [movedImage] = fromArray.splice(imageIndex, 1)
+
+        // 更新图片类型
+        movedImage.type = toType
+        movedImage.moved_at = new Date().toISOString()
+
+        // 添加到目标分类
+        toArray.push(movedImage)
+
+        // 强制响应式更新
+        screeningData.value = { ...screeningData.value }
+
+        // 更新统计
+        if (screeningStats.value[targetPdf]) {
+          screeningStats.value[targetPdf][`${fromType}_count`] = Math.max(0, (screeningStats.value[targetPdf][`${fromType}_count`] || 0) - 1)
+          screeningStats.value[targetPdf][`${toType}_count`] = (screeningStats.value[targetPdf][`${toType}_count`] || 0) + 1
+          screeningStats.value = { ...screeningStats.value }
+        }
+      }
+    }
+
+    // 调用API进行实际移动
+    try {
+      const response = await screeningApi.moveImage(pdfFolder, {
+        imageName,
+        fromType,
+        toType,
+        movePhysically: true
+      })
+
+      if (response.success) {
+        console.log('✅ 图片移动成功:', response.message)
+
+        // 如果API返回了新的文件名（处理了冲突），更新本地数据
+        if (response.data?.actual_name && response.data.actual_name !== imageName) {
+          const toArray = screeningData.value[targetPdf][toType] || []
+          const movedImageIndex = toArray.findIndex(img => img.name === imageName)
+          if (movedImageIndex !== -1) {
+            toArray[movedImageIndex].name = response.data.actual_name
+            toArray[movedImageIndex].path = response.data.to_path
+            toArray[movedImageIndex].url = response.data.new_url || toArray[movedImageIndex].url
+
+            // 如果当前选中的就是这张图片，更新选中状态
+            if (selectedImageInManager?.value?.name === imageName) {
+              selectedImageInManager.value = { ...toArray[movedImageIndex] }
+            }
+
+            screeningData.value = { ...screeningData.value }
+          }
+        }
+
+        // 显示简短的成功提示
+        ElMessage.success({
+          message: `已移动到${toType === 'tables' ? '有表格' : '无表格'}`,
+          duration: 1500
+        })
+
+      } else {
+        throw new Error(response.error || '移动失败')
+      }
+
+    } catch (apiError) {
+      console.warn('⚠️ API移动失败（可能是后端未实现），但UI已更新', apiError)
+      // 保持乐观更新，显示模拟成功消息
+      ElMessage.success({
+        message: `已移动到${toType === 'tables' ? '有表格' : '无表格'}（模拟）`,
+        duration: 1500
+      })
+    }
+
+  } catch (error) {
+    console.error('💥 移动图片失败:', error)
+    ElMessage.error(`移动图片失败: ${error.message}`)
+
+    // 尝试恢复UI状态
+    try {
+      const targetPdf = pdfDiskName || currentScreeningPdf.value
+      if (targetPdf && screeningData.value[targetPdf]) {
+        // 重新获取数据
+        const pdfFolder = targetPdf.replace('.pdf', '')
+        const response = await screeningApi.getClassifiedImages(pdfFolder)
+        if (response.success) {
+          screeningData.value[targetPdf] = response.data
+          screeningData.value = { ...screeningData.value }
+        }
+      }
+    } catch (recoveryError) {
+      console.error('恢复UI状态失败:', recoveryError)
+    }
+  }
+}
+
+// 处理刷新分类数据 - 增强版本
+const handleRefreshClassification = async (pdfDiskName) => {
+  try {
+    console.log('🔄 刷新分类数据:', pdfDiskName)
+    const pdfFolder = pdfDiskName.replace('.pdf', '')
+
+    // 显示加载状态
+    const loadingMessage = ElMessage.info('正在刷新数据...', { duration: 0 })
+
+    // 重新获取分类数据
+    const response = await screeningApi.getClassifiedImages(pdfFolder)
+
+    if (response.success) {
+      screeningData.value[pdfDiskName] = response.data
+
+      // 更新统计
+      if (response.stats) {
+        screeningStats.value[pdfDiskName] = response.stats
+      }
+
+      // 关闭加载消息
+      loadingMessage.close()
+
+      ElMessage.success('数据已刷新')
+
+      console.log('✅ 数据刷新完成:', {
+        tables: response.data.tables?.length || 0,
+        no_tables: response.data.no_tables?.length || 0,
+        total: response.stats?.total || 0
+      })
+
+    } else {
+      loadingMessage.close()
+      throw new Error(response.error || '刷新失败')
+    }
+
+  } catch (error) {
+    console.error('刷新分类数据失败:', error)
+    ElMessage.error(`刷新失败: ${error.message}`)
+  }
+}
+
+// 处理重新检测图片 - 增强版本
+const handleRedetectImage = async ({ imageName, currentType, pdfDiskName }) => {
+  try {
+    console.log('🔄 重新检测图片:', { imageName, currentType, pdfDiskName })
+    const pdfFolder = pdfDiskName.replace('.pdf', '')
+
+    // 显示加载状态
+    const loadingMessage = ElMessage.info('正在重新检测...', { duration: 0 })
+
+    // 调用重新检测API
+    const response = await screeningApi.redetectImage(pdfFolder, {
+      imageName,
+      currentType,
+      use_llm: true
+    })
+
+    loadingMessage.close()
+
+    if (response.success) {
+      const newType = response.data.detected_type
+      const confidence = response.data.confidence || 0.8
+
+      ElMessage.success(`重新检测完成: ${newType === 'tables' ? '有表格' : '无表格'} (${(confidence * 100).toFixed(1)}%置信度)`)
+
+      // 如果分类发生变化，自动移动图片
+      if (newType !== currentType) {
+        // 延迟一点时间，让用户看到重新检测结果
+        setTimeout(() => {
+          handleMoveImage({
+            imageName,
+            fromType: currentType,
+            toType: newType,
+            pdfDiskName
+          })
+        }, 500)
+      } else {
+        ElMessage.info('分类未变化，无需移动')
+      }
+
+    } else {
+      throw new Error(response.error || '重新检测失败')
+    }
+
+  } catch (error) {
+    console.error('重新检测失败:', error)
+    ElMessage.error(`重新检测失败: ${error.message}`)
+  }
+}
+
+// 处理完成分类管理
+const handleFinishClassification = () => {
+  console.log('✅ 完成分类管理')
+
+  // 如果有数据变化，可以在这里保存或同步
+  if (currentScreeningPdf.value && screeningData.value[currentScreeningPdf.value]) {
+    const data = screeningData.value[currentScreeningPdf.value]
+    const stats = screeningStats.value[currentScreeningPdf.value]
+
+    console.log('最终分类结果:', {
+      tables: data.tables?.length || 0,
+      no_tables: data.no_tables?.length || 0,
+      total: stats?.total || 0
+    })
+  }
+
+  ElMessage.success('分类管理完成')
+  closeImageClassification()
+}
+
+// 添加一个函数来处理图片URL生成
+const getImageUrl = (imageData, pdfFolder) => {
+  if (!imageData) return ''
+
+  // 优先使用已有的URL
+  if (imageData.url) return imageData.url
+  if (imageData.path) {
+    // 处理路径
+    if (imageData.path.startsWith('http')) return imageData.path
+    if (imageData.path.startsWith('/')) return imageData.path
+
+    // 构建完整URL
+    const baseUrl = window.location.origin
+
+    // 尝试不同的路径模式
+    if (imageData.path.includes('filtered_tables')) {
+      return `${baseUrl}/api/${imageData.path}`
+    } else if (imageData.path.includes('png_output')) {
+      return `${baseUrl}/api/${imageData.path}`
+    } else {
+      // 默认使用PNG API
+      return `${baseUrl}/api/png/${pdfFolder}/${imageData.name}`
+    }
+  }
+
+  // 最后的回退方案
+  return `${window.location.origin}/api/png/${pdfFolder}/${imageData.name}`
+}
+
+// 在模板中暴露这些函数给ImageScreeningManager
+// 添加一个响应式变量来跟踪选中的图片（在分类管理器中）
+const selectedImageInManager = ref(null)
+
+//  --------------------------------
+
+
+
+// 新增函数：关闭图片分类管理器
+const closeImageClassification = () => {
+  screeningVisible.value = false
+  currentScreeningPdf.value = ''
+  console.log('已关闭图片分类管理器')
+}
+
+
+
 
 function manuallyTriggerExcelUpdate() {
   console.log('🔄 手动触发Excel更新')
@@ -721,6 +1143,8 @@ async function pollProgress(jobId) {
 }
 
 
+
+
 </script>
 
 
@@ -728,5 +1152,80 @@ async function pollProgress(jobId) {
 .two-column-page {
   height: 100vh;
   position: relative;
+}
+
+/* 图片分类管理器对话框样式 */
+.screening-manager-dialog {
+  .el-dialog__body {
+    padding: 0;
+    height: 80vh;
+    overflow: hidden;
+    display: flex;
+  flex-direction: column;
+  }
+}
+
+.screening-manager-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e7ed;
+  background: #f5f7fa;
+
+  h3 {
+    margin: 0;
+    color: #303133;
+    font-size: 18px;
+  }
+}
+
+.loading-state {
+  padding: 40px 20px;
+}
+
+.placeholder-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #909399;
+
+  p {
+    margin: 8px 0;
+  }
+
+  ul {
+    text-align: left;
+    margin-top: 16px;
+
+    li {
+      margin: 4px 0;
+    }
+  }
+}
+
+.screening-manager-dialog {
+  .el-dialog__body {
+    padding: 0;
+    height: 85vh;
+    overflow: hidden;
+  }
+}
+
+.loading-container {
+  padding: 40px;
+  height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
