@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from backend.utils.constants import DATABASE_PATH, PNG_OUTPUT_ROOT
+from backend.utils.constants import DATABASE_PATH, FILTERED_TABLES_DIR
 # from backend.models.new_database import NewDatabaseManager
 from backend.models.unified_db import NewDatabaseManager
 
@@ -43,7 +43,7 @@ class TableProcessingService:
             default_dir.mkdir(parents=True, exist_ok=True)
             return default_dir
 
-    def validate_images(self, pdf_folder: str, png_names: list, png_output_root) -> tuple:
+    def validate_images(self, pdf_folder: str, png_names: list, png_output_dir) -> tuple:
         """
         验证图片是否存在（只检查前几条数据）
         返回: (是否全部存在, 有效图片路径列表, 缺失图片名称列表)
@@ -58,14 +58,14 @@ class TableProcessingService:
         print(f"🔍 验证图片 - 文件夹: {pdf_folder}")
         print(f"📄 总图片数: {len(png_names)}, 只检查前 {check_count} 条")
 
-        # 确保 png_output_root 是 Path 对象
-        if isinstance(png_output_root, str):
+        # 确保 png_output_dir 是 Path 对象
+        if isinstance(png_output_dir, str):
             from pathlib import Path
-            png_output_root = Path(png_output_root)
-            print(f"✅ 路径对象: {png_output_root}")
+            png_output_dir = Path(png_output_dir)
+            print(f"✅ 路径对象: {png_output_dir}")
 
         # 检查PDF子目录
-        pdf_folder_path = png_output_root / pdf_folder
+        pdf_folder_path = png_output_dir / pdf_folder
         print(f"📁 检查子目录: {pdf_folder_path}")
 
         if not pdf_folder_path.exists():
@@ -305,7 +305,7 @@ table_processing_service = TableProcessingService()
 
 
 # ========== 4. API 接口函数 ==========
-def submit_table_processing_task(pdf_folder, png_output_root, request, progress_tracker):
+def submit_table_processing_task(pdf_folder, png_output_dir, request, progress_tracker):
     """API: 提交表格处理任务"""
 
     try:
@@ -334,17 +334,17 @@ def submit_table_processing_task(pdf_folder, png_output_root, request, progress_
         # 3. 验证图片存在
         service = TableProcessingService()
 
-        # 🔧 关键修复：确保 png_output_root 是 Path 对象
+        # 🔧 关键修复：确保 png_output_dir 是 Path 对象
         from pathlib import Path
-        if isinstance(png_output_root, str):
-            png_output_root = Path(png_output_root)
-            print(f"  ✅ 已将字符串转换为Path对象: {png_output_root}")
+        if isinstance(png_output_dir, str):
+            png_output_dir = Path(png_output_dir)
+            print(f"  ✅ 已将字符串转换为Path对象: {png_output_dir}")
 
-        print(f"  - PNG输出目录: {png_output_root}")
-        print(f"  - 目录是否存在: {png_output_root.exists()}")
+        print(f"  - PNG输出目录: {png_output_dir}")
+        print(f"  - 目录是否存在: {png_output_dir.exists()}")
 
         # 检查子目录是否存在
-        pdf_folder_path = png_output_root / pdf_folder
+        pdf_folder_path = png_output_dir / pdf_folder
         print(f"  - PDF子目录: {pdf_folder_path}")
         print(f"  - 子目录是否存在: {pdf_folder_path.exists()}")
 
@@ -352,7 +352,7 @@ def submit_table_processing_task(pdf_folder, png_output_root, request, progress_
             print(f"  - 子目录中的文件: {list(pdf_folder_path.glob('*.png'))[:5]}...")
 
         all_valid, valid_images, missing_images = service.validate_images(
-            pdf_folder, png_names, png_output_root
+            pdf_folder, png_names, png_output_dir
         )
 
         if not all_valid:
@@ -1121,6 +1121,8 @@ def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir
         results = {}
         reconstructor = TableReconstructor()
 
+        print("BBBBBBBBpng_names:", png_names)
+
         for png_name in png_names:
             # 获取前置结果
             ocr_result = ocr_results.get(png_name, {}).get('result')
@@ -1136,13 +1138,15 @@ def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir
             output_path.mkdir(parents=True, exist_ok=True)
             excel_file = str(output_path / f"{Path(png_name).stem}_reconstructed.xlsx")
 
+            effect_png_dir = FILTERED_TABLES_DIR / pdf_folder / png_name
+            print("effect_png_dir::::", effect_png_dir)
             # 执行表格重构
             success = reconstructor.process_all_tables(
                 ocr_result=ocr_result,
                 llm_result=llm_result,
                 output_file=excel_file,
                 final_output_file=excel_file,
-                image_path=str(PNG_OUTPUT_ROOT / pdf_folder / png_name),
+                image_path=str(effect_png_dir),
                 bank_name=""
             )
 
