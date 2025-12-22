@@ -135,9 +135,10 @@ def api_available_steps():
 # ---------------- 13. 提交表格处理任务 ----------------
 @convert_bp.route('/process-tables/<pdf_folder>', methods=['POST', 'OPTIONS'])
 def api_process_tables(pdf_folder: str):
+    # INPUT_TABLES_ROOT = FILTERED_TABLES_DIR / "tables"
     return table_processor.submit_table_processing_task(
         pdf_folder,
-        PNG_OUTPUT_ROOT,
+        FILTERED_TABLES_DIR,
         request,
         progress_tracker
     )
@@ -179,7 +180,6 @@ def api_table_task_detail(job_id: str):
 def _map_to_disk(filename: str) -> str | None:
     """保留此函数以便向后兼容"""
     return utils.map_to_disk(filename, db_manager)
-
 
 
 # ---------------- 20. 表格图片预筛选 API ----------------

@@ -7,8 +7,6 @@
     </div>
 
     <div class="pdf-actions">
-      <el-button type="danger" size="small" icon="el-icon-delete"
-                 @click="$emit('delete', pdf.filename)">删除</el-button>
 
       <el-button type="success" size="small" icon="el-icon-picture"
                  @click="$emit('convert', pdf.disk_name)"
@@ -92,6 +90,9 @@
 </template>
 
 <script setup>
+// <el-button type="danger" size="small" icon="el-icon-delete"
+//                 @click="$emit('delete', pdf.filename)">删除</el-button>
+
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -155,23 +156,26 @@ const hasConvertCache = computed(() => {
   return cacheData && Array.isArray(cacheData) && cacheData.length > 0
 })
 
-// 计算是否显示表格解析按钮
-// 计算是否显示表格解析按钮
-const shouldShowParseButton = computed(() => {
-  // 只要已转图就显示表格解析按钮
-  // 不再依赖 hasScreenedImages，因为可以先解析后筛选
-  const diskName = props.pdf.disk_name
-  const cacheKey = diskName.replace(/\.pdf$/i, '')
-  const hasConvertCache = !!props.convertCache[cacheKey]
 
-  console.log('🔍 表格解析按钮条件:', {
+// 计算是否显示表格解析按钮 - 修改为：只有在已筛选图片后才显示
+const shouldShowParseButton = computed(() => {
+  const diskName = props.pdf.disk_name
+  const hasScreened = props.hasScreenedImages
+
+  console.log('🔍 PdfControls 表格解析按钮显示条件检查:', {
     diskName,
-    hasConvertCache,
-    hasScreenedImages: props.hasScreenedImages,
-    shouldShow: hasConvertCache  // 只检查是否已转图
+    hasConvertCache: hasConvertCache.value,
+    'hasConvertCache 值': hasConvertCache.value,
+    hasScreenedImages: hasScreened,
+    'hasScreenedImages 类型': typeof hasScreened,
+    'hasScreenedImages 值': hasScreened,
+    'props.hasScreenedImages': props.hasScreenedImages,
+    '当前时间': new Date().toISOString(),
+    shouldShow: hasConvertCache.value && hasScreened
   })
 
-  return hasConvertCache  // 只要已转图就可以解析
+  // 必须同时满足：已转图 AND 已完成图片筛选
+  return hasConvertCache.value && hasScreened
 })
 
 

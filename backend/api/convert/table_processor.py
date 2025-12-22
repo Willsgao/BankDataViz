@@ -347,7 +347,7 @@ def submit_table_processing_task(pdf_folder, png_output_dir, request, progress_t
         print(f"  - 目录是否存在: {png_output_dir.exists()}")
 
         # 检查子目录是否存在
-        pdf_folder_path = png_output_dir / pdf_folder
+        pdf_folder_path = png_output_dir / pdf_folder / "tables"
         print(f"  - PDF子目录: {pdf_folder_path}")
         print(f"  - 子目录是否存在: {pdf_folder_path.exists()}")
 
@@ -963,7 +963,6 @@ def process_tables_async(job_id, pdf_folder, valid_images, bank_name):
 
 def execute_single_step_handler(step_name, output_dir, request):
     """分步执行表格处理 - 真正的分步实现"""
-    from flask import jsonify
 
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200

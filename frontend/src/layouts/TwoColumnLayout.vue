@@ -13,6 +13,8 @@
         :batch-crop-loading="batchCropLoading"
         :joined-results="joinedResults"
         :parsing-progress-map="parsingProgressMap"
+        :has-screened-images="hasScreenedImages"
+        :screening-result-map="screeningResultMap"
         @delete="$emit('deleteFile', $event)"
         @crop="$emit('cutTable', $event)"
         @convert="$emit('convertAndPreview', $event)"
@@ -28,6 +30,10 @@
         @excel-data-received="(data) => {
           console.log('🧩 TwoColumnLayout 收到并转发 excel-data-received:', data);
           $emit('handleExcelDataReceived', data);
+        }"
+        @screen-images-completed="(data) => {
+          console.log('🧩 TwoColumnLayout 收到 screen-images-completed:', data);
+          $emit('handleScreenImagesCompleted', data);
         }"
         @open-classification="$emit('handleOpenClassification', $event)"
       />
@@ -102,6 +108,34 @@ import FileUpload from '@/components/file/FileUpload.vue'
 import FileList from '@/components/file/FileList.vue'
 import ExcelDataViewer from '@/components/table/ExcelViewer.vue'
 
+
+
+// 处理图片筛选完成事件
+const handleScreenImagesCompleted = (data) => {
+  console.log('🎯 收到图片筛选完成事件:', data)
+  const { pdfDiskName, hasScreened, screeningResult } = data
+
+  // 更新筛选状态
+  hasScreenedImages.value = {
+    ...hasScreenedImages.value,
+    [pdfDiskName]: hasScreened || true
+  }
+
+  // 更新筛选结果
+  if (screeningResult) {
+    screeningResultMap.value = {
+      ...screeningResultMap.value,
+      [pdfDiskName]: screeningResult
+    }
+  }
+
+  console.log('✅ 筛选状态已更新:', {
+    pdfDiskName,
+    hasScreened: hasScreenedImages.value[pdfDiskName]
+  })
+}
+
+
 // 定义props - 所有需要从父组件传递的数据
 defineProps({
   files: Array,
@@ -113,6 +147,14 @@ defineProps({
   joinedResults: Object,
   currentExcelData: Object,
   parsingProgressMap: {  // 添加这个
+    type: Object,
+    default: () => ({})
+  },
+  hasScreenedImages: {  // 需要添加这个
+    type: Object,
+    default: () => ({})
+  },
+  screeningResultMap: {  // 需要添加这个
     type: Object,
     default: () => ({})
   }

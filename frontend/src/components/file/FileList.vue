@@ -28,6 +28,8 @@
       :recognize-loading="recognizeLoading"
       :table-type="tableType"
       :parsing-progress-map="parsingProgressMap"
+      :screened-images-map="hasScreenedImages"
+      :screening-result-map="screeningResultMap"
       @switch-pdf="switchToPDF"
       @delete="handleDelete"
       @crop="handleCrop"
@@ -43,8 +45,6 @@
       @recognize-non-financial-table="handleRecognizeNonFinancialTable"
       @ocr-completed="handleOcrCompleted"
       @screen-images="handleScreenImages"
-      :screened-images-map="hasScreenedImages"
-      :screening-result-map="screeningResultMap"
       @open-classification="handleOpenClassification"
     />
 
@@ -437,12 +437,21 @@ const props = defineProps({
   parsingProgressMap: {
     type: Object,
     default: () => ({})
+  },
+  hasScreenedImages: {  // 需要添加这个
+    type: Object,
+    default: () => ({})
+  },
+  screeningResultMap: {  // 需要添加这个
+    type: Object,
+    default: () => ({})
   }
 })
 
 const emit = defineEmits([
   'delete', 'crop', 'convert', 'batchCrop', 'clearCache', 'openLLMConfig',
-  'recognize-table', 'excel-data-received', 'parse-tables', 'screen-images'
+  'recognize-table', 'excel-data-received', 'parse-tables', 'screen-images',
+  'screen-images-completed'
 ])
 
 // 表格类型状态
@@ -585,8 +594,6 @@ watch(previewDialogVisible, (newVal) => {
 })
 
 
-
-// FileList.vue 中修改 handleScreenImages 函数：
 const handleScreenImages = async (pdfDiskName) => {
   console.log('🔍 开始图片筛选:', pdfDiskName)
 
@@ -632,22 +639,21 @@ const handleScreenImages = async (pdfDiskName) => {
       const successMsg = `表格筛选完成: 共${result.total_images}张，有表格${result.has_table_count}张，无表格${result.no_table_count}张`
       ElMessage.success(successMsg)
 
-      // ⭐⭐ 修改这里：直接调用父组件的方法 ⭐⭐
-      // 假设有一个通过props传递的方法
-      if (props.onScreeningComplete) {
-        props.onScreeningComplete({
-          pdfDiskName,
-          hasScreened: true,
-          screeningResult: result
-        })
-      } else {
-        // 或者使用emit
-        emit('screening-complete', {
-          pdfDiskName,
-          hasScreened: true,
-          screeningResult: result
-        })
-      }
+      // ⭐ 添加调试日志
+      console.log('📤 FileList 准备触发 screen-images-completed 事件:', {
+        pdfDiskName,
+        result,
+        hasScreened: true
+      })
+
+      // ⭐⭐ 修改这里：使用正确的事件名 ⭐⭐
+      emit('screen-images-completed', {
+        pdfDiskName,
+        hasScreened: true,
+        screeningResult: result
+      })
+
+      console.log('✅ FileList screen-images-completed 事件已触发')
 
       if (result.classified_data) {
         setTimeout(() => {
@@ -663,7 +669,6 @@ const handleScreenImages = async (pdfDiskName) => {
     ElMessage.error(`图片筛选失败: ${error.message}`)
   }
 }
-
 
 // 识别表格处理 - 根据表格类型分发
 const handleRecognizeTable = async (tableInfo) => {

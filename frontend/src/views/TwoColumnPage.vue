@@ -9,6 +9,8 @@
     :batch-crop-loading="batchCropLoading"
     :joined-results="joinedResults"
     :current-excel-data="currentExcelData"
+    :has-screened-images="hasScreenedImages"
+    :screening-result-map="screeningResultMap"
     @load-files="loadFiles"
     @delete-file="deleteFile"
     @cut-table="cutTable"
@@ -16,6 +18,7 @@
     @handle-batch-crop="handleBatchCrop"
     @open-llm-config="openLLMConfig"
     @handle-image-selected="handleImageSelected"
+    @handle-screen-images-completed="handleScreenImagesCompleted"
     @handle-ocr-completed="handleOcrCompleted"
     @handle-recognize-table="handleRecognizeTable"
     @handle-excel-data-received="handleExcelDataReceived"
@@ -246,6 +249,43 @@ async function loadFiles() {
     console.error('加载文件失败:', error)
     ElMessage.error('加载文件失败')
   }
+}
+
+// 处理图片筛选完成事件
+const handleScreenImagesCompleted = (data) => {
+  console.log('🎯 TwoColumnPage handleScreenImagesCompleted 被调用:', data)
+  console.log('📊 事件传递路径确认：FileList → TwoColumnLayout → TwoColumnPage')
+
+  const { pdfDiskName, hasScreened, screeningResult } = data
+
+  // 更新筛选状态 - 使用深拷贝确保响应式更新
+  const newHasScreenedImages = { ...hasScreenedImages.value }
+  newHasScreenedImages[pdfDiskName] = hasScreened || true
+  hasScreenedImages.value = newHasScreenedImages
+
+  // 更新筛选结果
+  if (screeningResult) {
+    const newScreeningResultMap = { ...screeningResultMap.value }
+    newScreeningResultMap[pdfDiskName] = screeningResult
+    screeningResultMap.value = newScreeningResultMap
+  }
+
+  console.log('✅ 筛选状态已更新:', {
+    pdfDiskName,
+    hasScreened: hasScreenedImages.value[pdfDiskName],
+    currentHasScreenedImages: JSON.parse(JSON.stringify(hasScreenedImages.value)) // 深拷贝避免Proxy
+  })
+
+  // 添加延迟检查，确认状态是否真的更新了
+  setTimeout(() => {
+    console.log('⏰ 延迟检查状态:', {
+      pdfDiskName,
+      hasScreened: hasScreenedImages.value[pdfDiskName],
+      'hasScreenedImages[pdfDiskName] 类型': typeof hasScreenedImages.value[pdfDiskName],
+      'hasScreenedImages[pdfDiskName] 值': hasScreenedImages.value[pdfDiskName],
+      'hasScreenedImages 对象': JSON.parse(JSON.stringify(hasScreenedImages.value))
+    })
+  }, 100)
 }
 
 
@@ -795,6 +835,13 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
         movedImage.type = toType
         movedImage.moved_at = new Date().toISOString()
 
+
+        // ⭐ 新增：更新图片的URL和路径
+        const baseUrl = window.location.origin
+        const pdfFolder = targetPdf.replace('.pdf', '')
+        movedImage.url = `${baseUrl}/api/filtered-tables-image/${pdfFolder}/${toType}/${imageName}`
+        movedImage.relative_path = `filtered_tables/${pdfFolder}/${toType}/${imageName}`
+
         // 添加到目标分类
         toArray.push(movedImage)
 
@@ -822,23 +869,44 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
       if (response.success) {
         console.log('✅ 图片移动成功:', response.message)
 
-        // 如果API返回了新的文件名（处理了冲突），更新本地数据
-        if (response.data?.actual_name && response.data.actual_name !== imageName) {
-          const toArray = screeningData.value[targetPdf][toType] || []
-          const movedImageIndex = toArray.findIndex(img => img.name === imageName)
-          if (movedImageIndex !== -1) {
-            toArray[movedImageIndex].name = response.data.actual_name
-            toArray[movedImageIndex].path = response.data.to_path
-            toArray[movedImageIndex].url = response.data.new_url || toArray[movedImageIndex].url
 
-            // 如果当前选中的就是这张图片，更新选中状态
-            if (selectedImageInManager?.value?.name === imageName) {
-              selectedImageInManager.value = { ...toArray[movedImageIndex] }
-            }
+        // 无论是否重命名，都要更新本地数据
+        const toArray = screeningData.value[targetPdf][toType] || []
+        const movedImageIndex = toArray.findIndex(img => img.name === imageName)
+        if (movedImageIndex !== -1) {
+          // 更新图片对象的路径信息
+          const actualName = response.data?.actual_name || imageName
+          const toPath = response.data?.to_path || response.data?.file_info?.new_path
+          const newUrl = response.data?.new_url || response.data?.file_info?.new_url
 
-            screeningData.value = { ...screeningData.value }
+          toArray[movedImageIndex].name = actualName
+          toArray[movedImageIndex].type = toType  // 更新分类类型
+          if (toPath) toArray[movedImageIndex].path = toPath
+          if (newUrl) toArray[movedImageIndex].url = newUrl
+
+          // ⭐ 新增：如果API没有返回URL，则根据新分类和文件名构建URL
+          if (!toArray[movedImageIndex].url) {
+            const baseUrl = window.location.origin
+            const pdfFolder = targetPdf.replace('.pdf', '')
+
+            // 构建正确的分类图片URL
+            toArray[movedImageIndex].url = `${baseUrl}/api/filtered-tables-image/${pdfFolder}/${toType}/${actualName}`
+
+            // 同时更新relative_path
+            toArray[movedImageIndex].relative_path = `filtered_tables/${pdfFolder}/${toType}/${actualName}`
           }
+
+          // 如果当前选中的就是这张图片，更新选中状态
+          if (selectedImageInManager?.value?.name === imageName) {
+            selectedImageInManager.value = { ...toArray[movedImageIndex] }
+          }
+
+          screeningData.value = { ...screeningData.value }
         }
+
+
+
+
 
         // 显示简短的成功提示
         ElMessage.success({
