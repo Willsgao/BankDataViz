@@ -4,6 +4,9 @@ import os
 from backend.src.services.table_processor.long_format_converter import FinalDataConverter
 from backend.src.services.table_processor.marked_table_processor import MarkedTableProcessor
 
+import openpyxl
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
 
 class TableReconstructor:
     """表格重构器：整合7步流程"""
@@ -1463,7 +1466,7 @@ class TableReconstructor:
 
         return name
 
-    def step9_save_to_excel(self, tables_data, output_file, table_names=None):
+    def step9_save_to_excel1111(self, tables_data, output_file, table_names=None):
         """
         将多个表格保存到Excel，每个表格一个Sheet
         tables_data: 列表，每个元素是一个表格的完整数据
@@ -1610,6 +1613,131 @@ class TableReconstructor:
             print(f"\n❌ 保存Excel文件失败: {str(e)}")
             return False
 
+    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names=None):
+        """
+        优化版的Excel保存 - 数据绝对正确，样式宽松，性能优先
+        """
+        print(f"\n=== 第7步：保存到Excel（性能优化版） ===")
+        print(f"要保存{len(tables_data)}个表格到: {output_file}")
+
+        # ========== 原有逻辑：表格名称处理 ==========
+        if table_names:
+            print(f"使用的表格名称列表: {table_names}")
+
+        # 创建新的工作簿
+        wb = openpyxl.Workbook()
+
+        # 删除默认创建的Sheet
+        if 'Sheet' in wb.sheetnames:
+            wb.remove(wb['Sheet'])
+
+        # ========== 处理每个表格 ==========
+        for table_idx, table in enumerate(tables_data):
+            if not table:
+                print(f"表格{table_idx}为空，跳过")
+                continue
+
+            # ========== 原有逻辑：Sheet名称处理 ==========
+            if table_names and table_idx < len(table_names):
+                table_name = table_names[table_idx]
+                sheet_name = self._clean_sheet_name(table_name)
+            else:
+                sheet_name = f"Table{table_idx + 1}"
+
+            # ========== 原有逻辑：检查Sheet名称是否重复 ==========
+            original_name = sheet_name
+            counter = 1
+            while sheet_name in wb.sheetnames:
+                sheet_name = f"{original_name}_{counter}"
+                counter += 1
+
+            # ========== 优化：直接使用append批量写入数据 ==========
+            # 创建工作表
+            ws = wb.create_sheet(title=sheet_name)
+
+            # 直接append整个行数据（openpyxl会自动处理）
+            for row_data in table:
+                # 确保数据正确性：直接写入原始数据，不做额外处理
+                ws.append(row_data)
+
+            # 获取实际写入后的表格尺寸
+            num_rows = ws.max_row
+            num_cols = ws.max_column if ws.max_column else 0
+
+            # ========== 优化：只设置关键样式 ==========
+            # 1. 只设置表头行样式（第1行）
+            if num_rows >= 1:
+                header_row = ws[1]  # 获取第一行
+                for cell in header_row:
+                    cell.font = Font(bold=True)
+                    cell.alignment = Alignment(horizontal='center')
+
+            # 2. 只设置第一列样式（从第2行开始）
+            if num_cols >= 1 and num_rows >= 2:
+                for row in range(2, num_rows + 1):
+                    cell = ws.cell(row=row, column=1)
+                    cell.alignment = Alignment(horizontal='left')
+
+            # ========== 优化：简化列宽计算 ==========
+            # 只计算前30行的列宽（性能与准确性平衡）
+            MAX_ROWS_FOR_COLUMN_WIDTH = 30
+
+            for col in range(1, num_cols + 1):
+                col_letter = get_column_letter(col)
+
+                max_length = 0
+                # 只检查前30行或实际行数
+                check_rows = min(num_rows, MAX_ROWS_FOR_COLUMN_WIDTH)
+
+                for row in range(1, check_rows + 1):
+                    cell = ws.cell(row=row, column=col)
+                    value = cell.value
+                    if value:
+                        # 简化长度计算
+                        text_len = len(str(value))
+                        # 粗略估算：中文算2个，其他算1个
+                        if any('\u4e00' <= c <= '\u9fff' for c in str(value)):
+                            text_len += len(str(value))  # 简单加倍
+
+                        max_length = max(max_length, text_len)
+
+                # 设置最小列宽
+                if max_length > 0:
+                    width = min(max(max_length + 1, 8), 50)
+                    ws.column_dimensions[col_letter].width = width
+                else:
+                    ws.column_dimensions[col_letter].width = 8
+
+            # ========== 保留原有逻辑：冻结窗格 ==========
+            if num_rows >= 2 and num_cols >= 2:
+                ws.freeze_panes = 'B2'
+
+        # ========== 原有逻辑：处理空表格情况 ==========
+        if len(wb.sheetnames) == 0:
+            ws = wb.create_sheet(title="空表格")
+            ws['A1'] = "无表格数据"
+
+        # ========== 保存文件 ==========
+        try:
+            wb.save(output_file)
+            print(f"\n✅ Excel文件保存成功: {output_file}")
+            print(f"   共保存了 {len(wb.sheetnames)} 个工作表")
+
+            # 显示Sheet列表（可选）
+            if len(wb.sheetnames) <= 20:  # 只显示前20个
+                print("   Sheet列表:")
+                for i, sheet_name in enumerate(wb.sheetnames[:20], 1):
+                    ws = wb[sheet_name]
+                    print(f"     {i}. {sheet_name}: {ws.max_row}行 × {ws.max_column}列")
+                if len(wb.sheetnames) > 20:
+                    print(f"     ... 还有{len(wb.sheetnames) - 20}个表格")
+
+            return True
+
+        except Exception as e:
+            print(f"\n❌ 保存Excel文件失败: {str(e)}")
+            return False
+
     def _extract_page_number_from_image_path(self, image_path):
         """
         从图片路径中提取页码信息
@@ -1674,7 +1802,7 @@ class TableReconstructor:
         print(f"  未找到页码信息，返回空字符串")
         return ""
 
-    def process_all_tables(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx",
+    def process_all_tables111(self, ocr_result, llm_result, output_file="output.xlsx", final_output_file="final.xlsx",
                            image_path=None, bank_name="未知银行"):
         """
         完整处理流程：第1-7步 - 增强版（支持表格合并）
@@ -1881,6 +2009,247 @@ class TableReconstructor:
         print(f"{'=' * 60}")
 
         return success
+
+    def process_all_tables(self, ocr_result, llm_result, output_file="output.xlsx",
+                           final_output_file="final.xlsx", image_path=None, bank_name="未知银行"):
+        """
+        完整处理流程 - 保持向后兼容
+
+        如果需要内存数据，请使用 process_all_tables_to_memory
+        """
+        print(f"📁 文件模式处理表格...")
+
+        # 先处理到内存
+        tables_data, table_names = self.process_all_tables_to_memory(
+            ocr_result, llm_result, image_path, bank_name
+        )
+
+        if not tables_data:
+            self.log_issue("无表格数据生成")
+            return False
+
+        # 保存到Excel
+        success = self.step9_save_to_excel_optimized(
+            tables_data=tables_data,
+            output_file=output_file,
+            table_names=table_names
+        )
+
+        if not success:
+            self.log_issue("保存原始Excel失败")
+            return False
+
+        # ========== 第7步：生成最终数据Excel ==========
+        try:
+            print(f"\n开始生成最终数据Excel...")
+
+            if not final_output_file or final_output_file == "final.xlsx":
+                import os
+                base_name = os.path.splitext(output_file)[0]
+                final_output_file = f"{base_name}_final_data.xlsx"
+                print(f"自动生成最终数据文件名: {final_output_file}")
+
+            # 获取LLM表格数据
+            llm_table_list = []
+            if 'tables_structure' in llm_result:
+                llm_table_list = llm_result['tables_structure'].get('tables', [])
+            elif 'tables' in llm_result:
+                llm_table_list = llm_result['tables']
+
+            print(f"要转换的表格数: {len(tables_data)}")
+
+            # 调用转换器
+            final_success = self.final_data_converter.batch_convert_tables(
+                all_tables_data=tables_data,
+                all_llm_tables=llm_table_list,
+                output_excel_path=final_output_file,
+                bank_name=bank_name
+            )
+
+            if final_success:
+                print(f"✅ 最终数据Excel生成成功: {final_output_file}")
+            else:
+                print(f"⚠️ 最终数据Excel生成失败")
+
+            return success
+
+        except Exception as e:
+            print(f"⚠️ 最终数据转换异常: {str(e)}")
+            print(f"原始表格已保存: {output_file}")
+            import traceback
+            traceback.print_exc()
+            return success
+
+    def _process_single_table_to_memory(self, ocr_tables, llm_table_info):
+        """
+        处理单个表格到内存（不保存文件）
+
+        Args:
+            ocr_tables: OCR表格列表
+            llm_table_info: LLM表格信息
+
+        Returns:
+            list: 表格数据（二维列表）或 None
+        """
+        try:
+            # 第3步：合并OCR表格
+            merged_data = self.step3_merge_ocr_tables(ocr_tables, llm_table_info)
+            if not merged_data:
+                self.log_issue("表格合并失败")
+                return None
+
+            # 第4步：创建基础表格
+            base_table = self.step4_create_base_data_table(merged_data)
+            if not base_table:
+                self.log_issue("创建基础表格失败")
+                return None
+
+            # 第5步：添加列标题
+            col_headers = merged_data.get('headers', {}).get('cols', [])
+            table_with_cols = self.step5_add_column_headers(base_table, col_headers)
+
+            # 第6步：添加行标题
+            row_headers = merged_data.get('headers', {}).get('rows', [])
+            final_table = self.step6_add_row_headers_intelligent(
+                table_with_cols,
+                row_headers,
+                table_boundaries=merged_data.get('table_boundaries')
+            )
+
+            # 第7步：合并行表头并删除列
+            final_table = self._merge_and_remove_columns(final_table)
+
+            # 第8步：添加行列标记（根据数据类型）
+            marked_table = self.step7_create_marked_table(final_table)
+
+            return marked_table
+
+        except Exception as e:
+            print(f"❌ 内存处理单个表格失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def process_all_tables_to_memory(self, ocr_result, llm_result, image_path=None, bank_name="未知银行"):
+        """
+        处理表格并返回内存中的数据（不保存文件）
+
+        Args:
+            ocr_result: OCR识别结果
+            llm_result: LLM分析结果
+            image_path: 图片路径（用于提取页码）
+            bank_name: 银行名称
+
+        Returns:
+            tuple: (tables_data, table_names)
+                   tables_data: 表格数据列表，每个元素是一个二维列表
+                   table_names: 对应的Sheet名称列表
+        """
+        print(f"\n🧠 内存模式处理表格...")
+
+        # ========== 第0步：数据预处理和验证 ==========
+        # 修正LLM引用的表格索引
+        self._fix_llm_table_references(ocr_result, llm_result)
+
+        # ========== 第1步：准备数据 ==========
+        ocr_result, llm_result = self.step1_prepare_data(ocr_result, llm_result)
+
+        # ========== 第2步：提取表格数据 ==========
+        ocr_tables, llm_tables = self.step2_extract_table_data(ocr_result, llm_result)
+
+        if not ocr_tables or not llm_tables:
+            self.log_issue("提取表格数据失败")
+            return [], []
+
+        print(f"OCR表格数量: {len(ocr_tables)}")
+        print(f"LLM表格结构数量: {len(llm_tables)}")
+
+        # ========== 第3步：列标题统一化处理 ==========
+        llm_tables = self._unify_headers_across_tables(llm_tables)
+
+        # ========== 第4步：检测需要合并的表格 ==========
+        merge_groups = self._detect_tables_to_merge(llm_tables)
+
+        # 分离需要合并的表格和独立处理的表格
+        all_indices = set(range(len(llm_tables)))
+        merged_indices = set()
+
+        for group in merge_groups:
+            for idx in group:
+                merged_indices.add(idx)
+
+        independent_indices = all_indices - merged_indices
+
+        # ========== 第5步：处理所有表格并收集结果 ==========
+        all_final_tables = []  # 存储表格数据
+        all_table_names = []  # 存储表格名称
+
+        # 提取图片页码前缀
+        page_prefix = ""
+        if image_path:
+            page_prefix = self._extract_page_number_from_image_path(image_path)
+            print(f"从图片路径提取页码前缀: {page_prefix}")
+
+        # 1. 处理合并的表格组
+        for group_idx, group in enumerate(merge_groups):
+            print(f"\n处理合并表格组 {group_idx + 1}/{len(merge_groups)}")
+            print(f"包含表格索引: {group}")
+
+            # 先按独立表格处理
+            for table_idx in group:
+                llm_table_info = llm_tables[table_idx]
+
+                # 提取表格名称
+                table_name = llm_table_info.get('name', f'表格{table_idx + 1}')
+
+                # 构建完整Sheet名称（带页码前缀）
+                full_table_name = f"{page_prefix}_{table_name}" if page_prefix else table_name
+
+                all_table_names.append(full_table_name)
+
+                print(f"处理表格 {table_idx + 1}/{len(llm_tables)} (合并组)")
+                print(f"表格名称: '{full_table_name}'")
+
+                # 处理单个表格
+                final_table = self._process_single_table_to_memory(ocr_tables, llm_table_info)
+
+                if final_table:
+                    all_final_tables.append(final_table)
+
+        # 2. 处理独立的表格
+        for table_idx in independent_indices:
+            print(f"\n处理表格 {table_idx + 1}/{len(llm_tables)} (独立)")
+
+            llm_table_info = llm_tables[table_idx]
+
+            # 提取表格名称
+            table_name = llm_table_info.get('name', f'表格{table_idx + 1}')
+
+            # 构建完整Sheet名称（带页码前缀）
+            full_table_name = f"{page_prefix}_{table_name}" if page_prefix else table_name
+
+            all_table_names.append(full_table_name)
+
+            print(f"表格名称: '{full_table_name}'")
+
+            # 处理单个表格
+            final_table = self._process_single_table_to_memory(ocr_tables, llm_table_info)
+
+            if final_table:
+                all_final_tables.append(final_table)
+
+        # 验证数据一致性
+        if len(all_final_tables) != len(all_table_names):
+            print(f"⚠️ 警告：表格数据({len(all_final_tables)})和表格名称({len(all_table_names)})数量不一致")
+            # 补齐名称列表
+            while len(all_table_names) < len(all_final_tables):
+                default_name = f"表格{len(all_table_names) + 1}"
+                full_name = f"{page_prefix}_{default_name}" if page_prefix else default_name
+                all_table_names.append(full_name)
+
+        print(f"\n✅ 内存处理完成: {len(all_final_tables)} 个表格")
+
+        return all_final_tables, all_table_names
 
 
 # ====================================

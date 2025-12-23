@@ -802,6 +802,7 @@ def api_get_classified_images(pdf_folder: str):
                     "modified_at": img_file.stat().st_mtime
                 })
 
+
         # 计算统计信息
         stats = {
             "tables_count": len(classified_data["tables"]),

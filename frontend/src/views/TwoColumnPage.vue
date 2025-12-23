@@ -247,7 +247,7 @@ const handleTableTypeChange = (newType) => {
 }
 
 // 处理图片筛选
-const handleScreenImages = (pdfDiskName) => {
+const handleScreenImages = async (pdfDiskName) => {
   console.log('🖼️ 开始图片筛选:', pdfDiskName)
 
   // 更新当前PDF
@@ -262,29 +262,49 @@ const handleScreenImages = (pdfDiskName) => {
   progressStatus.value = ''
   progressMsg.value = '正在筛选图片...'
 
-  // 模拟筛选过程（实际应该调用API）
-  setTimeout(() => {
-    // 模拟筛选完成
-    const screeningResult = {
-      success: true,
-      pdfDiskName: pdfDiskName,
-      total_count: 43,
-      has_table_count: 15,
-      no_table_count: 28
+  try {
+    // 1. 获取该PDF的所有PNG图片
+    const cacheKey = pdfDiskName.replace(/\.pdf$/i, '')
+    const pngList = convertCache.value[cacheKey]
+
+    if (!pngList || pngList.length === 0) {
+      ElMessage.warning('请先完成转图操作')
+      return
     }
 
-    // 调用完成回调
-    handleScreenImagesCompleted({
-      pdfDiskName: pdfDiskName,
-      hasScreened: true,
-      screeningResult: screeningResult
+    // 2. 调用后端API进行图片筛选
+    const response = await axios.post(`/api/screen-table-images/${cacheKey}`, {
+      png_names: pngList.map(img => img.name || img),
+      filter_only: false
     })
 
+    if (response.data.success) {
+      // 调用完成回调
+      handleScreenImagesCompleted({
+        pdfDiskName: pdfDiskName,
+        hasScreened: true,
+        screeningResult: {
+          success: true,
+          pdfDiskName: pdfDiskName,
+          total_count: response.data.total_images || pngList.length,
+          has_table_count: response.data.has_table_count || 0,
+          no_table_count: response.data.no_table_count || 0
+        }
+      })
+
+      ElMessage.success('图片筛选完成')
+    } else {
+      ElMessage.error('图片筛选失败: ' + response.data.error)
+    }
+
+  } catch (error) {
+    console.error('❌ 图片筛选失败:', error)
+    ElMessage.error('图片筛选失败: ' + error.message)
+  } finally {
     // 关闭进度对话框
     progressVisible.value = false
     isScreening.value = false
-
-  }, 2000)
+  }
 }
 
 
@@ -981,44 +1001,126 @@ const handleParseTablesCompleted = (data) => {
   })
 }
 
-// 8. 修改现有的 handleParseTables 函数，调用完成回调
+// 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用
 const handleParseTables = async (pdfDiskName) => {
   console.log('🔄 开始表格解析:', pdfDiskName)
 
-  // 更新当前PDF
   updateCurrentPdf(pdfDiskName)
-
-  // 设置解析中状态
   isParsing.value = true
 
   try {
-    // 模拟解析过程 - 实际应该调用API
-    console.log(`📊 开始解析 ${pdfDiskName} 的表格...`)
-
-    // 这里应该是实际的API调用
-    // const result = await parseTablesApi(pdfDiskName)
-
-    // 模拟解析成功
-    setTimeout(() => {
-      handleParseTablesCompleted({
-        pdfDiskName,
-        parsingResult: { success: true, tables: 5 },
-        progress: { percentage: 100, status: 'success' }
-      })
+    // 检查筛选状态
+    const hasScreened = hasScreenedImages.value[pdfDiskName]
+    if (!hasScreened) {
+      ElMessage.warning('请先完成图片筛选再进行表格解析')
       isParsing.value = false
-    }, 2000)
+      return
+    }
+
+    const pdfFolder = pdfDiskName.replace(/\.pdf$/i, '')
+
+    console.log('📤 发送表格解析请求（简化版）...')
+
+    // 简化请求：后端会自动获取png_names
+    const response = await axios.post(`/api/process-tables/${pdfFolder}`, {
+      table_type: tableType.value,
+      use_ocr: true,
+      force_refresh: false
+      // 不再需要手动传 png_names
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    console.log('✅ 收到响应:', response.data)
+
+    if (response.data.success) {
+      const jobId = response.data.job_id
+      const totalImages = response.data.total_images || 0
+
+      ElMessage.success(`表格解析任务已提交，发现 ${totalImages} 张表格图片`)
+
+      // 轮询进度
+      await pollTableProgress(jobId, pdfDiskName)
+
+    } else {
+      ElMessage.error('提交表格解析任务失败: ' + response.data.error)
+      isParsing.value = false
+    }
 
   } catch (error) {
     console.error('❌ 表格解析失败:', error)
 
-    // 记录失败状态
     updateStepStatus(pdfDiskName, 'parse', 'failed')
 
-    ElMessage.error('表格解析失败: ' + error.message)
+    if (error.response?.data?.error) {
+      ElMessage.error('表格解析失败: ' + error.response.data.error)
+    } else {
+      ElMessage.error('表格解析失败: ' + error.message)
+    }
+
     isParsing.value = false
   }
 }
 
+// 新增：轮询表格解析进度
+async function pollTableProgress(jobId, pdfDiskName) {
+  return new Promise((resolve) => {
+    const timer = setInterval(async () => {
+      try {
+        const { data } = await axios.get(`/api/table-progress/${jobId}`)
+
+        console.log('📊 表格解析进度:', data)
+
+        // 更新解析进度
+        const newParsingProgressMap = { ...parsingProgressMap.value }
+        newParsingProgressMap[pdfDiskName] = {
+          percentage: data.percent || data.progress || 0,
+          status: data.status || 'primary',
+          message: data.message || `正在解析表格...`,
+          jobId: jobId
+        }
+        parsingProgressMap.value = newParsingProgressMap
+
+        if (data.percent === 100 || data.status === 'completed' || data.status === 'success') {
+          // 解析完成
+          clearInterval(timer)
+
+          handleParseTablesCompleted({
+            pdfDiskName,
+            parsingResult: data.result || { success: true },
+            progress: { percentage: 100, status: 'success' }
+          })
+
+          isParsing.value = false
+          resolve()
+
+        } else if (data.status === 'failed' || data.status === 'error') {
+          // 解析失败
+          clearInterval(timer)
+
+          updateStepStatus(pdfDiskName, 'parse', 'failed')
+          ElMessage.error('表格解析失败: ' + (data.error || data.message))
+
+          isParsing.value = false
+          resolve()
+        }
+
+      } catch (error) {
+        console.error('❌ 获取表格解析进度失败:', error)
+        clearInterval(timer)
+
+        // 失败时清除解析状态
+        updateStepStatus(pdfDiskName, 'parse', 'failed')
+        ElMessage.error('获取解析进度失败')
+
+        isParsing.value = false
+        resolve()
+      }
+    }, 1000) // 每秒轮询一次
+  })
+}
 
 
 
