@@ -19,6 +19,7 @@ class OldDatabaseManager:
     def __init__(self, db_path='data/database.db'):
         self.db_path = db_path
         self.uploads_dir = '../static/uploads'
+        print("self.uploads_dir>>>>>>>:", self.uploads_dir)
 
         # 确保所有目录存在
         os.makedirs(os.path.dirname(db_path), exist_ok=True)

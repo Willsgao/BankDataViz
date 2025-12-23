@@ -7,7 +7,7 @@ import gzip
 from typing import Dict, Any
 from openai import OpenAI
 
-from backend.utils.config import config, tableconfig
+from backend.configs.config import config, tableconfig
 from backend.src.services.table_processor.cache_gateway import get as cache_get, upsert as cache_upsert, delete as cache_delete
 from backend.src.services.table_processor.object_store import get_object, put_object
 from backend.src.services.table_processor.image_utils import TableImageUtils

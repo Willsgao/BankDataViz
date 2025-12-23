@@ -1,15 +1,13 @@
 # backend/services/table_llm_service.py
 import logging
-from typing import Dict, Any, Tuple
-import asyncio
+from typing import Tuple
 import pandas as pd
 from pathlib import Path
 import re
 import time
 from openai import AsyncOpenAI
 
-from backend.utils.llm_config import (
-    ARK_API_KEY, ARK_BASE_URL, DEFAULT_MODEL_ID,
+from backend.configs.llm_config import (
     MAX_TOKENS_CONFIG, IMAGE_SIZE_TOKEN_INCREMENT, COMPLEXITY_MODE_MAPPING
 )
 from backend.utils.constants import EXCEL_OUTPUT_ROOT
@@ -19,8 +17,8 @@ from backend.utils.data_processor import DataProcessor
 from backend.utils.image_utils import ImageUtils
 # from backend.models.database_manager import OldDatabaseManager
 from backend.models.unified_db import DatabaseManager as OldDatabaseManager
-from backend.utils.llm_config import ARK_API_KEY, ARK_BASE_URL, DEFAULT_MODEL_ID
-from backend.utils.constants import ASSESSMENT_PROMPT, SIMPLE_PROMPT, STANDARD_PROMPT, COMPLEX_PROMPT
+from backend.configs.llm_config import ARK_API_KEY, ARK_BASE_URL, DEFAULT_MODEL_ID
+from backend.utils.prompts import ASSESSMENT_PROMPT, STANDARD_PROMPT, COMPLEX_PROMPT
 
 # 提示词定义（这里省略具体内容）
 

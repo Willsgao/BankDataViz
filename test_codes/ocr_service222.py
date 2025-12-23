@@ -13,7 +13,7 @@ import requests
 # ========== 项目模块导入 ==========
 from backend.src.services.table_processor.image_utils import TableImageUtils
 from backend.src.services.table_processor.ocr_response_unifier import OCRProviderFactory, OCRAdapter
-from backend.utils.config import config, tableconfig  # 一次导入，两个对象
+from backend.configs.config import config, tableconfig  # 一次导入，两个对象
 
 
 class TableOCRService:

@@ -344,7 +344,6 @@ export function useBatchTableCrop(joinedResults) {
   // 从绝对路径提取相对路径
   function extractRelativePath(absolutePath) {
     // 根据你的项目结构，从绝对路径中提取相对路径
-    // 例如: E:\Datas\base_pros\EduPDF-TableVision\backend\static\joined_tables\057bde4fe7fe351b24eb4d8b2b489c44
     // 提取为: static/joined_tables/057bde4fe7fe351b24eb4d8b2b489c44
 
     const paths = absolutePath.split('\\')

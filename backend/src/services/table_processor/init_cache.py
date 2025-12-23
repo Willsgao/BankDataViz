@@ -18,7 +18,7 @@ def init_cache_system():
 
     try:
         from backend.src.services.table_processor.cache_gateway import ensure_table
-        from backend.utils.config import tableconfig
+        from backend.configs.config import tableconfig
 
         print(f"数据库URL: {tableconfig.CACHE_URL}")
 

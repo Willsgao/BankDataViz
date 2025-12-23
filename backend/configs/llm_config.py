@@ -1,6 +1,4 @@
 # backend/utils/llm_config.py
-import os
-from typing import Dict, Any
 
 # API配置
 ARK_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"

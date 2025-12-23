@@ -1,8 +1,7 @@
 # backend/services/table_processor/cache_gateway.py
-import os
 from datetime import datetime
 from sqlalchemy import create_engine, text
-from backend.utils.config import tableconfig
+from backend.configs.config import tableconfig
 
 # 使用 tableconfig 中的 CACHE_URL
 DB_URL = tableconfig.CACHE_URL

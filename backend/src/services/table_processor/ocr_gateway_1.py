@@ -9,7 +9,6 @@ import time
 import hashlib
 import gzip
 import uuid
-from io import BytesIO
 from typing import Dict, Any, List
 from pathlib import Path
 
@@ -17,12 +16,12 @@ import requests
 import redis
 
 from backend.src.services.table_processor.image_utils import TableImageUtils
-from backend.utils.config import tableconfig as settings
+from backend.configs.config import tableconfig as settings
 from backend.src.services.table_processor.ocr_response_unifier import OCRProviderFactory, OCRAdapter
 
 # 导入缓存相关模块
 from .cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert
-from .object_store import get_object, put_object
+from .object_store import put_object
 
 # Redis连接 - 移到模块级别，避免重复创建
 _redis = None

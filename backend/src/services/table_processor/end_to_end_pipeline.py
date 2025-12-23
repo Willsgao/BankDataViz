@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 # ====================================
 # 1. OCR服务（复用analyzer中的OCR服务）
 # ====================================
-from backend.utils.config import tableconfig
+from backend.configs.config import tableconfig
 from backend.src.services.table_processor.ocr_gateway import TableOCRService
 from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
 from backend.src.services.table_processor.table_rebuilder import TableReconstructor
@@ -177,7 +177,6 @@ def create_pipeline(config_instance=None):
     创建完整的处理管道
     参数：config_instance - 可选的配置实例，如果不传则使用默认tableconfig
     """
-    from backend.utils.config import tableconfig as default_config
 
     # 1. OCR服务
     ocr_service = TableOCRService()

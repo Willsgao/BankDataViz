@@ -51,7 +51,7 @@ from backend.llm_services.task_management_service import (
 )
 
 
-from backend.utils.constants import EXCEL_DATA_DIR, STATIC_DIR
+from backend.utils.constants import EXCEL_DATA_DIR
 
 # 路由定义部分保持不变，只是函数实现移到服务模块
 @llm_bp.route('/llm/test-connection', methods=['POST'])

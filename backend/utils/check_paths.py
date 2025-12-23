@@ -27,7 +27,7 @@ def check_all_paths():
 
     # 从 config 导入
     try:
-        from config import config
+        from backend.configs.config import config
         print("[config.py]")
         print(f"  DATABASE_PATH: {config.DATABASE_PATH}")
         print(f"  UPLOAD_FOLDER: {config.UPLOAD_FOLDER}")
@@ -40,7 +40,7 @@ def check_all_paths():
     # 检查路径一致性
     try:
         from constants import DATABASE as const_db
-        from config import config as cfg
+        from backend.configs.config import config as cfg
 
         if os.path.abspath(const_db) == os.path.abspath(cfg.DATABASE_PATH):
             print("✅ 数据库路径一致")

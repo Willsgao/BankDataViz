@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from .base_storage import BaseStorage
-from backend.utils.config import tableconfig
+from backend.configs.config import tableconfig
 
 
 class ExcelStorage(BaseStorage):

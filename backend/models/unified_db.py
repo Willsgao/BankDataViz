@@ -12,7 +12,7 @@ from datetime import datetime
 # ============ 导入配置 ============
 
 try:
-    from backend.utils.config import (
+    from backend.configs.config import (
         PROJECT_ROOT_STR,
         UPLOAD_FOLDER,
         PNG_OUTPUT_ROOT,
@@ -24,9 +24,9 @@ except ImportError as e:
     print(f"❌ 无法导入配置: {e}")
     # 回退到默认值（与 config.py 一致）
     PROJECT_ROOT_STR = os.getcwd()
-    UPLOAD_FOLDER = 'backend/static/uploads'
-    PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
-    EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
+    UPLOAD_FOLDER = 'data/backend/static/uploads'
+    PNG_OUTPUT_ROOT = 'data/backend/static/pdf2pngs'
+    EXCEL_OUTPUT_ROOT = 'data/backend/static/excel_data'
     DATABASE = 'data/database.db'  # ✅ 统一使用这个路径
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 

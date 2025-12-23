@@ -1,14 +1,13 @@
 # backend/services/non_financial_table_service.py
 import logging
-from typing import Dict, Any, Tuple
-import asyncio
+from typing import Tuple
 import pandas as pd
 from pathlib import Path
 import re
 import time
 from openai import AsyncOpenAI
 
-from backend.utils.llm_config import (
+from backend.configs.llm_config import (
     ARK_API_KEY, ARK_BASE_URL, DEFAULT_MODEL_ID,
     MAX_TOKENS_CONFIG, IMAGE_SIZE_TOKEN_INCREMENT
 )

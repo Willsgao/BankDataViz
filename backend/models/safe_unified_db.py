@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
-from backend.utils.config import config
+from backend.configs.config import config
 
 
 class SafeDatabaseManager:

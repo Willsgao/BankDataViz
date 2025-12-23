@@ -10,7 +10,7 @@ from pathlib import Path
 
 # 导入常量配置
 try:
-    from .constants import (
+    from backend.utils.constants import (
         PROJECT_ROOT_STR,
         UPLOAD_FOLDER,
         PNG_OUTPUT_ROOT,
@@ -21,9 +21,9 @@ try:
 except ImportError:
     # 如果导入失败，使用默认值
     PROJECT_ROOT_STR = os.getcwd()
-    UPLOAD_FOLDER = 'backend/static/uploads'
-    PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
-    EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
+    UPLOAD_FOLDER = 'data/backend/static/uploads'
+    PNG_OUTPUT_ROOT = 'data/backend/static/pdf2pngs'
+    EXCEL_OUTPUT_ROOT = 'data/backend/static/excel_data'
     DATABASE = 'data/database.db'
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 

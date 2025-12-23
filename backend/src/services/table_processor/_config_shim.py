@@ -1,6 +1,6 @@
 # table_processor/_config_shim.py
 """适配器文件 - 转发到公共配置"""
-from backend.utils.config import tableconfig
+from backend.configs.config import tableconfig
 
 # 保持原有接口不变
 settings = tableconfig

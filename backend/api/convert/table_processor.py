@@ -20,7 +20,7 @@ from backend.src.services.table_processor.llm_table_structure_parser import Enha
 # ========== 1. 导入表格处理管道 ==========
 try:
     from backend.src.services.table_processor.end_to_end_pipeline import batch_example
-    from backend.utils.config import tableconfig
+    from backend.configs.config import tableconfig
     PIPELINE_AVAILABLE = True
     print("✅ 表格处理管道导入成功")
 except ImportError as e:

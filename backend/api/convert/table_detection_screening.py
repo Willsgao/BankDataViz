@@ -7,9 +7,7 @@
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
-import json
-import hashlib
+from typing import Dict, List, Tuple, Optional
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -18,11 +16,10 @@ from io import BytesIO
 from PIL import Image
 import logging
 import shutil
-import os
 
 # ==================== 导入配置 ====================
 try:
-    from backend.utils.config import tableconfig
+    from backend.configs.config import tableconfig
 
     USE_CONFIG = True
 except ImportError:

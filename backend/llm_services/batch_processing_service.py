@@ -185,8 +185,9 @@ def _validate_image_paths(image_paths):
         # 清理路径
         img_path = img_path.lstrip('/')
 
+        print("iiiiiiiiiiiiiiiiiiimg_path:", img_path)
+
         # 使用常量构建正确的路径
-        # 前端传递的是 static/joined_tables/...，实际应该是 backend/static/joined_tables/...
         if img_path.startswith('static/joined_tables/'):
             # 提取相对路径部分
             relative_path = img_path.replace('static/joined_tables/', '')

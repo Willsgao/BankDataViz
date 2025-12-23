@@ -1,14 +1,12 @@
 # backend/services/table_processor/object_store.py
 import os
-import gzip
-import json
 from pathlib import Path
 
 
 def get_config():
     """获取配置，优先使用tableconfig，环境变量作为备选"""
     try:
-        from backend.utils.config import tableconfig
+        from backend.configs.config import tableconfig
 
         # 从tableconfig获取配置
         local_store = getattr(tableconfig, 'LOCAL_OBJECT_STORE', None)

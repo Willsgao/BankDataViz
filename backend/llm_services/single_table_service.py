@@ -18,7 +18,7 @@ from backend.llm_services.core_service import  (
     get_non_financial_table_service,
     get_table_processor)
 
-from backend.utils.constants import EXCEL_DATA_DIR, STATIC_DIR
+from backend.utils.constants import EXCEL_DATA_DIR
 
 
 async def _process_single_image(data):
