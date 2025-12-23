@@ -63,6 +63,7 @@ PNG_OUTPUT_ROOT = r'backend/static/pdf2pngs'
 EXCEL_OUTPUT_ROOT = r'backend/static/excel_data'
 JOINED_TABLES_ROOT = r'backend/static/joined_tables'
 DATABASE = r'data/database.db'
+# DATABASE = 'data/backend/database.db'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 # ⭐⭐⭐ 新增：完整的静态文件路径常量 ⭐⭐⭐

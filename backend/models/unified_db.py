@@ -6,7 +6,6 @@
 import os
 import json
 import sqlite3
-from pathlib import Path
 from contextlib import closing
 from datetime import datetime
 
@@ -28,7 +27,7 @@ except ImportError as e:
     UPLOAD_FOLDER = 'backend/static/uploads'
     PNG_OUTPUT_ROOT = 'backend/static/pdf2pngs'
     EXCEL_OUTPUT_ROOT = 'backend/static/excel_data'
-    DATABASE = 'data/backend/database.db'  # ✅ 统一使用这个路径
+    DATABASE = 'data/database.db'  # ✅ 统一使用这个路径
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 

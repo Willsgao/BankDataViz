@@ -62,7 +62,7 @@ class OldDatabaseManager:
                           raw_filename TEXT,              -- 原始中文文件名
                           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                           deleted      INTEGER   DEFAULT 0)''')
-                          # -- 软删除标志
+            # -- 软删除标志
 
             # 3. 旧库兼容：依次补列
             c.execute("PRAGMA table_info(files)")
@@ -74,12 +74,16 @@ class OldDatabaseManager:
                 c.execute("ALTER TABLE files ADD COLUMN deleted INTEGER DEFAULT 0")
                 print("✅ 已自动为旧库添加 deleted 字段")
 
-            # 4. 文本表仅保留一条记录
+            # 4. 文本表处理 - 修改这里！！！
+            # 只确保至少有一条记录，不删除已有数据
             c.execute("SELECT COUNT(*) FROM texts")
-            if c.fetchone()[0] == 0:
+            count = c.fetchone()[0]
+
+            if count == 0:
+                # 如果表是空的，插入一条记录
                 c.execute("INSERT INTO texts (content) VALUES (?)", ("",))
-            else:
-                c.execute("DELETE FROM texts WHERE id > 1")
+                print("✅ 文本表为空，插入一条空记录")
+            # 如果已经有数据，什么也不做，保持现有数据
 
             conn.commit()
             print("✅ 数据库初始化完成")
@@ -89,6 +93,7 @@ class OldDatabaseManager:
             return False
         finally:
             conn.close()
+
 
     def read_database(self):
         """
