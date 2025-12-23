@@ -1,102 +1,168 @@
-<!-- frontend/src/layouts/TwoColumnLayout.vue -->
 <template>
   <div class="two-column-layout">
-    <!-- 左侧：PDF预览和文件操作区域 -->
+    <!-- 左侧：当前PDF的预览和操作区域 -->
     <div class="left-panel">
-      <file-upload @uploaded="$emit('loadFiles')"/>
-      <file-list
-        :files="files"
-        :crop-loading="cropLoading"
-        :crop-results="cutResults"
-        :converting="convertingObj"
-        :convert-cache="convertCache"
-        :batch-crop-loading="batchCropLoading"
-        :joined-results="joinedResults"
-        :parsing-progress-map="parsingProgressMap"
-        :has-screened-images="hasScreenedImages"
-        :screening-result-map="screeningResultMap"
-        @delete="$emit('deleteFile', $event)"
-        @crop="$emit('cutTable', $event)"
-        @convert="$emit('convertAndPreview', $event)"
-        @batch-crop="$emit('handleBatchCrop', $event)"
-        @open-llm-config="$emit('openLLMConfig')"
-        @image-selected="$emit('handleImageSelected', $event)"
-        @update-screening-status="$emit('handleUpdateScreeningStatus', $event)"
-        @ocr-completed="(data) => {
-          console.log('🧩 TwoColumnLayout 收到 ocr-completed:', data);
-          $emit('handleOcrCompleted', data);
-        }"
-        @recognize-table="$emit('handleRecognizeTable', $event)"
-        @excel-data-received="(data) => {
-          console.log('🧩 TwoColumnLayout 收到并转发 excel-data-received:', data);
-          $emit('handleExcelDataReceived', data);
-        }"
-        @screen-images-completed="(data) => {
-          console.log('🧩 TwoColumnLayout 收到 screen-images-completed:', data);
-          $emit('handleScreenImagesCompleted', data);
-        }"
-        @open-classification="$emit('handleOpenClassification', $event)"
-      />
-    </div>
-
-    <!-- 右侧：Excel数据展示区域 -->
-    <div class="right-panel">
-      <!-- 右侧面板内容保持不变 -->
-      <div class="panel-header">
-        <div class="header-title">
-          <span v-if="currentExcelData">
-            <i class="el-icon-document"></i>
-            表格数据 - {{ currentExcelData.tableName }}
-          </span>
-          <span v-else>
-            <i class="el-icon-document"></i>
-            表格数据查看器
-          </span>
-        </div>
-        <div class="header-actions">
-          <!-- 操作按钮保持不变 -->
-          <div class="action-row first-row">
-            <el-button type="danger" @click="$emit('manuallyTriggerExcelUpdate')" icon="el-icon-magic-stick" size="small">
-              调试更新
-            </el-button>
-            <el-button type="warning" @click="$emit('forceRefreshExcel')" icon="el-icon-refresh" size="small" :disabled="!currentExcelData">
-              强制刷新
-            </el-button>
-            <el-button type="primary" @click="$emit('openVisualization')" icon="el-icon-data-analysis" size="small" :disabled="!currentExcelData">
-              可视化分析
-            </el-button>
-          </div>
-          <div class="action-row second-row">
-            <el-button type="primary" @click="$emit('openLLMConfig')" icon="el-icon-cpu" size="small">
-              LLM配置
-            </el-button>
-            <el-button type="success" @click="$emit('saveExcelData')" icon="el-icon-document" size="small" :disabled="!currentExcelData">
-              保存Excel
-            </el-button>
-            <el-button type="info" @click="$emit('exportAllData')" icon="el-icon-download" size="small" :disabled="!currentExcelData">
-              导出数据
-            </el-button>
-          </div>
-        </div>
+      <!-- 文件上传区域 -->
+      <div class="upload-section">
+        <file-upload @uploaded="$emit('load-files')"/>
       </div>
 
-      <!-- Excel数据展示区域 -->
-      <div class="excel-content" v-if="currentExcelData">
-        <ExcelDataViewer
-          :excel-data="currentExcelData"
-          @update:content="$emit('updateExcelContent', $event)"
-          @close="currentExcelData = null"
+      <!-- 当前PDF预览区域 -->
+      <div class="pdf-preview-section" v-if="currentPdf">
+        <PdfPreview
+          :pdf-files="[currentPdf]"
+          :current-pdf-index="0"
+          :crop-loading="cropLoading"
+          :crop-results="cutResults"
+          :converting="convertingObj"
+          :convert-cache="convertCache"
+          :batch-crop-loading="batchCropLoading"
+          :joined-results="joinedResults"
+          :table-type="tableType"
+          :llm-loading="llmLoading"
+          :parsing-progress-map="parsingProgressMap"
+          :screened-images-map="hasScreenedImages"
+          :screening-result-map="screeningResultMap"
+          @switch-pdf="$emit('switch-pdf', $event)"
+          @delete="$emit('delete-file', $event)"
+          @screen-images="$emit('handle-screen-images', $event)"
+          @convert="$emit('convert-and-preview', $event)"
+          @batch-crop="$emit('handle-batch-crop', $event)"
+          @parse-tables="$emit('parse-tables', $event)"
+          @clear-cache="$emit('clear-cache', $event)"
+          @close-pdf="handleCloseCurrentPdf"
+          @open-classification="$emit('handle-open-classification', $event)"
         />
       </div>
 
-      <!-- 空状态 -->
-      <div v-else class="empty-state">
-        <el-empty description="暂无表格数据">
-          <div class="empty-tips">
-            <p>请从左侧选择图片并点击"识别"按钮</p>
-            <p>或对PDF文件进行批量裁切后识别表格</p>
-          </div>
+      <!-- 空状态提示 -->
+      <div v-else class="empty-preview">
+        <el-empty description="请选择一个PDF文件开始处理" :image-size="80">
+          <p class="empty-tip">从右侧文件列表中选择一个PDF文件</p>
         </el-empty>
+      </div>
+    </div>
+
+    <!-- 右侧：两栏布局 -->
+    <div class="right-panel">
+      <!-- 上栏：当前PDF状态和进度预览 -->
+      <CurrentPdfStatus
+        :current-pdf="currentPdf"
+        :converting-obj="convertingObj"
+        :convert-cache="convertCache"
+        :has-screened-images="hasScreenedImages"
+        :screening-result-map="screeningResultMap"
+        :parsing-progress-map="parsingProgressMap"
+        :is-screening="isScreening"
+        :is-parsing="isParsing"
+        :has-results="hasResults"
+        :has-batch-results="hasBatchResults"
+        @convert="$emit('convert-and-preview', $event)"
+        @screen-images="$emit('handle-screen-images', $event)"
+        @open-classification="$emit('handle-open-classification', $event)"
+        @parse-tables="$emit('parse-tables', $event)"
+        @clear-cache="$emit('clear-cache', $event)"
+        class="status-section"
+      />
+
+      <!-- 下栏：所有PDF文件列表 -->
+      <div class="file-manager-section">
+        <div class="section-header">
+          <span class="title">PDF文件管理器</span>
+          <div class="table-type-selector" v-if="files.length > 0">
+            <el-radio-group
+              :value="tableType"
+              size="small"
+              @change="$emit('table-type-change', $event)"
+            >
+              <el-radio-button label="financial">金融表格</el-radio-button>
+              <el-radio-button label="non_financial">普通表格</el-radio-button>
+            </el-radio-group>
+          </div>
+        </div>
+
+        <div class="file-list-content">
+          <!-- 当前PDF（特殊标记） -->
+          <div v-if="currentPdf" class="current-pdf-item highlighted">
+            <div class="file-info">
+              <i class="el-icon-document"></i>
+              <span class="file-name">{{ currentPdf.filename }}</span>
+              <el-tag size="small" type="primary" class="current-tag">当前</el-tag>
+            </div>
+            <div class="file-actions">
+              <el-button size="small" type="text" @click="$emit('convert-and-preview', currentPdf.disk_name)">
+                <i class="el-icon-picture-outline"></i>
+              </el-button>
+              <el-button size="small" type="text" @click="$emit('delete-file', currentPdf)">
+                <i class="el-icon-delete"></i>
+              </el-button>
+            </div>
+          </div>
+
+          <!-- 其他PDF文件 -->
+          <div
+            v-for="pdf in otherPdfs"
+            :key="pdf.disk_name"
+            class="pdf-file-item"
+            :class="{ 'has-converted': getHasConvertCache(pdf.disk_name) }"
+          >
+            <div class="file-info" @click="$emit('switch-pdf', pdf)">
+              <i class="el-icon-document"></i>
+              <span class="file-name">{{ pdf.filename }}</span>
+              <div class="file-status">
+                <el-tag
+                  v-if="hasConvertCache(pdf.disk_name)"
+                  size="small"
+                  type="success"
+                  class="converted-tag"
+                >
+                  已转图
+                </el-tag>
+                <el-tag
+                  v-if="hasScreenedImages[pdf.disk_name]"
+                  size="small"
+                  type="primary"
+                  class="screened-tag"
+                >
+                  已筛选
+                </el-tag>
+              </div>
+            </div>
+            <div class="file-actions">
+              <el-button
+                size="small"
+                type="text"
+                @click="$emit('convert-and-preview', pdf.disk_name)"
+                :title="getHasConvertCache(pdf.disk_name) ? '重新转图' : '转图'"
+              >
+                <i :class="hasConvertCache(pdf.disk_name) ? 'el-icon-picture' : 'el-icon-picture-outline'"></i>
+              </el-button>
+              <el-button
+                size="small"
+                type="text"
+                @click="$emit('switch-pdf', pdf)"
+                title="切换到该PDF"
+              >
+                <i class="el-icon-position"></i>
+              </el-button>
+              <el-button
+                size="small"
+                type="text"
+                @click="$emit('delete-file', pdf)"
+                title="删除"
+              >
+                <i class="el-icon-delete"></i>
+              </el-button>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="files.length === 0" class="empty-file-list">
+            <el-empty description="暂无PDF文件" :image-size="60">
+              <p class="empty-tip">点击上方上传按钮添加PDF文件</p>
+            </el-empty>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -104,40 +170,13 @@
 
 <script setup>
 // 导入组件
+import { computed } from 'vue'
 import FileUpload from '@/components/file/FileUpload.vue'
-import FileList from '@/components/file/FileList.vue'
-import ExcelDataViewer from '@/components/table/ExcelViewer.vue'
+import PdfPreview from '@/components/pdf/PdfPreview.vue'
+import CurrentPdfStatus from '@/components/pdf/CurrentPdfStatus.vue'
 
-
-
-// 处理图片筛选完成事件
-const handleScreenImagesCompleted = (data) => {
-  console.log('🎯 收到图片筛选完成事件:', data)
-  const { pdfDiskName, hasScreened, screeningResult } = data
-
-  // 更新筛选状态
-  hasScreenedImages.value = {
-    ...hasScreenedImages.value,
-    [pdfDiskName]: hasScreened || true
-  }
-
-  // 更新筛选结果
-  if (screeningResult) {
-    screeningResultMap.value = {
-      ...screeningResultMap.value,
-      [pdfDiskName]: screeningResult
-    }
-  }
-
-  console.log('✅ 筛选状态已更新:', {
-    pdfDiskName,
-    hasScreened: hasScreenedImages.value[pdfDiskName]
-  })
-}
-
-
-// 定义props - 所有需要从父组件传递的数据
-defineProps({
+// 定义props
+const props = defineProps({
   files: Array,
   cropLoading: Object,
   cutResults: Object,
@@ -146,28 +185,61 @@ defineProps({
   batchCropLoading: Object,
   joinedResults: Object,
   currentExcelData: Object,
-  parsingProgressMap: {  // 添加这个
+  parsingProgressMap: {
     type: Object,
     default: () => ({})
   },
-  hasScreenedImages: {  // 需要添加这个
+  hasScreenedImages: {
     type: Object,
     default: () => ({})
   },
-  screeningResultMap: {  // 需要添加这个
+  screeningResultMap: {
     type: Object,
     default: () => ({})
+  },
+  // 新增props
+  currentPdf: {
+    type: Object,
+    default: null
+  },
+  otherPdfs: {
+    type: Array,
+    default: () => []
+  },
+  isScreening: {
+    type: Boolean,
+    default: false
+  },
+  isParsing: {
+    type: Boolean,
+    default: false
+  },
+  hasResults: {
+    type: Boolean,
+    default: false
+  },
+  hasBatchResults: {
+    type: Boolean,
+    default: false
+  },
+  llmLoading: {
+    type: Object,
+    default: () => ({})
+  },
+  tableType: {
+    type: String,
+    default: 'financial'
   }
 })
 
-// 定义emit事件 - 所有需要向父组件触发的事件
+// 定义emit事件
 defineEmits([
-  'loadFiles',
+  'load-files',
   'deleteFile',
   'cutTable',
   'convertAndPreview',
   'handleBatchCrop',
-  'openLLMConfig',
+  'open-llm-config',
   'handleImageSelected',
   'handleOcrCompleted',
   'handleRecognizeTable',
@@ -178,11 +250,42 @@ defineEmits([
   'saveExcelData',
   'exportAllData',
   'updateExcelContent',
-  'handleScreenImages',  // 新增
+  'handleScreenImages',
   'handleScreenImagesCompleted',
   'handleOpenClassification',
-  'handleUpdateScreeningStatus'
+  'handleUpdateScreeningStatus',
+  'switchPdf',
+  'clearCache',
+  'parseTables',
+  'tableTypeChange'
 ])
+
+
+// 工具函数：检查是否已转图
+const hasConvertCache = computed(() => {
+  return (diskName) => {
+    if (!diskName) return false
+    const cacheKey = diskName.replace(/\.pdf$/i, '')
+    const cacheData = props.convertCache[cacheKey] // 现在props已定义
+    return cacheData && Array.isArray(cacheData) && cacheData.length > 0
+  }
+})
+
+// 工具函数：检查是否已转图
+const getHasConvertCache = computed(() => {
+  return (diskName) => {
+    if (!diskName) return false
+    const cacheKey = diskName.replace(/\.pdf$/i, '')
+    const cacheData = props.convertCache[cacheKey]
+    return cacheData && Array.isArray(cacheData) && cacheData.length > 0
+  }
+})
+
+// 处理关闭当前PDF
+const handleCloseCurrentPdf = () => {
+  console.log('关闭当前PDF预览')
+  // 这里可以触发事件告诉父组件清空当前PDF
+}
 </script>
 
 <style scoped>
@@ -195,6 +298,7 @@ defineEmits([
   overflow: hidden;
 }
 
+/* 左侧面板 */
 .left-panel {
   flex: 1.5;
   display: flex;
@@ -206,6 +310,35 @@ defineEmits([
   overflow: hidden;
 }
 
+.upload-section {
+  padding: 12px;
+  border-bottom: 1px solid #e4e7ed;
+  background: #fafafa;
+}
+
+.pdf-preview-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.empty-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 8px;
+}
+
+/* 右侧面板 */
 .right-panel {
   flex: 1;
   display: flex;
@@ -217,43 +350,14 @@ defineEmits([
   overflow: hidden;
 }
 
-/* 复制原有的面板样式 */
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fafafa;
+/* 上栏：当前PDF状态 */
+.status-section {
   flex-shrink: 0;
-  min-height: 80px;
+  border-bottom: 1px solid #e4e7ed;
 }
 
-.header-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.action-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.header-title {
-  font-weight: 600;
-  color: #303133;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.excel-content {
+/* 下栏：PDF文件管理器 */
+.file-manager-section {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -261,22 +365,133 @@ defineEmits([
   overflow: hidden;
 }
 
-.empty-state {
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e4e7ed;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.section-header .title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.table-type-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* PDF文件项样式 */
+.current-pdf-item,
+.pdf-file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.current-pdf-item {
+  background: #f0f9ff;
+  border: 1px solid #b3e0ff;
+}
+
+.current-pdf-item.highlighted {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
+}
+
+.pdf-file-item:hover {
+  background: #f5f7fa;
+}
+
+.pdf-file-item.has-converted {
+  border-left: 3px solid #67c23a;
+}
+
+.file-info {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: #f8f9fa;
+  gap: 8px;
+  min-width: 0;
 }
 
-.empty-tips {
+.file-info i {
+  color: #409eff;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 13px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-status {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.current-tag,
+.converted-tag,
+.screened-tag {
+  font-size: 10px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 4px;
+}
+
+.file-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.file-actions .el-button {
+  padding: 4px;
+  min-height: auto;
+}
+
+.empty-file-list {
+  padding: 40px 20px;
   text-align: center;
-  color: #909399;
-  font-size: 14px;
-  line-height: 1.6;
 }
 
-.empty-tips p {
-  margin: 4px 0;
+/* 滚动条样式 */
+.file-list-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-list-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.file-list-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.file-list-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 </style>

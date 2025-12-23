@@ -55,6 +55,28 @@
           @open-classification="$emit('open-classification', currentPDF.disk_name)"
         />
 
+        <!-- 单个裁切结果 -->
+        <CropResult
+          v-if="cropResults[currentPDF.filename]"
+          :images="cropResults[currentPDF.filename]"
+        />
+
+        <!-- 批量裁切结果 -->
+        <BatchCropResults
+          v-if="currentPDF"
+          :pdf="currentPDF"
+          :images="safeJoinedResults[currentPDF.disk_name] || []"
+          :table-type="tableType"
+          :llm-loading="llmLoading"
+          @open-config="$emit('open-llm-config')"
+          @preview-image="$emit('preview-image', $event, $event.index)"
+          @llm-process="$emit('llm-process', $event)"
+          :screening-result="screeningResultMap?.[currentPDF.disk_name] || null"
+          @single-llm-process="$emit('single-llm-process', $event)"
+          @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
+          @force-reset-loading="handleForceResetLoading"
+          @ocr-completed="$emit('ocr-completed', $event)"
+        />
 
       </div>
 

@@ -464,7 +464,8 @@ const props = defineProps({
   getImageUrlFn: {
     type: Function,
     default: null
-  }
+  },
+  onImageError: Function
 })
 
 // 定义事件
