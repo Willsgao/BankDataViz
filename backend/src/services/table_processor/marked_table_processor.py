@@ -317,12 +317,46 @@ class MarkedTableProcessor:
         智能两轮处理版：创建带标记的表格
         第一轮：正常计算所有行列标记
         第二轮：只有在有列标记为0时，才重新计算行标记（排除标记为0的列）
+        新增：对于整行或整列都是空的，特征值给0
         """
         if not table:
             return []
 
         num_rows = len(table)
         num_cols = len(table[0]) if table else 0
+
+        # ========== 辅助函数：检查单元格是否为空 ==========
+        def is_cell_empty(cell):
+            if cell is None:
+                return True
+            cell_str = str(cell)
+            # 处理nan情况
+            if cell_str.lower() in ['nan', 'nat', 'null', 'none']:
+                return True
+            # 检查是否只包含空白字符
+            if cell_str.strip() == '':
+                return True
+            return False
+
+        # 检测整行为空的函数
+        def is_empty_row(row_idx):
+            if row_idx >= num_rows:
+                return False
+            row_data = table[row_idx]
+            for cell in row_data:
+                if not is_cell_empty(cell):
+                    return False
+            return True
+
+        # 检测整列为空的函数
+        def is_empty_col(col_idx):
+            if col_idx >= num_cols:
+                return False
+            for r in range(num_rows):
+                cell = table[r][col_idx] if col_idx < len(table[r]) else None
+                if not is_cell_empty(cell):
+                    return False
+            return True
 
         # ========== 关键优化：找到第一个真正的数值数据行 ==========
         first_data_row = 0
@@ -376,38 +410,55 @@ class MarkedTableProcessor:
 
             # 计算列标记
             for c in data_column_indices:
-                col_cell_types = []
-                for r in range(first_data_row, num_rows):
-                    if c < num_cols:
-                        col_cell_types.append(cell_types[r][c])
-
-                # 过滤掉空白单元格
-                non_blank_types = [t for t in col_cell_types if t != "blank"]
-
-                if not non_blank_types:
+                # 先检查是否整列为空
+                if is_empty_col(c):
                     col_checks[c] = 0
+                    print(f"列{c}: 整列为空，标记为0")
                 else:
-                    col_checks[c] = self._determine_row_column_mark(non_blank_types, f"列{c}")
+                    col_cell_types = []
+                    for r in range(first_data_row, num_rows):
+                        if c < num_cols:
+                            col_cell_types.append(cell_types[r][c])
+
+                    # 过滤掉空白单元格
+                    non_blank_types = [t for t in col_cell_types if t != "blank"]
+
+                    if not non_blank_types:
+                        col_checks[c] = 0
+                        print(f"列{c}: 没有非空白数据，标记为0")
+                    else:
+                        col_checks[c] = self._determine_row_column_mark(non_blank_types, f"列{c}")
 
             # 计算行标记（第一轮，使用所有列）
             for r in range(first_data_row):
-                row_checks[r] = 0
-                print(f"行{r} (数据行之前): 标记为0-纯文本")
+                # 检查是否整行为空
+                if is_empty_row(r):
+                    row_checks[r] = 0
+                    print(f"行{r} (数据行之前): 整行为空，标记为0")
+                else:
+                    row_checks[r] = 0
+                    print(f"行{r} (数据行之前): 标记为0-纯文本")
 
             for r in range(first_data_row, num_rows):
-                # 收集该行所有数据列的单元格类型
-                row_cell_types = []
-                for c in data_column_indices:
-                    if c < num_cols:
-                        row_cell_types.append(cell_types[r][c])
-
-                # 过滤掉空白单元格
-                non_blank_types = [t for t in row_cell_types if t != "blank"]
-
-                if not non_blank_types:
-                    row_checks[r] = 0  # 空白行
+                # 先检查是否整行为空
+                if is_empty_row(r):
+                    row_checks[r] = 0
+                    print(f"行{r}: 整行为空，标记为0")
                 else:
-                    row_checks[r] = self._determine_row_column_mark(non_blank_types, f"行{r}（第一轮）")
+                    # 收集该行所有数据列的单元格类型
+                    row_cell_types = []
+                    for c in data_column_indices:
+                        if c < num_cols:
+                            row_cell_types.append(cell_types[r][c])
+
+                    # 过滤掉空白单元格
+                    non_blank_types = [t for t in row_cell_types if t != "blank"]
+
+                    if not non_blank_types:
+                        row_checks[r] = 0  # 空白行
+                        print(f"行{r}: 没有非空白数据，标记为0")
+                    else:
+                        row_checks[r] = self._determine_row_column_mark(non_blank_types, f"行{r}（第一轮）")
 
             # ========== 检查是否需要第二轮处理 ==========
             zero_marked_columns = [c for c in data_column_indices if col_checks[c] == 0]
@@ -418,6 +469,11 @@ class MarkedTableProcessor:
 
                 # 重新计算行标记，排除纯文本列
                 for r in range(first_data_row, num_rows):
+                    # 如果已经是空行标记为0，跳过重新计算
+                    if row_checks[r] == 0 and is_empty_row(r):
+                        print(f"行{r}: 已经是空行，保持标记0")
+                        continue
+
                     # 只收集非纯文本列的单元格类型
                     row_cell_types = []
                     for c in data_column_indices:
@@ -437,6 +493,7 @@ class MarkedTableProcessor:
 
                         if has_any_text:
                             row_checks[r] = 0  # 只有文本
+                            print(f"行{r}: 只有文本数据，标记为0")
                         else:
                             row_checks[r] = 0  # 空白行
                     else:
@@ -476,7 +533,13 @@ class MarkedTableProcessor:
 
         marked_table[num_rows][num_cols] = "标记说明:0-纯文本 1-标准数值 2-格式问题 3-可能错误 4-混合类型"
 
+        # 统计空行和空列数量
+        empty_rows_count = sum(1 for r in range(num_rows) if is_empty_row(r))
+        empty_cols_count = sum(1 for c in range(num_cols) if is_empty_col(c))
+
         print(f"\n标记完成:")
+        print(f"空行数量: {empty_rows_count}")
+        print(f"空列数量: {empty_cols_count}")
         print(f"行标记统计: {self._count_marks(row_checks)}")
         print(f"列标记统计: {self._count_marks(col_checks)}")
 
@@ -485,6 +548,7 @@ class MarkedTableProcessor:
     def add_feature_marks(self, validated_table, validation_marks):
         """
         添加特征标记 - 修复最后一列表头问题
+        修改：对于整行或整列都是空的，特征值给0
         """
         marked_table = [row[:] for row in validated_table]  # 深拷贝
 
@@ -499,6 +563,19 @@ class MarkedTableProcessor:
         row_marks = validation_marks["row_marks"]
         col_marks = validation_marks["col_marks"]
 
+        # 辅助函数：检查单元格是否为空
+        def is_cell_empty(cell):
+            if cell is None:
+                return True
+            cell_str = str(cell)
+            # 处理nan情况
+            if cell_str.lower() in ['nan', 'nat', 'null']:
+                return True
+            # 检查是否只包含空白字符
+            if cell_str.strip() == '':
+                return True
+            return False
+
         # 1. 添加最后一列（行标记列）
         print(f"\n添加行标记列:")
 
@@ -508,11 +585,24 @@ class MarkedTableProcessor:
                 marked_table[i].append("行标记")
                 print(f"  行{i}: 添加'行标记'（列标题）")
             else:
-                # 其他行：添加对应的行标记值
-                mark_idx = i - 1 if (i - 1) < len(row_marks) else len(row_marks) - 1
-                mark_value = str(row_marks[mark_idx]) if mark_idx >= 0 and mark_idx < len(row_marks) else "0"
+                # 检查是否整行为空
+                is_empty_row = True
+                row_values = marked_table[i]
+                for cell in row_values:
+                    if not is_cell_empty(cell):
+                        is_empty_row = False
+                        break
+
+                if is_empty_row:
+                    # 整行为空，特征值给0
+                    mark_value = "0"
+                    print(f"  行{i}: 整行为空，标记为0")
+                else:
+                    # 其他行：添加对应的行标记值
+                    mark_idx = i - 1 if (i - 1) < len(row_marks) else len(row_marks) - 1
+                    mark_value = str(row_marks[mark_idx]) if mark_idx >= 0 and mark_idx < len(row_marks) else "0"
+                    print(f"  行{i}: 添加行标记值{mark_value}")
                 marked_table[i].append(mark_value)
-                print(f"  行{i}: 添加行标记值{mark_value}")
 
         # 2. 添加最后一行（列标记行）
         last_row = []
@@ -522,32 +612,62 @@ class MarkedTableProcessor:
         last_row.append("列标记")
         print(f"  列0: 添加'列标记'（行标题）")
 
-        # 其他列：添加列标记（注意索引对齐）
-        # 这里要包括新增的行标记列，所以从第1列到最后一列
-        for j in range(1, len(marked_table[0])):
-            mark_idx = j - 1  # 因为第0列是行表头列
+        # 检查整列为空的情况
+        num_rows = len(marked_table)  # 当前行数（包括表头行）
+        num_cols = len(marked_table[0])  # 当前列数（已添加行标记列）
 
-            if mark_idx < len(col_marks):
-                mark_value = str(col_marks[mark_idx])
+        # 其他列：添加列标记（注意索引对齐）
+        for j in range(1, num_cols):
+            # 检查是否整列为空（不包括表头行）
+            is_empty_col = True
+            for i in range(1, num_rows):  # 从第1行开始，跳过表头行
+                if i < len(marked_table) and j < len(marked_table[i]):
+                    cell = marked_table[i][j]
+                    if not is_cell_empty(cell):
+                        is_empty_col = False
+                        break
+
+            if is_empty_col:
+                # 整列为空，特征值给0
+                mark_value = "0"
+                print(f"  列{j}: 整列为空，标记为0")
             else:
-                # 对于行标记列（最后一列），给它一个特殊的列标记值
-                if j == len(marked_table[0]) - 1:
-                    mark_value = "1"  # 行标记列的列标记
+                # 正常处理列标记
+                mark_idx = j - 1  # 因为第0列是行表头列
+
+                if mark_idx < len(col_marks):
+                    mark_value = str(col_marks[mark_idx])
                 else:
-                    mark_value = "0"
+                    # 对于行标记列（最后一列），给它一个特殊的列标记值
+                    if j == num_cols - 1:
+                        mark_value = "1"  # 行标记列的列标记
+                    else:
+                        mark_value = "0"
+                print(f"  列{j}: 添加列标记值{mark_value}")
 
             last_row.append(mark_value)
-            print(f"  列{j}: 添加列标记值{mark_value}")
 
         marked_table.append(last_row)
 
         # 输出最终表格信息
         print(f"最终表格: {len(marked_table)}行 × {len(marked_table[0])}列")
-
-        # 打印第一行看看
         print(f"第一行（应包含'行标记'表头）: {marked_table[0]}")
 
+        # 打印一些调试信息，查看哪些行被标记为0
+        print(f"\n=== 空行标记统计 ===")
+        empty_row_count = 0
+        for i in range(1, num_rows):  # 跳过表头行
+            if marked_table[i][-1] == "0":  # 检查最后一列（行标记）
+                empty_row_count += 1
+                print(f"行{i}被标记为空")
+
+        print(f"总共发现 {empty_row_count} 个空行")
+        print(f"标记列的值分布: {[marked_table[i][-1] for i in range(1, min(10, num_rows))]}...")
+
         return marked_table
+
+
+
 
 
 # 使用示例

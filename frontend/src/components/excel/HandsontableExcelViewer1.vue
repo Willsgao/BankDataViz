@@ -1763,148 +1763,88 @@ const tableData123 = computed(() => {
 // tableData 计算属性
 const tableData = computed(() => {
   if (!props.excelData || props.excelData.length === 0) {
-    console.log('📊 tableData: 数据为空或长度为0')
     return []
   }
 
-  const firstItem = props.excelData[0]
+  const firstRow = props.excelData[0]
 
-  // 检查是否有双表头元数据（旧结构）
-  if (firstItem?.__metadata?.has_dual_headers) {
-    console.log('✅ 检测到双表头元数据（旧结构）')
+  // 如果是双表头结构
+  if (firstRow?.__metadata?.has_dual_headers) {
+    const metadata = firstRow.__metadata
 
-    const metadata = firstItem.__metadata
-    const dataRows = props.excelData.slice(1) // 跳过元数据
+    // 构建表格：第一行（左上角 + 横向表头）
+    const tableRows = []
 
-    console.log('📋 元数据详情:', {
-      左上角: metadata.top_left_cell,
-      横向表头数: metadata.horizontal_headers?.length,
-      纵向表头数: metadata.vertical_headers?.length,
-      数据行数: dataRows.length
+    // 表头行
+    const headerRow = [
+      metadata.top_left_cell || '',
+      ...(metadata.horizontal_headers || [])
+    ]
+    tableRows.push(headerRow)
+
+    console.log('🔍 调试信息:', {
+      数据总行数: props.excelData.length,
+      表头行内容: headerRow.slice(0, 3),
+      第一行数据索引: 1,
+      第一行数据类型: props.excelData[1] ? Object.keys(props.excelData[1]) : '无',
+      第一行是否数据行: props.excelData[1]?.__is_data_row,
+      第一行是否表头行: props.excelData[1]?.__is_first_row
     })
 
-    // 关键修复：重新设计渲染逻辑
-    const renderedTable = []
+    // 数据行：纵向表头 + 数据
+    // 关键修改：检查每一行是否是真正的数据行
+    for (let i = 1; i < props.excelData.length; i++) {
+      const rowData = props.excelData[i]
 
-    // 1. 找到第一行数据（包含横向表头）
-    const headerRowObj = dataRows.find(row => row?.__is_first_row)
-    if (!headerRowObj) {
-      console.warn('⚠️ 未找到第一行（横向表头）数据')
-      return []
-    }
-
-    // 2. 构建第一行：左上角 + 横向表头
-    const firstRow = []
-
-    // 左上角单元格
-    firstRow.push(headerRowObj.__top_left_cell || metadata.top_left_cell || '')
-
-    // 横向表头（按顺序 H_1, H_2, H_3...）
-    const horizontalCount = metadata.horizontal_headers?.length || 0
-    for (let i = 1; i <= horizontalCount; i++) {
-      const key = `H_${i}`
-      const value = headerRowObj[key] ||
-                   metadata.horizontal_headers?.[i-1] ||
-                   ``
-      firstRow.push(value || '')
-    }
-
-    renderedTable.push(firstRow)
-    console.log('📊 第一行构建完成:', firstRow)
-
-    // 3. 构建数据行：纵向表头 + 数据
-    const dataRowsOnly = dataRows.filter(row => row?.__is_data_row)
-    const verticalCount = metadata.vertical_headers?.length || 0
-
-    dataRowsOnly.forEach((rowData, rowIndex) => {
-      const row = []
-
-      // 纵向表头
-      const verticalHeader = rowData.__vertical_header ||
-                            metadata.vertical_headers?.[rowIndex] ||
-                            ``
-      row.push(verticalHeader || '')
-
-      // 数据单元格
-      for (let i = 1; i <= horizontalCount; i++) {
-        const key = `H_${i}`
-        const value = rowData[key] ?? ''
-        row.push(value)
+      // 关键判断：如果这一行标记为表头行，跳过
+      if (rowData.__is_first_row) {
+        console.log(`跳过第 ${i} 行：这是表头行`)
+        continue
       }
 
-      renderedTable.push(row)
-    })
+      // 只处理真正的数据行
+      if (rowData.__is_data_row) {
+        const row = [
+          rowData.__vertical_header || '',
+          ...Object.keys(rowData)
+            .filter(key => key.startsWith('H_'))
+            .sort((a, b) => {
+              const numA = parseInt(a.replace('H_', ''))
+              const numB = parseInt(b.replace('H_', ''))
+              return numA - numB
+            })
+            .map(key => rowData[key])
+        ]
+        tableRows.push(row)
 
-    console.log('✅ 表格构建完成（旧结构）:', {
-      总行数: renderedTable.length,
-      总列数: renderedTable[0]?.length || 0
-    })
-
-    // ==================== 新增：添加空白行和列 ====================
-    // 在数据后面添加3行空白
-    for (let i = 0; i < 3; i++) {
-      const blankRow = new Array(renderedTable[0]?.length || 0).fill('')
-      renderedTable.push(blankRow)
+        // 调试：显示前几行
+        if (tableRows.length <= 3) {
+          console.log(`添加数据行 ${tableRows.length - 1}:`, row.slice(0, 3))
+        }
+      } else {
+        console.log(`跳过第 ${i} 行：不是数据行，包含键:`, Object.keys(rowData))
+      }
     }
 
-    // 在每行后面添加3列空白
-    renderedTable.forEach(row => {
-      for (let i = 0; i < 3; i++) {
-        row.push('')
-      }
-    })
-    // ==================== 结束新增 ====================
 
-    console.log('✅ 添加空白行列后:', {
-      最终行数: renderedTable.length,
-      最终列数: renderedTable[0]?.length || 0
+    console.log('✅ 最终的 tableData:', {
+      总行数: tableRows.length,
+      总列数: tableRows[0]?.length || 0,
+      表头行: tableRows[0]?.slice(0, 3),
+      数据行样本: tableRows.slice(1, 3).map(row => row.slice(0, 3))
     })
 
-    return renderedTable
+
+
+    return tableRows
   }
 
   // 单表头逻辑
-  console.log('📊 单表头模式')
-  const headers = firstItem.__orderedHeaders ||
-                  Object.keys(firstItem || {}).filter(key => !key.startsWith('__'))
-
-  if (!headers.length) {
-    console.warn('⚠️ 未找到表头')
-    return []
-  }
-
-  const result = props.excelData.map(row =>
+  const headers = Object.keys(firstRow || {}).filter(key => !key.startsWith('__'))
+  return props.excelData.map(row =>
     headers.map(header => row[header] ?? '')
   )
-
-  console.log('📊 单表头构建完成:', {
-    行数: result.length,
-    列数: result[0]?.length || 0
-  })
-
-  // ==================== 新增：单表头模式也添加空白行和列 ====================
-  // 在数据后面添加3行空白
-  for (let i = 0; i < 3; i++) {
-    const blankRow = new Array(result[0]?.length || 0).fill('')
-    result.push(blankRow)
-  }
-
-  // 在每行后面添加3列空白
-  result.forEach(row => {
-    for (let i = 0; i < 3; i++) {
-      row.push('')
-    }
-  })
-
-  console.log('✅ 添加空白行列后:', {
-    最终行数: result.length,
-    最终列数: result[0]?.length || 0
-  })
-  // ==================== 结束新增 ====================
-
-  return result
 })
-
 
 
 // 辅助函数：检查第一行是否包含实际数据
@@ -2362,6 +2302,264 @@ watch(() => props.excelData, (newData) => {
 
 const excelViewerInstance = ref(null)
 
+onMounted(() => {
+  console.log('🎯 HandsontableExcelViewer onMounted 开始执行')
+
+  // 1. 首先注册中文语言包
+  const success = setupChineseLocalization()
+
+  // 2. 立即设置当前语言
+  if (success) {
+    currentLanguage.value = 'zh-CN'
+    langKey.value = 'zh-CN-' + Date.now() // 强制刷新
+    console.log('✅ 中文语言包设置完成')
+  } else {
+    console.warn('⚠️ 中文语言包设置失败，使用英文')
+    currentLanguage.value = 'en-US'
+  }
+
+  // 重置重试计数
+  retryCount = 0
+
+  // 初始计算高度
+  nextTick(() => {
+    calculateHeight()
+  })
+
+  // 直接暴露实例到 window
+  window.excelViewerInstance = {
+    isEditMode: isEditMode.value,
+    hasChanges: hasChanges.value,
+    modifiedCellsCount: modifiedCellsCount.value,
+    hotTable: hotTable.value,
+    methods: {
+      onDataChange,
+      updateTableReadOnly,
+      setupEventListeners,
+
+      // 添加调试方法
+      debugFilters: () => {
+        if (hotTable.value?.hotInstance) {
+          const hot = hotTable.value.hotInstance
+          console.log('🔍 Handsontable 实例:', hot)
+
+          // 兼容旧版本的插件检查方式
+          let filterPlugin = null
+          let allPlugins = []
+
+          try {
+            // 尝试新版本 API
+            if (hot.getPluginsManager) {
+              allPlugins = Object.keys(hot.getPluginsManager().plugins)
+              filterPlugin = hot.getPlugin('filters')
+            }
+            // 尝试旧版本 API
+            else if (hot.plugin) {
+              filterPlugin = hot.plugin.filters
+              allPlugins = Object.keys(hot.plugin).filter(key => hot.plugin[key])
+            }
+            // 最后尝试直接访问
+            else if (hot.filters) {
+              filterPlugin = hot.filters
+              allPlugins = ['filters'] // 假设只有 filters 插件
+            }
+          } catch (error) {
+            console.log('⚠️ 插件检查出错:', error)
+          }
+
+          console.log('🔍 筛选插件调试信息:', {
+            实例: hot,
+            筛选插件: filterPlugin,
+            所有插件: allPlugins,
+            版本: hot.version || '未知版本',
+            表头元素: document.querySelectorAll('.ht_clone_top th')
+          })
+
+          // 检查配置
+          console.log('⚙️ 当前配置:', {
+            filters: hot.getSettings().filters,
+            dropdownMenu: hot.getSettings().dropdownMenu,
+            colHeaders: hot.getSettings().colHeaders
+          })
+        } else {
+          console.log('❌ 表格实例未就绪')
+        }
+      },
+
+      // 手动注册筛选插件
+      registerFilterPlugin: () => {
+        if (hotTable.value?.hotInstance) {
+          const hot = hotTable.value.hotInstance
+          try {
+            // 尝试手动注册筛选插件
+            const Filters = Handsontable.plugins.Filters
+            if (Filters) {
+              hot.getPluginsManager().addPlugin('filters', Filters)
+              console.log('✅ 手动注册筛选插件成功')
+            } else {
+              console.log('❌ Filters 插件未找到，检查导入')
+            }
+          } catch (error) {
+            console.error('❌ 注册筛选插件失败:', error)
+          }
+        }
+      }, // ← 这里添加逗号
+
+      // 添加测试方法
+      testSelection: () => {
+        const hot = getSafeHotInstance()
+        if (hot) {
+          console.log('🧪 测试选择功能')
+          // 模拟选择一个区域（第2-4行，第1-2列）
+          hot.selectCell(1, 0, 3, 1)
+        }
+      }, // ← 这里添加逗号
+
+      // 显示当前选择状态
+      debugSelection: () => {
+        console.log('🔍 当前选择状态:', {
+          显示统计面板: showStatsPanel.value,
+          当前选择: currentSelection.value,
+          统计信息: stats.value
+        })
+      } // ← 最后一个方法不需要逗号
+
+    }
+  }
+
+  console.log('✅ ExcelViewer 实例已暴露到 window.excelViewerInstance')
+
+  // 使用 ResizeObserver 监听容器尺寸变化
+  if (excelContainer.value) {
+    resizeObserver.value = new ResizeObserver(() => {
+      calculateHeight()
+      nextTick(() => {
+        if (hotTable.value && hotTable.value.hotInstance) {
+          hotTable.value.hotInstance.updateSettings({
+            height: tableHeight.value
+          })
+          hotTable.value.hotInstance.render()
+        }
+      })
+    })
+    const parentContainer = excelContainer.value.closest('.excel-content') || excelContainer.value.parentElement
+    if (parentContainer) {
+      resizeObserver.value.observe(parentContainer)
+    }
+  }
+
+  // 延迟初始化表格
+  safeSetTimeout(() => {
+    console.log('⏰ 延迟初始化开始')
+
+    if (!isComponentActive.value || !isHotInstanceValid()) {
+      console.log('ℹ️ 组件已卸载或实例无效，跳过初始化')
+      return
+    }
+
+    if (hotTable.value?.hotInstance) {
+      const hot = hotTable.value.hotInstance
+      console.log('✅ Handsontable 实例已加载，版本:', hot.version || '未知')
+
+      // 检查插件可用性的兼容方法
+      let filterPlugin = null
+      try {
+        filterPlugin = hot.getPlugin ? hot.getPlugin('filters') :
+                       hot.plugin ? hot.plugin.filters :
+                       hot.filters
+      } catch (error) {
+        console.log('⚠️ 获取筛选插件时出错:', error)
+      }
+
+      // 关键：确保语言设置正确应用
+      const updateSettings = {
+        language: currentLanguage.value, // 使用上面设置的当前语言
+        filters: !!filterPlugin,
+        dropdownMenu: [
+          'filter_by_condition',
+          'filter_by_value',
+          'filter_action_bar',
+          '---------',
+          'filter_operators',
+          '---------',
+          'sort_asc',
+          'sort_desc',
+          '---------',
+          'clear_column'
+        ]
+      }
+
+      if (filterPlugin) {
+        console.log('✅ 筛选插件已找到，启用完整功能')
+        try {
+          if (filterPlugin.enablePlugin) {
+            filterPlugin.enablePlugin()
+          }
+        } catch (error) {
+          console.error('❌ 启用筛选插件失败:', error)
+        }
+      } else {
+        console.log('⚠️ 筛选插件未找到，使用 dropdownMenu 的基础筛选')
+        updateSettings.filters = false
+      }
+
+      // 只更新可以修改的设置
+      hot.updateSettings(updateSettings)
+
+      // 强制重新渲染
+      try {
+        hot.render()
+        console.log('🔄 表格重新渲染完成')
+      } catch (error) {
+        console.error('❌ 重新渲染失败:', error)
+      }
+
+      // 配置事件监听
+      setupEventListeners()
+
+      // 检查表头是否显示筛选图标和语言设置
+      safeSetTimeout(() => {
+        if (!isComponentActive.value || !isHotInstanceValid()) return
+
+        const headers = document.querySelectorAll('.ht_clone_top th')
+        console.log(`📊 表头数量: ${headers.length}`)
+        headers.forEach((header, index) => {
+          const hasDropdown = header.querySelector('.changeType')
+          console.log(`表头 ${index}: 有下拉菜单 = ${!!hasDropdown}`)
+        })
+
+        console.log('🌐 验证中文设置:', {
+          当前语言: hot.getSettings().language,
+          筛选配置: hot.getSettings().filters,
+          语言包状态: Handsontable.languages.getLanguageDictionary(currentLanguage.value) ? '已加载' : '未加载'
+        })
+
+        // 测试中文菜单显示（使用安全的方式）
+        testActualDropdownContent() // 使用已有的函数
+      }, 1000)
+
+    } else {
+      console.log('❌ Handsontable 实例仍未就绪')
+    }
+
+    // 配置列选择监听
+    safeSetTimeout(() => {
+      if (isComponentActive.value && isHotInstanceValid()) {
+        setupColumnSelectionListener()
+      }
+    }, 500)
+
+  }, 2000)
+
+  // 添加语言设置验证（修复 getLanguages 错误）
+  safeSetTimeout(() => {
+    verifyLanguageSettingFixed() // 使用修复后的函数
+  }, 3500)
+
+  // 添加快捷键支持
+  setupKeyboardShortcuts()
+})
+
 
 // 修复 verifyLanguageSetting 函数中的错误
 const verifyLanguageSettingFixed = () => {
@@ -2609,598 +2807,8 @@ const updateSelectedCellDisplay = (row, col) => {
   }
 }
 
-
-onMounted(() => {
-  console.log('🎯 HandsontableExcelViewer onMounted 开始执行')
-
-  // 1. 首先注册中文语言包
-  const success = setupChineseLocalization()
-
-  // 2. 立即设置当前语言
-  if (success) {
-    currentLanguage.value = 'zh-CN'
-    langKey.value = 'zh-CN-' + Date.now() // 强制刷新
-    console.log('✅ 中文语言包设置完成')
-  } else {
-    console.warn('⚠️ 中文语言包设置失败，使用英文')
-    currentLanguage.value = 'en-US'
-  }
-
-  // 重置重试计数
-  retryCount = 0
-
-  // 初始计算高度
-  nextTick(() => {
-    calculateHeight()
-  })
-
-  // 直接暴露实例到 window
-  window.excelViewerInstance = {
-    isEditMode: isEditMode.value,
-    hasChanges: hasChanges.value,
-    modifiedCellsCount: modifiedCellsCount.value,
-    hotTable: hotTable.value,
-    methods: {
-      onDataChange,
-      updateTableReadOnly,
-      setupEventListeners,
-
-      // 添加表头紧急修复方法
-      emergencyFixHeader: () => {
-        const hot = getSafeHotInstance()
-        if (!hot) return
-
-        console.log('🚨 执行表头紧急修复')
-
-        try {
-          // 强制刷新表头
-          hot.updateSettings({
-            fixedRowsTop: fixedRowsTop.value,
-            fixedColumnsLeft: fixedColumnsLeft.value
-          })
-
-          hot.render()
-
-          // 直接操作DOM确保表头在正确位置
-          const cloneTop = hot.rootElement.querySelector('.ht_clone_top')
-          if (cloneTop) {
-            cloneTop.style.position = 'absolute'
-            cloneTop.style.top = '0px'
-            cloneTop.style.left = '0px'
-            cloneTop.style.zIndex = '100'
-            cloneTop.style.visibility = 'visible'
-            cloneTop.style.opacity = '1'
-          }
-
-          ElMessage.success('表头修复完成')
-        } catch (error) {
-          console.error('表头修复失败:', error)
-        }
-      },
-
-      // 添加调试方法
-      debugFilters: () => {
-        if (hotTable.value?.hotInstance) {
-          const hot = hotTable.value.hotInstance
-          console.log('🔍 Handsontable 实例:', hot)
-
-          // 兼容旧版本的插件检查方式
-          let filterPlugin = null
-          let allPlugins = []
-
-          try {
-            // 尝试新版本 API
-            if (hot.getPluginsManager) {
-              allPlugins = Object.keys(hot.getPluginsManager().plugins)
-              filterPlugin = hot.getPlugin('filters')
-            }
-            // 尝试旧版本 API
-            else if (hot.plugin) {
-              filterPlugin = hot.plugin.filters
-              allPlugins = Object.keys(hot.plugin).filter(key => hot.plugin[key])
-            }
-            // 最后尝试直接访问
-            else if (hot.filters) {
-              filterPlugin = hot.filters
-              allPlugins = ['filters'] // 假设只有 filters 插件
-            }
-          } catch (error) {
-            console.log('⚠️ 插件检查出错:', error)
-          }
-
-          console.log('🔍 筛选插件调试信息:', {
-            实例: hot,
-            筛选插件: filterPlugin,
-            所有插件: allPlugins,
-            版本: hot.version || '未知版本',
-            表头元素: document.querySelectorAll('.ht_clone_top th')
-          })
-
-          // 检查配置
-          console.log('⚙️ 当前配置:', {
-            filters: hot.getSettings().filters,
-            dropdownMenu: hot.getSettings().dropdownMenu,
-            colHeaders: hot.getSettings().colHeaders
-          })
-        } else {
-          console.log('❌ 表格实例未就绪')
-        }
-      },
-
-      // 手动注册筛选插件
-      registerFilterPlugin: () => {
-        if (hotTable.value?.hotInstance) {
-          const hot = hotTable.value.hotInstance
-          try {
-            // 尝试手动注册筛选插件
-            const Filters = Handsontable.plugins.Filters
-            if (Filters) {
-              hot.getPluginsManager().addPlugin('filters', Filters)
-              console.log('✅ 手动注册筛选插件成功')
-            } else {
-              console.log('❌ Filters 插件未找到，检查导入')
-            }
-          } catch (error) {
-            console.error('❌ 注册筛选插件失败:', error)
-          }
-        }
-      },
-
-      // 添加测试方法
-      testSelection: () => {
-        const hot = getSafeHotInstance()
-        if (hot) {
-          console.log('🧪 测试选择功能')
-          // 模拟选择一个区域（第2-4行，第1-2列）
-          hot.selectCell(1, 0, 3, 1)
-        }
-      },
-
-      // 显示当前选择状态
-      debugSelection: () => {
-        console.log('🔍 当前选择状态:', {
-          显示统计面板: showStatsPanel.value,
-          当前选择: currentSelection.value,
-          统计信息: stats.value
-        })
-      }
-    }
-  }
-
-  console.log('✅ ExcelViewer 实例已暴露到 window.excelViewerInstance')
-
-  // 使用 ResizeObserver 监听容器尺寸变化
-  if (excelContainer.value) {
-    resizeObserver.value = new ResizeObserver(() => {
-      calculateHeight()
-      nextTick(() => {
-        if (hotTable.value && hotTable.value.hotInstance) {
-          hotTable.value.hotInstance.updateSettings({
-            height: tableHeight.value
-          })
-          hotTable.value.hotInstance.render()
-        }
-      })
-    })
-    const parentContainer = excelContainer.value.closest('.excel-content') || excelContainer.value.parentElement
-    if (parentContainer) {
-      resizeObserver.value.observe(parentContainer)
-    }
-  }
-
-  // ============================================
-  // 新增：表头滚动保护机制
-  // ============================================
-  const protectTableHeader = () => {
-    console.log('🛡️ 启动表头滚动保护')
-
-    const checkHeaderPosition = () => {
-      if (!isComponentActive.value) return
-
-      const hot = getSafeHotInstance()
-      if (!hot) return
-
-      const cloneTop = hot.rootElement.querySelector('.ht_clone_top')
-      if (!cloneTop) return
-
-      // 强制表头保持在顶部
-      cloneTop.style.position = 'absolute'
-      cloneTop.style.top = '0px'
-      cloneTop.style.left = '0px'
-      cloneTop.style.zIndex = '100'
-      cloneTop.style.visibility = 'visible'
-      cloneTop.style.opacity = '1'
-
-      // 监听滚动事件，实时修复
-      if (excelContainer.value) {
-        const handleScroll = () => {
-          cloneTop.style.top = '0px'
-        }
-
-        excelContainer.value.addEventListener('scroll', handleScroll)
-
-        // 保存清理函数
-        window._headerScrollHandler = handleScroll
-      }
-    }
-
-    // 延迟启动保护
-    safeSetTimeout(() => {
-      if (isComponentActive.value) {
-        checkHeaderPosition()
-
-        // 定期检查（每2秒一次）
-        const intervalId = setInterval(() => {
-          if (!isComponentActive.value) {
-            clearInterval(intervalId)
-            return
-          }
-          checkHeaderPosition()
-        }, 2000)
-
-        // 保存清理函数
-        window._headerCheckInterval = intervalId
-      }
-    }, 1000)
-  }
-
-  // 启动表头保护
-  protectTableHeader()
-
-  // ============================================
-  // 延迟初始化表格
-  // ============================================
-  safeSetTimeout(() => {
-    console.log('⏰ 延迟初始化开始')
-
-    if (!isComponentActive.value || !isHotInstanceValid()) {
-      console.log('ℹ️ 组件已卸载或实例无效，跳过初始化')
-      return
-    }
-
-    if (hotTable.value?.hotInstance) {
-      const hot = hotTable.value.hotInstance
-      console.log('✅ Handsontable 实例已加载，版本:', hot.version || '未知')
-
-      // 检查插件可用性的兼容方法
-      let filterPlugin = null
-      try {
-        filterPlugin = hot.getPlugin ? hot.getPlugin('filters') :
-                       hot.plugin ? hot.plugin.filters :
-                       hot.filters
-      } catch (error) {
-        console.log('⚠️ 获取筛选插件时出错:', error)
-      }
-
-      // 关键：确保语言设置正确应用
-      const updateSettings = {
-        language: currentLanguage.value, // 使用上面设置的当前语言
-        filters: !!filterPlugin,
-        dropdownMenu: [
-          'filter_by_condition',
-          'filter_by_value',
-          'filter_action_bar',
-          '---------',
-          'filter_operators',
-          '---------',
-          'sort_asc',
-          'sort_desc',
-          '---------',
-          'clear_column'
-        ],
-        // 添加表头固定配置
-        fixedRowsTop: fixedRowsTop.value,
-        fixedColumnsLeft: fixedColumnsLeft.value,
-        // 防止表头被隐藏的额外配置
-        viewportRowRenderingOffset: 50,
-        viewportColumnRenderingOffset: 20
-      }
-
-      if (filterPlugin) {
-        console.log('✅ 筛选插件已找到，启用完整功能')
-        try {
-          if (filterPlugin.enablePlugin) {
-            filterPlugin.enablePlugin()
-          }
-        } catch (error) {
-          console.error('❌ 启用筛选插件失败:', error)
-        }
-      } else {
-        console.log('⚠️ 筛选插件未找到，使用 dropdownMenu 的基础筛选')
-        updateSettings.filters = false
-      }
-
-      // 只更新可以修改的设置
-      hot.updateSettings(updateSettings)
-
-      // 强制重新渲染
-      try {
-        hot.render()
-        console.log('🔄 表格重新渲染完成')
-      } catch (error) {
-        console.error('❌ 重新渲染失败:', error)
-      }
-
-      // 配置事件监听
-      setupEventListeners()
-
-      // 检查表头是否显示筛选图标和语言设置
-      safeSetTimeout(() => {
-        if (!isComponentActive.value || !isHotInstanceValid()) return
-
-        const headers = document.querySelectorAll('.ht_clone_top th')
-        console.log(`📊 表头数量: ${headers.length}`)
-        headers.forEach((header, index) => {
-          const hasDropdown = header.querySelector('.changeType')
-          console.log(`表头 ${index}: 有下拉菜单 = ${!!hasDropdown}`)
-        })
-
-        console.log('🌐 验证中文设置:', {
-          当前语言: hot.getSettings().language,
-          筛选配置: hot.getSettings().filters,
-          语言包状态: Handsontable.languages.getLanguageDictionary(currentLanguage.value) ? '已加载' : '未加载'
-        })
-
-        // 测试中文菜单显示（使用安全的方式）
-        testActualDropdownContent() // 使用已有的函数
-      }, 1000)
-
-    } else {
-      console.log('❌ Handsontable 实例仍未就绪')
-    }
-
-    // 配置列选择监听
-    safeSetTimeout(() => {
-      if (isComponentActive.value && isHotInstanceValid()) {
-        setupColumnSelectionListener()
-      }
-    }, 500)
-
-  }, 2000)
-
-  // 添加语言设置验证（修复 getLanguages 错误）
-  safeSetTimeout(() => {
-    verifyLanguageSettingFixed() // 使用修复后的函数
-  }, 3500)
-
-  // 添加快捷键支持
-  setupKeyboardShortcuts()
-})
-
-// ============================================
-// 修改 onUnmounted 函数，清理表头保护相关资源
-// ============================================
-onUnmounted(() => {
-  console.log('🔧 开始清理组件资源...')
-
-  // 首先设置组件为非激活状态
-  isComponentActive.value = false
-
-  // 清理表头保护相关资源
-  if (window._headerScrollHandler && excelContainer.value) {
-    excelContainer.value.removeEventListener('scroll', window._headerScrollHandler)
-    delete window._headerScrollHandler
-    console.log('✅ 表头滚动监听器已移除')
-  }
-
-  if (window._headerCheckInterval) {
-    clearInterval(window._headerCheckInterval)
-    delete window._headerCheckInterval
-    console.log('✅ 表头检查定时器已清理')
-  }
-
-  // 清理所有定时器
-  clearAllTimeouts()
-
-  // 清理 ResizeObserver
-  if (resizeObserver.value) {
-    resizeObserver.value.disconnect()
-    console.log('✅ ResizeObserver 已清理')
-  }
-
-  // 移除窗口大小变化监听器
-  window.removeEventListener('resize', handleResize)
-  console.log('✅ 窗口大小监听器已移除')
-
-  // 清理全局实例
-  if (window.excelViewerInstance) {
-    delete window.excelViewerInstance
-    console.log('✅ 全局实例已清理')
-  }
-
-  // 安全销毁 Handsontable 实例
-  if (hotTable.value?.hotInstance && !hotTable.value.hotInstance.isDestroyed) {
-    try {
-      console.log('🔧 正在销毁 Handsontable 实例...')
-      hotTable.value.hotInstance.destroy()
-      console.log('✅ Handsontable 实例已安全销毁')
-    } catch (error) {
-      console.log('ℹ️ 清理 Handsontable 实例:', error.message)
-    }
-  } else {
-    console.log('ℹ️ Handsontable 实例已销毁或不存在，跳过销毁操作')
-  }
-
-  console.log('✅ 组件资源清理完成')
-})
-
-
-
-// 在 onMounted 中添加表头保护
-const protectHeaderFromHiding = () => {
-  console.log('🛡️ 启动表头防隐藏保护')
-
-  let lastScrollTop = 0
-  let isDragging = false
-
-  const checkAndFixHeader = () => {
-    if (!isComponentActive.value) return
-
-    const hot = getSafeHotInstance()
-    if (!hot) return
-
-    // 查找表头元素
-    const headerClones = [
-      hot.rootElement.querySelector('.ht_clone_top'),
-      hot.rootElement.querySelector('.ht_clone_left_top')
-    ].filter(Boolean)
-
-    headerClones.forEach(header => {
-      if (!header) return
-
-      // 获取当前滚动位置
-      const container = excelContainer.value
-      const scrollTop = container?.scrollTop || 0
-      const maxScroll = container?.scrollHeight - container?.clientHeight || 0
-
-      // 如果接近底部，防止表头被隐藏
-      if (scrollTop > lastScrollTop && scrollTop > maxScroll - 100) {
-        console.log('⚠️ 检测到滚动到底部，保护表头')
-
-        // 方法1：确保表头显示
-        header.style.visibility = 'visible'
-        header.style.opacity = '1'
-        header.style.zIndex = '999'
-
-        // 方法2：如果表头被隐藏，强制重新定位
-        const headerRect = header.getBoundingClientRect()
-        if (headerRect.top < 0 || header.style.display === 'none') {
-          console.log('🔧 表头被隐藏，强制修复')
-
-          // 显示表头
-          header.style.display = 'block'
-          header.style.visibility = 'visible'
-
-          // 重新定位
-          header.style.position = 'absolute'
-          header.style.top = '0px'
-
-          // 如果是固定列的表头，还需要特殊处理
-          if (header.classList.contains('ht_clone_left_top')) {
-            header.style.left = '0px'
-          }
-        }
-
-        // 方法3：如果表头位置异常，滚动一点点回去
-        if (scrollTop >= maxScroll - 50) {
-          console.log('↩️ 滚动到底部边界，轻微回滚')
-          container.scrollTop = Math.max(0, scrollTop - 10)
-        }
-      }
-
-      lastScrollTop = scrollTop
-    })
-  }
-
-  // 监听滚动事件
-  const setupScrollListener = () => {
-    const container = excelContainer.value
-    if (!container) return
-
-    const handleScroll = () => {
-      checkAndFixHeader()
-    }
-
-    // 使用 passive: true 提高性能
-    container.addEventListener('scroll', handleScroll, { passive: true })
-
-    // 监听鼠标/触摸拖拽结束
-    container.addEventListener('mouseup', () => {
-      isDragging = false
-      safeSetTimeout(checkAndFixHeader, 100)
-    })
-
-    container.addEventListener('touchend', () => {
-      isDragging = false
-      safeSetTimeout(checkAndFixHeader, 100)
-    })
-
-    container.addEventListener('mousedown', () => { isDragging = true })
-    container.addEventListener('touchstart', () => { isDragging = true })
-
-    // 保存清理函数
-    window._headerScrollHandler = handleScroll
-    window._headerScrollContainer = container
-  }
-
-  // 延迟设置监听器
-  safeSetTimeout(() => {
-    if (isComponentActive.value) {
-      setupScrollListener()
-
-      // 定期检查表头状态（每2秒）
-      const checkInterval = setInterval(() => {
-        if (!isComponentActive.value) {
-          clearInterval(checkInterval)
-          return
-        }
-        checkAndFixHeader()
-      }, 2000)
-
-      window._headerCheckInterval = checkInterval
-    }
-  }, 1500)
-}
-
-// 在 onMounted 中调用
-protectHeaderFromHiding()
-
-// 添加应急修复方法
-const emergencyFixVanishingHeader = () => {
-  const hot = getSafeHotInstance()
-  if (!hot) {
-    ElMessage.warning('表格实例未就绪')
-    return
-  }
-
-  console.log('🚨 执行表头防消失应急修复')
-
-  // 方法1：强制重新渲染表格
-  hot.render()
-
-  // 方法2：重置滚动位置
-  const container = excelContainer.value
-  if (container) {
-    // 轻微回滚，避免触发表头隐藏
-    const currentScroll = container.scrollTop
-    if (currentScroll > container.scrollHeight - container.clientHeight - 100) {
-      container.scrollTop = Math.max(0, currentScroll - 50)
-    }
-  }
-
-  // 方法3：直接操作DOM修复表头
-  safeSetTimeout(() => {
-    const headerClones = [
-      hot.rootElement.querySelector('.ht_clone_top'),
-      hot.rootElement.querySelector('.ht_clone_left_top')
-    ]
-
-    headerClones.forEach(header => {
-      if (!header) return
-
-      // 确保表头可见
-      header.style.display = 'block'
-      header.style.visibility = 'visible'
-      header.style.opacity = '1'
-      header.style.zIndex = '999'
-      header.style.position = '' // 重置position
-
-      // 确保表头内容可见
-      const cells = header.querySelectorAll('th, td')
-      cells.forEach(cell => {
-        cell.style.visibility = 'visible'
-        cell.style.opacity = '1'
-      })
-    })
-
-    ElMessage.success('表头修复完成')
-  }, 100)
-}
-
-// 暴露到控制台
-window.fixHeader = emergencyFixVanishingHeader
-
 </script>
+
 
 
 <style scoped>
@@ -3248,23 +2856,13 @@ window.fixHeader = emergencyFixVanishingHeader
   background: white;
 }
 
-/* ====================
-   关键修复：恢复滚动功能
-   ==================== */
 .excel-container {
   flex: 1;
   min-height: 0;
-  overflow: auto; /* 确保可以滚动 */
+  overflow: auto;
   position: relative;
   border: 1px solid #e0e0e0;
-  background: white;
 }
-
-/* 给表格容器添加padding，避免内容被遮挡 */
-.excel-container {
-  padding-top: 1px !important; /* 微小padding避免边界问题 */
-}
-
 
 /* 确保 Handsontable 正常显示 */
 :deep(.handsontable .wtHolder) {
@@ -3272,37 +2870,9 @@ window.fixHeader = emergencyFixVanishingHeader
 }
 
 :deep(.handsontable) {
-  position: relative;
+  min-width: fit-content;
 }
 
-/* ====================
-   表头固定修复（不破坏滚动）
-   ==================== */
-/* 关键：不要修改表头的position，让Handsontable自己管理 */
-:deep(.ht_clone_top) {
-  z-index: 999 !important;
-  overflow: visible !important;
-}
-
-/* 确保表头容器正常 */
-:deep(.ht_clone_top .wtHolder) {
-  overflow: hidden !important;
-}
-
-/* 主表格区域保持滚动 */
-:deep(.ht_master .wtHolder) {
-  overflow: auto !important;
-  width: 100% !important;
-}
-
-/* 隐藏左侧表头的滚动条 */
-:deep(.ht_clone_left::-webkit-scrollbar) {
-  display: none !important;
-}
-
-/* ====================
-   其他样式保持不变
-   ==================== */
 :deep(.modified-cell) {
   background-color: #ffebee !important;
   border: 1px solid #f44336 !important;
@@ -3318,6 +2888,15 @@ window.fixHeader = emergencyFixVanishingHeader
   font-size: 12px;
   color: #e6a23c;
   font-weight: 500;
+}
+
+
+:deep(.ht_clone_top .wtHolder) {
+  overflow: hidden !important;
+}
+
+:deep(.ht_master .wtHolder) {
+  overflow: auto !important;
 }
 
 /* 确保表头文本可见 */
@@ -3345,6 +2924,7 @@ window.fixHeader = emergencyFixVanishingHeader
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
 }
+
 
 .stats-panel {
   display: flex;
@@ -3380,6 +2960,7 @@ window.fixHeader = emergencyFixVanishingHeader
     content: none !important;
   }
 }
+
 
 .stats-panel {
   display: flex;
@@ -3437,6 +3018,7 @@ window.fixHeader = emergencyFixVanishingHeader
   }
 }
 
+
 /* 双表头特殊样式 */
 :deep(.vertical-header-column) {
   background-color: #f6ffed !important;
@@ -3446,12 +3028,15 @@ window.fixHeader = emergencyFixVanishingHeader
 
 /* 确保固定表头样式正确 */
 :deep(.ht_clone_top) {
-  z-index: 100 !important;
+  z-index: 100 !important;  /* 提高 z-index */
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: translateZ(0); /* 硬件加速，防止被裁剪 */
+  will-change: transform;   /* 提示浏览器优化 */
 }
 
 :deep(.ht_clone_left) {
-  -ms-overflow-style: none !important;  /* IE and Edge */
-  scrollbar-width: none !important;     /* Firefox */
+  z-index: 10 !important;
 }
 
 :deep(.ht_clone_top th) {
@@ -3459,9 +3044,9 @@ window.fixHeader = emergencyFixVanishingHeader
   border-bottom: 2px solid #409eff !important;
 }
 
-/* 确保左侧表头与主表格对齐 */
-:deep(.ht_clone_left table) {
-  height: 100% !important;
+:deep(.wtHolder) {
+  position: static !important;  /* 使用 static 而不是 relative */
+  overflow: auto !important;
 }
 
 :deep(.ht_clone_top th:first-child) {
@@ -3473,6 +3058,13 @@ window.fixHeader = emergencyFixVanishingHeader
 :deep(.ht_clone_left td) {
   background-color: #f6ffed !important;
   border-right: 2px solid #52c41a !important;
+}
+
+:deep(.handsontable.ht_clone_top) {
+  position: absolute !important;  /* 保持 absolute */
+  top: 0 !important;
+  left: 0 !important;
+  pointer-events: auto !important;
 }
 
 .header-indicator {
@@ -3491,24 +3083,5 @@ window.fixHeader = emergencyFixVanishingHeader
   font-weight: 500;
 }
 
-/* ====================
-   新增：防止表头被拉上去的特殊修复
-   ==================== */
-/* 防止表头行高变化 */
-:deep(.ht_clone_top th) {
-  background: #f8f9fa;
-  font-weight: 600;
-  color: #333;
-  height: 20px !important; /* 减小高度 */
-  min-height: 20px !important;
-  line-height: 20px !important;
-  box-sizing: border-box !important;
-}
-
-/* 确保表头背景不透明 */
-:deep(.ht_clone_top) {
-  background-color: #f8f9fa !important;
-}
 
 </style>
-

@@ -150,17 +150,21 @@
                 </span>
               </div>
             </div>
+
             <div class="header-actions">
-              <el-button
-                type="primary"
-                size="small"
-                :disabled="!selectedSheet || excelData.length === 0"
-                @click="showAnalysisDialog = true"
-              >
-                <el-icon><DataAnalysis /></el-icon>
-                数据可视化分析
-              </el-button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  :disabled="!selectedSheet || excelData.length === 0"
+                  @click="toggleFlatMode"
+                  :loading="loadingFlat"
+                >
+                  <el-icon><DataAnalysis /></el-icon>
+                  {{ showFlatMode ? '数据二维化' : '数据扁平化' }}
+                </el-button>
             </div>
+
+
           </div>
 
           <!-- 修改这里：添加条件渲染和错误处理 -->
@@ -176,18 +180,33 @@
             <div v-else-if="excelData.length === 0" class="empty-state">
               <p>表格为空</p>
             </div>
+
+
+            <!-- 修改表格显示逻辑 -->
             <div v-else class="handsontable-container">
-              <!-- 添加 v-if 确保数据存在 -->
-              <HandsontableExcelViewer
-                ref="excelViewer"
-                v-if="excelData.length > 0 && selectedSheet"
-                :excel-data="excelData"
-                :sheet-name="selectedSheet.name"
-                :pdf-id="selectedPdf?.id"
-                :excel-file-name="selectedExcelFile"
-                key="excel-viewer"
-              />
+              <template v-if="showFlatMode && flatData.length > 0">
+                <!-- 扁平化模式显示 -->
+                <HandsontableExcelViewer
+                  :excel-data="flatData"
+                  :sheet-name="`扁平化_${selectedSheet.name}`"
+                  :pdf-id="selectedPdf?.id"
+                  :excel-file-name="selectedExcelFile"
+                  key="flat-viewer"
+                />
+              </template>
+              <template v-else>
+                <!-- 原始Excel模式显示 -->
+                <HandsontableExcelViewer
+                  ref="excelViewer"
+                  :excel-data="excelData"
+                  :sheet-name="selectedSheet.name"
+                  :pdf-id="selectedPdf?.id"
+                  :excel-file-name="selectedExcelFile"
+                  key="excel-viewer"
+                />
+              </template>
             </div>
+
           </div>
         </div>
 
@@ -230,6 +249,12 @@ const selectedPdf = ref(null)
 const pdfUrl = ref('')
 const downloadLoading = ref(false)
 const isMiddleCollapsed = ref(false)
+
+// 当前状态：使用 ref 替代
+const showFlatMode = ref(false) // 新增：是否处于扁平化模式
+const flatData = ref([]) // 新增：扁平化数据
+const flatColumns = ref([]) // 新增：扁平化列配置
+const loadingFlat = ref(false) // 新增：扁平化加载状态
 
 // Excel 相关状态
 const sheetList = ref([])
@@ -319,6 +344,128 @@ const selectSheet = async (sheet, excelFileName) => {
     loadingExcel.value = false
   }
 }
+
+
+// 数据扁平化
+// 切换扁平化模式
+const toggleFlatMode = async () => {
+  if (showFlatMode.value) {
+    // 切回原始模式
+    showFlatMode.value = false
+    ElMessage.success('已切换回原始表格模式')
+  } else {
+    // 切换到扁平化模式
+    await convertToFlatData()
+  }
+}
+
+// 调用后端API转换数据
+const convertToFlatData = async () => {
+  if (!selectedSheet.value || !selectedPdf.value) {
+    ElMessage.warning('请先选择表格')
+    return
+  }
+
+  loadingFlat.value = true
+  try {
+    const requestData = {
+      pdf_folder: selectedPdf.value.name,
+      png_names: [], // 可以根据需要传递具体图片名
+      previous_context: {
+        excel_file: selectedExcelFile.value,
+        sheet_name: selectedSheet.value.name,
+        original_data: excelData.value.slice(0, 100) // 可选：传部分数据
+      },
+      step_name: 'export' // 调用export步骤
+    }
+
+    // 调用后端API
+    const response = await fetch(getApiUrl('/step-process/export'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    if (!response.ok) {
+      throw new Error('API调用失败')
+    }
+
+    const result = await response.json()
+
+    if (result.success) {
+      // 解析返回的扁平化数据
+      const flatResult = result.data || result.excel_files || []
+
+      // 假设返回的是二维数组格式
+      if (Array.isArray(flatResult) && flatResult.length > 0) {
+        // 转换数据结构
+        flatData.value = convertToHandsontableFormat(flatResult)
+        flatColumns.value = generateFlatColumns(flatResult[0])
+        showFlatMode.value = true
+
+        ElMessage.success('数据扁平化成功')
+      } else {
+        ElMessage.warning('未获取到扁平化数据')
+      }
+    } else {
+      throw new Error(result.error || '转换失败')
+    }
+  } catch (error) {
+    console.error('数据扁平化失败:', error)
+    ElMessage.error(`转换失败: ${error.message}`)
+  } finally {
+    loadingFlat.value = false
+  }
+}
+
+// 将二维数组转换为Handsontable格式
+const convertToHandsontableFormat = (twoDArray) => {
+  if (!Array.isArray(twoDArray) || twoDArray.length === 0) {
+    return []
+  }
+
+  // 第一行作为表头
+  const headers = twoDArray[0]
+
+  // 其余行作为数据
+  return twoDArray.slice(1).map(row => {
+    const obj = {}
+    headers.forEach((header, index) => {
+      obj[header] = row[index] || ''
+    })
+    return obj
+  })
+}
+
+// 生成扁平化列配置
+const generateFlatColumns = (firstRow) => {
+  if (!Array.isArray(firstRow)) {
+    return []
+  }
+
+  return firstRow.map((header, index) => ({
+    prop: header,
+    label: header || `列${index + 1}`,
+    width: 120
+  }))
+}
+
+// 监听原始数据变化，重置扁平化状态
+watch(excelData, (newData) => {
+  if (newData.length === 0) {
+    showFlatMode.value = false
+    flatData.value = []
+  }
+})
+
+// 监听Sheet切换，重置扁平化状态
+watch(selectedSheet, () => {
+  showFlatMode.value = false
+  flatData.value = []
+})
+
 
 // 监听选中的PDF变化，清空相关数据 - 保留这个监听器！
 watch(selectedPdf, (newPdf, oldPdf) => {

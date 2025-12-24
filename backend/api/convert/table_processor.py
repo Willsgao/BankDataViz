@@ -795,67 +795,6 @@ class TableProcessingService:
 
         return None
 
-    def _extract_tables_from_excel202(self, excel_file_path):
-        """
-        从Excel文件中提取表格数据
-
-        Args:
-            excel_file_path: Excel文件路径
-
-        Returns:
-            tuple: (tables_data, sheet_names)
-                   tables_data: 表格数据列表
-                   sheet_names: Sheet名称列表
-        """
-        try:
-            import openpyxl
-            from pathlib import Path
-
-            if not Path(excel_file_path).exists():
-                print(f"⚠️ Excel文件不存在: {excel_file_path}")
-                return [], []
-
-            wb = openpyxl.load_workbook(excel_file_path, data_only=True)
-
-            tables_data = []
-            sheet_names = []
-
-            for sheet_name in wb.sheetnames:
-                ws = wb[sheet_name]
-
-                # 获取最大行列
-                max_row = ws.max_row
-                max_col = ws.max_column
-
-                if max_row == 0 or max_col == 0:
-                    continue
-
-                # 提取表格数据
-                table_data = []
-                for row in range(1, max_row + 1):
-                    row_data = []
-                    for col in range(1, max_col + 1):
-                        cell = ws.cell(row=row, column=col)
-                        row_data.append(cell.value)
-                    table_data.append(row_data)
-
-                if table_data:  # 只添加非空表格
-                    tables_data.append(table_data)
-                    sheet_names.append(sheet_name)
-
-            wb.close()
-
-            print(f"📖 从Excel提取: {Path(excel_file_path).name}, "
-                  f"{len(tables_data)} 个表格, {sum(len(t) for t in tables_data)} 行")
-
-            return tables_data, sheet_names
-
-        except Exception as e:
-            print(f"❌ Excel数据提取失败 {excel_file_path}: {e}")
-            import traceback
-            traceback.print_exc()
-            return [], []
-
     # 在 table_processor.py 中找到数据提取部分，添加顺序标记
     def _extract_tables_from_excel(self, excel_file_path):
         """从Excel文件中提取表格数据 - 支持双表头（修正错位问题）"""
@@ -1951,6 +1890,9 @@ def process_tables_async(job_id, pdf_folder, valid_images, bank_name):
 def execute_single_step_handler(step_name, output_dir, request):
     """分步执行表格处理 - 真正的分步实现"""
 
+
+    print("XXXXXXXXXXXXXXXX")
+
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200
 
@@ -1960,11 +1902,16 @@ def execute_single_step_handler(step_name, output_dir, request):
         png_names = data.get('png_names', [])
         previous_context = data.get('previous_context', {})
 
+        print("YYYYYYYYYYYYYYYYYYstep_nameYYYYYYYYYYYYYYYYYYYYYYY", step_name)
+        print("pdf_folder:", pdf_folder, png_names)
+
         if not pdf_folder or not png_names:
             return jsonify({
                 "success": False,
                 "error": "参数错误：需提供pdf_folder和png_names"
             }), 400
+
+        print("YYYYYYYYYYYYYYYYYYstep_nameYYYYYYYYYYYYYYYYYYYYYYY", step_name)
 
         # 根据步骤名称执行不同的逻辑
         if step_name == "ocr":
@@ -1974,6 +1921,7 @@ def execute_single_step_handler(step_name, output_dir, request):
         elif step_name == "reconstruct":
             result = execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir)
         elif step_name == "export":
+            print("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY")
             result = execute_export_step(pdf_folder, png_names, previous_context, output_dir)
         else:
             return jsonify({

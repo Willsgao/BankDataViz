@@ -1172,7 +1172,6 @@ class TableReconstructor:
         """
         为无匹配的LLM表头找到最佳插入位置
         """
-        header_text = str(llm_header)
 
         # 1. 检查层级关系：如果是分类标题，应该在其子项之前
         if llm_idx in header_hierarchy['parents']:
@@ -1293,7 +1292,7 @@ class TableReconstructor:
             pass
         return -1
 
-    def _merge_and_remove_columns(self, table):
+    def step7_merge_and_remove_columns(self, table):
         """
         合并行表头并删除列：
         1. 如果列标题行左侧有2个及以上连续空表头
@@ -1366,7 +1365,7 @@ class TableReconstructor:
         return table
 
     # 新增：标记表格的代理方法
-    def step7_create_marked_table(self, table, row_checks=None, col_checks=None):
+    def step8_create_marked_table(self, table, row_checks=None, col_checks=None):
         """代理到独立的标记表格处理器"""
         return self.marked_table_processor.create_marked_table(table, row_checks, col_checks)
 
@@ -1381,7 +1380,6 @@ class TableReconstructor:
     def _is_pure_numeric(self, cell):
         """代理到独立的标记表格处理器"""
         return self.marked_table_processor._is_pure_numeric(cell)
-
 
     # ========== 完整流程 ==========
     def process_single_table(self, ocr_tables, llm_table_info):
@@ -1417,13 +1415,12 @@ class TableReconstructor:
         )
 
         # 第7步：合并行表头并删除列
-        final_table = self._merge_and_remove_columns(final_table)
+        final_table = self.step7_merge_and_remove_columns(final_table)
 
         # 第8步：添加行列标记（根据数据类型）
-        marked_table = self.step7_create_marked_table(final_table)
+        marked_table = self.step8_create_marked_table(final_table)
 
         return marked_table
-
 
     def _clean_sheet_name(self, name):
         """
@@ -1459,153 +1456,6 @@ class TableReconstructor:
 
         return name
 
-    def step9_save_to_excel1111(self, tables_data, output_file, table_names=None):
-        """
-        将多个表格保存到Excel，每个表格一个Sheet
-        tables_data: 列表，每个元素是一个表格的完整数据
-        output_file: 输出Excel文件路径
-        table_names: 可选，表格名称列表，用于Sheet名称
-        """
-        import openpyxl
-        from openpyxl.styles import Alignment, Font, Border, Side
-        from openpyxl.utils import get_column_letter
-
-        print(f"\n=== 第7步：保存到Excel ===")
-        print(f"要保存{len(tables_data)}个表格到: {output_file}")
-
-        # 如果有表格名称，显示它们
-        if table_names:
-            print(f"使用的表格名称列表: {table_names}")
-
-        # 创建新的工作簿
-        wb = openpyxl.Workbook()
-
-        # 删除默认创建的Sheet
-        if 'Sheet' in wb.sheetnames:
-            default_sheet = wb['Sheet']
-            wb.remove(default_sheet)
-
-        # 处理每个表格
-        for table_idx, table in enumerate(tables_data):
-            if not table:
-                print(f"表格{table_idx}为空，跳过")
-                continue
-
-            # 创建Sheet名称（Excel限制31字符）
-            # 如果提供了table_names，使用表格名称，否则使用默认名称
-            if table_names and table_idx < len(table_names):
-                table_name = table_names[table_idx]
-                # 清理Sheet名称
-                sheet_name = self._clean_sheet_name(table_name)
-            else:
-                sheet_name = f"Table{table_idx + 1}"
-
-            print(f"  表格{table_idx + 1}: {len(table)}行 × {len(table[0]) if table else 0}列 -> Sheet: '{sheet_name}'")
-
-            # 检查Sheet名称是否重复
-            original_name = sheet_name
-            counter = 1
-            while sheet_name in wb.sheetnames:
-                sheet_name = f"{original_name}_{counter}"
-                counter += 1
-
-            # 创建工作表
-            ws = wb.create_sheet(title=sheet_name)
-
-            # 获取表格尺寸
-            num_rows = len(table)
-            num_cols = len(table[0]) if num_rows > 0 else 0
-
-            # 填充数据到Excel
-            for r in range(num_rows):
-                for c in range(num_cols):
-                    cell_value = table[r][c]
-
-                    # Excel行号从1开始，列号从1开始
-                    excel_row = r + 1
-                    excel_col = c + 1
-
-                    # 写入值
-                    ws.cell(row=excel_row, column=excel_col, value=cell_value)
-
-                    # 获取单元格对象设置样式
-                    cell_obj = ws.cell(row=excel_row, column=excel_col)
-
-                    # 设置对齐方式
-                    if r == 0:  # 第0行是表头
-                        cell_obj.font = Font(bold=True)
-                        cell_obj.alignment = Alignment(horizontal='center', vertical='center')
-                        # 浅灰色背景
-                        from openpyxl.styles import PatternFill
-                        cell_obj.fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
-                    elif c == 0:  # 第0列是行表头
-                        cell_obj.alignment = Alignment(horizontal='left', vertical='center')
-                    else:  # 数据单元格
-                        cell_obj.alignment = Alignment(horizontal='center', vertical='center')
-
-            # 设置列宽
-            for col in range(1, num_cols + 1):
-                col_letter = get_column_letter(col)
-
-                # 根据内容调整列宽
-                max_length = 0
-                for row in range(1, min(num_rows + 1, 50)):  # 只检查前50行
-                    cell_value = ws.cell(row=row, column=col).value
-                    if cell_value:
-                        # 计算文本长度（中文算2个字符）
-                        text_len = 0
-                        for char in str(cell_value):
-                            if '\u4e00' <= char <= '\u9fff':  # 中文字符
-                                text_len += 2
-                            else:
-                                text_len += 1
-                        max_length = max(max_length, text_len)
-
-                # 设置列宽（最小8，最大50）
-                width = min(max(max_length + 2, 8), 50)
-                ws.column_dimensions[col_letter].width = width
-
-            # 添加边框
-            thin_border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
-            )
-
-            # 为整个表格添加边框
-            for row in ws.iter_rows(min_row=1, max_row=num_rows, min_col=1, max_col=num_cols):
-                for cell in row:
-                    cell.border = thin_border
-
-            # 冻结首行和首列（方便查看）
-            ws.freeze_panes = 'B2'  # 冻结第1行和第1列
-
-        # 如果没有表格，创建一个空Sheet
-        if len(wb.sheetnames) == 0:
-            ws = wb.create_sheet(title="空表格")
-            ws['A1'] = "无表格数据"
-
-        # 保存文件
-        try:
-            wb.save(output_file)
-            print(f"\n✅ Excel文件保存成功: {output_file}")
-            print(f"   共保存了 {len(wb.sheetnames)} 个工作表")
-
-            # 显示Sheet列表
-            print("   Sheet列表:")
-            for i, sheet_name in enumerate(wb.sheetnames, 1):
-                ws = wb[sheet_name]
-                max_row = ws.max_row
-                max_column = ws.max_column
-                print(f"     {i}. {sheet_name}: {max_row}行 × {max_column}列")
-
-            return True
-
-        except Exception as e:
-            print(f"\n❌ 保存Excel文件失败: {str(e)}")
-            return False
-
     def step9_save_to_excel_optimized(self, tables_data, output_file, table_names):
         """
         保存到 Excel（优化版）
@@ -1614,13 +1464,10 @@ class TableReconstructor:
         from openpyxl import Workbook
         from pathlib import Path
 
-        print("22222222222222table_names:", table_names)
-
         wb = Workbook()
         wb.remove(wb.active)  # 删默认 Sheet
 
         for idx, (table, name) in enumerate(zip(tables_data, table_names)):
-            print("idx, namenamename:", name)
             ws = wb.create_sheet(title=name)  # 直接用外部名字
             for r, row in enumerate(table, 1):
                 for c, val in enumerate(row, 1):
@@ -1630,7 +1477,6 @@ class TableReconstructor:
         wb.save(output_file)
         wb.close()
         return True
-
 
     def _extract_page_number_from_image_path(self, image_path):
         """
@@ -1696,7 +1542,6 @@ class TableReconstructor:
         print(f"  未找到页码信息，返回空字符串")
         return ""
 
-
     def _process_single_table_to_memory(self, ocr_tables, llm_table_info):
         """
         处理单个表格到内存（不保存文件）
@@ -1734,10 +1579,10 @@ class TableReconstructor:
             )
 
             # 第7步：合并行表头并删除列
-            final_table = self._merge_and_remove_columns(final_table)
+            final_table = self.step7_merge_and_remove_columns(final_table)
 
             # 第8步：添加行列标记（根据数据类型）
-            marked_table = self.step7_create_marked_table(final_table)
+            marked_table = self.step8_create_marked_table(final_table)
 
             return marked_table
 
@@ -1869,48 +1714,6 @@ class TableReconstructor:
         print("all_table_names:::", all_table_names)
 
         return all_final_tables, all_table_names
-
-    def process_all_tables123(self, ocr_result, llm_result,
-                           output_file="output.xlsx",
-                           final_output_file="final.xlsx",
-                           image_path=None, bank_name="未知银行"):
-        """
-        文件模式：先内存处理，再一次性写 Excel（Sheet 名用内存版返回的 table_names）
-        """
-        # 1. 内存处理（含正确 Sheet 名）
-        tables_data, table_names = self.process_all_tables_to_memory(
-            ocr_result, llm_result, image_path, bank_name
-        )
-        if not tables_data:
-            self.log_issue("无表格数据生成")
-            return False
-
-
-        print("XXXXXXXXXXtable_namesXXXXXXXXXXX", table_names)
-
-        # 2. 写原始 Excel（直接用内存版返回的 table_names）
-        ok = self.step9_save_to_excel_optimized(
-            tables_data=tables_data,
-            output_file=output_file,
-            table_names=table_names  # ← 关键：用内存版返回的名字
-        )
-        if not ok:
-            return False
-
-        # 3. 写最终数据 Excel（同样用 table_names）
-        if final_output_file:
-            base = Path(output_file).with_suffix('').name
-            final_output_file = f"{base}_final_data.xlsx"
-            llm_tables = (llm_result.get('tables_structure', {}).get('tables') or
-                          llm_result.get('tables', []))
-            self.final_data_converter.batch_convert_tables(
-                all_tables_data=tables_data,
-                all_llm_tables=llm_tables,
-                output_excel_path=final_output_file,
-                bank_name=bank_name
-            )
-
-        return True
 
 
 # ====================================
