@@ -44,6 +44,29 @@
 
       <!-- 在工具栏右侧添加调试信息（开发时使用） -->
         <div class="toolbar-right">
+
+          <!-- 在这里添加表头指示器 -->
+        <div class="header-indicator" v-if="hasDualHeaders && tableInfo">
+          <el-tag type="success" size="small">
+            <el-icon><Grid /></el-icon>
+            双表头表格
+          </el-tag>
+          <span class="indicator-text">
+            结构: {{ tableInfo.横向表头 }}列 × {{ tableInfo.纵向表头 }}行
+            <span v-if="tableInfo.左上角"> | 左上角: {{ tableInfo.左上角 }}</span>
+          </span>
+          <el-button
+            size="small"
+            type="info"
+            link
+            @click="verifyTableStructure"
+            title="验证表格结构"
+          >
+            <el-icon><InfoFilled /></el-icon>
+          </el-button>
+        </div>
+
+
           <span class="data-info" v-if="tableData.length > 0">
             共 {{ tableData.length - 1 }} 行 {{ columns.length }} 列
           </span>
@@ -104,6 +127,59 @@
 
 
 
+    <!-- 新增：单元格内容显示栏 -->
+    <div class="cell-content-display" v-if="showCellContent">
+      <div class="cell-info-bar">
+        <div class="cell-position">
+          <el-tag size="small" type="info">
+            <el-icon><Position /></el-icon>
+            {{ selectedCell.position }}
+          </el-tag>
+        </div>
+        <div class="cell-type">
+          <el-tag size="small" :type="getCellTypeTag(selectedCell.type)">
+            {{ selectedCell.type }}
+          </el-tag>
+        </div>
+        <div class="cell-stats">
+          <span class="stat-item">字符: {{ selectedCell.charCount }}</span>
+          <span class="stat-item">行数: {{ selectedCell.lineCount }}</span>
+        </div>
+      </div>
+      <div class="cell-content-area">
+        <div
+          ref="cellContentDisplay"
+          class="cell-content-text"
+          :title="selectedCell.content"
+        >
+          {{ selectedCell.content }}
+        </div>
+        <div class="cell-actions" v-if="isEditMode">
+          <el-button
+            size="small"
+            type="primary"
+            link
+            @click="copyCellContent"
+            title="复制内容"
+          >
+            <el-icon><CopyDocument /></el-icon>
+          </el-button>
+          <el-button
+            size="small"
+            type="warning"
+            link
+            @click="editCellInModal"
+            title="编辑内容"
+            v-if="selectedCell.position"
+          >
+            <el-icon><Edit /></el-icon>
+          </el-button>
+        </div>
+      </div>
+    </div>
+
+
+
     <!-- Handsontable 表格区域 -->
     <div class="excel-container" ref="excelContainer">
       <HotTable
@@ -128,7 +204,7 @@
         :autoColumnSize="false"
         :renderAllRows="false"
         :fixedRowsTop="fixedRowsTop"
-        :fixedColumnsLeft="0"
+        :fixedColumnsLeft="fixedColumnsLeft"
         :key="langKey"
         @afterChange="onDataChange"
         @afterFilter="onFilter"
@@ -157,6 +233,7 @@
 import Handsontable from 'handsontable'
 import { HotTable } from '@handsontable/vue3'
 import 'handsontable/dist/handsontable.full.css'
+import { Grid, InfoFilled, Position, CopyDocument } from '@element-plus/icons-vue'
 
 const currentLanguage = ref('zh-CN')
 
@@ -631,8 +708,7 @@ const filtersEnabled = ref(true)
 const hotTable = ref(null)
 const excelContainer = ref(null)
 const containerHeight = ref(400)
-// 在 script 部分添加
-const fixedRowsTop = ref(0) // 固定顶部第一行（表头）
+
 
 // 在这里添加 showScrollHint
 const showScrollHint = ref(false)
@@ -1330,8 +1406,6 @@ const fixFilterHeaders = () => {
 safeSetTimeout(fixFilterHeaders, 1000)
 
 
-
-
 // 添加多列排序配置（如果需要）
 const multiColumnSorting = ref(true)
 
@@ -1442,7 +1516,6 @@ const onDataChange = (changes, source) => {
 
 
 
-
 // 计算容器可用高度
 const calculateHeight = () => {
   if (excelContainer.value) {
@@ -1482,76 +1555,452 @@ const tableHeight = computed(() => {
 
 
 
-// 修改 tableData 计算属性
-const tableData = computed(() => {
-  console.log('📊 原始 excelData:', props.excelData)
+// 新增：双表头渲染函数
+const renderDualHeaderTable = (metadata, dataRows) => {
+  if (!metadata || !dataRows) return []
 
-  if (!props.excelData || props.excelData.length === 0) {
-    console.log('❌ 没有数据，返回空数组')
+  const {
+    horizontal_headers = [],
+    vertical_headers = [],
+    top_left_cell
+  } = metadata
+
+  console.log('🔍 渲染双表头表格:', {
+    左上角单元格: top_left_cell,
+    横向表头: horizontal_headers,
+    纵向表头: vertical_headers,
+    数据行数: dataRows.length
+  })
+
+  // 构建表格数据
+  const tableRows = []
+
+  // 查找表头行（通常是第一行数据）
+  let headerRowData = null
+  let dataStartIndex = 0
+
+  for (let i = 0; i < dataRows.length; i++) {
+    if (dataRows[i]?.__is_first_row) {
+      headerRowData = dataRows[i]
+      dataStartIndex = i + 1
+      break
+    }
+  }
+
+  if (!headerRowData) {
+    console.warn('⚠️ 未找到表头行数据')
     return []
   }
 
-  try {
-    const firstItem = props.excelData[0]
+  // 第一行：左上角单元格 + 横向表头
+  const headerRow = []
 
-    if (typeof firstItem === 'object' && firstItem !== null) {
-      const headers = Object.keys(firstItem)
-      console.log('📋 表头:', headers)
+  // 单元格 (0,0)：左上角
+  headerRow.push(headerRowData?.__top_left_cell || top_left_cell || '')
 
-      // 重要修改：不添加额外的表头行
-      // 让 Handsontable 的 colHeaders 来处理表头显示
-      const dataArray = props.excelData.map(row => {
-        return headers.map(header => {
-          const value = row[header]
-          if (value === null || value === undefined || value === '') {
-            return ''
-          }
-          return String(value)
-        })
-      })
+  // 单元格 (0,1)-(0,N)：横向表头
+  for (let colIdx = 0; colIdx < horizontal_headers.length; colIdx++) {
+    const headerKey = `H_${colIdx + 1}`
+    const headerValue = headerRowData?.[headerKey] ||
+                       horizontal_headers[colIdx] ||
+                       `列${colIdx + 1}`
+    headerRow.push(headerValue)
+  }
 
-      console.log('✅ 转换后的表格数据:', {
-        rows: dataArray.length,
-        columns: headers.length,
-        sample: dataArray.slice(0, 2)
-      })
+  tableRows.push(headerRow)
 
-      return dataArray
+  // 数据行：纵向表头 + 数据（从第二行开始）
+  for (let rowIdx = dataStartIndex; rowIdx < dataRows.length; rowIdx++) {
+    const rowData = dataRows[rowIdx]
+
+    if (!rowData?.__is_data_row) continue
+
+    // 获取纵向表头
+    const verticalHeader = rowData.__vertical_header ||
+                          vertical_headers[rowIdx - dataStartIndex] ||
+                          `行${rowIdx - dataStartIndex + 1}`
+
+    const row = [verticalHeader]
+
+    // 添加数据单元格
+    for (let colIdx = 0; colIdx < horizontal_headers.length; colIdx++) {
+      const headerKey = `H_${colIdx + 1}`
+      const value = rowData[headerKey] ?? ''
+      row.push(value)
     }
 
-    console.log('ℹ️ 数据已经是二维数组格式')
-    return props.excelData
+    tableRows.push(row)
+  }
 
-  } catch (error) {
-    console.error('❌ 数据转换失败:', error)
+  console.log('📊 双表头表格构建完成:', {
+    总行数: tableRows.length,
+    总列数: tableRows[0]?.length || 0,
+    布局: `左上角: (0,0), 横向表头: 行0, 纵向表头: 列0, 数据: (1,1)开始`
+  })
+
+  return tableRows
+}
+
+
+const tableData123 = computed(() => {
+  if (!props.excelData || props.excelData.length === 0) {
+    console.log('📊 tableData: 数据为空或长度为0')
     return []
   }
+
+  console.log('📊 接收到的原始数据:', {
+    长度: props.excelData.length,
+    第一个元素类型: typeof props.excelData[0],
+    第一个元素: props.excelData[0]
+  })
+
+  const firstItem = props.excelData[0]
+
+  // 检查是否有双表头元数据（旧结构）
+  if (firstItem?.__metadata?.has_dual_headers) {
+    console.log('✅ 检测到双表头元数据（旧结构）')
+
+    const metadata = firstItem.__metadata
+    const dataRows = props.excelData.slice(1) // 跳过元数据
+
+    console.log('📋 元数据详情:', {
+      左上角: metadata.top_left_cell,
+      横向表头数: metadata.horizontal_headers?.length,
+      纵向表头数: metadata.vertical_headers?.length,
+      数据行数: dataRows.length
+    })
+
+    // 关键修复：重新设计渲染逻辑
+    const renderedTable = []
+
+    // 1. 找到第一行数据（包含横向表头）
+    const headerRowObj = dataRows.find(row => row?.__is_first_row)
+    if (!headerRowObj) {
+      console.warn('⚠️ 未找到第一行（横向表头）数据')
+      return []
+    }
+
+    // 2. 构建第一行：左上角 + 横向表头
+    const firstRow = []
+
+    // 左上角单元格
+    firstRow.push(headerRowObj.__top_left_cell || metadata.top_left_cell || '')
+
+    // 横向表头（按顺序 H_1, H_2, H_3...）
+    const horizontalCount = metadata.horizontal_headers?.length || 0
+    for (let i = 1; i <= horizontalCount; i++) {
+      const key = `H_${i}`
+      const value = headerRowObj[key] ||
+                   metadata.horizontal_headers?.[i-1] ||
+                   `列${i}`
+      firstRow.push(value || '')
+    }
+
+    renderedTable.push(firstRow)
+    console.log('📊 第一行构建完成:', firstRow)
+
+    // 3. 构建数据行：纵向表头 + 数据
+    const dataRowsOnly = dataRows.filter(row => row?.__is_data_row)
+    const verticalCount = metadata.vertical_headers?.length || 0
+
+    dataRowsOnly.forEach((rowData, rowIndex) => {
+      const row = []
+
+      // 纵向表头
+      const verticalHeader = rowData.__vertical_header ||
+                            metadata.vertical_headers?.[rowIndex] ||
+                            `行${rowIndex + 1}`
+      row.push(verticalHeader || '')
+
+      // 数据单元格
+      for (let i = 1; i <= horizontalCount; i++) {
+        const key = `H_${i}`
+        const value = rowData[key] ?? ''
+        row.push(value)
+      }
+
+      renderedTable.push(row)
+
+      // 调试输出前3行
+      if (rowIndex < 3) {
+        console.log(`📊 第 ${rowIndex + 2} 行:`, row.slice(0, 4))
+      }
+    })
+
+    console.log('✅ 表格构建完成（旧结构）:', {
+      总行数: renderedTable.length,
+      总列数: renderedTable[0]?.length || 0,
+      示例: renderedTable.slice(0, 3).map(row => row.slice(0, 4))
+    })
+
+    return renderedTable
+  }
+
+  // 单表头逻辑（保持不变）
+  console.log('📊 单表头模式')
+  const headers = firstItem.__orderedHeaders ||
+                  Object.keys(firstItem || {}).filter(key => !key.startsWith('__'))
+
+  if (!headers.length) {
+    console.warn('⚠️ 未找到表头')
+    return []
+  }
+
+  const result = props.excelData.map(row =>
+    headers.map(header => row[header] ?? '')
+  )
+
+  console.log('📊 单表头构建完成:', {
+    行数: result.length,
+    列数: result[0]?.length || 0
+  })
+
+  return result
 })
 
 
 
-// 修改：生成列配置，确保显示中文表头
+// tableData 计算属性
+const tableData = computed(() => {
+  if (!props.excelData || props.excelData.length === 0) {
+    return []
+  }
+
+  const firstRow = props.excelData[0]
+
+  // 如果是双表头结构
+  if (firstRow?.__metadata?.has_dual_headers) {
+    const metadata = firstRow.__metadata
+
+    // 构建表格：第一行（左上角 + 横向表头）
+    const tableRows = []
+
+    // 表头行
+    const headerRow = [
+      metadata.top_left_cell || '',
+      ...(metadata.horizontal_headers || [])
+    ]
+    tableRows.push(headerRow)
+
+    console.log('🔍 调试信息:', {
+      数据总行数: props.excelData.length,
+      表头行内容: headerRow.slice(0, 3),
+      第一行数据索引: 1,
+      第一行数据类型: props.excelData[1] ? Object.keys(props.excelData[1]) : '无',
+      第一行是否数据行: props.excelData[1]?.__is_data_row,
+      第一行是否表头行: props.excelData[1]?.__is_first_row
+    })
+
+    // 数据行：纵向表头 + 数据
+    // 关键修改：检查每一行是否是真正的数据行
+    for (let i = 1; i < props.excelData.length; i++) {
+      const rowData = props.excelData[i]
+
+      // 关键判断：如果这一行标记为表头行，跳过
+      if (rowData.__is_first_row) {
+        console.log(`跳过第 ${i} 行：这是表头行`)
+        continue
+      }
+
+      // 只处理真正的数据行
+      if (rowData.__is_data_row) {
+        const row = [
+          rowData.__vertical_header || '',
+          ...Object.keys(rowData)
+            .filter(key => key.startsWith('H_'))
+            .sort((a, b) => {
+              const numA = parseInt(a.replace('H_', ''))
+              const numB = parseInt(b.replace('H_', ''))
+              return numA - numB
+            })
+            .map(key => rowData[key])
+        ]
+        tableRows.push(row)
+
+        // 调试：显示前几行
+        if (tableRows.length <= 3) {
+          console.log(`添加数据行 ${tableRows.length - 1}:`, row.slice(0, 3))
+        }
+      } else {
+        console.log(`跳过第 ${i} 行：不是数据行，包含键:`, Object.keys(rowData))
+      }
+    }
+
+
+    console.log('✅ 最终的 tableData:', {
+      总行数: tableRows.length,
+      总列数: tableRows[0]?.length || 0,
+      表头行: tableRows[0]?.slice(0, 3),
+      数据行样本: tableRows.slice(1, 3).map(row => row.slice(0, 3))
+    })
+
+
+
+    return tableRows
+  }
+
+  // 单表头逻辑
+  const headers = Object.keys(firstRow || {}).filter(key => !key.startsWith('__'))
+  return props.excelData.map(row =>
+    headers.map(header => row[header] ?? '')
+  )
+})
+
+
+// 辅助函数：检查第一行是否包含实际数据
+const checkIfFirstRowIsDataRow = (firstRow, orderedHeaders) => {
+  // 如果第一行有大量的 __ 开头的属性，很可能是元数据行
+  const metaKeys = Object.keys(firstRow).filter(key => key.startsWith('__')).length
+  const totalKeys = Object.keys(firstRow).length
+
+  console.log('🔍 检查第一行属性:', {
+    元数据键数量: metaKeys,
+    总键数量: totalKeys,
+    元数据比例: metaKeys / totalKeys
+  })
+
+  // 如果大部分键都是元数据键，那么第一行很可能是元数据行
+  if (metaKeys > 0 && metaKeys / totalKeys > 0.5) {
+    return false
+  }
+
+  // 检查 orderedHeaders 是否与第一行的键匹配
+  const firstRowKeys = Object.keys(firstRow).filter(key => !key.startsWith('__'))
+  const isOrderedHeadersMatch = JSON.stringify(orderedHeaders) === JSON.stringify(firstRowKeys)
+
+  console.log('🔍 列顺序匹配检查:', {
+    第一行非元数据键: firstRowKeys,
+    后端orderedHeaders: orderedHeaders,
+    是否匹配: isOrderedHeadersMatch
+  })
+
+  return !isOrderedHeadersMatch
+}
+
+// 添加一个调试方法来检查后端原始数据
+const debugBackendDataStructure = () => {
+  if (!props.excelData || props.excelData.length === 0) {
+    console.log('❌ 没有数据可调试')
+    return
+  }
+
+  console.log('🔍 后端原始数据结构分析:')
+  console.log('1. 数据总行数:', props.excelData.length)
+
+  // 分析前几行
+  for (let i = 0; i < Math.min(3, props.excelData.length); i++) {
+    const row = props.excelData[i]
+    console.log(`\n第 ${i} 行:`)
+    console.log('- 键名列表:', Object.keys(row))
+
+    // 如果有 orderedHeaders，特别检查
+    if (row.__orderedHeaders) {
+      console.log('- __orderedHeaders:', row.__orderedHeaders)
+
+      // 检查列顺序
+      const dataKeys = Object.keys(row).filter(key => !key.startsWith('__'))
+      console.log('- 实际数据键名:', dataKeys)
+      console.log('- 键名是否与 orderedHeaders 匹配:',
+                 JSON.stringify(row.__orderedHeaders) === JSON.stringify(dataKeys))
+    }
+
+    // 显示前几个键值对
+    const entries = Object.entries(row).slice(0, 5)
+    console.log('- 前5个键值对:', entries.map(([k, v]) => `${k}: ${v}`))
+  }
+
+  // 检查列顺序问题
+  console.log('\n🔍 列顺序问题分析:')
+  const firstRow = props.excelData[0]
+  if (firstRow.__orderedHeaders) {
+    const expectedOrder = firstRow.__orderedHeaders
+    const actualKeys = Object.keys(firstRow).filter(key => !key.startsWith('__'))
+
+    console.log('- 期望顺序（orderedHeaders）:', expectedOrder)
+    console.log('- 实际键名顺序:', actualKeys)
+
+    // 检查是否是字母顺序
+    const sortedKeys = [...actualKeys].sort()
+    console.log('- 按字母排序后:', sortedKeys)
+    console.log('- 是否是字母顺序:', JSON.stringify(actualKeys) === JSON.stringify(sortedKeys))
+
+    // 检查是否与期望顺序匹配
+    console.log('- 是否与期望顺序匹配:', JSON.stringify(expectedOrder) === JSON.stringify(actualKeys))
+
+    if (JSON.stringify(expectedOrder) !== JSON.stringify(actualKeys)) {
+      console.warn('⚠️ 警告：前端接收到的列顺序与后端声明的顺序不一致！')
+      console.warn('这可能是后端数据处理的问题，或者是JSON序列化时键名重新排序了')
+    }
+  }
+}
+
+
+
+
+// 添加方法验证列顺序
+const verifyColumnOrder = () => {
+  if (props.excelData && props.excelData.length > 0) {
+    const firstRow = props.excelData[0]
+    console.log('🔍 验证列顺序:')
+    console.log('- 原始键名:', Object.keys(firstRow))
+    console.log('- 有序键名:', firstRow.__orderedHeaders || '未提供')
+    console.log('- 最终显示顺序:', tableData.value[0] || [])
+  }
+}
+
+// 在数据加载后验证顺序
+watch(() => props.excelData, (newData) => {
+  if (newData && newData.length > 0) {
+    nextTick(() => {
+      verifyColumnOrder()
+    })
+  }
+}, { deep: true })
+
+
+// 1. 修改固定行列的计算属性
+const fixedRowsTop = computed(() => {
+  const firstItem = props.excelData?.[0]
+  return firstItem?.__metadata?.has_dual_headers ? 1 : 0  // 固定第一行（横向表头）
+})
+
+const fixedColumnsLeft = computed(() => {
+  const firstItem = props.excelData?.[0]
+  return firstItem?.__metadata?.has_dual_headers ? 1 : 0  // 固定第一列（纵向表头）
+})
+
+
+// 2. 修改列配置计算属性
 const columns = computed(() => {
   if (!tableData.value || tableData.value.length === 0) {
     return []
   }
 
-  // 使用原始数据的键作为列标题
-  const firstRow = props.excelData[0]
-  const headers = firstRow ? Object.keys(firstRow) : []
-
-  console.log('🎯 生成列配置，表头数量:', headers.length)
+  const headers = tableData.value[0] || []
+  console.log('🎯 生成列配置:', {
+    列数: headers.length,
+    表头样本: headers.slice(0, 3)
+  })
 
   return headers.map((header, index) => ({
     data: index,
     type: 'text',
-    title: header, // 确保设置 title 显示中文
     width: 150,
     readOnly: !isEditMode.value,
-    // 确保列头显示中文
-    header: header
+    title: header || (index === 0 ? '' : `列${index}`),
+    // 第一列特殊样式
+    ...(index === 0 && {
+      className: 'vertical-header-column',
+      renderer: function(instance, td, row, col, prop, value) {
+        Handsontable.renderers.TextRenderer.apply(this, arguments)
+        td.style.background = '#f6ffed'
+        td.style.fontWeight = '600'
+      }
+    })
   }))
 })
+
+
 
 
 
@@ -1819,49 +2268,18 @@ const handleResize = () => {
 // 使用 ResizeObserver 监听容器尺寸变化
 const resizeObserver = ref(null)
 
-// 替换现有的监听器，合并功能
 watch(() => props.excelData, (newData, oldData) => {
-  console.log('🔄 Excel数据变化:', {
-    newLength: newData?.length,
-    oldLength: oldData?.length
+  console.log('🔄 excelData 变化:', {
+    新数据长度: newData?.length,
+    旧数据长度: oldData?.length,
+    新数据前3行: newData?.slice(0, 3).map(row => ({
+      键名: Object.keys(row),
+      是否数据行: row.__is_data_row,
+      是否第一行: row.__is_first_row,
+      元数据: row.__metadata ? '有' : '无'
+    }))
   })
-
-  if (newData && newData.length > 0) {
-    // 新增：保存原始数据并重置编辑状态
-    originalData.value = JSON.parse(JSON.stringify(newData))
-    resetChanges()
-    isEditMode.value = false
-
-    // 延迟执行以确保表格重新渲染
-    nextTick(() => {
-      calculateHeight()
-      if (hotTable.value && hotTable.value.hotInstance) {
-        console.log('🔄 刷新表格实例')
-        const hot = hotTable.value.hotInstance
-
-        // 确保筛选功能重新启用
-        const filterPlugin = hot.getPlugin('filters')
-        if (filterPlugin && filtersEnabled.value) {
-          filterPlugin.enablePlugin()
-        }
-
-        hot.updateSettings({
-          height: tableHeight.value
-        })
-        hot.render()
-
-        // 重置重试计数并重新设置事件监听
-        retryCount = 0
-        safeSetTimeout(setupEventListeners, 1000)
-
-        // === 在这里添加验证调用 ===
-        safeSetTimeout(verifyLanguageSetting, 1500)
-        // === 结束添加 ===
-
-      }
-    })
-  }
-}, { deep: true })
+}, { deep: true, immediate: true })
 
 
 
@@ -2170,7 +2588,40 @@ const verifyLanguageSettingFixed = () => {
 }
 
 
+// 在已有计算属性后添加
+const hasDualHeaders = computed(() => {
+  return props.excelData?.[0]?.__metadata?.has_dual_headers || false
+})
 
+const tableInfo = computed(() => {
+  if (!hasDualHeaders.value) return null
+
+  const metadata = props.excelData[0]?.__metadata || {}
+  return {
+    左上角: metadata.top_left_cell || '空',
+    横向表头: metadata.horizontal_headers?.length || 0,
+    纵向表头: metadata.vertical_headers?.length || 0,
+    数据区域: `${metadata.vertical_headers?.length || 0}行 × ${metadata.horizontal_headers?.length || 0}列`
+  }
+})
+
+// 添加调试验证函数
+const verifyTableStructure = () => {
+  if (!hasDualHeaders.value || !tableData.value.length) return
+
+  console.log('🔍 验证表格结构:')
+  console.log('1. 表格维度:', {
+    总行数: tableData.value.length,
+    总列数: tableData.value[0].length,
+    固定行数: fixedRowsTop.value,
+    固定列数: fixedColumnsLeft.value
+  })
+
+  console.log('2. 左上角单元格:', tableData.value[0][0])
+  console.log('3. 横向表头行:', tableData.value[0].slice(1, 4))
+  console.log('4. 纵向表头列:', tableData.value.slice(1, 4).map(row => row[0]))
+  console.log('5. 数据区域起始:', `(1,1) = ${tableData.value[1]?.[1]}`)
+}
 
 
 // 修复：在 onUnmounted 中设置组件为非激活状态
@@ -2215,6 +2666,146 @@ onUnmounted(() => {
   console.log('✅ 组件资源清理完成')
 })
 
+
+// 单元格选择相关数据
+const showCellContent = ref(false)
+const selectedCell = ref({
+  row: null,
+  col: null,
+  position: '',      // 如 "B3"
+  content: '',
+  type: '未知',
+  charCount: 0,
+  lineCount: 1
+})
+
+// 计算单元格位置（A1, B2 格式）
+const calculateCellPosition = (row, col) => {
+  if (row === null || col === null) return ''
+
+  // 将列索引转换为字母（A, B, C...）
+  let columnName = ''
+  let columnIndex = col
+
+  while (columnIndex >= 0) {
+    columnName = String.fromCharCode(65 + (columnIndex % 26)) + columnName
+    columnIndex = Math.floor(columnIndex / 26) - 1
+  }
+
+  // 行号从1开始（因为第0行可能是表头）
+  const rowNumber = row + 1
+
+  return `${columnName}${rowNumber}`
+}
+
+// 获取单元格类型标签样式
+const getCellTypeTag = (type) => {
+  const typeMap = {
+    '文本': '',
+    '数字': 'success',
+    '日期': 'warning',
+    '公式': 'danger',
+    '布尔': 'info',
+    '错误': 'danger',
+    '未知': 'info'
+  }
+  return typeMap[type] || 'info'
+}
+
+// 监听单元格选择变化
+const setupCellSelectionListener = () => {
+  const hot = getSafeHotInstance()
+  if (!hot) return
+
+  // 监听选择变化
+  hot.addHook('afterSelection', (startRow, startCol, endRow, endCol) => {
+    // 如果是单单元格选择
+    if (startRow === endRow && startCol === endCol) {
+      updateSelectedCellDisplay(startRow, startCol)
+    } else {
+      // 多单元格选择，隐藏显示栏
+      showCellContent.value = false
+    }
+  })
+
+  // 监听数据变化（当单元格内容被编辑时）
+  hot.addHook('afterChange', (changes, source) => {
+    if (changes && selectedCell.value.row !== null && selectedCell.value.col !== null) {
+      // 检查当前选中的单元格是否被修改
+      const isSelectedCellChanged = changes.some(([row, col]) =>
+        row === selectedCell.value.row && col === selectedCell.value.col
+      )
+
+      if (isSelectedCellChanged) {
+        updateSelectedCellDisplay(selectedCell.value.row, selectedCell.value.col)
+      }
+    }
+  })
+
+  console.log('✅ 单元格选择监听器已配置')
+}
+
+
+// 更新选中单元格的显示内容
+const updateSelectedCellDisplay = (row, col) => {
+  const hot = getSafeHotInstance()
+  if (!hot) {
+    showCellContent.value = false
+    return
+  }
+
+  try {
+    // 获取单元格内容
+    const content = hot.getDataAtCell(row, col)
+    const cellMeta = hot.getCellMeta(row, col)
+
+    // 分析内容
+    const contentStr = content !== null && content !== undefined ? String(content) : ''
+    const charCount = contentStr.length
+    const lineCount = contentStr.split('\n').length
+
+    // 判断单元格类型
+    let cellType = '未知'
+    if (cellMeta?.type) {
+      cellType = cellMeta.type
+    } else if (!isNaN(content) && content !== '' && !isNaN(parseFloat(content))) {
+      cellType = '数字'
+    } else if (contentStr.match(/^\d{4}-\d{2}-\d{2}/) || contentStr.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+      cellType = '日期'
+    } else if (contentStr.startsWith('=')) {
+      cellType = '公式'
+    } else if (contentStr === 'TRUE' || contentStr === 'FALSE') {
+      cellType = '布尔'
+    } else {
+      cellType = '文本'
+    }
+
+    // 更新选中单元格信息
+    selectedCell.value = {
+      row,
+      col,
+      position: calculateCellPosition(row, col),
+      content: contentStr,
+      type: cellType,
+      charCount,
+      lineCount
+    }
+
+    // 显示内容栏
+    showCellContent.value = true
+
+    console.log('🔍 选中单元格:', {
+      位置: selectedCell.value.position,
+      内容: contentStr.length > 50 ? contentStr.substring(0, 50) + '...' : contentStr,
+      类型: cellType,
+      字符数: charCount
+    })
+
+  } catch (error) {
+    console.warn('⚠️ 获取单元格内容失败:', error)
+    showCellContent.value = false
+  }
+}
 
 </script>
 
@@ -2429,5 +3020,55 @@ onUnmounted(() => {
     font-size: 11px;
   }
 }
+
+
+/* 双表头特殊样式 */
+:deep(.vertical-header-column) {
+  background-color: #f6ffed !important;
+  font-weight: 600 !important;
+  min-width: 120px !important;
+}
+
+/* 确保固定表头样式正确 */
+:deep(.ht_clone_top) {
+  z-index: 20 !important;
+}
+
+:deep(.ht_clone_left) {
+  z-index: 10 !important;
+}
+
+:deep(.ht_clone_top th) {
+  background-color: #f0f9ff !important;
+  border-bottom: 2px solid #409eff !important;
+}
+
+:deep(.ht_clone_top th:first-child) {
+  background: linear-gradient(135deg, #f0f9ff 50%, #f6ffed 50%) !important;
+  border-right: 2px solid #409eff !important;
+  border-bottom: 2px solid #52c41a !important;
+}
+
+:deep(.ht_clone_left td) {
+  background-color: #f6ffed !important;
+  border-right: 2px solid #52c41a !important;
+}
+
+.header-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #f0f9ff;
+  border-radius: 4px;
+  margin-left: 12px;
+}
+
+.indicator-text {
+  font-size: 12px;
+  color: #1890ff;
+  font-weight: 500;
+}
+
 
 </style>

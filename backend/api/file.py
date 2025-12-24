@@ -2,13 +2,14 @@
 文件相关蓝图
 """
 from flask import Blueprint, request, jsonify, send_from_directory
-# from backend.models.database_manager import OldDatabaseManager
 from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
 
 # 新增导入
 from backend.service.file_mapping_service import file_mapping_service
+
+import pandas as pd
 
 file_bp = Blueprint('file', __name__)
 
@@ -322,7 +323,6 @@ def get_excel_sheets(file_id):
         # 2. 构建Excel文件目录路径 - 修正：统一使用Path对象
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
 
-        print("**************excel_dir:", excel_dir)
         if not excel_dir.exists():
             return jsonify({"excel_files": []})
 
@@ -402,62 +402,132 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
     根据文件ID、Excel文件名和sheet名称获取Excel数据
     """
     try:
-        # 1. 构建Excel文件路径 - 修正：统一使用Path对象
+        # 1. 构建Excel文件路径
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
         excel_path = excel_dir / excel_file_name
 
-        print("get_file_by_id:", file_id)
-        print("excel_path:", excel_path)
+        print("获取Excel数据 - 文件ID:", file_id)
+        print("Excel文件路径:", excel_path)
 
         if not excel_path.exists():
             return jsonify({"error": "Excel文件不存在"}), 404
 
-        # 2. 读取指定sheet的数据
-        import pandas as pd
+        # 2. 读取指定sheet，不把任何行当作表头
+        df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None)
+        df = df.fillna('')
 
-        try:
-            # 读取指定sheet
-            df = pd.read_excel(excel_path, sheet_name=sheet_name)
+        print("Excel原始数据形状:", df.shape)
+        print("列数:", df.shape[1], "行数:", df.shape[0])
 
-            # 处理NaN值为空字符串
-            df = df.fillna('')
 
-            # 转换为前端需要的格式
-            rows = []
-            for _, row in df.iterrows():
-                row_dict = {}
-                for col in df.columns:
-                    # 确保列名是字符串
-                    col_name = str(col)
-                    # 处理各种数据类型
-                    cell_value = row[col]
-                    if pd.isna(cell_value):
-                        row_dict[col_name] = ""
+        # 获取表头
+        horizontal_headers = []
+        vertical_headers = []
+        data_rows = []
+
+        # 提取横向表头（第一行，从第二列开始）
+        if df.shape[0] > 0:
+            # 第一列第一行可能是左上角单元格
+            top_left_cell = str(df.iloc[0, 0]) if df.iloc[0, 0] != '' else ""
+
+            # 横向表头（第一行，从第二列开始）
+            for col in range(1, df.shape[1]):
+                header = str(df.iloc[0, col]) if df.iloc[0, col] != '' else f""
+                horizontal_headers.append(header)
+
+        # 提取纵向表头（第一列，从第二行开始）
+        if df.shape[1] > 0:
+            for row in range(1, df.shape[0]):
+                header = str(df.iloc[row, 0]) if df.iloc[row, 0] != '' else f""
+                vertical_headers.append(header)
+
+        # 提取数据（从第二行第二列开始）
+        for row in range(1, df.shape[0]):
+            data_row = []
+            for col in range(1, df.shape[1]):
+                value = df.iloc[row, col]
+                # 尝试保持数值类型
+                try:
+                    if isinstance(value, (int, float)):
+                        data_row.append(value)
+                    elif str(value).replace(',', '').replace('.', '').isdigit():
+                        clean_value = str(value).replace(',', '')
+                        if '.' in str(value):
+                            data_row.append(float(clean_value))
+                        else:
+                            data_row.append(int(clean_value))
                     else:
-                        row_dict[col_name] = str(cell_value)
-                rows.append(row_dict)
+                        data_row.append(str(value) if value != '' else "")
+                except:
+                    data_row.append(str(value) if value != '' else "")
+            data_rows.append(data_row)
 
-            return jsonify({
-                "rows": rows,
-                "total_rows": len(rows),
-                "total_columns": len(df.columns) if len(rows) > 0 else 0,
-                "sheet_name": sheet_name,
-                "excel_file": excel_file_name,
-                "pdf_id": file_id
-            })
+        print("数据结构分析:")
+        print(f"- 左上角单元格: {top_left_cell}")
+        print(f"- 横向表头数: {len(horizontal_headers)}")
+        print(f"- 纵向表头数: {len(vertical_headers)}")
+        print(f"- 数据行数: {len(data_rows)}")
+        print(f"- 数据列数: {len(data_rows[0]) if data_rows else 0}")
+        print(f"- 横向表头样本: {horizontal_headers[:3]}")
+        print(f"- 纵向表头样本: {vertical_headers[:3]}")
+        print(f"- 数据样本: {data_rows[0][:3] if data_rows else '无'}")
 
-        except ValueError as e:
-            if "Worksheet" in str(e) and "not found" in str(e):
-                return jsonify({"error": f"Sheet '{sheet_name}' 不存在"}), 404
-            else:
-                raise e
-        except Exception as e:
-            print(f"读取Excel数据失败: {e}")
-            return jsonify({"error": f"读取表格数据失败: {str(e)}"}), 500
+        # 4. 构建前端友好的数据结构
+        frontend_data = []
+
+        # 添加元数据行
+        metadata_row = {
+            "__metadata": {
+                "has_dual_headers": True,
+                "top_left_cell": top_left_cell,
+                "horizontal_headers": horizontal_headers,
+                "vertical_headers": vertical_headers
+            }
+        }
+        frontend_data.append(metadata_row)
+
+        # 添加表头数据行（第一行：左上角 + 横向表头）
+        header_row = {
+            "__is_first_row": True,
+            "__top_left_cell": top_left_cell
+        }
+        for i, header in enumerate(horizontal_headers, 1):
+            header_row[f"H_{i}"] = header
+
+        frontend_data.append(header_row)
+
+        # 添加数据行（纵向表头 + 数据）
+        for i in range(len(data_rows)):
+            row_data = data_rows[i]
+            vertical_header = vertical_headers[i] if i < len(vertical_headers) else f""
+
+            row_obj = {
+                "__is_data_row": True,
+                "__vertical_header": vertical_header
+            }
+
+            for j, value in enumerate(row_data, 1):
+                row_obj[f"H_{j}"] = value
+
+            frontend_data.append(row_obj)
+
+        # 5. 返回给前端
+        return jsonify({
+            "rows": frontend_data,
+            "total_rows": len(frontend_data),
+            "total_columns": len(horizontal_headers),
+            "sheet_name": sheet_name,
+            "excel_file": excel_file_name,
+            "pdf_id": file_id,
+            "has_dual_headers": True
+        })
 
     except Exception as e:
         print(f"处理Excel数据请求失败: {e}")
-        return jsonify({"error": "处理请求失败"}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"处理请求失败: {str(e)}"}), 500
+
 
 
 @file_bp.route('/excel-data/<path:filename>')
