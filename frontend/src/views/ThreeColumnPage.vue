@@ -184,27 +184,44 @@
 
             <!-- 修改表格显示逻辑 -->
             <div v-else class="handsontable-container">
-              <template v-if="showFlatMode && flatData.length > 0">
-                <!-- 扁平化模式显示 -->
+              <!-- 使用v-show控制显示，避免组件销毁/重建 -->
+
+              <!-- 原始模式：使用v-show隐藏，保持组件实例 -->
+              <div v-show="!showFlatMode">
                 <HandsontableExcelViewer
-                  :excel-data="flatData"
-                  :sheet-name="`扁平化_${selectedSheet.name}`"
-                  :pdf-id="selectedPdf?.id"
-                  :excel-file-name="selectedExcelFile"
-                  key="flat-viewer"
-                />
-              </template>
-              <template v-else>
-                <!-- 原始Excel模式显示 -->
-                <HandsontableExcelViewer
-                  ref="excelViewer"
+                  ref="originalViewer"
                   :excel-data="excelData"
-                  :sheet-name="selectedSheet.name"
+                  :sheet-name="selectedSheet?.name || ''"
                   :pdf-id="selectedPdf?.id"
                   :excel-file-name="selectedExcelFile"
-                  key="excel-viewer"
+                  :key="`original-${selectedSheet?.name}-${excelData.length}`"
                 />
-              </template>
+              </div>
+
+              <!-- 扁平化模式：只有有数据时才显示 -->
+              <div v-show="showFlatMode && flatData.length > 0">
+                <HandsontableExcelViewer
+                  ref="flatViewer"
+                  :excel-data="flatData"
+                  :sheet-name="`扁平化_${selectedSheet?.name || ''}`"
+                  :pdf-id="selectedPdf?.id"
+                  :excel-file-name="selectedExcelFile"
+                  :key="`flat-${selectedSheet?.name}-${flatData.length}`"
+                />
+              </div>
+
+              <!-- 扁平化加载中的提示 -->
+              <div v-if="showFlatMode && flatData.length === 0 && loadingFlat" class="loading-state">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                正在扁平化数据...
+              </div>
+
+              <!-- 扁平化模式下但无数据的提示 -->
+              <div v-if="showFlatMode && flatData.length === 0 && !loadingFlat" class="empty-state">
+                <el-icon><Grid /></el-icon>
+                <p>暂无扁平化数据</p>
+                <p class="tip">点击"数据扁平化"按钮生成数据</p>
+              </div>
             </div>
 
           </div>
@@ -234,10 +251,10 @@ import { Document, Loading, Download, Close, Grid, DataAnalysis } from '@element
 import { getApiUrl, getBackendUrl } from '@/utils/config'
 import { ref, inject, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import excelDataCache from '@/utils/excelDataCache'
 
 // 导入数据分析组件
 import DataAnalysisDialog from '@/components/analysis/DataAnalysisDialog.vue'
-
 
 
 // 从 App.vue 注入搜索数据
@@ -346,20 +363,155 @@ const selectSheet = async (sheet, excelFileName) => {
 }
 
 
-// 数据扁平化
 // 切换扁平化模式
 const toggleFlatMode = async () => {
+  if (!selectedSheet.value || !selectedPdf.value) {
+    ElMessage.warning('请先选择表格')
+    return
+  }
+
   if (showFlatMode.value) {
-    // 切回原始模式
-    showFlatMode.value = false
-    ElMessage.success('已切换回原始表格模式')
+    // 当前是扁平化模式，切换回原始模式
+    await switchToOriginalMode()
   } else {
-    // 切换到扁平化模式
+    // 当前是原始模式，切换到扁平化模式
+    await switchToFlatMode()
+  }
+}
+
+// 切换到原始模式
+const switchToOriginalMode = async () => {
+  console.log('🔄 切换到原始模式')
+
+  const pdfId = selectedPdf.value.id
+  const excelFile = selectedExcelFile.value
+  const sheetName = selectedSheet.value.name
+
+  // 从缓存获取原始数据
+  const originalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+
+  if (!originalData || originalData.length === 0) {
+    console.warn('原始数据缓存为空，重新加载')
+    // 重新加载数据
+    await loadExcelData(sheetName, excelFile)
+    return
+  }
+
+  // 显示原始数据
+  excelData.value = originalData
+  generateTableColumns(originalData)
+  showFlatMode.value = false
+
+  ElMessage.success('已切换回原始表格模式')
+}
+
+// 切换到扁平化模式
+const switchToFlatMode = async () => {
+  console.log('🔄 切换到扁平化模式')
+
+  const pdfId = selectedPdf.value.id
+  const excelFile = selectedExcelFile.value
+  const sheetName = selectedSheet.value.name
+
+  // 检查是否有扁平化数据缓存
+  const cachedFlattened = excelDataCache.getFlattenedData(pdfId, excelFile, sheetName)
+
+  if (cachedFlattened && cachedFlattened.length > 0) {
+    console.log('📦 使用缓存的扁平化数据')
+    // 使用缓存数据
+    flatData.value = cachedFlattened
+    showFlatMode.value = true
+    ElMessage.success('已切换到扁平化模式（使用缓存）')
+  } else {
+    console.log('🔄 无缓存，调用API生成扁平化数据')
+    // 调用API生成扁平化数据
     await convertToFlatData()
   }
 }
 
-// 调用后端API转换数据
+
+// 在 script setup 部分添加这个函数
+const convertDualHeaderToTable = (dualHeaderData) => {
+  if (!dualHeaderData || dualHeaderData.length === 0) {
+    return []
+  }
+
+  console.log('🔄 转换双表头数据为二维表格')
+
+  const metadata = dualHeaderData[0]?.__metadata || {}
+  const horizontalHeaders = metadata.horizontal_headers || []
+  const verticalHeaders = metadata.vertical_headers || []
+  const topLeftCell = metadata.top_left_cell || ''
+
+  console.log('📋 元数据:', {
+    左上角: topLeftCell,
+    横向表头数: horizontalHeaders.length,
+    纵向表头数: verticalHeaders.length,
+    总行数: dualHeaderData.length
+  })
+
+  // 查找表头行和数据行
+  let headerRow = null
+  const dataRows = []
+
+  for (let i = 1; i < dualHeaderData.length; i++) { // 跳过元数据行
+    const row = dualHeaderData[i]
+    if (row?.__is_first_row) {
+      headerRow = row
+    } else if (row?.__is_data_row) {
+      dataRows.push(row)
+    }
+  }
+
+  if (!headerRow) {
+    console.error('❌ 未找到表头行')
+    return []
+  }
+
+  // 构建二维表格
+  const table = []
+
+  // 第一行：左上角 + 横向表头
+  const firstRow = [topLeftCell]
+  for (let i = 0; i < horizontalHeaders.length; i++) {
+    const headerKey = `H_${i + 1}`
+    const value = headerRow[headerKey] || horizontalHeaders[i] || ``
+    firstRow.push(value)
+  }
+  table.push(firstRow)
+
+  // 数据行：纵向表头 + 数据
+  dataRows.forEach((dataRow, rowIndex) => {
+    const row = []
+
+    // 纵向表头
+    const verticalHeader = dataRow.__vertical_header ||
+                          verticalHeaders[rowIndex] ||
+                          ``
+    row.push(verticalHeader)
+
+    // 数据单元格
+    for (let i = 0; i < horizontalHeaders.length; i++) {
+      const headerKey = `H_${i + 1}`
+      const value = dataRow[headerKey] ?? ''
+      row.push(value)
+    }
+
+    table.push(row)
+  })
+
+  console.log('✅ 双表头转换完成:', {
+    总行数: table.length,
+    总列数: table[0]?.length || 0,
+    布局: `(1,1) = ${table[1]?.[1] || '空'}`
+  })
+
+  return table
+}
+
+
+
+// 在convertToFlatData方法中添加重建二维表格的逻辑
 const convertToFlatData = async () => {
   if (!selectedSheet.value || !selectedPdf.value) {
     ElMessage.warning('请先选择表格')
@@ -367,20 +519,60 @@ const convertToFlatData = async () => {
   }
 
   loadingFlat.value = true
+
+  const pdfId = selectedPdf.value.id
+  const excelFile = selectedExcelFile.value
+  const sheetName = selectedSheet.value.name
+
   try {
-    const requestData = {
-      pdf_folder: selectedPdf.value.name,
-      png_names: [], // 可以根据需要传递具体图片名
-      previous_context: {
-        excel_file: selectedExcelFile.value,
-        sheet_name: selectedSheet.value.name,
-        original_data: excelData.value.slice(0, 100) // 可选：传部分数据
-      },
-      step_name: 'export' // 调用export步骤
+    console.log('🔄 开始数据扁平化处理...')
+
+    // 步骤1：从缓存获取当前sheet的双表头数据
+    const currentOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      throw new Error('原始数据为空，无法转换')
     }
 
-    // 调用后端API
-    const response = await fetch(getApiUrl('/step-process/export'), {
+    console.log('📊 从缓存获取的原始数据:', {
+      数据类型: typeof currentOriginalData[0],
+      总行数: currentOriginalData.length,
+      第一行: currentOriginalData[0]
+    })
+
+    // 步骤2：重建原始二维表格数据
+    const tableData = rebuildTwoDimensionalTable(currentOriginalData)
+
+    if (!tableData || tableData.length === 0) {
+      throw new Error('无法重建二维表格数据')
+    }
+
+    console.log('✅ 重建的二维表格数据:', {
+      行数: tableData.length,
+      列数: tableData[0]?.length || 0,
+      表格样本: tableData.slice(0, Math.min(3, tableData.length))
+    })
+
+    // 步骤3：从表格中提取必要信息用于source_info
+    const tableInfo = extractTableInfoFromData(currentOriginalData, tableData)
+
+    // 步骤4：构建请求数据
+    const requestData = {
+      table_data: tableData,
+      source_info: {
+        table_name: sheetName,
+        bank_name: "中国建设银行",
+        page_num: tableInfo.pageNum || extractPageFromSheetName(sheetName) || 1,
+        default_unit: tableInfo.defaultUnit || "",
+        default_currency: tableInfo.defaultCurrency || "人民币",
+        default_report_period: tableInfo.reportPeriod || "",
+        entity: "本集团"
+      }
+    }
+
+    console.log('📤 发送扁平化请求数据:', requestData)
+
+    // 步骤5：调用扁平化API
+    const response = await fetch(getApiUrl('/excel-flatten'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -389,36 +581,231 @@ const convertToFlatData = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('API调用失败')
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
+      throw new Error(errorData.error || 'API调用失败')
     }
 
     const result = await response.json()
+    console.log('✅ API响应成功:', result)
 
-    if (result.success) {
-      // 解析返回的扁平化数据
-      const flatResult = result.data || result.excel_files || []
+    // 检查返回格式
+    if (result.rows && Array.isArray(result.rows)) {
+        console.log('📊 接收到双表头格式数据:', {
+            总行数: result.rows.length,
+            格式: '双表头格式'
+        })
 
-      // 假设返回的是二维数组格式
-      if (Array.isArray(flatResult) && flatResult.length > 0) {
-        // 转换数据结构
-        flatData.value = convertToHandsontableFormat(flatResult)
-        flatColumns.value = generateFlatColumns(flatResult[0])
+        // 保存原始的双表头格式数据
+        excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, result.rows)
+
+        // 显示扁平化数据（直接使用rows，这是双表头格式）
+        flatData.value = result.rows
         showFlatMode.value = true
 
+        ElMessage.success(`数据扁平化成功，生成 ${result.rows.length} 行数据`)
+    } else if (result.success && result.long_format_data) {
+        // 兼容旧格式
+        console.log('📊 接收到旧格式长格式数据')
+        excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, result.long_format_data)
+        flatData.value = result.long_format_data
+        showFlatMode.value = true
         ElMessage.success('数据扁平化成功')
-      } else {
-        ElMessage.warning('未获取到扁平化数据')
-      }
     } else {
-      throw new Error(result.error || '转换失败')
+        throw new Error(result.error || '转换失败')
     }
+
   } catch (error) {
     console.error('数据扁平化失败:', error)
     ElMessage.error(`转换失败: ${error.message}`)
+
+    // 重置状态
+    showFlatMode.value = false
+    flatData.value = []
   } finally {
     loadingFlat.value = false
+    const currentSheet = excelDataCache.getCurrentSheet()
+    if (currentSheet) {
+      excelDataCache.setFlatteningState(currentSheet.pdfId, currentSheet.excelFile, currentSheet.sheetName, false)
+    }
   }
 }
+
+// ================ 新增：关键的重建函数 ================
+
+/**
+ * 从双表头数据重建原始二维表格
+ * @param {Array} dualHeaderData 双表头格式的数据
+ * @returns {Array} 二维表格数据
+ */
+const rebuildTwoDimensionalTable = (dualHeaderData) => {
+  if (!dualHeaderData || dualHeaderData.length === 0) {
+    console.error('❌ 数据为空，无法重建')
+    return []
+  }
+
+  console.log('🔧 开始重建二维表格...')
+
+  // 打印输入数据以便调试
+  console.log('📥 输入数据格式检查:')
+  dualHeaderData.forEach((row, idx) => {
+    if (idx < 3) { // 只打印前3行
+      console.log(`  行${idx}:`, {
+        类型: row.__metadata ? '元数据' : row.__is_first_row ? '表头行' : row.__is_data_row ? '数据行' : '其他',
+        行表头: row.__vertical_header,
+        H_1: row.H_1,
+        H_2: row.H_2
+      })
+    }
+  })
+
+  // 步骤1：查找元数据行
+  const metadataRow = dualHeaderData.find(row => row?.__metadata)
+  const metadata = metadataRow?.__metadata || {}
+
+  const hasDualHeaders = metadata.has_dual_headers || false
+  const horizontalHeaders = metadata.horizontal_headers || []
+  const verticalHeaders = metadata.vertical_headers || []
+  const topLeftCell = metadata.top_left_cell || ''
+
+  console.log('📋 元数据信息:', {
+    hasDualHeaders,
+    左上角单元格: topLeftCell,
+    横向表头: horizontalHeaders,
+    纵向表头: verticalHeaders
+  })
+
+  // 步骤2：查找表头行和数据行
+  const headerRow = dualHeaderData.find(row => row?.__is_first_row)
+  const dataRows = dualHeaderData.filter(row => row?.__is_data_row)
+
+  if (!headerRow) {
+    console.error('❌ 未找到表头行')
+    return []
+  }
+
+  console.log('📋 找到:', {
+    表头行: !!headerRow,
+    数据行数: dataRows.length
+  })
+
+  // 步骤3：重建二维表格
+  const table = []
+
+  if (hasDualHeaders) {
+    // 情况1：双表头结构
+    console.log('🔄 处理双表头结构...')
+
+    // 第一行：左上角单元格 + 横向表头
+    const firstRow = [topLeftCell || '']
+
+    // 从headerRow获取横向表头值
+    for (let i = 0; i < horizontalHeaders.length; i++) {
+      const headerKey = `H_${i + 1}`
+      const headerValue = headerRow[headerKey] !== undefined ? headerRow[headerKey] : horizontalHeaders[i] || ``
+      firstRow.push(String(headerValue))
+    }
+    table.push(firstRow)
+
+    console.log('📊 重建的表头行:', firstRow)
+
+    // 数据行：纵向表头 + 数据
+    dataRows.forEach((dataRow, rowIndex) => {
+      const row = []
+
+      // 纵向表头 - 直接使用__vertical_header
+      const verticalHeader = dataRow.__vertical_header || ''
+      row.push(String(verticalHeader))
+
+      console.log(`📊 处理第${rowIndex+1}行，行表头: "${verticalHeader}"`)
+
+      // 数据单元格
+      for (let i = 0; i < horizontalHeaders.length; i++) {
+        const headerKey = `H_${i + 1}`
+        const cellValue = dataRow[headerKey] !== undefined ? dataRow[headerKey] : ''
+        row.push(cellValue)
+      }
+
+      table.push(row)
+    })
+  }
+
+  console.log('✅ 重建完成:', {
+    总行数: table.length,
+    总列数: table[0]?.length || 0,
+    第一行: table[0],
+    第一列前几个值: table.slice(1, 6).map(row => row[0])
+  })
+
+  // 检查是否有"列标记"行
+  const columnMarkRowIndex = table.findIndex(row => row[0] && String(row[0]).includes('列标记'))
+  if (columnMarkRowIndex >= 0) {
+    console.log(`✅ 找到列标记行: 第${columnMarkRowIndex}行，内容: ${table[columnMarkRowIndex]}`)
+  }
+
+  // 检查是否有"行标记"列
+  if (table.length > 0) {
+    const firstRow = table[0]
+    const rowMarkColumnIndex = firstRow.findIndex(cell => cell && String(cell).includes('行标记'))
+    if (rowMarkColumnIndex >= 0) {
+      console.log(`✅ 找到行标记列: 第${rowMarkColumnIndex}列，表头: "${firstRow[rowMarkColumnIndex]}"`)
+    }
+  }
+
+  return table
+}
+
+
+/**
+ * 从数据中提取表格信息
+ */
+const extractTableInfoFromData = (dualHeaderData, tableData) => {
+  const info = {
+    pageNum: 1,
+    defaultUnit: "",
+    defaultCurrency: "人民币",
+    reportPeriod: ""
+  }
+
+  // 尝试从表头提取信息
+  if (tableData.length > 0 && tableData[0].length > 0) {
+    const firstRow = tableData[0]
+
+    // 检查是否包含单位信息
+    const unitKeywords = ['万元', '亿元', '元', '%', '百分比']
+    firstRow.forEach(cell => {
+      const cellStr = String(cell)
+      unitKeywords.forEach(keyword => {
+        if (cellStr.includes(keyword)) {
+          if (keyword === '%' || keyword === '百分比') {
+            info.defaultUnit = "%"
+          } else {
+            info.defaultUnit = keyword
+          }
+        }
+      })
+    })
+
+    // 检查是否包含报告期信息
+    const periodPatterns = [
+      /20\d{2}年/, /20\d{2}年度/, /20\d{2}年.*季度/,
+      /第[一二三四1-4]季度/, /Q[1-4]/, /上半年/, /下半年/
+    ]
+
+    firstRow.forEach(cell => {
+      const cellStr = String(cell)
+      periodPatterns.forEach(pattern => {
+        const match = cellStr.match(pattern)
+        if (match) {
+          info.reportPeriod = match[0]
+        }
+      })
+    })
+  }
+
+  console.log('📋 提取的表格信息:', info)
+  return info
+}
+
 
 // 将二维数组转换为Handsontable格式
 const convertToHandsontableFormat = (twoDArray) => {
@@ -748,16 +1135,37 @@ const loadExcelData = async (sheetName, excelFileName) => {
     console.log('请求Excel数据API:', apiUrl)
 
     const response = await fetch(apiUrl)
-    console.log('请求Excel数据API:', apiUrl)
     console.log('Excel数据API响应状态:', response.status)
 
     if (response.ok) {
       const data = await response.json()
       console.log('Excel数据API返回数据:', data)
-      excelData.value = data.rows || []
-      console.log('解析后的Excel数据行数:', excelData.value.length)
-      generateTableColumns(data.rows)
+
+      // 保存到缓存
+      excelDataCache.setOriginalData(pdfId, excelFileName, sheetName, data.rows || [])
+
+      // 设置当前sheet
+      excelDataCache.setCurrentSheet(pdfId, excelFileName, sheetName)
+
+      // 如果是目录sheet，特殊处理
+      if (sheetName === '目录') {
+        await loadAllClassData(excelFileName)
+      } else {
+        excelData.value = data.rows || []
+        generateTableColumns(data.rows)
+      }
+
+      // 重置扁平化状态
+      showFlatMode.value = false
+      flatData.value = []
+
+      // 更新按钮文本（根据缓存状态）
+      updateFlatButtonText(pdfId, excelFileName, sheetName)
+
       ElMessage.success(`已加载表格: ${sheetName}`)
+
+      // 调试输出
+      excelDataCache.debug()
     } else {
       const errorData = await response.json().catch(() => ({ error: '未知错误' }))
       console.log('Excel数据API请求失败:', errorData)
@@ -770,6 +1178,14 @@ const loadExcelData = async (sheetName, excelFileName) => {
     throw error
   }
 }
+
+// 更新扁平化按钮文本
+const updateFlatButtonText = (pdfId, excelFile, sheetName) => {
+  const hasFlattened = excelDataCache.hasFlattenedData(pdfId, excelFile, sheetName)
+  // 这个信息可以在模板中使用，但现在我们保持现有逻辑
+  console.log(`扁平化缓存状态: ${hasFlattened ? '有缓存' : '无缓存'}`)
+}
+
 
 // 生成表格列配置
 const generateTableColumns = (data) => {
@@ -835,7 +1251,6 @@ const downloadPdf = async (pdf) => {
 </script>
 
 <style scoped>
-
 /* 新增：分析按钮相关样式 */
 .header-left {
   display: flex;
@@ -974,8 +1389,6 @@ const downloadPdf = async (pdf) => {
   white-space: nowrap;
 }
 
-
-
 .pdf-content {
   flex: 1;
   min-height: 0;
@@ -984,6 +1397,8 @@ const downloadPdf = async (pdf) => {
 
 .pdf-content iframe {
   display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .no-preview {
@@ -1018,7 +1433,6 @@ const downloadPdf = async (pdf) => {
 }
 
 /* 表格列表样式 */
-
 .excel-files-container {
   flex: 1;
   overflow-y: auto;
@@ -1091,8 +1505,6 @@ const downloadPdf = async (pdf) => {
   white-space: nowrap;
 }
 
-
-
 .table-list-container {
   height: 100%;
   display: flex;
@@ -1162,7 +1574,6 @@ const downloadPdf = async (pdf) => {
   gap: 12px;
 }
 
-
 .pdf-controls {
   display: flex;
   align-items: center;
@@ -1185,13 +1596,75 @@ const downloadPdf = async (pdf) => {
   flex-shrink: 0;
 }
 
-
+/* Handsontable容器样式 - 修复 */
 .handsontable-container {
   height: 100%;
   min-height: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
+.handsontable-container > div {
+  height: 100%;
+  width: 100%;
+}
+
+/* 确保隐藏的组件不占位 */
+.handsontable-container > div[style*="display: none"] {
+  display: none !important;
+}
+
+/* 扁平化加载中的提示 */
+.handsontable-container .loading-state {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 10;
+  color: #606266;
+  gap: 12px;
+}
+
+.handsontable-container .loading-state .el-icon {
+  font-size: 32px;
+  color: #409eff;
+}
+
+/* 扁平化模式下但无数据的提示 */
+.handsontable-container .empty-state {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  z-index: 10;
+  color: #909399;
+  text-align: center;
+  padding: 20px;
+  gap: 12px;
+}
+
+.handsontable-container .empty-state .el-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.handsontable-container .empty-state .tip {
+  font-size: 12px;
+  color: #c0c4cc;
+}
 </style>

@@ -1841,15 +1841,15 @@ const tableData = computed(() => {
     })
 
     // ==================== 新增：添加空白行和列 ====================
-    // 在数据后面添加3行空白
-    for (let i = 0; i < 3; i++) {
+    // 在数据后面添加6行空白
+    for (let i = 0; i < 6; i++) {
       const blankRow = new Array(renderedTable[0]?.length || 0).fill('')
       renderedTable.push(blankRow)
     }
 
-    // 在每行后面添加3列空白
+    // 在每行后面添加2列空白
     renderedTable.forEach(row => {
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 2; i++) {
         row.push('')
       }
     })

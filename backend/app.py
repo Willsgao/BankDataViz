@@ -7,6 +7,7 @@ DocuVista 主入口（安全版本）
 from flask import Flask, send_from_directory
 from pathlib import Path
 
+
 # 导入蓝图
 from backend.api.upload import upload_bp
 from backend.api.file import file_bp

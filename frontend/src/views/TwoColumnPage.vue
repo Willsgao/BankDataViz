@@ -1064,6 +1064,61 @@ const handleParseTables = async (pdfDiskName) => {
   }
 }
 
+
+
+
+// 监听文件处理事件
+const handleFileProcessed = (event) => {
+  console.log('🎯 文件处理事件:', event)
+
+  const { type, fileId, fileName, response } = event
+
+  if (type === 'duplicate') {
+    // 重复文件处理逻辑
+    console.log(`🔄 重复文件: ${fileName} -> ID: ${fileId}`)
+
+    // 可以在这里添加特殊处理，比如高亮显示已存在的文件
+    highlightExistingFile(fileId)
+
+  } else if (type === 'new') {
+    // 新文件处理逻辑
+    console.log(`🆕 新文件: ${fileName} -> ID: ${fileId}`)
+
+    // 可以选择性地立即设置为新文件的当前PDF
+    if (response.file_id) {
+      const newFile = files.value.find(f =>
+        f.disk_name.includes(response.file_id) ||
+        f.filename === fileName
+      )
+
+      if (newFile) {
+        switchToPdf(newFile)
+      }
+    }
+  }
+}
+
+// 高亮显示已存在的文件
+const highlightExistingFile = (fileId) => {
+  // 可以在这里添加视觉效果
+  console.log('✨ 高亮文件ID:', fileId)
+
+  // 例如，找到对应的文件并添加临时高亮类
+  setTimeout(() => {
+    const existingFile = files.value.find(f =>
+      f.disk_name.includes(fileId)
+    )
+
+    if (existingFile) {
+      console.log('🔍 找到已存在的文件:', existingFile.filename)
+      // 可以触发一些视觉效果
+    }
+  }, 500)
+}
+
+
+
+
 // 新增：轮询表格解析进度
 async function pollTableProgress(jobId, pdfDiskName) {
   return new Promise((resolve) => {
@@ -1484,4 +1539,32 @@ async function pollProgress(jobId) {
   align-items: center;
   justify-content: center;
 }
+
+/* 文件项高亮动画 */
+@keyframes highlightPulse {
+  0% { background-color: rgba(64, 158, 255, 0.1); }
+  50% { background-color: rgba(64, 158, 255, 0.3); }
+  100% { background-color: rgba(64, 158, 255, 0.1); }
+}
+
+.pdf-file-item.highlighted {
+  animation: highlightPulse 2s ease-in-out 3;
+  border-left: 3px solid #409eff;
+}
+
+/* 重复文件特殊标记 */
+.pdf-file-item.duplicate-file::before {
+  content: "🔄";
+  margin-right: 8px;
+  font-size: 12px;
+}
+
+/* 新文件特殊标记 */
+.pdf-file-item.new-file::before {
+  content: "🆕";
+  margin-right: 8px;
+  font-size: 12px;
+}
+
+
 </style>
