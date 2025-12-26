@@ -1346,6 +1346,21 @@ def excel_flatten_from_excel():
         }), 500
 
 
+# 后端API示例（Python Flask）
+@file_bp.route('/excel/save-final', methods=['POST'])
+def save_final_excel():
+    """最终保存Excel修改"""
+    data = request.json
 
+    # 验证数据
+    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'changes']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'缺少必要字段: {field}'}), 400
+
+    return jsonify({
+            'success': False,
+            'error': ""
+        }), 500
 
 

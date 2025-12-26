@@ -1,14 +1,17 @@
 <template>
   <div class="handsontable-excel-viewer" :class="{ 'edit-mode': isEditMode }">
-    <!-- 主要工具栏（重新设计） -->
-    <div class="main-toolbar">
-      <div class="toolbar-section left-section">
-        <!-- 主要操作按钮组 -->
-        <el-button-group size="small" class="primary-actions">
+    <!-- 工具栏部分 -->
+    <div class="excel-toolbar">
+    <!-- 第一行：主要操作按钮和基本信息 -->
+    <div class="toolbar-row toolbar-row-top">
+      <div class="toolbar-left">
+        <el-button-group size="small">
           <el-button @click="exportData" :disabled="!tableData.length">
             <el-icon><Download /></el-icon>
             导出数据
           </el-button>
+
+          <!-- 编辑模式切换按钮 -->
           <el-button
             @click="toggleEditMode"
             :type="isEditMode ? 'success' : ''"
@@ -18,266 +21,224 @@
             {{ isEditMode ? '退出编辑' : '进入编辑' }}
           </el-button>
         </el-button-group>
-
-        <!-- 表格基本信息 -->
-        <div class="table-info" v-if="tableData.length > 0">
-          <el-tag size="small" type="info" class="data-summary">
-            <el-icon><Grid /></el-icon>
-            {{ tableData.length - 1 }}行 × {{ columns.length }}列
-          </el-tag>
-
-          <!-- 双表头信息 -->
-          <div v-if="hasDualHeaders && tableInfo" class="dual-header-info">
-            <el-tag type="success" size="small">
-              <el-icon><Menu /></el-icon>
-              双表头
-            </el-tag>
-            <span class="structure-info">
-              {{ tableInfo.横向表头 }}列 × {{ tableInfo.纵向表头 }}行
-            </span>
-          </div>
-        </div>
       </div>
 
-      <div class="toolbar-section right-section">
-        <!-- 全局状态指示器 -->
-        <div class="global-status">
-          <!-- 编辑模式状态 -->
-          <el-tooltip
-            v-if="isEditMode"
-            :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
-            placement="bottom"
+      <div class="toolbar-right">
+        <!-- 表头指示器 -->
+        <div class="header-indicator" v-if="hasDualHeaders && tableInfo">
+          <el-tag type="success" size="small">
+            <el-icon><Grid /></el-icon>
+            双表头表格
+          </el-tag>
+          <span class="indicator-text">
+            结构: {{ tableInfo.横向表头 }}列 × {{ tableInfo.纵向表头 }}行
+            <span v-if="tableInfo.左上角"> | 左上角: {{ tableInfo.左上角 }}</span>
+          </span>
+          <el-button
+            size="small"
+            type="info"
+            link
+            @click="verifyTableStructure"
+            title="验证表格结构"
           >
-            <el-tag :type="hasChanges ? 'warning' : 'success'" size="small" class="status-tag">
-              <el-icon><Edit /></el-icon>
-              {{ hasChanges ? `已修改(${modifiedCellsCount})` : '编辑中' }}
-            </el-tag>
-          </el-tooltip>
-
-          <!-- 空白单元格状态 -->
-          <el-tooltip
-            v-if="hasEmptyCells"
-            :content="`发现 ${emptyCellsStats?.total || 0} 个空白单元格`"
-            placement="bottom"
-          >
-            <el-tag :type="showEmptyCellsHighlight ? 'primary' : 'info'" size="small" class="status-tag">
-              <el-icon><InfoFilled /></el-icon>
-              空白({{ emptyCellsStats?.total || 0 }})
-            </el-tag>
-          </el-tooltip>
+            <el-icon><InfoFilled /></el-icon>
+          </el-button>
         </div>
+
+        <span class="data-info" v-if="tableData.length > 0">
+          共 {{ tableData.length - 1 }} 行 {{ columns.length }} 列
+        </span>
       </div>
     </div>
 
-    <!-- 功能操作栏（重新设计） -->
-    <div class="action-toolbar" v-if="tableData.length > 0">
-      <!-- 空白单元格操作组 -->
-      <div v-if="hasEmptyCells" class="action-group empty-cells-group">
-        <div class="group-header">
+    <!-- 第二行：统计信息、空白单元格提示和状态 -->
+    <div class="toolbar-row toolbar-row-bottom">
+      <!-- 统计面板 -->
+      <div v-if="showStatsPanel" class="stats-panel">
+        <el-tag :type="stats.selectionType === 'column' ? 'info' : 'success'" size="small">
+          <el-icon><DataAnalysis /></el-icon>
+          {{ stats.selectionType === 'column' ? '整列统计' : '选中区域统计' }}
+        </el-tag>
+        <span class="stat-item">行数: {{ stats.rowCount }}</span>
+        <span class="stat-item">数值: {{ stats.numericCount }}</span>
+        <span class="stat-item">总和: {{ stats.sum }}</span>
+        <span class="stat-item">平均值: {{ stats.average }}</span>
+        <span class="stat-item">最大值: {{ stats.max }}</span>
+        <span class="stat-item">最小值: {{ stats.min }}</span>
+        <el-button
+          v-if="stats.selectionType === 'selection'"
+          size="small"
+          type="primary"
+          link
+          @click="clearSelection"
+          title="清除选择"
+        >
+          <el-icon><Close /></el-icon>
+        </el-button>
+      </div>
+
+      <!-- 空白单元格指示器 -->
+      <div v-if="hasEmptyCells" class="empty-cells-indicator">
+        <el-tag type="info" size="small">
+          <el-icon><InfoFilled /></el-icon>
+          发现 {{ emptyCellsStats?.total || 0 }} 个空白单元格
+        </el-tag>
+
+        <el-button
+          size="small"
+          type="info"
+          link
+          @click="toggleEmptyCellsHighlight"
+          :title="showEmptyCellsHighlight ? '隐藏空白单元格高亮' : '显示空白单元格高亮'"
+        >
           <el-icon><View /></el-icon>
-          <span class="group-title">空白单元格管理</span>
-          <el-tag size="mini" type="info">
-            {{ emptyCellsStats?.total || 0 }}个
+          {{ showEmptyCellsHighlight ? '隐藏' : '高亮' }}
+        </el-button>
+
+        <el-button
+          v-if="isEditMode"
+          size="small"
+          type="warning"
+          link
+          @click="fillEmptyCellsWithZero"
+          title="将所有空白单元格填充为0"
+        >
+          <el-icon><Edit /></el-icon>
+          填充为0
+        </el-button>
+      </div>
+
+      <!-- 选中单元格的空白提示 -->
+      <div class="cell-empty" v-if="selectedCell.isEmpty && showCellContent">
+        <el-tag size="small" type="info" title="此单元格为空">
+          <el-icon><InfoFilled /></el-icon>
+          空白单元格
+        </el-tag>
+      </div>
+
+      <!-- 状态提示 -->
+      <div class="status-indicators">
+        <el-tag v-if="isEditMode" type="success" size="small">
+          <el-icon><Edit /></el-icon>
+          编辑模式
+        </el-tag>
+        <el-tag v-if="hasChanges" type="warning" size="small">
+          <el-icon><Warning /></el-icon>
+          有未保存的更改
+        </el-tag>
+        <span v-if="modifiedCellsCount > 0" class="modified-count">
+          已修改 {{ modifiedCellsCount }} 个单元格
+        </span>
+      </div>
+
+      <!-- 调试信息 -->
+      <div v-if="true" class="debug-info">
+        | 编辑模式: {{ isEditMode }} | 有更改: {{ hasChanges }} | 修改数: {{ modifiedCellsCount }} |
+      </div>
+    </div>
+  </div>
+
+    <!-- 单元格内容显示 -->
+    <div class="cell-content-display" v-if="showCellContent && selectedCell.position">
+      <div class="cell-info-bar">
+        <div class="cell-position">
+          <el-tag size="small" type="info">
+            <el-icon><Position /></el-icon>
+            {{ selectedCell.position }}
           </el-tag>
         </div>
-        <div class="group-actions">
+        <div class="cell-type">
+          <el-tag
+            size="small"
+            :type="getCellTypeTag(selectedCell.type)"
+            :title="selectedCell.type + (selectedCell.format ? ' | ' + selectedCell.format : '')"
+          >
+            {{ selectedCell.type }}
+            <span v-if="selectedCell.format" style="margin-left: 4px; font-size: 11px;">
+              ({{ selectedCell.format }})
+            </span>
+          </el-tag>
+        </div>
+
+        <!-- 数字验证状态 -->
+        <div class="cell-validation" v-if="selectedCell.isNumeric && selectedCell.numberValidationMsg">
+          <el-tag
+            size="small"
+            :type="selectedCell.isValidNumber ? 'success' : 'danger'"
+            :title="selectedCell.validationDetails || selectedCell.numberValidationMsg"
+          >
+            {{ selectedCell.numberValidationMsg }}
+          </el-tag>
+        </div>
+
+        <!-- 日期类型提示 -->
+        <div class="date-hint" v-if="selectedCell.type === '日期' && !selectedCell.isNumeric">
+          <el-tag size="small" type="warning" :title="selectedCell.format || '日期类型'">
+            <el-icon><Calendar /></el-icon>
+            {{ selectedCell.format || '日期' }}
+          </el-tag>
+        </div>
+
+        <!-- 修改状态 -->
+        <div class="cell-modified" v-if="selectedCell.isModified">
+          <el-tag size="small" type="danger" title="此单元格已被修改">
+            <el-icon><Edit /></el-icon>
+            已修改
+          </el-tag>
+        </div>
+        <div class="cell-readonly" v-if="selectedCell.isReadOnly">
+          <el-tag size="small" type="info" title="此单元格为只读">
+            <el-icon><Lock /></el-icon>
+            只读
+          </el-tag>
+        </div>
+        <div class="cell-stats">
+          <span class="stat-item" title="字符数">字符: {{ selectedCell.charCount }}</span>
+          <span v-if="selectedCell.lineCount > 1" class="stat-item" title="行数">
+            行数: {{ selectedCell.lineCount }}
+          </span>
+        </div>
+      </div>
+
+      <div class="cell-content-area">
+        <div
+          ref="cellContentDisplay"
+          class="cell-content-text"
+          :title="selectedCell.content"
+          :class="{
+            'numeric-cell': selectedCell.isNumeric,
+            'formula-cell': selectedCell.isFormula,
+            'modified-cell': selectedCell.isModified,
+            'invalid-number': selectedCell.isNumeric && !selectedCell.isValidNumber
+          }"
+        >
+          {{ selectedCell.content || '[空]' }}
+        </div>
+        <div class="cell-actions" v-if="isEditMode && !selectedCell.isReadOnly">
           <el-button
             size="small"
-            :type="showEmptyCellsHighlight ? 'primary' : ''"
-            @click="toggleEmptyCellsHighlight"
+            type="primary"
+            link
+            @click="copyCellContent"
+            title="复制内容"
           >
-            <el-icon><View /></el-icon>
-            {{ showEmptyCellsHighlight ? '隐藏高亮' : '高亮空格' }}
+            <el-icon><CopyDocument /></el-icon>
           </el-button>
           <el-button
-            v-if="isEditMode"
             size="small"
             type="warning"
-            @click="fillEmptyCellsWithZero"
+            link
+            @click="editCellInModal"
+            title="编辑内容"
+            v-if="selectedCell.position"
           >
             <el-icon><Edit /></el-icon>
-            填充为0
           </el-button>
-          <el-button
-            size="small"
-            type="info"
-            link
-            @click="showEmptyCellsDetail"
-          >
-            <el-icon><More /></el-icon>
-          </el-button>
-        </div>
-      </div>
-
-      <!-- 选中区域统计组 -->
-      <div v-if="showStatsPanel" class="action-group selection-stats-group">
-        <div class="group-header">
-          <el-icon><DataAnalysis /></el-icon>
-          <span class="group-title">选中区域统计</span>
-          <el-tag
-            size="mini"
-            :type="stats.selectionType === 'column' ? 'info' : 'success'"
-          >
-            {{ stats.selectionType === 'column' ? '整列' : '区域' }}
-          </el-tag>
-        </div>
-        <div class="stats-content">
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-label">单元格数:</span>
-              <span class="stat-value">{{ stats.rowCount }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">数值:</span>
-              <span class="stat-value">{{ stats.numericCount }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">总和:</span>
-              <span class="stat-value">{{ stats.sum }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">平均值:</span>
-              <span class="stat-value">{{ stats.average }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">最大值:</span>
-              <span class="stat-value">{{ stats.max }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">最小值:</span>
-              <span class="stat-value">{{ stats.min }}</span>
-            </div>
-          </div>
-          <el-button
-            size="small"
-            type="info"
-            link
-            @click="clearSelection"
-            title="清除选择"
-            class="clear-btn"
-          >
-            <el-icon><Close /></el-icon>
-          </el-button>
-        </div>
-      </div>
-
-      <!-- 当前单元格信息组 -->
-      <div v-if="showCellContent && selectedCell.position" class="action-group current-cell-group">
-        <div class="group-header">
-          <el-icon><Position /></el-icon>
-          <span class="group-title">当前单元格</span>
-        </div>
-        <div class="cell-content-wrapper">
-          <!-- 位置和基本信息 -->
-          <div class="cell-info-row">
-            <el-tag size="small" type="info" class="cell-position">
-              <el-icon><Position /></el-icon>
-              {{ selectedCell.position }}
-            </el-tag>
-
-            <el-tag
-              size="small"
-              :type="getCellTypeTag(selectedCell.type)"
-              class="cell-type"
-            >
-              {{ selectedCell.type }}
-              <span v-if="selectedCell.format" class="format-text">
-                ({{ selectedCell.format }})
-              </span>
-            </el-tag>
-
-            <!-- 修改状态 -->
-            <el-tag
-              v-if="selectedCell.isModified"
-              size="small"
-              type="danger"
-              class="cell-modified"
-            >
-              <el-icon><Edit /></el-icon>
-              已修改
-            </el-tag>
-          </div>
-
-          <!-- 单元格内容展示 -->
-          <div class="cell-preview-row">
-            <div
-              class="cell-preview"
-              :class="{
-                'numeric-cell': selectedCell.isNumeric,
-                'formula-cell': selectedCell.isFormula,
-                'modified-cell': selectedCell.isModified,
-                'invalid-number': selectedCell.isNumeric && !selectedCell.isValidNumber,
-                'empty-cell': selectedCell.isEmpty
-              }"
-              :title="selectedCell.content"
-            >
-              {{ selectedCell.content || '[空]' }}
-            </div>
-
-            <!-- 操作按钮 -->
-            <div class="cell-actions" v-if="isEditMode && !selectedCell.isReadOnly">
-              <el-button
-                size="small"
-                type="primary"
-                link
-                @click="copyCellContent"
-                title="复制内容"
-              >
-                <el-icon><CopyDocument /></el-icon>
-              </el-button>
-              <el-button
-                size="small"
-                type="warning"
-                link
-                @click="editCellInModal"
-                title="编辑内容"
-              >
-                <el-icon><Edit /></el-icon>
-              </el-button>
-            </div>
-          </div>
-
-          <!-- 详细信息 -->
-          <div class="cell-details-row">
-            <!-- 验证状态 -->
-            <div v-if="selectedCell.isNumeric && selectedCell.numberValidationMsg" class="validation-status">
-              <el-tag
-                size="small"
-                :type="selectedCell.isValidNumber ? 'success' : 'danger'"
-              >
-                {{ selectedCell.numberValidationMsg }}
-              </el-tag>
-            </div>
-
-            <!-- 日期类型 -->
-            <div v-if="selectedCell.type === '日期'" class="date-status">
-              <el-tag size="small" type="warning">
-                <el-icon><Calendar /></el-icon>
-                日期类型
-              </el-tag>
-            </div>
-
-            <!-- 元数据 -->
-            <div class="cell-meta">
-              <span class="meta-item">
-                <el-icon><Document /></el-icon>
-                {{ selectedCell.charCount }}字
-              </span>
-              <span v-if="selectedCell.lineCount > 1" class="meta-item">
-                <el-icon><Menu /></el-icon>
-                {{ selectedCell.lineCount }}行
-              </span>
-              <span v-if="selectedCell.isReadOnly" class="meta-item">
-                <el-icon><Lock /></el-icon>
-                只读
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
-    <!-- Handsontable 表格区域（保持不变） -->
+    <!-- Handsontable 表格区域 -->
     <div class="excel-container" ref="excelContainer">
       <HotTable
         ref="hotTable"
@@ -319,16 +280,14 @@
   </div>
 </template>
 
-
-
 <script setup>
 
-import { watch, ref, computed, onMounted, onUnmounted, nextTick, defineEmits } from 'vue'
+import { watch, ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { HotTable } from '@handsontable/vue3'
 import 'handsontable/dist/handsontable.full.css'
 import {
-  Download, Edit, Check, Warning, DataAnalysis, Close, More, Menu, Document,
-  Grid, InfoFilled, Position, CopyDocument, Lock, Calendar, Finished
+  Download, Edit, Check, Warning, DataAnalysis, Close,
+  Grid, InfoFilled, Position, CopyDocument, Lock, Calendar
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -348,27 +307,7 @@ import {
   formatNumber
 } from './excel-utils.js'
 
-
-
 // ============ Props ============
-// 定义要发送的事件
-const emit = defineEmits(['cell-changed'])
-
-// 创建回调函数
-const handleCellChangeFromEdit = (cellInfo) => {
-  console.log('📤 从 useExcelEdit 收到单元格修改:', cellInfo)
-
-  // 转发给父组件
-  emit('cell-changed', {
-    row: cellInfo.row,
-    col: cellInfo.col,
-    oldValue: cellInfo.oldValue,
-    newValue: cellInfo.newValue,
-    source: cellInfo.source,
-    timestamp: cellInfo.timestamp
-  })
-}
-
 const props = defineProps({
   excelData: {
     type: Array,
@@ -501,28 +440,6 @@ const toggleEmptyCellsHighlight = () => {
     ElMessage.success('已高亮显示空白单元格')
   }
 }
-
-
-
-// 添加空白单元格详情显示方法
-const showEmptyCellsDetail = () => {
-  if (emptyCellsStats.value) {
-    ElMessageBox.info({
-      title: '空白单元格详情',
-      message: `
-        <div style="text-align: left; font-size: 13px;">
-          <p><strong>总数:</strong> ${emptyCellsStats.value.total} 个</p>
-          <p><strong>分布:</strong> ${emptyCellsStats.value.rowsWithEmptyCells}行, ${emptyCellsStats.value.colsWithEmptyCells}列</p>
-          <p><strong>范围:</strong> 行${emptyCellsStats.value.minRow + 1}-${emptyCellsStats.value.maxRow + 1},
-          列${emptyCellsStats.value.minCol + 1}-${emptyCellsStats.value.maxCol + 1}</p>
-        </div>
-      `,
-      dangerouslyUseHTMLString: true,
-      customClass: 'empty-cells-detail-modal'
-    })
-  }
-}
-
 
 
 const highlightEmptyCells = () => {
@@ -1167,127 +1084,6 @@ onMounted(() => {
   }, 500)
 })
 
-
-// 监听 modifiedCells 的变化
-watch(modifiedCells, (newCells, oldCells) => {
-  console.log('🔄 [HandsontableExcelViewer] modifiedCells 发生变化:', {
-    新数量: newCells.size,
-    旧数量: oldCells?.size || 0,
-    是否有增长: newCells.size > (oldCells?.size || 0),
-    是否在编辑模式: isEditMode.value
-  })
-
-  // 1. 确保修改样式正常工作（原有功能）
-  // updateModifiedCellsStyle() 会在 onDataChange 中调用，这里不需要重复调用
-
-  // 2. 通知父组件修改状态（新增功能）
-  if (newCells.size === 0) {
-    // 如果没有修改了，发送清零事件
-    emit('data-changed', {
-      totalChanges: 0,
-      hasChanges: false,
-      modifiedCellsCount: 0
-    })
-    return
-  }
-
-  // 3. 获取表格实例来获取单元格值
-  const hot = getSafeHotInstance()
-  if (!hot) {
-    console.warn('❌ 表格实例无效，无法获取单元格值')
-    return
-  }
-
-  // 4. 收集所有修改的详细信息
-  const allChanges = []
-
-  // 找出新增的修改（用于 cell-changed 事件）
-  const newKeys = oldCells ? [] : Array.from(newCells.keys())
-  if (oldCells) {
-    newCells.forEach(key => {
-      if (!oldCells.has(key)) {
-        newKeys.push(key)
-      }
-    })
-  }
-
-  // 遍历所有修改的单元格
-  newCells.forEach(cellKey => {
-    const [row, col] = cellKey.split(',').map(Number)
-    try {
-      const newValue = hot.getDataAtCell(row, col)
-
-      allChanges.push({
-        row,
-        col,
-        newValue,
-        cellKey,
-        timestamp: Date.now()
-      })
-
-      // 如果是新增的修改，发送单个事件
-      if (newKeys.includes(cellKey)) {
-        emit('cell-changed', {
-          row,
-          col,
-          oldValue: null, // 旧值未知，但父组件可以处理
-          newValue: newValue,
-          source: 'watch-modifiedCells',
-          timestamp: Date.now(),
-          isEditMode: isEditMode.value
-        })
-      }
-    } catch (error) {
-      console.warn(`⚠️ 无法获取单元格 [${row},${col}] 的值:`, error)
-    }
-  })
-
-  // 5. 发送汇总事件
-  emit('data-changed', {
-    totalChanges: newCells.size,
-    hasChanges: true,
-    allChanges: allChanges,
-    modifiedCellsCount: newCells.size,
-    isEditMode: isEditMode.value
-  })
-
-  console.log('📤 [HandsontableExcelViewer] 已发送修改事件:', {
-    事件总数: 1 + newKeys.length, // 1个汇总事件 + 多个单个事件
-    汇总事件: { totalChanges: newCells.size },
-    单个事件数: newKeys.length
-  })
-}, { deep: true })
-
-// 6. 监听 hasChanges 的变化，发送编辑状态事件
-watch(hasChanges, (newValue, oldValue) => {
-  console.log('📊 [HandsontableExcelViewer] hasChanges 变化:', {
-    旧值: oldValue,
-    新值: newValue
-  })
-
-  emit('edit-status-changed', {
-    isEditMode: isEditMode.value,
-    hasChanges: newValue,
-    modifiedCellsCount: modifiedCellsCount.value,
-    timestamp: Date.now()
-  })
-})
-
-// 7. 监听 isEditMode 的变化
-watch(isEditMode, (newValue, oldValue) => {
-  console.log('🎛️ [HandsontableExcelViewer] 编辑模式变化:', {
-    旧模式: oldValue,
-    新模式: newValue
-  })
-
-  emit('edit-status-changed', {
-    isEditMode: newValue,
-    hasChanges: hasChanges.value,
-    modifiedCellsCount: modifiedCellsCount.value,
-    timestamp: Date.now()
-  })
-})
-
 onUnmounted(() => {
   console.log('🔧 开始清理组件资源...')
   cleanup()
@@ -1333,279 +1129,43 @@ defineExpose({
   position: relative;
 }
 
-/* ====================
-   重新设计的主要工具栏
-   ==================== */
-.main-toolbar {
+.excel-toolbar {
   flex-shrink: 0;
-  padding: 8px 16px;
+  padding: 12px 16px;
   background: #f8f9fa;
   border-bottom: 1px solid #e4e7ed;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 52px;
+  min-height: 60px;
 }
 
-.toolbar-section {
+.toolbar-left,
+.toolbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-/* 左侧区域 */
-.left-section {
-  flex: 1;
-}
-
-.primary-actions {
-  margin-right: 12px;
-}
-
-.table-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.data-summary {
-  background: #f0f9ff;
-  border-color: #e1f5fe;
-  color: #1890ff;
-}
-
-.dual-header-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  background: #f6ffed;
-  border-radius: 4px;
-  border: 1px solid #b7eb8f;
-}
-
-.structure-info {
+.data-info {
   font-size: 12px;
-  color: #52c41a;
-  font-weight: 500;
+  color: #606266;
 }
 
-/* 右侧区域 */
-.global-status {
+.empty-state {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.status-tag {
-  cursor: default;
-  transition: all 0.2s;
-  min-width: 60px;
-  text-align: center;
-}
-
-.status-tag:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* ====================
-   功能操作栏
-   ==================== */
-.action-toolbar {
-  flex-shrink: 0;
-  padding: 8px 16px;
-  background: #fafafa;
-  border-bottom: 1px solid #e8e8e8;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-/* 操作组通用样式 */
-.action-group {
+  justify-content: center;
   background: white;
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.group-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
-}
-
-.group-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 空白单元格组 */
-.empty-cells-group {
-  border-left: 3px solid #1890ff;
-}
-
-/* 选中区域统计组 */
-.selection-stats-group {
-  border-left: 3px solid #52c41a;
-}
-
-.stats-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  flex: 1;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 2px 8px;
-  background: #f0f9ff;
-  border-radius: 4px;
-  border: 1px solid #e1f5fe;
-  min-width: 120px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #666;
-}
-
-.stat-value {
-  font-size: 12px;
-  font-weight: 500;
-  color: #1890ff;
-}
-
-.clear-btn {
-  margin-left: 12px;
-}
-
-/* 当前单元格组 */
-.current-cell-group {
-  border-left: 3px solid #fa8c16;
-  padding: 10px 12px;
-}
-
-.cell-content-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cell-info-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.cell-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.cell-preview {
-  flex: 1;
-  padding: 6px 10px;
-  background: #fafafa;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
-  font-family: 'Consolas', monospace;
-  font-size: 13px;
-  color: #333;
-  white-space: pre-wrap;
-  word-break: break-all;
-  min-height: 28px;
-  max-height: 56px;
-  overflow-y: auto;
-}
-
-.cell-details-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.format-text {
-  margin-left: 2px;
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-.cell-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #888;
-}
-
-.meta-item .el-icon {
-  font-size: 12px;
-}
-
-/* 单元格预览样式继承（保持不变） */
-.cell-preview.numeric-cell {
-  text-align: right;
-  font-family: 'Consolas', 'Monaco', monospace;
-}
-
-.cell-preview.formula-cell {
-  font-style: italic;
-  color: #1677ff;
-  background-color: #f0f6ff;
-}
-
-.cell-preview.modified-cell {
-  background-color: #fff7e6;
-  border-color: #ffd591;
-}
-
-.cell-preview.invalid-number {
-  background-color: #fff2f0 !important;
-  border-color: #ffccc7 !important;
-  color: #ff4d4f;
-}
-
-.cell-preview.empty-cell {
-  background-color: #f0f9ff;
-  border: 1px dashed #1890ff;
-  color: #666;
 }
 
 /* ====================
-   表格容器区域（保持不变）
+   关键修复：恢复滚动功能
    ==================== */
 .excel-container {
   flex: 1;
@@ -1621,9 +1181,6 @@ defineExpose({
   padding-top: 1px !important; /* 微小padding避免边界问题 */
 }
 
-/* ====================
-   以下为原有样式，保持不变
-   ==================== */
 
 /* 确保 Handsontable 正常显示 */
 :deep(.handsontable .wtHolder) {
@@ -1667,6 +1224,25 @@ defineExpose({
   border: 1px solid #f44336 !important;
 }
 
+.status-indicators {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modified-count {
+  font-size: 12px;
+  color: #e6a23c;
+  font-weight: 500;
+}
+
+/* 确保表头文本可见 */
+:deep(.ht_clone_top th) {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
 .horizontal-scroll-hint {
   position: absolute;
   bottom: 5px;
@@ -1684,6 +1260,97 @@ defineExpose({
 @keyframes fadeInOut {
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
+}
+
+.stats-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #f0f9ff;
+  border: 1px solid #e1f5fe;
+  border-radius: 6px;
+  margin-right: 16px;
+}
+
+.stat-item {
+  font-size: 12px;
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.stat-item:not(:last-child)::after {
+  content: "|";
+  margin-left: 8px;
+  color: #d9d9d9;
+}
+
+/* 确保统计面板在移动端也能正常显示 */
+@media (max-width: 768px) {
+  .stats-panel {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stat-item::after {
+    content: none !important;
+  }
+}
+
+.stats-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  background: #f0f9ff;
+  border: 1px solid #e1f5fe;
+  border-radius: 6px;
+  margin-right: 16px;
+  max-width: 600px;
+  overflow: hidden;
+}
+
+.stat-item {
+  font-size: 12px;
+  color: #1890ff;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stat-item:not(:last-child)::after {
+  content: "|";
+  margin-left: 8px;
+  color: #d9d9d9;
+}
+
+/* 选中区域统计的特殊样式 */
+.stats-panel .el-tag[type="success"] {
+  background: #f6ffed;
+  border-color: #b7eb8f;
+  color: #52c41a;
+}
+
+/* 清除选择按钮 */
+.stats-panel .el-button {
+  margin-left: 4px;
+  padding: 0 4px;
+}
+
+/* 确保统计面板在移动端也能正常显示 */
+@media (max-width: 768px) {
+  .stats-panel {
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: 300px;
+  }
+
+  .stat-item::after {
+    content: none !important;
+  }
+
+  .stat-item {
+    font-size: 11px;
+  }
 }
 
 /* 双表头特殊样式 */
@@ -1724,6 +1391,22 @@ defineExpose({
   border-right: 2px solid #52c41a !important;
 }
 
+.header-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #f0f9ff;
+  border-radius: 4px;
+  margin-left: 12px;
+}
+
+.indicator-text {
+  font-size: 12px;
+  color: #1890ff;
+  font-weight: 500;
+}
+
 /* ====================
    新增：防止表头被拉上去的特殊修复
    ==================== */
@@ -1743,9 +1426,61 @@ defineExpose({
   background-color: #f8f9fa !important;
 }
 
-/* ====================
-   验证状态样式（保持不变）
-   ==================== */
+
+/* 在 <style scoped> 部分添加或检查 */
+.cell-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;  /* 确保多行时正确换行 */
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.cell-content-area {
+  padding: 12px;
+}
+
+.cell-content-text {
+  min-height: 24px;
+  padding: 8px;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  white-space: pre-wrap;  /* 保持换行 */
+  word-break: break-word;  /* 长单词换行 */
+}
+
+/* 不同类型单元格的特殊样式 */
+.cell-content-text.numeric-cell {
+  font-family: 'Consolas', monospace;
+  text-align: right;
+}
+
+.cell-content-text.formula-cell {
+  font-style: italic;
+  color: #409eff;
+}
+
+.cell-content-text.modified-cell {
+  background-color: #fff2f0;
+  border-color: #ffccc7;
+}
+
+
+/* 新增验证状态样式 */
+.cell-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+  min-height: 44px;
+}
+
 .cell-validation .el-tag {
   font-weight: bold;
   cursor: help;
@@ -1753,6 +1488,7 @@ defineExpose({
   text-align: center;
 }
 
+/* 验证状态颜色 */
 .cell-validation .el-tag.el-tag--success {
   background-color: #f6ffed;
   border-color: #b7eb8f;
@@ -1771,6 +1507,64 @@ defineExpose({
   color: #fa8c16;
 }
 
+/* 无效数字的特殊样式 */
+.cell-content-text.invalid-number {
+  background-color: #fff2f0 !important;
+  border-color: #ffccc7 !important;
+  color: #ff4d4f;
+}
+
+/* 内容区域样式 */
+.cell-content-area {
+  padding: 12px;
+  background: white;
+}
+
+.cell-content-text {
+  min-height: 24px;
+  padding: 8px;
+  background: #fafafa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+}
+
+.cell-content-text.numeric-cell {
+  text-align: right;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.cell-content-text.formula-cell {
+  font-style: italic;
+  color: #1677ff;
+  background-color: #f0f6ff;
+}
+
+.cell-content-text.modified-cell {
+  background-color: #fff7e6;
+  border-color: #ffd591;
+}
+
+/* 统计信息样式 */
+.cell-stats {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+}
+
+.stat-item {
+  font-size: 12px;
+  color: #666;
+  padding: 2px 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  cursor: default;
+}
+
+
 /* 日期类型样式 */
 .date-hint .el-tag {
   background-color: #fff7e6;
@@ -1782,9 +1576,19 @@ defineExpose({
   margin-right: 2px;
 }
 
-/* ====================
-   单元格样式控制（全部保持不变）
-   ==================== */
+/* 内容区域样式优化 */
+.cell-content-text[data-type="date"] {
+  color: #fa8c16;
+  background-color: #fff7e6;
+  border-color: #ffd591;
+}
+
+.cell-content-text[data-type="year"] {
+  color: #d48806;
+  font-weight: 500;
+}
+
+
 /* 最简单：通过父级类名控制 */
 .edit-mode :deep(.handsontable .htCore td:not([readonly])) {
   background-color: #f9f9f9 !important;
@@ -1796,6 +1600,7 @@ defineExpose({
   background-color: #fff2e8 !important;
   border: 1px solid #ff7a45 !important;
 }
+
 
 /* 修改单元格的样式 */
 :deep(.handsontable td.modified-cell) {
@@ -1816,6 +1621,85 @@ defineExpose({
   border-radius: 50%;
   z-index: 100;
 }
+
+/* 编辑模式下的单元格悬停效果 */
+:deep(.handsontable .htCore td:not(.modified-cell):hover) {
+  background-color: #f0f6ff !important;
+  border-color: #1890ff !important;
+}
+
+/* 修改单元格的悬停效果 */
+:deep(.handsontable .htCore td.modified-cell:hover) {
+  background-color: #ffe7d9 !important;
+  border-color: #ff7a45 !important;
+  box-shadow: 0 0 0 1px #ff7a45;
+}
+
+/* 选中修改单元格时的样式 */
+:deep(.handsontable .htCore td.modified-cell.current) {
+  background-color: #ffd8bf !important;
+  border-color: #ff7a45 !important;
+}
+
+/* 在 <style scoped> 部分确保有以下样式 */
+:deep(.handsontable td.modified-cell) {
+  background-color: #fff2e8 !important;
+  border: 2px solid #ff7a45 !important;
+  position: relative;
+}
+
+:deep(.handsontable td.modified-cell::after) {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+  z-index: 100;
+}
+
+/* 在 HandsontableExcelViewer.vue 的 <style scoped> 部分添加 */
+:deep(.handsontable td.empty-cell) {
+  background-color: #f0f9ff !important;
+  border: 2px dashed #1890ff !important;
+  position: relative;
+}
+
+:deep(.handsontable td.empty-cell::after) {
+  content: '空';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 9px;
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+  padding: 0 2px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+/* 编辑模式下空白单元格样式 */
+:deep(.edit-mode .handsontable td.empty-cell) {
+  background-color: #e6f7ff !important;
+  border: 2px dotted #1890ff !important;
+}
+
+/* 编辑模式下的单元格样式 */
+.edit-mode :deep(.handsontable .htCore td:not([readonly])) {
+  background-color: #f9f9f9 !important;
+  border: 1px solid #d9d9d9 !important;
+}
+
+/* 在保存时给修改过的单元格添加类 */
+.edit-mode :deep(.handsontable .htCore td.modified) {
+  background-color: #fff2e8 !important;
+  border: 1px solid #ff7a45 !important;
+}
+
+
+
 
 /* 编辑模式下的单元格悬停效果 */
 :deep(.handsontable .htCore td:not(.modified-cell):hover) {
@@ -1862,105 +1746,92 @@ defineExpose({
   border: 2px dotted #1890ff !important;
 }
 
-/* ====================
-   响应式设计
-   ==================== */
-@media (max-width: 1024px) {
-  .main-toolbar {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px 12px;
-  }
-
-  .table-info {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .stat-item {
-    min-width: 140px;
-  }
+/* 修改单元格的样式 */
+:deep(.handsontable td.modified-cell) {
+  background-color: #fff2e8 !important;
+  border: 2px solid #ff7a45 !important;
+  position: relative;
 }
 
-@media (max-width: 768px) {
-  .action-toolbar {
-    padding: 8px 12px;
-    max-height: 400px;
-  }
-
-  .action-group {
-    padding: 8px;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stats-content {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .clear-btn {
-    margin-left: 0;
-    align-self: flex-end;
-  }
-
-  .cell-info-row,
-  .cell-details-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .cell-meta {
-    margin-left: 0;
-    flex-wrap: wrap;
-  }
-
-  .cell-preview-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .cell-actions {
-    align-self: flex-end;
-  }
+/* 修改标记小圆点 */
+:deep(.handsontable td.modified-cell::after) {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+  z-index: 100;
 }
 
-@media (max-width: 480px) {
-  .main-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
 
-  .toolbar-section {
-    justify-content: space-between;
-    width: 100%;
-  }
 
-  .primary-actions {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .global-status {
-    justify-content: center;
-    width: 100%;
-  }
-
-  .group-header {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
+/* 编辑模式下的单元格悬停效果 */
+:deep(.handsontable .htCore td:not(.modified-cell):hover) {
+  background-color: #f0f6ff !important;
+  border-color: #1890ff !important;
 }
+
+/* 修改单元格的悬停效果 */
+:deep(.handsontable .htCore td.modified-cell:hover) {
+  background-color: #ffe7d9 !important;
+  border-color: #ff7a45 !important;
+  box-shadow: 0 0 0 1px #ff7a45;
+}
+
+/* 选中修改单元格时的样式 */
+:deep(.handsontable .htCore td.modified-cell.current) {
+  background-color: #ffd8bf !important;
+  border-color: #ff7a45 !important;
+}
+
+/* 空白单元格样式 */
+:deep(.handsontable td.empty-cell) {
+  background-color: #f0f9ff !important;
+  border: 2px dashed #1890ff !important;
+  position: relative;
+}
+
+:deep(.handsontable td.empty-cell::after) {
+  content: '空';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 9px;
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+  padding: 0 2px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+/* 编辑模式下空白单元格样式 */
+.edit-mode :deep(.handsontable td.empty-cell) {
+  background-color: #e6f7ff !important;
+  border: 2px dotted #1890ff !important;
+}
+
+/* 修改单元格的样式 */
+:deep(.handsontable td.modified-cell) {
+  background-color: #fff2e8 !important;
+  border: 2px solid #ff7a45 !important;
+  position: relative;
+}
+
+/* 修改标记小圆点 */
+:deep(.handsontable td.modified-cell::after) {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+  z-index: 100;
+}
+
 </style>
-
 
