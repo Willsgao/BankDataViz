@@ -51,35 +51,139 @@ class DataManager {
     console.log('🎯 设置编辑上下文:', this.currentContext)
   }
 
-  /**
-   * 记录单元格修改
-   */
-  recordCellChange(row, col, oldValue, newValue) {
-    if (oldValue === newValue) return
+    // dataManager.js - 完全分离原始表和扁平化表的修改
+    recordCellChange(row, col, oldValue, newValue, tableType = 'original') {
 
-    const cellKey = `${row}_${col}`
-
-    // 如果这个单元格已经被修改过，更新记录
-    if (this.modifiedCells.has(cellKey)) {
-      const existing = this.modifiedCells.get(cellKey)
-      existing.new = newValue
-      existing.timestamp = Date.now()
-    } else {
-      // 新增修改记录
-      this.modifiedCells.set(cellKey, {
+      const change = {
         row,
         col,
-        old: oldValue,
-        new: newValue,
-        timestamp: Date.now()
-      })
+        oldValue,
+        newValue,
+        timestamp: Date.now(),
+        tableType: tableType, // 关键：记录是哪个表的修改
+        context: {
+          pdfId: this.currentContext.pdfId,
+          excelFile: this.currentContext.excelFile,
+          sheetName: this.currentContext.sheetName,
+          // 不混用坐标系统
+        }
+      };
+
+      console.log('📝 记录单元格修改:', {
+        表类型: tableType,
+        坐标: `[${row},${col}]`,
+        新值: newValue,
+        当前上下文: this.currentContext
+      });
+
+      // 使用表类型作为键的一部分，完全分离
+      const changeKey = `${this.currentContext.pdfId}_${this.currentContext.excelFile}_${this.currentContext.sheetName}_${tableType}_${row},${col}`;
+      this.modifiedCells.set(changeKey, change);
+
+
+      console.log('🔥 dataManager 里 recordCellChange 末尾：准备刷样式')
+
+      return change;
     }
 
-    console.log('📝 记录单元格修改:', { row, col, old: oldValue, new: newValue })
 
-    // 触发自动保存
-    this.scheduleAutoSave()
-  }
+
+    // 新增：按表类型获取修改
+    /**
+     * 按表类型获取修改
+     */
+    async getChangesByTableType(tableType) {
+      const changes = []
+
+      for (const [key, change] of this.modifiedCells.entries()) {
+        // 检查是否匹配当前上下文和表类型
+        if (change.context.pdfId === this.currentContext.pdfId &&
+            change.context.excelFile === this.currentContext.excelFile &&
+            change.context.sheetName === this.currentContext.sheetName &&
+            change.tableType === tableType) {
+          changes.push(change)
+        }
+      }
+
+      console.log(`📊 获取${tableType}表的修改:`, changes.length)
+      return changes
+    }
+
+    /**
+     * 按表类型清除修改
+     */
+    clearChangesByTableType(tableType) {
+      const keysToDelete = []
+
+      for (const [key, change] of this.modifiedCells.entries()) {
+        if (change.context.pdfId === this.currentContext.pdfId &&
+            change.context.excelFile === this.currentContext.excelFile &&
+            change.context.sheetName === this.currentContext.sheetName &&
+            change.tableType === tableType) {
+          keysToDelete.push(key)
+        }
+      }
+
+      // 删除匹配的修改
+      keysToDelete.forEach(key => {
+        this.modifiedCells.delete(key)
+      })
+
+      console.log(`🗑️ 清除${tableType}表的修改:`, keysToDelete.length)
+      return keysToDelete.length
+    }
+
+
+    // 修改 restoreUnsavedEdits 方法
+    async restoreUnsavedEdits() {
+      if (!this.currentContext.pdfId || !this.currentContext.sheetName) {
+        return { success: false, message: '没有上下文信息' }
+      }
+
+      try {
+        // 从 IndexedDB 获取当前上下文的修改
+        const allChanges = await this.getChangesForContext(
+          this.currentContext.pdfId,
+          this.currentContext.excelFile,
+          this.currentContext.sheetName
+        )
+
+        console.log('📥 恢复未保存编辑:', {
+          上下文: this.currentContext,
+          找到修改数: allChanges.length,
+          修改示例: allChanges.slice(0, 3)
+        })
+
+        return {
+          success: true,
+          message: `找到 ${allChanges.length} 个未保存修改`,
+          changes: allChanges
+        }
+
+      } catch (error) {
+        console.error('恢复未保存编辑失败:', error)
+        return { success: false, message: error.message }
+      }
+    }
+
+    // 新增方法：根据上下文获取修改
+    async getChangesForContext(pdfId, excelFile, sheetName) {
+      const changes = []
+
+      // 遍历所有修改，筛选出匹配当前上下文的
+      for (const [key, change] of this.modifiedCells.entries()) {
+        const changeContext = change.context || {}
+
+        // 检查是否匹配当前上下文
+        if (changeContext.pdfId === pdfId &&
+            changeContext.excelFile === excelFile &&
+            changeContext.sheetName === sheetName) {
+          changes.push(change)
+        }
+      }
+
+      return changes
+    }
 
   /**
    * 获取所有修改

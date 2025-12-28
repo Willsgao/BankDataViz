@@ -24,10 +24,7 @@ export default function useExcelTable(props) {
       if (parentContainer) {
         const parentRect = parentContainer.getBoundingClientRect()
         containerHeight.value = parentRect.height - 60
-        console.log('📏 计算表格高度:', {
-          parentHeight: parentRect.height,
-          containerHeight: containerHeight.value
-        })
+
       }
     }
   }
@@ -37,11 +34,6 @@ export default function useExcelTable(props) {
       // 如果没有 tableData 参数，直接使用容器高度
       const minHeight = 400
       const calculatedHeight = Math.max(minHeight, containerHeight.value)
-
-      console.log('🎯 表格高度计算:', {
-        最小高度: minHeight,
-        计算高度: calculatedHeight
-      })
 
       return calculatedHeight
     })
@@ -108,7 +100,6 @@ export default function useExcelTable(props) {
       clearTimeout(timeoutId)
     })
     activeTimeouts.value = []
-    console.log('✅ 所有定时器已清理')
   }
 
   // 安全的异步操作（直接从原文件复制）
@@ -128,7 +119,6 @@ export default function useExcelTable(props) {
 
   // 配置事件监听（直接从原文件复制 setupEventListeners 函数）
   const setupEventListeners = () => {
-    console.log('🔧 开始配置事件监听...', { retryCount })
 
     const hot = getSafeHotInstance()
     if (!hot) {
@@ -146,11 +136,8 @@ export default function useExcelTable(props) {
       return
     }
 
-    console.log('✅ 表格实例已准备好，配置事件监听')
-
     try {
       hot.removeHook('afterChange')
-      console.log('✅ 已清除旧的 afterChange 监听')
     } catch (e) {
       console.log('ℹ️ 清除旧监听时出错:', e.message)
     }
@@ -169,7 +156,6 @@ export default function useExcelTable(props) {
       })
     })
 
-    console.log('✅ 事件监听配置完成')
     retryCount = 0
   }
 

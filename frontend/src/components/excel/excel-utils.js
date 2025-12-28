@@ -72,7 +72,7 @@ export const setupChineseLocalization = () => {
 
 // ============ 数字验证相关 ============
 // 完整的数字格式验证函数
-const validateNumberFormat = (value) => {
+export const validateNumberFormat = (value) => {
   if (value === null || value === undefined) {
     return {
       isValid: false,

@@ -71,12 +71,14 @@
 
     <!-- 功能操作栏（重新设计） -->
     <div class="action-toolbar" v-if="tableData.length > 0">
+
+
       <!-- 空白单元格操作组 -->
       <div v-if="hasEmptyCells" class="action-group empty-cells-group">
         <div class="group-header">
           <el-icon><View /></el-icon>
           <span class="group-title">空白单元格管理</span>
-          <el-tag size="mini" type="info">
+          <el-tag size="small" type="info">
             {{ emptyCellsStats?.total || 0 }}个
           </el-tag>
         </div>
@@ -89,15 +91,7 @@
             <el-icon><View /></el-icon>
             {{ showEmptyCellsHighlight ? '隐藏高亮' : '高亮空格' }}
           </el-button>
-          <el-button
-            v-if="isEditMode"
-            size="small"
-            type="warning"
-            @click="fillEmptyCellsWithZero"
-          >
-            <el-icon><Edit /></el-icon>
-            填充为0
-          </el-button>
+
           <el-button
             size="small"
             type="info"
@@ -115,7 +109,7 @@
           <el-icon><DataAnalysis /></el-icon>
           <span class="group-title">选中区域统计</span>
           <el-tag
-            size="mini"
+            size="small"
             :type="stats.selectionType === 'column' ? 'info' : 'success'"
           >
             {{ stats.selectionType === 'column' ? '整列' : '区域' }}
@@ -161,120 +155,130 @@
         </div>
       </div>
 
-      <!-- 当前单元格信息组 -->
-      <div v-if="showCellContent && selectedCell.position" class="action-group current-cell-group">
-        <div class="group-header">
-          <el-icon><Position /></el-icon>
-          <span class="group-title">当前单元格</span>
+      <!-- 当前单元格信息组 - 单行分块展示 -->
+    <div v-if="showCellContent && selectedCell.position" class="action-group current-cell-group compact-single-row">
+      <div class="group-header">
+        <el-icon><Position /></el-icon>
+        <span class="group-title">当前单元格</span>
+      </div>
+
+      <div class="single-row-content">
+        <!-- 第一块：基本信息 -->
+        <div class="info-block basic-info">
+          <!-- 位置 -->
+          <el-tag size="small" type="info" class="cell-position">
+            <el-icon><Position /></el-icon>
+            {{ selectedCell.position }}
+          </el-tag>
+
+          <!-- 类型 -->
+          <el-tag
+            size="small"
+            :type="getCellTypeTag(selectedCell.type)"
+            class="cell-type"
+          >
+            {{ selectedCell.type }}
+          </el-tag>
+
+          <!-- 修改状态 -->
+          <el-tag
+            v-if="selectedCell.isModified"
+            size="small"
+            type="danger"
+            class="cell-modified"
+          >
+            <el-icon><Edit /></el-icon>
+          </el-tag>
         </div>
-        <div class="cell-content-wrapper">
-          <!-- 位置和基本信息 -->
-          <div class="cell-info-row">
-            <el-tag size="small" type="info" class="cell-position">
-              <el-icon><Position /></el-icon>
-              {{ selectedCell.position }}
-            </el-tag>
 
-            <el-tag
-              size="small"
-              :type="getCellTypeTag(selectedCell.type)"
-              class="cell-type"
-            >
-              {{ selectedCell.type }}
-              <span v-if="selectedCell.format" class="format-text">
-                ({{ selectedCell.format }})
-              </span>
-            </el-tag>
+        <!-- 分隔线 -->
+        <div class="separator"></div>
 
-            <!-- 修改状态 -->
-            <el-tag
-              v-if="selectedCell.isModified"
-              size="small"
-              type="danger"
-              class="cell-modified"
-            >
-              <el-icon><Edit /></el-icon>
-              已修改
-            </el-tag>
+        <!-- 第二块：内容 -->
+        <div class="info-block cell-content-block">
+          <div
+            class="cell-content-display"
+            :class="{
+              'numeric-cell': selectedCell.isNumeric,
+              'formula-cell': selectedCell.isFormula,
+              'modified-cell': selectedCell.isModified,
+              'invalid-number': selectedCell.isNumeric && !selectedCell.isValidNumber,
+              'empty-cell': selectedCell.isEmpty
+            }"
+            :title="`${selectedCell.content || '[空]'} (${selectedCell.charCount}字符)`"
+          >
+            <span class="content-text">{{ selectedCell.content || '[空]' }}</span>
+            <span v-if="selectedCell.charCount > 0" class="char-count">
+              ({{ selectedCell.charCount }})
+            </span>
+          </div>
+        </div>
+
+        <!-- 分隔线 -->
+        <div class="separator"></div>
+
+        <!-- 第三块：状态信息 -->
+        <div class="info-block status-info">
+          <!-- 验证状态 -->
+          <div v-if="selectedCell.isNumeric && selectedCell.numberValidationMsg"
+               class="status-item validation-status"
+               :class="selectedCell.isValidNumber ? 'valid' : 'invalid'">
+            <el-icon v-if="selectedCell.isValidNumber"><Check /></el-icon>
+            <el-icon v-else><Warning /></el-icon>
+            <span class="status-text">{{ selectedCell.numberValidationMsg }}</span>
           </div>
 
-          <!-- 单元格内容展示 -->
-          <div class="cell-preview-row">
-            <div
-              class="cell-preview"
-              :class="{
-                'numeric-cell': selectedCell.isNumeric,
-                'formula-cell': selectedCell.isFormula,
-                'modified-cell': selectedCell.isModified,
-                'invalid-number': selectedCell.isNumeric && !selectedCell.isValidNumber,
-                'empty-cell': selectedCell.isEmpty
-              }"
-              :title="selectedCell.content"
-            >
-              {{ selectedCell.content || '[空]' }}
-            </div>
-
-            <!-- 操作按钮 -->
-            <div class="cell-actions" v-if="isEditMode && !selectedCell.isReadOnly">
-              <el-button
-                size="small"
-                type="primary"
-                link
-                @click="copyCellContent"
-                title="复制内容"
-              >
-                <el-icon><CopyDocument /></el-icon>
-              </el-button>
-              <el-button
-                size="small"
-                type="warning"
-                link
-                @click="editCellInModal"
-                title="编辑内容"
-              >
-                <el-icon><Edit /></el-icon>
-              </el-button>
-            </div>
+          <!-- 日期类型 -->
+          <div v-if="selectedCell.type === '日期'" class="status-item date-status">
+            <el-icon><Calendar /></el-icon>
+            <span class="status-text">日期</span>
           </div>
 
-          <!-- 详细信息 -->
-          <div class="cell-details-row">
-            <!-- 验证状态 -->
-            <div v-if="selectedCell.isNumeric && selectedCell.numberValidationMsg" class="validation-status">
-              <el-tag
-                size="small"
-                :type="selectedCell.isValidNumber ? 'success' : 'danger'"
-              >
-                {{ selectedCell.numberValidationMsg }}
-              </el-tag>
-            </div>
-
-            <!-- 日期类型 -->
-            <div v-if="selectedCell.type === '日期'" class="date-status">
-              <el-tag size="small" type="warning">
-                <el-icon><Calendar /></el-icon>
-                日期类型
-              </el-tag>
-            </div>
-
-            <!-- 元数据 -->
-            <div class="cell-meta">
-              <span class="meta-item">
-                <el-icon><Document /></el-icon>
-                {{ selectedCell.charCount }}字
-              </span>
-              <span v-if="selectedCell.lineCount > 1" class="meta-item">
-                <el-icon><Menu /></el-icon>
-                {{ selectedCell.lineCount }}行
-              </span>
-              <span v-if="selectedCell.isReadOnly" class="meta-item">
-                <el-icon><Lock /></el-icon>
-                只读
-              </span>
-            </div>
+          <!-- 格式信息 -->
+          <div v-if="selectedCell.format && selectedCell.format !== '文本'"
+               class="status-item format-info">
+            <el-icon><Document /></el-icon>
+            <span class="status-text">{{ selectedCell.format }}</span>
           </div>
+
+          <!-- 只读状态 -->
+          <div v-if="selectedCell.isReadOnly" class="status-item readonly-status">
+            <el-icon><Lock /></el-icon>
+            <span class="status-text">只读</span>
+          </div>
+        </div>
+
+        <!-- 分隔线 -->
+        <div class="separator"></div>
+
+        <!-- 第四块：操作按钮 -->
+        <div class="info-block action-buttons" v-if="isEditMode && !selectedCell.isReadOnly">
+          <el-button
+            size="small"
+            type="primary"
+            link
+            @click="copyCellContent"
+            title="复制内容"
+            class="action-btn"
+          >
+            <el-icon><CopyDocument /></el-icon>
+          </el-button>
+          <el-button
+            size="small"
+            type="warning"
+            link
+            @click="editCellInModal"
+            title="编辑内容"
+            class="action-btn"
+          >
+            <el-icon><Edit /></el-icon>
+          </el-button>
         </div>
       </div>
+    </div>
+
+
+
     </div>
 
     <!-- Handsontable 表格区域（保持不变） -->
@@ -305,6 +309,7 @@
         :key="langKey"
         @afterChange="onDataChange"
         @afterFilter="onFilter"
+        @after-init="onHotInit"
       />
 
       <div v-if="tableData.length === 0" class="empty-state">
@@ -323,12 +328,22 @@
 
 <script setup>
 
-import { watch, ref, computed, onMounted, onUnmounted, nextTick, defineEmits } from 'vue'
+import { registerLanguageDictionary, zhCN } from 'handsontable/i18n'
+// 注册中文语言包
+try {
+  registerLanguageDictionary(zhCN)
+  console.log('✅ 中文语言包已注册')
+} catch (error) {
+  console.warn('⚠️ 注册中文语言包失败，使用英文:', error.message)
+}
+
+import { watch, ref, computed, onMounted, onUnmounted, nextTick, defineEmits, defineProps } from 'vue'
+
 import { HotTable } from '@handsontable/vue3'
 import 'handsontable/dist/handsontable.full.css'
 import {
   Download, Edit, Check, Warning, DataAnalysis, Close, More, Menu, Document,
-  Grid, InfoFilled, Position, CopyDocument, Lock, Calendar, Finished
+  Grid, InfoFilled, Position, CopyDocument, Lock, Calendar, Finished, MagicStick, Bug
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -349,25 +364,75 @@ import {
 } from './excel-utils.js'
 
 
+// 实例一创建就暴露
+const onHotInit = () => {
+  const hot = hotTable.value?.hotInstance
+  if (hot && !hot.isDestroyed) {
+    window.__excelHotInstance = hot
+    console.log('⚡ Handsontable 实例已立即暴露', hot)
+  }
+}
 
 // ============ Props ============
-// 定义要发送的事件
-const emit = defineEmits(['cell-changed'])
+const emit = defineEmits([
+  'cell-changed',
+  'data-changed',
+  'edit-status-changed',
+  'cell-change',
+  'instance-ready'
+])
 
-// 创建回调函数
+
+// 2. 修改 handleCellChangeFromEdit 函数
 const handleCellChangeFromEdit = (cellInfo) => {
-  console.log('📤 从 useExcelEdit 收到单元格修改:', cellInfo)
+  console.log('📤 收到单元格修改:', {
+    行: cellInfo.row,
+    列: cellInfo.col,
+    旧值: cellInfo.oldValue,
+    新值: cellInfo.newValue
+  })
 
-  // 转发给父组件
+  // 发送原有事件（保持兼容）
   emit('cell-changed', {
     row: cellInfo.row,
     col: cellInfo.col,
     oldValue: cellInfo.oldValue,
     newValue: cellInfo.newValue,
     source: cellInfo.source,
+    timestamp: cellInfo.timestamp,
+    cellKey: cellInfo.cellKey
+  })
+
+  // 新增：发送给 sheetStateManager 的事件（关键！）
+  emit('cell-change', {
+    changes: [[cellInfo.row, cellInfo.col, cellInfo.oldValue, cellInfo.newValue]],
+    sheetName: props.sheetName,
+    pdfId: props.pdfId,
+    excelFileName: props.excelFileName,
+    source: cellInfo.source,
     timestamp: cellInfo.timestamp
   })
+
+  // 发送数据变化汇总事件
+  const hot = getSafeHotInstance()
+  if (hot) {
+    const allChanges = []
+    modifiedCells.value.forEach(cellKey => {
+      const [row, col] = cellKey.split(',').map(Number)
+      const value = hot.getDataAtCell(row, col)
+      allChanges.push({ row, col, value, cellKey })
+    })
+
+    emit('data-changed', {
+      totalChanges: modifiedCells.value.size,
+      hasChanges: hasChanges.value,
+      allChanges: allChanges,
+      modifiedCellsCount: modifiedCells.value.size
+    })
+  }
 }
+
+
 
 const props = defineProps({
   excelData: {
@@ -418,21 +483,61 @@ const {
 // 确保这个被导入
 } = useExcelData(props)
 
-// 编辑模式
+// 3. 修改 useExcelEdit 的初始化，传入回调
+// 在 useExcelTable 导入后，添加一个增强版的 getSafeHotInstance
+const getEnhancedHotInstance = () => {
+  // 先尝试使用导入的 getSafeHotInstance
+  const instance = getSafeHotInstance()
+
+  if (instance) {
+    // 验证实例是否有效
+    try {
+      if (instance.isDestroyed) {
+        console.warn('⚠️ 表格实例已销毁')
+        return null
+      }
+
+      const settings = instance.getSettings()
+      if (!settings) {
+        console.warn('⚠️ 无法获取表格设置')
+        return null
+      }
+
+      return instance
+    } catch (error) {
+      console.warn('⚠️ 验证表格实例失败:', error)
+      return null
+    }
+  }
+
+  return null
+}
+
+// 3. 修改 useExcelEdit 的初始化，传入回调
 const {
   isEditMode,
   hasChanges,
   saving,
   modifiedCellsCount,
   modifiedCells,
-  toggleEditMode: toggleEditModeInternal,
   saveChanges: saveChangesInternal,
   onDataChange,
   updateTableReadOnly,
   resetChanges,
+  savedCells,
+  unsavedCells,
   collectModifiedData,
-  updateModifiedCellsStyle
-} = useExcelEdit(getSafeHotInstance)
+  updateModifiedCellsStyle,
+  markSavedCells,
+  toggleEditMode: toggleEditModeFromHook,
+  // ============ 新增导入 ============
+  checkInstanceHealth,
+  refreshCache,
+  clearCache,
+  validateHotInstance,
+  getHotInstance: getHotInstanceFromHook
+} = useExcelEdit(getEnhancedHotInstance, handleCellChangeFromEdit)
+
 
 // 选择统计
 const {
@@ -444,7 +549,75 @@ const {
   setupColumnSelectionListener
 } = useExcelSelection(getSafeHotInstance)
 
-// ============ 计算属性 ============
+
+// 进入编辑模式后一次性标红所有历史修改
+const markAllModifiedRed = () => {
+  const hot = getSafeHotInstance()
+  if (!hot) return
+
+  const allModified = Array.from(modifiedCells.value) // modifiedCells 是 useExcelEdit 里的 Set
+  const cellMeta = []
+
+  allModified.forEach(key => {
+    const [row, col] = key.split(',').map(Number)
+    cellMeta.push({ row, col, className: 'cell-modified-red' })
+  })
+
+  hot.updateSettings({ cell: cellMeta }, false)
+  hot.render()
+}
+
+// 组件自己的 toggleEditMode 函数
+const toggleEditMode = () => {
+  console.log('🔘 编辑按钮被点击')
+
+  // 可选：先检查实例健康（如果函数存在）
+  if (checkInstanceHealth) {
+    try {
+      const health = checkInstanceHealth()
+      console.log('🔍 实例健康检查:', health)
+    } catch (error) {
+      console.warn('⚠️ 健康检查失败，但继续:', error)
+    }
+  } else {
+    console.log('ℹ️ checkInstanceHealth 函数不存在，跳过检查')
+  }
+
+  // 调用 hook 中的 toggleEditMode
+  toggleEditModeFromHook((message, type) => {
+    console.log('回调:', message, type)
+
+    // 显示消息
+    if (message && type) {
+      if (type === 'success') {
+        ElMessage.success(message)
+      } else if (type === 'info') {
+        ElMessage.info(message)
+      } else if (type === 'error') {
+        ElMessage.error(message)
+      } else if (type === 'warning') {
+        ElMessage.warning(message)
+      }
+    }
+
+    // 2. 一次性标红所有历史修改
+    nextTick(() => markAllModifiedRed())
+
+    // 切换后可选：验证实例（如果函数存在）
+    if (checkInstanceHealth) {
+      setTimeout(() => {
+        try {
+          const health = checkInstanceHealth()
+          console.log('✅ 切换后实例健康检查:', health)
+        } catch (error) {
+          console.warn('⚠️ 切换后健康检查失败:', error)
+        }
+      }, 100)
+    }
+
+
+  })
+}
 
 // 保持 computedColumns 不变
 const computedColumns = computed(() => {
@@ -459,6 +632,14 @@ const computedColumns = computed(() => {
   }))
 })
 
+const testCellStyles = () => {
+  const hot = getSafeHotInstance()
+  if (!hot) return
+
+  // 测试：修改一个单元格
+  hot.setDataAtCell(0, 0, '测试修改')
+  ElMessage.success('测试修改已完成，检查单元格颜色')
+}
 
 
 // 语言相关
@@ -609,41 +790,6 @@ const clearEmptyCellsHighlight = () => {
 }
 
 
-const fillEmptyCellsWithZero = () => {
-  const hot = getSafeHotInstance()
-  if (!hot || !hasEmptyCells.value) return
-
-  ElMessageBox.confirm(
-    `确定要将所有 ${emptyCellsStats?.total || 0} 个空白单元格填充为 0 吗？`,
-    '填充空白单元格',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
-    const emptyCells = detectEmptyCells.value
-    const changes = []
-
-    emptyCells.forEach(cellKey => {
-      const [row, col] = cellKey.split(',').map(Number)
-      changes.push([row, col, '', '0'])
-    })
-
-    // 批量更新单元格
-    hot.setDataAtCell(changes)
-
-    // 清除高亮
-    clearEmptyCellsHighlight()
-
-    ElMessage.success(`已填充 ${emptyCells.size} 个空白单元格为 0`)
-
-  }).catch(() => {
-    console.log('用户取消填充操作')
-  })
-}
-
-
 // 计算单元格位置（直接从原文件复制）
 const calculateCellPosition = (row, col) => {
   if (row === null || col === null) return ''
@@ -697,15 +843,13 @@ const setupCellSelectionListener = () => {
 }
 
 
-// 统一的选择监听器（处理单个单元格和区域选择）
+// 在 HandsontableExcelViewer.vue 中替换现有的 setupCompleteSelectionListener 函数
 const setupCompleteSelectionListener = () => {
   const hot = getSafeHotInstance()
   if (!hot) {
     console.warn('❌ 表格实例无效，无法设置选择监听器')
     return
   }
-
-  console.log('🔗 设置完整选择监听器...')
 
   // 清除旧的监听器（如果有）
   try {
@@ -716,38 +860,21 @@ const setupCompleteSelectionListener = () => {
 
   // 设置新的选择监听器
   hot.addHook('afterSelection', (startRow, startCol, endRow, endCol, preventScrolling, selectionLayerLevel) => {
-    console.log('🎯 选择事件触发:', {
-      startRow, startCol, endRow, endCol,
-      是否为单个单元格: startRow === endRow && startCol === endCol,
-      选择类型: startCol === endCol ? '单列' : '区域',
-      选择大小: `${Math.abs(endRow - startRow) + 1}行 × ${Math.abs(endCol - startCol) + 1}列`
-    })
 
     // 单个单元格选择
     if (startRow === endRow && startCol === endCol) {
       // 显示单元格详细信息
       updateSelectedCellDisplay(startRow, startCol)
       showStatsPanel.value = false // 隐藏统计面板
+      showCellContent.value = true // 显示单元格详情
     } else {
       // 区域选择：显示统计信息
       calculateSelectionStats(startRow, startCol, endRow, endCol)
       showCellContent.value = false // 隐藏单元格详情
+      showStatsPanel.value = true // 显示统计面板
     }
   })
 
-  // 监听数据变化（包括筛选）来更新统计
-  hot.addHook('afterFilter', () => {
-    console.log('🔍 筛选条件变化')
-    if (currentSelection.value) {
-      const { startRow, startCol, endRow, endCol } = currentSelection.value
-      // 如果当前选择是区域，更新统计
-      if (!(startRow === endRow && startCol === endCol)) {
-        calculateSelectionStats(startRow, startCol, endRow, endCol)
-      }
-    }
-  })
-
-  console.log('✅ 完整选择监听器已配置')
 }
 
 
@@ -758,8 +885,6 @@ const updateSelectedCellDisplay = (row, col) => {
     showCellContent.value = false
     return
   }
-
-  console.log('🔍 更新选中单元格显示:', { row, col })
 
   // 检查是否为有效的选择
     if (row === null || col === null) {
@@ -987,7 +1112,8 @@ const updateSelectedCellDisplay = (row, col) => {
       isEmpty: isActuallyEmpty,
       emptyType: emptyType,
       emptyReason: emptyReason,
-      isEmptyFromDetection: detectEmptyCells.value?.has(cellKey) || false,
+      // isEmptyFromDetection: detectEmptyCells.value?.has(cellKey) || false,
+      isEmptyFromDetection: detectEmptyCells.value ? detectEmptyCells.value.has(cellKey) : false,
 
       // 原始值（用于调试）
       rawValue: content,
@@ -1004,20 +1130,6 @@ const updateSelectedCellDisplay = (row, col) => {
     }
 
     showCellContent.value = true
-
-    console.log('🔍 选中单元格详情:', {
-      位置: selectedCell.value.position,
-      内容: `"${selectedCell.value.content}"`,
-      类型: selectedCell.value.type,
-      原始类型: selectedCell.value.rawType,
-      是否空白: selectedCell.value.isEmpty,
-      空白类型: selectedCell.value.emptyType,
-      空白原因: selectedCell.value.emptyReason,
-      是否修改: selectedCell.value.isModified,
-      是否只读: selectedCell.value.isReadOnly,
-      是否数字: selectedCell.value.isNumeric,
-      是否公式: selectedCell.value.isFormula
-    })
 
     nextTick(() => {
       const contentDisplay = document.querySelector('.cell-content-display')
@@ -1054,19 +1166,10 @@ const editCellInModal = () => {
 }
 
 // ============ 事件处理 ============
-
 const onFilter = (conditions) => {
   console.log('筛选条件:', conditions)
 }
 
-// 包装的编辑模式切换
-const toggleEditMode = () => {
-  toggleEditModeInternal((message, type) => {
-    if (type === 'success') {
-      ElMessage.success(message)
-    }
-  })
-}
 
 // 包装的保存更改
 const saveChanges = () => {
@@ -1091,9 +1194,207 @@ const saveChanges = () => {
     }
 
     const result = await response.json()
-    console.log('✅ 保存成功:', result)
   })
 }
+
+
+// 在 HandsontableExcelViewer.vue 的 script 部分添加
+const debugCellStyles = () => {
+  const hot = getSafeHotInstance()
+  if (!hot) {
+    console.log('❌ 表格实例无效')
+    return
+  }
+
+  console.log('=== 单元格样式调试 ===')
+
+  // 检查已应用的样式
+  const cellConfig = hot.getSettings().cell || []
+  console.log('📋 当前cell配置:', cellConfig.length, '条规则')
+
+  // 检查DOM中的样式
+  const unsavedInDOM = hot.rootElement.querySelectorAll('.unsaved-modified-cell')
+  const savedInDOM = hot.rootElement.querySelectorAll('.saved-modified-cell')
+
+}
+
+
+// 修复已保存单元格样式
+const forceFixSavedCellsStyles = () => {
+  console.log('🔧 强制修复已保存单元格样式...')
+
+  const hot = getSafeHotInstance()
+  if (!hot) return
+
+  try {
+    // 创建一个新的 cell 配置数组
+    const cellConfig = []
+
+    // 1. 先添加已保存单元格
+    savedCells.value.forEach(cellKey => {
+      const [row, col] = cellKey.split(',').map(Number)
+      cellConfig.push({
+        row: row,
+        col: col,
+        className: 'saved-modified-cell'
+      })
+    })
+
+    // 2. 再添加未保存单元格（如果有的话且是编辑模式）
+    if (isEditMode.value) {
+      unsavedCells.value.forEach(cellKey => {
+        const [row, col] = cellKey.split(',').map(Number)
+        cellConfig.push({
+          row: row,
+          col: col,
+          className: 'unsaved-modified-cell'
+        })
+      })
+    }
+
+    // 3. 应用配置
+    hot.updateSettings({
+      cell: cellConfig
+    }, false)
+
+    // 4. 强制重新渲染
+    hot.render()
+
+    // 5. 使用 cells 渲染器作为备份
+    hot.updateSettings({
+      cells: function(row, col, prop) {
+        const cellKey = `${row},${col}`
+        const base = {}
+
+        if (savedCells.value.has(cellKey)) {
+          base.className = 'saved-modified-cell'
+        }
+
+        if (isEditMode.value && unsavedCells.value.has(cellKey)) {
+          base.className = base.className ?
+            `${base.className} unsaved-modified-cell` :
+            'unsaved-modified-cell'
+        }
+
+        return base
+      }
+    })
+
+    hot.render()
+
+    console.log('✅ 已保存单元格样式修复完成')
+
+    // 验证
+    setTimeout(() => {
+      const savedInDOM = hot.rootElement.querySelectorAll('.saved-modified-cell')
+      console.log('✅ 修复后验证:', {
+        DOM中已保存单元格: savedInDOM.length,
+        预期数量: savedCells.value.size
+      })
+    }, 300)
+
+  } catch (error) {
+    console.error('❌ 修复已保存单元格样式失败:', error)
+  }
+}
+
+// 批量标记多个单元格
+const markMultipleCellsAsSaved = (cells) => {
+  console.log('📦 markMultipleCellsAsSaved 被调用:', cells?.length || 0)
+
+  if (!cells || !Array.isArray(cells)) {
+    console.warn('❌ 参数无效')
+    return { success: false, message: '参数无效' }
+  }
+
+  const savedCellKeys = []
+
+  cells.forEach(cell => {
+    if (cell.row !== undefined && cell.col !== undefined) {
+      savedCellKeys.push(`${cell.row},${cell.col}`)
+    } else if (typeof cell === 'string' && cell.includes(',')) {
+      savedCellKeys.push(cell)
+    }
+  })
+
+  return markSavedCells(savedCellKeys)
+}
+
+// 清除所有已保存标记
+const clearSavedMarks = () => {
+  console.log('🧹 清除所有已保存标记...')
+
+  savedCells.value.clear()
+
+  const hot = getSafeHotInstance()
+  if (hot) {
+    try {
+      const currentCellConfig = hot.getSettings().cell || []
+      const filteredConfig = currentCellConfig.filter(config => {
+        const className = config.className || ''
+        return !className.includes('saved-modified-cell')
+      })
+
+      hot.updateSettings({
+        cell: filteredConfig
+      }, false)
+
+      hot.render()
+
+      console.log('✅ 所有已保存标记已清除')
+    } catch (error) {
+      console.warn('⚠️ 清除已保存标记失败:', error)
+    }
+  }
+
+  return { success: true, message: '已保存标记已清除' }
+}
+
+// 获取当前已保存单元格状态
+const getSavedCellsState = () => {
+  return {
+    savedCells: Array.from(savedCells.value),
+    unsavedCells: Array.from(unsavedCells.value),
+    modifiedCells: Array.from(modifiedCells.value),
+    count: {
+      saved: savedCells.value.size,
+      unsaved: unsavedCells.value.size,
+      total: modifiedCells.value.size
+    }
+  }
+}
+
+// 调试方法
+const debugSavedCells = () => {
+  console.log('=== 已保存单元格调试信息 ===')
+
+  const state = getSavedCellsState()
+  console.log('📊 保存状态:', state.count)
+
+  console.log('📋 已保存单元格详情:')
+  state.savedCells.forEach((cellKey, index) => {
+    console.log(`  ${index + 1}. ${cellKey}`)
+  })
+
+  const hot = getSafeHotInstance()
+  if (hot) {
+    const savedInDOM = hot.rootElement.querySelectorAll('.saved-modified-cell')
+    console.log('🎯 DOM中的已保存单元格:', savedInDOM.length)
+
+    // 检查样式是否应用
+    state.savedCells.forEach(cellKey => {
+      const [row, col] = cellKey.split(',').map(Number)
+      const cell = hot.getCell(row, col)
+      if (cell) {
+        const hasClass = cell.classList.contains('saved-modified-cell')
+        console.log(`  [${row},${col}] - DOM类名: "${cell.className}"`, hasClass ? '✅' : '❌')
+      }
+    })
+  }
+
+  console.log('=== 调试结束 ===')
+}
+
 
 
 // 实际的表格高度计算
@@ -1135,6 +1436,24 @@ const forceFixStyles = () => {
 }
 
 
+// 在 HandsontableExcelViewer.vue 的 setup 函数中添加
+const verifyTableInstance = () => {
+  const hot = getSafeHotInstance()
+  if (hot) {
+
+    // 确保编辑模式与表格状态一致
+    if (isEditMode.value && hot.getSettings().readOnly) {
+      console.warn('⚠️ 表格状态不一致，正在修复...')
+      hot.updateSettings({ readOnly: false }, false)
+      hot.render()
+    }
+
+  } else {
+    console.warn('❌ 表格实例验证失败')
+  }
+}
+
+
 // 监听 tableData 变化
 watch(() => tableData.value, () => {
   console
@@ -1150,22 +1469,19 @@ watch(() => tableData.value, () => {
 
 
 
-onMounted(() => {
-  // 设置全局回调
-  window.__onDataChange = (changes, source) => {
-    if (onDataChange) {
-      console.log('🎯 通过全局回调触发 onDataChange')
-      onDataChange(changes, source)
+// 在 HandsontableExcelViewer.vue 中添加监控函数
+const monitorEditMode = () => {
+  setInterval(() => {
+    const hot = getSafeHotInstance()
+    if (hot && isEditMode.value) {
+      // 确保表格不在只读状态
+      if (hot.getSettings().readOnly) {
+        console.warn('⚠️ 检测到表格意外变为只读，正在修复...')
+        hot.updateSettings({ readOnly: false }, false)
+      }
     }
-  }
-
-  // 强制初始化事件监听
-  setTimeout(() => {
-    if (setupEventListeners) {
-      setupEventListeners()
-    }
-  }, 500)
-})
+  }, 1000) // 每秒检查一次
+}
 
 
 // 监听 modifiedCells 的变化
@@ -1289,36 +1605,126 @@ watch(isEditMode, (newValue, oldValue) => {
 })
 
 onUnmounted(() => {
-  console.log('🔧 开始清理组件资源...')
+
   cleanup()
 
   // 清理全局实例
   if (window.excelViewerInstance) {
     delete window.excelViewerInstance
-    console.log('✅ 全局实例已清理')
   }
 
   // 安全销毁 Handsontable 实例
   if (hotTable.value?.hotInstance && !hotTable.value.hotInstance.isDestroyed) {
     try {
-      console.log('🔧 正在销毁 Handsontable 实例...')
       hotTable.value.hotInstance.destroy()
-      console.log('✅ Handsontable 实例已安全销毁')
     } catch (error) {
       console.log('ℹ️ 清理 Handsontable 实例:', error.message)
     }
   }
 
-  console.log('✅ 组件资源清理完成')
 })
+
+
+// 在 HandsontableExcelViewer.vue 中添加
+const getHotInstanceWithRetry = (maxRetries = 3, delay = 100) => {
+  return new Promise((resolve) => {
+    const tryGetInstance = (retryCount = 0) => {
+      const instance = getEnhancedHotInstance()
+
+      if (instance) {
+        resolve(instance)
+        return
+      }
+
+      if (retryCount < maxRetries) {
+        setTimeout(() => tryGetInstance(retryCount + 1), delay)
+      } else {
+        console.warn(`❌ 获取实例失败，达到最大重试次数 ${maxRetries}`)
+        resolve(null)
+      }
+    }
+    tryGetInstance()
+
+  })
+}
+
+
+const restoreCellStates = (states) => {
+
+  if (states.savedCells) {
+    savedCells.value = new Set(states.savedCells)
+  }
+  if (states.unsavedCells) {
+    unsavedCells.value = new Set(states.unsavedCells)
+  }
+  if (states.modifiedCells) {
+    modifiedCells.value = new Set(states.modifiedCells)
+  }
+
+  // 更新样式
+  forceFixSavedCellsStyles()
+
+  return {
+    success: true,
+    message: '单元格状态已恢复'
+  }
+}
 
 // ============ 暴露方法 ============
 defineExpose({
   exportData,
   verifyTableStructure,
   clearSelection,
-  getSafeHotInstance
+  getSafeHotInstance,
+
+  // 新增的保存相关方法
+  markSavedCells,
+  markMultipleCellsAsSaved,
+  forceFixSavedCellsStyles,
+  clearSavedMarks,
+  getSavedCellsState,
+  debugSavedCells,
+  restoreCellStates,
+
+  // 新增：编辑和实例管理方法
+  toggleEditMode,
+  saveChanges: saveChangesInternal,
+  checkInstanceHealth: checkInstanceHealth || (() => ({ healthy: false, reason: '未定义' })),
+  refreshCache: refreshCache || (() => ({ success: false, message: '未定义' })),
+  validateHotInstance: validateHotInstance || (() => false),
+
+  // 原有方法
+  forceFixStyles
 })
+
+onMounted(() => {
+  /* 1. 全局数据变化回调（已有） */
+  window.__onDataChange = (changes, source) => {
+    if (onDataChange) onDataChange(changes, source)
+  }
+
+  /* 2. 防止 ESC 退出编辑模式（已有） */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isEditMode.value) {
+      e.stopPropagation()
+    }
+  })
+
+  /* 3. 🔥 主动暴露实例（新增） */
+  const tryExpose = () => {
+    const hot = hotTable.value?.hotInstance
+    if (hot && !hot.isDestroyed) {
+      window.__excelHotInstance = hot
+      console.log('⚡ Handsontable 实例已主动暴露', hot)
+    } else {
+      // 如果实例还没好，0.2s 后再试一次
+      setTimeout(tryExpose, 200)
+    }
+  }
+  tryExpose()
+})
+
+
 </script>
 
 
@@ -1797,25 +2203,6 @@ defineExpose({
   border: 1px solid #ff7a45 !important;
 }
 
-/* 修改单元格的样式 */
-:deep(.handsontable td.modified-cell) {
-  background-color: #fff2e8 !important;
-  border: 2px solid #ff7a45 !important;
-  position: relative;
-}
-
-/* 修改标记小圆点 */
-:deep(.handsontable td.modified-cell::after) {
-  content: '';
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 6px;
-  height: 6px;
-  background-color: #ff4d4f;
-  border-radius: 50%;
-  z-index: 100;
-}
 
 /* 编辑模式下的单元格悬停效果 */
 :deep(.handsontable .htCore td:not(.modified-cell):hover) {
@@ -1961,6 +2348,414 @@ defineExpose({
     gap: 4px;
   }
 }
+
+
+/* ====================
+   单行分块展示样式
+   ==================== */
+.current-cell-group.compact-single-row {
+  border-left: 3px solid #fa8c16;
+  padding: 6px 12px;
+  min-height: 40px;
+}
+
+.compact-single-row .group-header {
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.compact-single-row .group-title {
+  font-size: 12px;
+  color: #666;
+}
+
+.single-row-content {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 32px;
+}
+
+/* 信息块通用样式 */
+.info-block {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 100%;
+}
+
+/* 分隔线 */
+.separator {
+  width: 1px;
+  height: 20px;
+  background: #e0e0e0;
+  margin: 0 4px;
+}
+
+/* 第一块：基本信息 */
+.basic-info {
+  min-width: 120px;
+}
+
+.basic-info .el-tag {
+  height: 22px;
+  line-height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.basic-info .cell-position {
+  background: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #666;
+  min-width: 50px;
+  justify-content: center;
+}
+
+.basic-info .cell-type {
+  min-width: 40px;
+  justify-content: center;
+}
+
+.basic-info .cell-modified {
+  width: 22px;
+  min-width: 22px;
+  justify-content: center;
+  padding: 0;
+}
+
+.basic-info .cell-modified .el-icon {
+  font-size: 12px;
+}
+
+/* 第二块：内容显示 */
+.cell-content-block {
+  flex: 1;
+  min-width: 120px;
+  max-width: 250px;
+}
+
+.cell-content-display {
+  flex: 1;
+  padding: 4px 8px;
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 3px;
+  font-family: 'Consolas', monospace;
+  font-size: 12px;
+  color: #333;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  cursor: default;
+}
+
+.content-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.char-count {
+  font-size: 10px;
+  color: #888;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* 单元格内容样式变体 */
+.cell-content-display.numeric-cell {
+  text-align: right;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.cell-content-display.formula-cell {
+  font-style: italic;
+  color: #1677ff;
+  background-color: #f0f6ff;
+}
+
+.cell-content-display.modified-cell {
+  background-color: #fff7e6;
+  border-color: #ffd591;
+}
+
+.cell-content-display.invalid-number {
+  background-color: #fff2f0 !important;
+  border-color: #ffccc7 !important;
+  color: #ff4d4f;
+}
+
+.cell-content-display.empty-cell {
+  background-color: #f0f9ff;
+  border: 1px dashed #1890ff;
+  color: #666;
+}
+
+/* 第三块：状态信息 */
+.status-info {
+  min-width: 160px;
+  max-width: 200px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  height: 18px;
+}
+
+.status-item .el-icon {
+  font-size: 10px;
+}
+
+.status-item .status-text {
+  white-space: nowrap;
+}
+
+/* 验证状态 */
+.validation-status.valid {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.validation-status.invalid {
+  background-color: #fff2f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+/* 日期状态 */
+.date-status {
+  background-color: #fff7e6;
+  color: #fa8c16;
+  border: 1px solid #ffd591;
+}
+
+/* 格式信息 */
+.format-info {
+  background-color: #f0f9ff;
+  color: #1890ff;
+  border: 1px solid #91d5ff;
+}
+
+/* 只读状态 */
+.readonly-status {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 1px solid #d9d9d9;
+}
+
+/* 第四块：操作按钮 */
+.action-buttons {
+  min-width: 60px;
+  justify-content: flex-end;
+}
+
+.action-buttons .action-btn {
+  padding: 4px;
+  height: 24px;
+  width: 24px;
+  min-width: 24px;
+}
+
+.action-buttons .action-btn .el-icon {
+  font-size: 14px;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .single-row-content {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .separator {
+    display: none;
+  }
+
+  .info-block {
+    padding: 4px 0;
+  }
+
+  .basic-info {
+    order: 1;
+    flex: 1;
+  }
+
+  .cell-content-block {
+    order: 3;
+    flex: 2;
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .status-info {
+    order: 2;
+    flex: 1;
+    justify-content: flex-end;
+    min-width: auto;
+    max-width: none;
+  }
+
+  .action-buttons {
+    order: 4;
+    flex: 0;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .compact-single-row {
+    padding: 4px 8px;
+  }
+
+  .cell-content-display {
+    font-size: 11px;
+    padding: 3px 6px;
+    height: 22px;
+  }
+
+  .basic-info .el-tag {
+    height: 20px;
+    line-height: 18px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .status-item {
+    font-size: 10px;
+  }
+}
+
+
+/* 在 HandsontableExcelViewer.vue 的 style 部分添加，确保在最后面 */
+/* 使用最高优先级的选择器 */
+.handsontable-excel-viewer :deep(.handsontable td.modified-cell),
+.handsontable-excel-viewer :deep(.handsontable .htCore td.modified-cell),
+.handsontable-excel-viewer :deep(.handsontable .htCore tbody tr td.modified-cell),
+.handsontable-excel-viewer :deep(.handsontable .htCore thead tr th.modified-cell) {
+  background-color: #ffd8d2 !important;
+  border: 1px solid #ff7875 !important;
+  position: relative;
+  z-index: 10;
+}
+
+/* 修改标记小圆点 */
+.handsontable-excel-viewer :deep(.handsontable td.modified-cell::after),
+.handsontable-excel-viewer :deep(.handsontable .htCore td.modified-cell::after) {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+  z-index: 100;
+}
+
+
+
+
+
+/* 关键：使用正确的类名 */
+/* 方法1：使用 !important 提高优先级 */
+:deep(.handsontable td.modified-cell) {
+  background-color: #ffd8d2 !important;
+  border: 2px solid #ff7875 !important;
+  position: relative !important;
+}
+
+/* 方法2：使用更具体的选择器 */
+.handsontable-excel-viewer :deep(.handsontable td.modified-cell),
+.handsontable-excel-viewer :deep(.handsontable .htCore td.modified-cell) {
+  background-color: #ffd8d2 !important;
+  border: 2px solid #ff7875 !important;
+}
+
+/* 方法3：如果上面的不行，尝试覆盖所有可能的td */
+.handsontable-excel-viewer :deep(.handsontable td[class*="modified"]),
+.handsontable-excel-viewer :deep(.handsontable td.modified),
+.handsontable-excel-viewer :deep(.handsontable .modified) {
+  background-color: #ffd8d2 !important;
+  border-color: #ff7875 !important;
+}
+
+/* 修改标记小圆点 */
+.handsontable-excel-viewer :deep(.handsontable td.modified-cell::after) {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  background-color: #ff4d4f;
+  border-radius: 50%;
+  z-index: 100;
+  display: block !important;
+}
+
+
+
+/* 确保编辑模式下的样式正确应用 */
+.edit-mode :deep(.handsontable .htCore td:not([readonly])) {
+  background-color: #f9f9f9 !important;
+  border: 1px solid #d9d9d9 !important;
+}
+
+/* 编辑模式下单元格可编辑 */
+.edit-mode :deep(.handsontable .htCore td) {
+  cursor: cell !important;
+}
+
+/* 非编辑模式下单元格不可编辑 */
+:not(.edit-mode) :deep(.handsontable .htCore td) {
+  cursor: default !important;
+}
+
+
+/* ===== 方案 A：只要改过就永久红色 ===== */
+.handsontable-excel-viewer
+  :deep(.handsontable td.saved-modified-cell),
+.handsontable-excel-viewer
+  :deep(.handsontable td.unsaved-modified-cell) {
+  background-color: #ffd8d2 !important;
+  border: 2px solid #ff7875 !important;
+  position: relative;
+}
+
+/* 红色圆点 */
+.handsontable-excel-viewer
+  :deep(.handsontable td.saved-modified-cell::after),
+.handsontable-excel-viewer
+  :deep(.handsontable td.unsaved-modified-cell::after) {
+  content: '' !important;
+  position: absolute !important;
+  top: 3px !important;
+  right: 3px !important;
+  width: 6px !important;
+  height: 6px !important;
+  background-color: #ff4d4f !important;
+  border-radius: 50% !important;
+  z-index: 100 !important;
+}
+
 </style>
 
 

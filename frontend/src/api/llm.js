@@ -79,8 +79,6 @@ const processImage = async (data) => {
 }
 
 
-
-
 // 导出可视化报告
 const exportVisualizationReport = async (data) => {
   try {

@@ -4,22 +4,37 @@ import { computed } from 'vue'
 export default function useExcelData(props) {
   // ============ 计算属性 ============
 
-  // tableData 计算属性（保持与原文件完全一致）
+
+  // tableData 计算属性 - 修复版本
   const tableData = computed(() => {
-    if (!props.excelData || props.excelData.length === 0) {
-      console.log('📊 tableData: 数据为空或长度为0')
+    console.log('🔄 tableData computed 触发')
+
+    // 1. 检查数据是否存在
+    if (!props.excelData) {
+      console.log('📊 tableData: props.excelData 为 undefined')
+      return []
+    }
+
+    if (!Array.isArray(props.excelData)) {
+      console.warn('⚠️ tableData: props.excelData 不是数组', props.excelData)
+      return []
+    }
+
+    if (props.excelData.length === 0) {
+      console.log('📊 tableData: 数据长度为0')
       return []
     }
 
     console.log('📊 接收到的原始数据:', {
       长度: props.excelData.length,
       第一个元素类型: typeof props.excelData[0],
-      第一个元素: props.excelData[0]
+      第一个元素: props.excelData[0],
+      第一个元素的键: Object.keys(props.excelData[0] || {})
     })
 
     const firstItem = props.excelData[0]
 
-    // 检查是否有双表头元数据（旧结构）
+    // 2. 双表头逻辑
     if (firstItem?.__metadata?.has_dual_headers) {
       console.log('✅ 检测到双表头元数据（旧结构）')
 
@@ -84,16 +99,6 @@ export default function useExcelData(props) {
 
         renderedTable.push(row)
 
-        // 调试输出前3行
-        if (rowIndex < 3) {
-          console.log(`📊 第 ${rowIndex + 2} 行:`, row.slice(0, 4))
-        }
-      })
-
-      console.log('✅ 表格构建完成（旧结构）:', {
-        总行数: renderedTable.length,
-        总列数: renderedTable[0]?.length || 0,
-        示例: renderedTable.slice(0, 3).map(row => row.slice(0, 4))
       })
 
       // ==================== 新增：添加空白行和列 ====================
@@ -111,45 +116,55 @@ export default function useExcelData(props) {
       })
       // ==================== 结束新增 ====================
 
-      console.log('✅ 添加空白行列后:', {
-        最终行数: renderedTable.length,
-        最终列数: renderedTable[0]?.length || 0
-      })
-
       return renderedTable
     }
 
-    // ============ 单表头逻辑 ============
+    // 3. 单表头逻辑
     console.log('📊 单表头模式')
 
     // 获取表头
     let headers = []
-    if (firstItem.__orderedHeaders) {
+
+    // 首先检查是否有 __orderedHeaders
+    if (firstItem.__orderedHeaders && Array.isArray(firstItem.__orderedHeaders)) {
       headers = firstItem.__orderedHeaders
+      console.log('📊 使用 __orderedHeaders:', headers)
     } else {
       // 提取非 __ 开头的属性作为表头
-      headers = Object.keys(firstItem || {}).filter(key => !key.startsWith('__'))
+      const allKeys = Object.keys(firstItem || {})
+      headers = allKeys.filter(key => !key.startsWith('__'))
+
     }
 
+    // 如果还是没有表头，创建默认表头
     if (!headers.length) {
-      console.warn('⚠️ 未找到表头')
-      return []
+      console.warn('⚠️ 未找到表头，使用默认表头')
+
+      // 计算数据中的最大列数
+      let maxColumns = 0
+      for (const row of props.excelData) {
+        if (row && typeof row === 'object') {
+          const validKeys = Object.keys(row).filter(key => !key.startsWith('__'))
+          maxColumns = Math.max(maxColumns, validKeys.length)
+        }
+      }
+
+      headers = Array.from({ length: Math.max(maxColumns, 1) }, (_, i) => `列${i+1}`)
+
     }
+
 
     // 构建数据
-    const result = props.excelData.map(row => {
+    const result = props.excelData.map((row, rowIndex) => {
       return headers.map(header => {
         const value = row[header]
         // 处理可能的 null/undefined
-        return value !== null && value !== undefined ? String(value) : ''
+        if (value === null || value === undefined || value === '') {
+          return ''
+        }
+        // 确保返回字符串
+        return String(value)
       })
-    })
-
-    console.log('📊 单表头构建完成:', {
-      行数: result.length,
-      列数: result[0]?.length || 0,
-      表头: headers,
-      第一行数据: result[0]
     })
 
     // ==================== 新增：单表头模式也添加空白行和列 ====================
@@ -167,15 +182,15 @@ export default function useExcelData(props) {
         }
       })
 
-      console.log('✅ 添加空白行列后:', {
-        最终行数: result.length,
-        最终列数: result[0]?.length || 0
-      })
+
+    } else {
+      console.warn('⚠️ 结果为空，不添加空白行列')
     }
     // ==================== 结束新增 ====================
 
     return result
   })
+
 
   // ============ 其他计算属性 ============
 
