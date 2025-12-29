@@ -22,36 +22,25 @@
               {{ showFlatMode ? '数据二维化' : '数据扁平化' }}
             </el-button>
 
-            <el-button-group size="small" class="save-buttons" :key="`save-buttons-${forceUpdateKey}`">
+            <el-button-group
+              size="small"
+              class="save-buttons"
+              :key="`save-${forceUpdateKey}-${props.hasUnsavedChanges}`">
               <el-button
-                  type="warning"
-                  :disabled="!props.selectedSheet || !props.hasUnsavedChanges"
-                  @click="$emit('save-data', 'draft')"
-                  :loading="saving && saveType === 'draft'"
-                >
-                  <el-icon><Document /></el-icon>
-                  保存草稿
-                </el-button>
-
+                type="warning"
+                :class="{ 'is-disabled': !(props.selectedSheet && props.hasUnsavedChanges) }"
+                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'draft')">
+                保存草稿
+              </el-button>
               <el-button
                 type="success"
-                :disabled="!props.selectedSheet || !props.hasUnsavedChanges"
-                @click="$emit('save-data', 'final')"
-                :loading="saving && saveType === 'final'"
-              >
-                <el-icon><Check /></el-icon>
+                :class="{ 'is-disabled': !(props.selectedSheet && props.hasUnsavedChanges) }"
+                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'final')">
                 最终保存
               </el-button>
-
-              <el-button
-                type="info"
-                :disabled="!props.selectedSheet"
-                @click="$emit('restore-unsaved-data')"
-              >
-                <el-icon><Refresh /></el-icon>
-                恢复修改
-              </el-button>
             </el-button-group>
+
+
           </div>
 
         </div>
@@ -457,6 +446,23 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
 const hasMod = computed(() => props.hasUnsavedChanges)   // 父组件给的 props
 window.$hasMod = hasMod                                  // 挂到 window
 onMounted(() => { window.$hasMod = hasMod })             // 确保挂载后可用
+
+// ============ 暴露给父组件的实例与方法 ============
+defineExpose({
+  originalViewer,
+  flatViewer,
+  checkSaveButtons,
+  debugExcelContent: {
+    checkButtons: checkSaveButtons,
+    getProps: () => ({
+      hasUnsavedChanges: props.hasUnsavedChanges,
+      selectedSheet: props.selectedSheet,
+      selectedPdf: props.selectedPdf,
+      selectedExcelFile: props.selectedExcelFile
+    }),
+    enableSaveButtons: () => enableSaveButtons.value
+  }
+})
 
 
 </script>

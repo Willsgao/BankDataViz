@@ -113,9 +113,22 @@ class SheetStateManager {
   }
 
 
-  // ============ 修改记录管理 ============
+     // ============ 修改记录管理 ============
     async recordCellChange(row, col, oldValue, newValue, tableType = null) {
       console.log('🔍 SheetStateManager.recordCellChange 入口', { row, col, newValue })
+
+      // 🔥 关键：先验证参数类型（新增代码）
+      const safeRow = Math.max(0, parseInt(row, 10) || 0);
+      const safeCol = Math.max(0, parseInt(col, 10) || 0);
+
+      if (isNaN(safeRow) || isNaN(safeCol)) {
+        console.error('❌ 无效的行列参数:', { row, col, safeRow, safeCol });
+        return false;
+      }
+
+      // 使用安全值替换原始值（新增代码）
+      row = safeRow;
+      col = safeCol;
 
       const contextTableType = tableType || (this.activeContext?.tableType || 'original')
       const state = this.getActiveSheetState()
@@ -179,32 +192,44 @@ class SheetStateManager {
       this.triggerUpdate.value++
       console.log(`🔄 触发响应式更新，计数器: ${this.triggerUpdate.value}`)
 
-
-
-      // ===== 同步刷样式（不 await、不抛错）=====
-    // ===== 同步刷样式 =====
-    let hot = window.__excelHotInstance
-    if (!hot || hot.isDestroyed) {
-      // 兜底：从 ref 再摸一次
-      const hotTable = document.querySelector('.handsontable')?.__vueParentComponent?.refs?.hotTable
-      hot = hotTable?.hotInstance
-      if (hot && !hot.isDestroyed) {
-        window.__excelHotInstance = hot   // 立即补挂
-        console.log('🔁 兜底拿到实例并写回', hot)
+      // ===== 同步刷样式 =====
+      let hot = window.__excelHotInstance
+      if (!hot || hot.isDestroyed) {
+        // 兜底：从 ref 再摸一次
+        const hotTable = document.querySelector('.handsontable')?.__vueParentComponent?.refs?.hotTable
+        hot = hotTable?.hotInstance
+        if (hot && !hot.isDestroyed) {
+          window.__excelHotInstance = hot   // 立即补挂
+          console.log('🔁 兜底拿到实例并写回', hot)
+        }
       }
-    }
-    if (hot && !hot.isDestroyed) {
-      hot.setCellMeta(row, col, 'className', 'unsaved-modified-cell')
-      hot.render()
-      console.log(`✅ 已强制加类名并 render [${row},${col}]`)
-    } else {
-      console.warn('⚠️ 实例无效，没刷样式')
-    }
+
+      // 🔥 注意：这里直接使用已经转换过的 row 和 col，不需要再次转换
+      console.log('🔍 最终行列:', { row, col, type: `${typeof row},${typeof col}` });
+
+      if (hot && !hot.isDestroyed) {
+        try {
+          // 确保行列在有效范围内（新增范围检查）
+          const maxRow = hot.countRows() - 1;
+          const maxCol = hot.countCols() - 1;
+
+          if (row > maxRow || col > maxCol) {
+            console.warn(`⚠️ 行列超出范围: [${row},${col}] 最大: [${maxRow},${maxCol}]`);
+            console.log('⏭️ 跳过样式设置');
+          } else {
+            hot.setCellMeta(row, col, 'className', 'unsaved-modified-cell');
+            hot.render();
+            console.log(`✅ 已强制加类名并 render [${row},${col}]`);
+          }
+        } catch (error) {
+          console.error('❌ 设置单元格样式失败:', error);
+        }
+      } else {
+        console.warn('⚠️ 实例无效，没刷样式');
+      }
 
       return true
     }
-
-
 
   // ============ 查询方法 ============
   getUnsavedChangesCount(tableType = null) {

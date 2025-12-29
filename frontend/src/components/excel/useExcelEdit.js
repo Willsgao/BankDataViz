@@ -129,9 +129,13 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   }
 
   // ============ 核心修复：处理单元格修改 ============
-  const onDataChange = (changes, source) => {
+  // ============ 核心修复：处理单元格修改 ============
+const onDataChange = (changes, source) => {
   console.log('🎯 onDataChange 被执行', changes, source);
   if (!changes || source === 'loadData') return;
+
+  // 先收集所有修改
+  const modifiedCells = [];
 
   changes.forEach(([row, col, oldVal, newVal]) => {
     if (oldVal == newVal) return;          // 宽松比较
@@ -139,10 +143,43 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     console.log('🚀 写入前 unsavedCells.size', unsavedCells.value.size);
     unsavedCells.value.add(cellKey);
     console.log('✅ 写入后 unsavedCells.size', unsavedCells.value.size, 'key', cellKey);
+
+    // 记录修改信息
+    modifiedCells.push({
+      row,
+      col,
+      oldValue: oldVal,
+      newValue: newVal,
+      cellKey
+    });
   });
+
   unsavedCellsTick.value++;
   updateModifiedCellsCount();
+
+  // 🔥 关键：触发回调函数，通知父组件
+  if (typeof onCellChangeCallback === 'function' && modifiedCells.length > 0) {
+    // 1. 触发单个单元格修改事件
+    modifiedCells.forEach(cellInfo => {
+      onCellChangeCallback({
+        ...cellInfo,
+        source,
+        timestamp: Date.now()
+      });
+    });
+
+    // 2. 触发批量修改事件
+    onCellChangeCallback({
+      type: 'data-changed',
+      totalChanges: unsavedCells.value.size,
+      hasChanges: true,
+      allChanges: modifiedCells,
+      modifiedCellsCount: unsavedCells.value.size,
+      isEditMode: true
+    });
+  }
 };
+
 
 
   const updateModifiedCellsCount = () => {
@@ -213,6 +250,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   // 1. 为未保存的单元格添加红色样式
   unsavedCells.value.forEach(cellKey => {
     const [row, col] = cellKey.split(',').map(Number);
+    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return;
     cellConfig.push({
       row: row,
       col: col,
@@ -223,6 +261,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   // 2. 为已保存的单元格添加蓝色样式（如果需要）
   savedCells.value.forEach(cellKey => {
     const [row, col] = cellKey.split(',').map(Number);
+    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return;
     cellConfig.push({
       row: row,
       col: col,
@@ -381,7 +420,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         }
       }
     }
-
 
 
     /* 把单元格标成红色（仅未保存的） */

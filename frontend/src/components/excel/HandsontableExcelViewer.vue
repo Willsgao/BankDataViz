@@ -880,6 +880,20 @@ const setupCompleteSelectionListener = () => {
 
 // 更新选中单元格显示（增强空白单元格检测）
 const updateSelectedCellDisplay = (row, col) => {
+
+  // 新增：立即拦截非法坐标
+  if (
+    row == null ||
+    col == null ||
+    row < 0 ||
+    col < 0 ||
+    !Number.isInteger(row) ||
+    !Number.isInteger(col)
+  ) {
+    console.warn('🚫 非法单元格坐标', { row, col });
+    return;
+  }
+
   const hot = getSafeHotInstance()
   if (!hot) {
     showCellContent.value = false
