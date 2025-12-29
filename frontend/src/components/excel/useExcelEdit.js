@@ -1,5 +1,24 @@
 // frontend/src/components/excel/useExcelEdit.js
 import { ref, computed, watch, nextTick, onUnmounted  } from 'vue'
+import sheetStateManager from '@/utils/SheetStateManager.js'
+
+/* -------- 极简 IndexedDB 工具（inline） -------- */
+import { openDB } from 'idb'   // 如果没装 idb：npm i idb
+
+const dbPromise = openDB('excelDB', 1, {
+  upgrade(db) {
+    if (!db.objectStoreNames.contains('drafts')) {
+      db.createObjectStore('drafts')   // keyPath 默认用 key
+    }
+  }
+})
+
+const idb = {
+  get: (store, key)       => dbPromise.then(db => db.get(store, key)),
+  set: (store, key, val)  => dbPromise.then(db => db.put(store, val, key)),
+  del: (store, key)       => dbPromise.then(db => db.delete(store, key))
+}
+/* ---------------------------------------------- */
 
 export default function useExcelEdit(externalGetHotInstance, onCellChangeCallback = null) {
   console.log('🔄 useExcelEdit 初始化，回调:', typeof onCellChangeCallback)
@@ -12,6 +31,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   const unsavedCells = ref(new Set())
   const savedCells = ref(new Set())
   const modifiedCellsCount = ref(0)
+  const unsavedCellsTick = ref(0)
 
   // 实例缓存
   let cachedHotInstance = null
@@ -59,7 +79,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     return null
   }
 }
-
 
 
 
@@ -111,113 +130,22 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
   // ============ 核心修复：处理单元格修改 ============
   const onDataChange = (changes, source) => {
-  console.log('📝 onDataChange 触发:', {
-    changes数量: changes?.length || 0,
-    source,
-    编辑模式: isEditMode.value
-  })
+  console.log('🎯 onDataChange 被执行', changes, source);
+  if (!changes || source === 'loadData') return;
 
-  // 跳过无效修改
-  if (!changes || source === 'loadData') {
-    console.log('⏸️ 跳过无效修改')
-    return
-  }
-
-  // 自动进入编辑模式
-  const isEditingAction = source === 'edit' ||
-                         source === 'Autofill.fill' ||
-                         source === 'CopyPaste.paste'
-
-  if (isEditingAction && !isEditMode.value) {
-    console.log('🎯 检测到编辑操作，自动进入编辑模式')
-    isEditMode.value = true
-    window.currentEditMode = true
-    setTimeout(() => {
-      try {
-        const hot = getHotInstanceWithCache()
-        if (hot) {
-          hot.updateSettings({ readOnly: false }, false)
-          hot.render()
-          console.log('✅ 已设置表格为编辑模式')
-        }
-      } catch (error) {
-        console.warn('⚠️ 设置编辑模式失败，但继续处理:', error)
-      }
-    }, 100)
-  }
-
-  // 收集真实修改
-  const cellModifications = []
-  let hasActualChanges = false
-
-  changes.forEach(([row, col, oldValue, newValue]) => {
-    if (oldValue === newValue) return
-    hasActualChanges = true
-    const cellKey = `${row},${col}`
-    const isNewModification = !savedCells.value.has(cellKey)
-
-    if (isNewModification) {
-      unsavedCells.value.add(cellKey)
-      modifiedCells.value.add(cellKey)
-    }
-
-    cellModifications.push({
-      row,
-      col,
-      oldValue,
-      newValue,
-      source,
-      timestamp: Date.now(),
-      cellKey
-    })
-
-    console.log('📝 记录单元格修改:', { cellKey, 旧值: oldValue, 新值: newValue, 是否新修改: isNewModification })
-  })
-
-  if (!hasActualChanges) return
-
-  // 更新内部计数 & 通知父组件
-  updateModifiedCellsCount()
-  if (onCellChangeCallback && typeof onCellChangeCallback === 'function') {
-    cellModifications.forEach(m => {
-      m.isEditMode = isEditMode.value
-      onCellChangeCallback(m)
-    })
-    console.log('📤 已通知父组件修改:', cellModifications.length, '个单元格')
-  }
-
-  // 关键：实例有效时再刷样式（只保留这一次调用）
-  nextTick(() => {
-    try {
-      const hot = getHotInstanceWithCache()
-      if (hot && !hot.isDestroyed) {
-        updateModifiedCellsStyle()
-        console.log('✅ updateModifiedCellsStyle 已调用')
-      } else {
-        console.warn('⚠️ 实例无效，跳过样式更新')
-      }
-    } catch (error) {
-      console.warn('⚠️ 更新样式失败:', error)
-    }
-  })
+  changes.forEach(([row, col, oldVal, newVal]) => {
+    if (oldVal == newVal) return;          // 宽松比较
+    const cellKey = `${row},${col}`;
+    console.log('🚀 写入前 unsavedCells.size', unsavedCells.value.size);
+    unsavedCells.value.add(cellKey);
+    console.log('✅ 写入后 unsavedCells.size', unsavedCells.value.size, 'key', cellKey);
+  });
+  unsavedCellsTick.value++;
+  updateModifiedCellsCount();
+};
 
 
-  // ===== 立即刷样式（同步，确保实例存在） =====
-    const hotRightNow = getHotInstanceWithCache()
-    console.log('🔍 同步实例检查', { hotExist: !!hotRightNow, destroyed: hotRightNow?.isDestroyed })
-
-    if (hotRightNow && !hotRightNow.isDestroyed) {
-      updateModifiedCellsStyle()
-      console.log('✅ updateModifiedCellsStyle 已同步调用')
-    } else {
-      console.warn('⚠️ 同步实例无效，样式未刷')
-    }
-
-}
-
-
-
-   const updateModifiedCellsCount = () => {
+  const updateModifiedCellsCount = () => {
       const unsavedCount = unsavedCells.value.size
       const totalCount = modifiedCells.value.size
 
@@ -256,67 +184,67 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         window.currentHasChanges = hasChanges.value
         window.modifiedCellsCount = modifiedCellsCount.value
         window.unsavedCellsCount = unsavedCount
+        // 🔥 关键：暴露 unsavedCells 集合本身
+        window.unsavedCells = unsavedCells.value  // 添加这一行
+        console.log('🌐 全局状态已更新:', {
+          currentHasChanges: window.currentHasChanges,
+          unsavedCount: window.unsavedCellsCount,
+          集合大小: window.unsavedCells?.size || 0
+        })
       }
     }
-
-
 
   const MAX_RETRY = 3
   const RETRY_DELAY = 200
 
   const updateModifiedCellsStyle = async (retry = 0) => {
-  console.log('🎨 进入刷样式函数', {
-    saved: savedCells.value.size,
-    unsaved: unsavedCells.value.size,
-    retry
-  })
+  console.log('🎨 进入刷样式函数', { saved: savedCells.value.size, unsaved: unsavedCells.value.size, retry });
 
-  const hot = getHotInstanceWithCache()
-
-  // 每次刷样式前，顺手把实例写回全局，保证后面一定能拿到
-    if (hot && !hot.isDestroyed) {
-      window.__excelHotInstance = hot        // ←新增
-      console.log('🔁 实例已写回 window.__excelHotInstance', hot)
-    }
-
-
-  // 实例无效 && 还没超过重试次数
-  if (!hot || hot.isDestroyed || !hot.getSettings) {
-    if (retry < MAX_RETRY) {
-      console.warn(`⚠️ 实例无效，${RETRY_DELAY}ms 后重试(${retry + 1}/${MAX_RETRY})`)
-      setTimeout(() => updateModifiedCellsStyle(retry + 1), RETRY_DELAY)
-    } else {
-      console.warn('❌ 实例持续无效，放弃样式更新')
-    }
-    return
+  const hot = getHotInstanceWithCache();
+  if (!hot || hot.isDestroyed) {
+    if (retry < 3) setTimeout(() => updateModifiedCellsStyle(retry + 1), 200);
+    else console.warn('❌ 实例无效，放弃样式更新');
+    return;
   }
 
-  try {
-    const cellConfig = []
+  // ✅ 关键：为所有未保存的单元格设置 'unsaved-modified-cell' 类名
+  const cellConfig = [];
 
-    // 已保存（绿色）
-    savedCells.value.forEach(cellKey => {
-      const [row, col] = cellKey.split(',').map(Number)
-      cellConfig.push({ row, col, className: 'saved-modified-cell' })
-    })
+  // 1. 为未保存的单元格添加红色样式
+  unsavedCells.value.forEach(cellKey => {
+    const [row, col] = cellKey.split(',').map(Number);
+    cellConfig.push({
+      row: row,
+      col: col,
+      className: 'unsaved-modified-cell'
+    });
+  });
 
-    // 未保存（红色）- 仅编辑模式
-    if (isEditMode.value) {
-      unsavedCells.value.forEach(cellKey => {
-        const [row, col] = cellKey.split(',').map(Number)
-        cellConfig.push({ row, col, className: 'unsaved-modified-cell' })
-      })
-    }
+  // 2. 为已保存的单元格添加蓝色样式（如果需要）
+  savedCells.value.forEach(cellKey => {
+    const [row, col] = cellKey.split(',').map(Number);
+    cellConfig.push({
+      row: row,
+      col: col,
+      className: 'saved-modified-cell'
+    });
+  });
 
-    hot.updateSettings({ cell: cellConfig }, false)
-    hot.render()
+  // 3. 应用配置到表格
+  hot.updateSettings({
+    cell: cellConfig
+  }, false);
 
-  } catch (err) {
-    console.error('❌ 更新样式失败:', err)
-  }
+  // 4. 强制重新渲染
+  hot.render();
 
+  console.log('✅ 样式更新完成', {
+    未保存单元格数: unsavedCells.value.size,
+    已保存单元格数: savedCells.value.size,
+    样式规则数: cellConfig.length
+  });
+};
 
-}
 
   const collectModifiedData = () => {
     const hot = getHotInstanceWithCache()
@@ -341,90 +269,136 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     return modifiedData
   }
 
+
+  // 3. 新增：启动恢复函数
+  const restoreUnsavedFromIndexedDB = async () => {
+      const hot = getHotInstanceWithCache()
+      if (!hot || hot.isDestroyed) return
+
+      /* 1. 组装 key */
+      const key = `unsaved_${window.currentPdfId}_${window.currentExcelFile}_${window.currentSheet}`
+      const stored = await idb.get('drafts', key)
+      if (!stored || !stored.changes) return
+
+      /* 2. 当前表类型 */
+      const tableType = showFlatMode.value ? 'flattened' : 'original'
+
+      /* 3. 一次性同步三方 */
+      stored.changes.forEach(({ row, col, oldValue, newValue }) => {
+        // ① 写回表格（不触发 onDataChange）
+        hot.setDataAtCell(row, col, newValue, 'restore')
+        // ② 加入未保存集合
+        unsavedCells.value.add(`${row},${col}`)
+        // ③ 让 sheetStateManager 也认账
+        sheetStateManager.recordCellChange(row, col, oldValue, newValue, tableType)
+      })
+
+      /* 4. 刷新计数 + 样式 + 按钮状态 */
+      updateModifiedCellsCount()
+
+      stored.changes.forEach(({ row, col, oldValue, newValue }) => {
+          hot.setDataAtCell(row, col, newValue, 'restore')
+          unsavedCells.value.add(`${row},${col}`)
+          sheetStateManager.recordCellChange(row, col, oldValue ?? '', newValue, tableType)
+        })
+
+    }
+
+
   // ============ 公共方法 ============
   const toggleEditMode = (onSuccess) => {
-    console.log('🔄 toggleEditMode 被调用，当前状态:', isEditMode.value, '回调:', typeof onSuccess)
+      console.log('🔄 toggleEditMode 被调用，当前状态:', isEditMode.value, '回调:', typeof onSuccess);
 
-    // 使用带缓存的实例获取
-    const hot = getHotInstanceWithCache()
-    if (!hot || !validateHotInstance(hot)) {
-      console.warn('❌ 无法切换编辑模式：表格实例无效')
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess('表格实例无效，无法切换编辑模式', 'error')
-      }
-      return
-    }
-
-    // 检查实例状态
-    if (hot.isDestroyed) {
-      console.warn('❌ 表格实例已被销毁')
-      clearCache()
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess('表格实例已被销毁', 'error')
-      }
-      return
-    }
-
-    // 切换状态
-    isEditMode.value = !isEditMode.value
-
-    // 立即更新表格只读状态
-    try {
-      const newReadOnly = !isEditMode.value
-
-      // 更新表格的 readOnly 设置
-      hot.updateSettings({
-        readOnly: newReadOnly
-      }, false)
-
-      // 更新所有列的 readOnly
-      const columns = hot.getSettings().columns
-      if (columns && Array.isArray(columns)) {
-        const newColumns = columns.map(col => ({
-          ...col,
-          readOnly: newReadOnly
-        }))
-        hot.updateSettings({
-          columns: newColumns
-        }, false)
-      }
-
-      // 强制重新渲染
-      setTimeout(() => {
-        if (hot && !hot.isDestroyed) {
-          hot.render()
-          console.log('📋 表格只读状态已同步:', {
-            编辑模式: isEditMode.value,
-            表格只读: newReadOnly
-          })
+      const hot = getHotInstanceWithCache();
+      if (!hot || !validateHotInstance(hot)) {
+        if (onSuccess && typeof onSuccess === 'function') {
+          onSuccess('表格实例无效，无法切换编辑模式', 'error');
         }
-      }, 50)
-
-    } catch (error) {
-      console.error('❌ 更新表格状态失败:', error)
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess('更新表格状态失败', 'error')
+        return;
       }
-      return
+
+      if (hot.isDestroyed) {
+        clearCache();
+        if (onSuccess && typeof onSuccess === 'function') {
+          onSuccess('表格实例已被销毁', 'error');
+        }
+        return;
+      }
+
+      /* -------- 状态翻转 -------- */
+      isEditMode.value = !isEditMode.value;
+      window.currentEditMode = isEditMode.value;
+
+      try {
+        const newReadOnly = !isEditMode.value;
+
+        /* 1. 更新表格只读 */
+        hot.updateSettings({ readOnly: newReadOnly }, false);
+        const cols = hot.getSettings().columns;
+        if (Array.isArray(cols)) {
+          hot.updateSettings({
+            columns: cols.map(c => ({ ...c, readOnly: newReadOnly }))
+          }, false);
+        }
+
+        /* 2. 渲染 + 后续钩子 */
+        setTimeout(() => {
+          if (hot && !hot.isDestroyed) {
+            hot.render();
+            console.log('📋 表格只读状态已同步:', { 编辑模式: isEditMode.value, 表格只读: newReadOnly });
+          }
+        }, 50);
+      } catch (e) {
+        console.error('❌ 更新表格状态失败:', e);
+        if (onSuccess && typeof onSuccess === 'function') {
+          onSuccess('更新表格状态失败', 'error');
+        }
+        return;
+      }
+
+      /* -------- 进入编辑模式时的专属逻辑 -------- */
+      if (isEditMode.value) {
+        /* 防止重复绑定 */
+        hot.removeHook('afterChange', onDataChange);
+        hot.addHook('afterChange', onDataChange);
+        console.log('🔥 afterChange 钩子已绑定');
+
+        /* ===== 关键：渲染完成后恢复草稿 + 标红 ===== */
+        nextTick(() => {
+          // markModifiedCellsRed();
+          markModifiedCellsRed();
+          restoreUnsavedFromIndexedDB(); // 新增：把 IndexedDB 里的修改写回表格
+        });
+
+        if (onSuccess && typeof onSuccess === 'function') {
+          onSuccess('已进入编辑模式，可以修改单元格', 'success');
+        }
+      } else {
+        /* 退出编辑模式 */
+        console.log('🔒 退出编辑模式');
+        if (onSuccess && typeof onSuccess === 'function') {
+          onSuccess('已退出编辑模式', 'info');
+        }
+      }
     }
 
-    // 更新全局状态
-    window.currentEditMode = isEditMode.value
-    console.log('🌐 全局编辑模式更新为:', window.currentEditMode)
 
-    // 显示消息
-    if (isEditMode.value) {
-      console.log('✅ 进入编辑模式')
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess('已进入编辑模式，可以修改单元格', 'success')
-      }
-    } else {
-      console.log('🔒 退出编辑模式')
-      if (onSuccess && typeof onSuccess === 'function') {
-        onSuccess('已退出编辑模式', 'info')
-      }
+
+    /* 把单元格标成红色（仅未保存的） */
+    const markModifiedCellsRed = () => {
+      const hot = getHotInstanceWithCache()
+      if (!hot || hot.isDestroyed) return
+
+      const cellMeta = []
+      unsavedCells.value.forEach(key => {
+        const [row, col] = key.split(',').map(Number)
+        cellMeta.push({ row, col, className: 'unsaved-modified-cell' })
+      })
+
+      hot.updateSettings({ cell: cellMeta }, false)
+      hot.render()
     }
-  }
+
 
   // 确保 updateTableReadOnly 函数存在
   const updateTableReadOnly = () => {

@@ -17,30 +17,6 @@ file_bp = Blueprint('file', __name__)
 db = OldDatabaseManager(DATABASE)
 
 
-# 尝试导入转换器，提供多种导入路径
-CONVERTER_AVAILABLE = False
-FinalDataConverter = None
-
-try:
-    # 尝试从 backend.src.services.table_processor 导入
-    from backend.src.services.table_processor.long_format_converter import FinalDataConverter as FC
-    FinalDataConverter = FC
-    CONVERTER_AVAILABLE = True
-    print("✅ long_format_converter 从标准路径导入成功")
-except ImportError as e:
-    print(f"⚠️ 标准路径导入失败: {e}")
-    try:
-        # 尝试从当前目录导入
-        from long_format_converter import FinalDataConverter as FC
-        FinalDataConverter = FC
-        CONVERTER_AVAILABLE = True
-        print("✅ long_format_converter 从当前目录导入成功")
-    except ImportError as e2:
-        print(f"❌ 所有导入尝试都失败: {e2}")
-        CONVERTER_AVAILABLE = False
-
-
-
 # ========== 导入重构后的Excel转PDF功能模块 ==========
 from .file_handlers.validators import (
     validate_excel_file,
@@ -56,6 +32,7 @@ from .file_handlers.processors import (
 
 # ========== 原有的所有接口保持不变 ==========
 # 只添加新的Excel转PDF接口，其他所有接口保持原样
+
 @file_bp.get('/files')
 def list_files():
     print("🔍 文件列表API被调用")
@@ -588,6 +565,10 @@ def serve_excel_file(filename):
 
 
 
+# ... 原有代码完全不变 ...
+# 尝试导入转换器，提供多种导入路径
+CONVERTER_AVAILABLE = False
+FinalDataConverter = None
 
 
 
@@ -980,25 +961,3 @@ def convert_excel_to_pdf_api():
         import traceback
         traceback.print_exc()
         return jsonify({'error': f'转换失败: {str(e)}'}), 500
-
-
-# 在 file.py 中添加一个通用的OPTIONS处理
-@file_bp.route('/save-excel-modifications', methods=['OPTIONS'])
-def handle_save_options():
-    """处理CORS预检请求"""
-    response = jsonify({'status': 'ok'})
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
-    response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
-@file_bp.route('/save-excel-modifications', methods=['POST'])
-def save_excel_modifications():
-    """保存Excel修改"""
-    # 添加CORS头
-    response = jsonify({'success': True, 'message': '保存成功'})
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-

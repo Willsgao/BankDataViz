@@ -307,9 +307,9 @@
         :fixedRowsTop="fixedRowsTop"
         :fixedColumnsLeft="fixedColumnsLeft"
         :key="langKey"
-        @afterChange="onDataChange"
         @afterFilter="onFilter"
         @after-init="onHotInit"
+
       />
 
       <div v-if="tableData.length === 0" class="empty-state">
@@ -1493,8 +1493,6 @@ watch(modifiedCells, (newCells, oldCells) => {
     是否在编辑模式: isEditMode.value
   })
 
-  // 1. 确保修改样式正常工作（原有功能）
-  // updateModifiedCellsStyle() 会在 onDataChange 中调用，这里不需要重复调用
 
   // 2. 通知父组件修改状态（新增功能）
   if (newCells.size === 0) {
@@ -1649,6 +1647,25 @@ const getHotInstanceWithRetry = (maxRetries = 3, delay = 100) => {
 }
 
 
+const tryExpose = () => {
+  const hot = hotTable.value?.hotInstance;
+  if (hot && !hot.isDestroyed) {
+    window.__excelHotInstance = hot;
+    console.log('⚡ Handsontable 实例已主动暴露', hot);
+
+    // ✅ 1. 补绑 afterChange（已有）
+    if (!hot._afterChangeBound) {
+      hot._afterChangeBound = true;
+      hot.addHook('afterChange', onDataChange);
+      console.log('✅ afterChange 已永久补绑');
+    }
+
+  } else {
+    setTimeout(tryExpose, 200);
+  }
+};
+
+
 const restoreCellStates = (states) => {
 
   if (states.savedCells) {
@@ -1697,33 +1714,13 @@ defineExpose({
   forceFixStyles
 })
 
+
 onMounted(() => {
-  /* 1. 全局数据变化回调（已有） */
-  window.__onDataChange = (changes, source) => {
-    if (onDataChange) onDataChange(changes, source)
-  }
-
-  /* 2. 防止 ESC 退出编辑模式（已有） */
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && isEditMode.value) {
-      e.stopPropagation()
-    }
-  })
-
-  /* 3. 🔥 主动暴露实例（新增） */
-  const tryExpose = () => {
-    const hot = hotTable.value?.hotInstance
-    if (hot && !hot.isDestroyed) {
-      window.__excelHotInstance = hot
-      console.log('⚡ Handsontable 实例已主动暴露', hot)
-    } else {
-      // 如果实例还没好，0.2s 后再试一次
-      setTimeout(tryExpose, 200)
-    }
-  }
-  tryExpose()
-})
-
+  nextTick(() => {
+    // 原有代码 …
+    tryExpose();        // ← 确保执行
+  });
+});
 
 </script>
 
@@ -2674,28 +2671,6 @@ onMounted(() => {
 
 
 
-/* 关键：使用正确的类名 */
-/* 方法1：使用 !important 提高优先级 */
-:deep(.handsontable td.modified-cell) {
-  background-color: #ffd8d2 !important;
-  border: 2px solid #ff7875 !important;
-  position: relative !important;
-}
-
-/* 方法2：使用更具体的选择器 */
-.handsontable-excel-viewer :deep(.handsontable td.modified-cell),
-.handsontable-excel-viewer :deep(.handsontable .htCore td.modified-cell) {
-  background-color: #ffd8d2 !important;
-  border: 2px solid #ff7875 !important;
-}
-
-/* 方法3：如果上面的不行，尝试覆盖所有可能的td */
-.handsontable-excel-viewer :deep(.handsontable td[class*="modified"]),
-.handsontable-excel-viewer :deep(.handsontable td.modified),
-.handsontable-excel-viewer :deep(.handsontable .modified) {
-  background-color: #ffd8d2 !important;
-  border-color: #ff7875 !important;
-}
 
 /* 修改标记小圆点 */
 .handsontable-excel-viewer :deep(.handsontable td.modified-cell::after) {
@@ -2731,20 +2706,22 @@ onMounted(() => {
 
 
 /* ===== 方案 A：只要改过就永久红色 ===== */
-.handsontable-excel-viewer
-  :deep(.handsontable td.saved-modified-cell),
-.handsontable-excel-viewer
-  :deep(.handsontable td.unsaved-modified-cell) {
+/* 🔥 强制红色背景 - 最高优先级样式 */
+:deep(.unsaved-modified-cell),
+:deep(.htCore .unsaved-modified-cell),
+:deep(.htCore td.unsaved-modified-cell),
+:deep(.handsontable .htCore td.unsaved-modified-cell),
+:deep(.handsontable .htCore tbody tr td.unsaved-modified-cell) {
   background-color: #ffd8d2 !important;
+  background: #ffd8d2 !important;
   border: 2px solid #ff7875 !important;
-  position: relative;
+  border-color: #ff7875 !important;
+  box-shadow: inset 0 0 0 1px #ff7875 !important;
 }
 
 /* 红色圆点 */
-.handsontable-excel-viewer
-  :deep(.handsontable td.saved-modified-cell::after),
-.handsontable-excel-viewer
-  :deep(.handsontable td.unsaved-modified-cell::after) {
+:deep(.unsaved-modified-cell)::after,
+:deep(.htCore td.unsaved-modified-cell)::after {
   content: '' !important;
   position: absolute !important;
   top: 3px !important;
@@ -2753,9 +2730,12 @@ onMounted(() => {
   height: 6px !important;
   background-color: #ff4d4f !important;
   border-radius: 50% !important;
-  z-index: 100 !important;
+  z-index: 1000 !important;
 }
 
+
+
 </style>
+
 
 

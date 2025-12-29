@@ -179,22 +179,7 @@ class SheetStateManager {
       this.triggerUpdate.value++
       console.log(`🔄 触发响应式更新，计数器: ${this.triggerUpdate.value}`)
 
-      // ===== 同步刷样式（不 await、不抛错、不重复声明）=====
-      console.log('🔥 recordCellChange 末尾：准备刷样式')
 
-      const hot = window.__excelHotInstance ||
-                document.querySelector('.handsontable')?.__vueParentComponent?.refs?.hotTable?.hotInstance
-
-      console.log('🔥 实例检查', { hotExist: !!hot, destroyed: hot?.isDestroyed })
-
-      if (hot && !hot.isDestroyed) {
-        // 直接给当前单元格加类名
-        hot.setCellMeta(row, col, 'className', 'unsaved-modified-cell')
-        hot.render()
-        console.log('✅ 已强制加类名并 render')
-      } else {
-        console.log('⚠️ 实例无效，没刷样式')
-      }
 
       // ===== 同步刷样式（不 await、不抛错）=====
     // ===== 同步刷样式 =====

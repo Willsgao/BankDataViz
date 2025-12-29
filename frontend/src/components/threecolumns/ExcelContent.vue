@@ -453,6 +453,10 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
 }, { immediate: true })
 
 
+/* ===== 最小全局源：只告诉按钮“有没有” ===== */
+const hasMod = computed(() => props.hasUnsavedChanges)   // 父组件给的 props
+window.$hasMod = hasMod                                  // 挂到 window
+onMounted(() => { window.$hasMod = hasMod })             // 确保挂载后可用
 
 
 </script>
