@@ -89,6 +89,24 @@ class SheetStateManager {
     return this.getOrCreateSheetState(pdfId, excelFile, sheetName)
   }
 
+
+  // 返回当前表已保存的修改数量
+    getSavedCount(tableType) {
+      const mods = this.getModifications(tableType)   // 已有方法
+      return mods.filter(m => m.saved).length
+    }
+
+    // 记录最终保存时的锚点
+    setLastFinalSavedCount(tableType, count) {
+      this.finalSavedAnchor = this.finalSavedAnchor || {}
+      this.finalSavedAnchor[tableType] = count
+    }
+
+    // 读取最终保存锚点
+    getLastFinalSavedCount(tableType) {
+      return this.finalSavedAnchor ? (this.finalSavedAnchor[tableType] ?? null) : null
+    }
+
   // ============ 数据管理 ============
   setData(tableType, data) {
     const state = this.getActiveSheetState()

@@ -12,9 +12,10 @@
 
         <div class="header-actions">
           <div class="action-row">
+            <!-- 主功能：大按钮 -->
             <el-button
               type="primary"
-              size="small"
+              size="default"
               :disabled="!props.selectedSheet || excelData.length === 0"
               @click="$emit('toggle-flat-mode')"
               :loading="loadingFlat"
@@ -23,28 +24,27 @@
               {{ showFlatMode ? '二维化' : '扁平化' }}
             </el-button>
 
-            <el-button-group
-              size="small"
-              class="save-buttons"
-              :key="`save-${forceUpdateKey}-${props.hasUnsavedChanges}`"
-            >
+            <!-- 保存组：缩小 + 靠右 -->
+            <el-button-group size="small" class="save-buttons">
               <el-button
                 type="warning"
-                :class="{ 'is-disabled': !(props.selectedSheet && props.hasUnsavedChanges) }"
+                :disabled="!(props.selectedSheet && props.hasUnsavedChanges)"
                 @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'draft')"
               >
                 存草稿
               </el-button>
               <el-button
                 type="success"
-                :class="{ 'is-disabled': !(props.selectedSheet && props.hasUnsavedChanges) }"
+                :disabled="!(props.selectedSheet && props.hasUnsavedChanges)"
                 @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'final')"
               >
                 存后台
               </el-button>
             </el-button-group>
+
           </div>
         </div>
+
       </div>
     </div>
 
@@ -178,6 +178,8 @@ const handleCellSelected = (cell) => {
   currentCell.value = cell
 }
 
+
+
 /* ===== 后续你可以把真实数据接进来 ===== */
 // 例：当 Handsontable 抛出选中事件时
 const handleSelection = (sel) => {
@@ -229,6 +231,74 @@ const props = defineProps({
 const originalViewer = ref(null)
 const flatViewer = ref(null)
 const localUnsavedChanges = ref(0)
+
+
+const savingDraft = ref(false)
+const savingFinal = ref(false)
+
+/* 存后台可点条件：有未保存且不在保存中 */
+const canSaveFinal = computed(() =>
+  !savingFinal.value && (window.unsavedCells?.size > 0 || sheetStateManager.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
+)
+
+/* 存草稿：纯前端，永远可点 */
+async function handleSaveDraft() {
+  savingDraft.value = true
+  try {
+    // 1. 取当前数据
+    const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+    const key = `draft_${props.selectedPdf.id}_${props.selectedExcelFile}_${props.selectedSheet.name}_${props.showFlatMode ? 'flat' : 'orig'}`
+
+    // 2. 写 localStorage（确保字符串化）
+    const draft = {
+      data: viewer.tableData,
+      modifications: Array.from(window.unsavedCells || []),
+      savedAt: Date.now()
+    }
+    localStorage.setItem(key, JSON.stringify(draft))
+
+    // 3. 立即读回验证（控制台可查）
+    const back = JSON.parse(localStorage.getItem(key))
+    console.log('【草稿验证】', key, back)
+
+    ElMessage.success('草稿已保存')
+  } catch (e) {
+    console.error('草稿失败', e)
+    ElMessage.error('草稿保存失败')
+  } finally {
+    savingDraft.value = false
+  }
+}
+
+/* 存后台：调接口 + 防重复 */
+async function handleSaveFinal() {
+  if (!canSaveFinal.value) return
+  savingFinal.value = true
+  try {
+    const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+    const payload = {
+      pdf_id: props.selectedPdf.id,
+      excel_file: props.selectedExcelFile,
+      sheet_name: props.selectedSheet.name,
+      table_type: props.showFlatMode ? 'flattened' : 'original',
+      modifications: Array.from(window.unsavedCells || []).map(key => {
+        const [row, col] = key.split(',').map(Number)
+        return { row, col, oldValue: '', newValue: viewer.tableData[row][col] || '' }
+      }),
+      data: viewer.tableData
+    }
+    await axios.post('/api/excel/save-final', payload)
+    // 成功 → 清前端未保存状态
+    window.unsavedCells.clear()
+    sheetStateManager.markChangesAsSaved(props.showFlatMode ? 'flattened' : 'original')
+    emit('unsaved-changes-updated', false)
+    ElMessage.success('已保存到后台')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.error || '后台保存失败')
+  } finally {
+    savingFinal.value = false
+  }
+}
 
 
 
@@ -789,5 +859,15 @@ defineExpose({
   width: 100%;
 }
 
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;   /* 左右分离 */
+  gap: 16px;                        /* 主按钮与保存组间距 */
+}
+
+.save-buttons {
+  margin-left: auto;                /* 保存组靠右 */
+}
 
 </style>

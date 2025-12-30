@@ -449,6 +449,34 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
     根据文件ID、Excel文件名和sheet名称获取Excel数据
     """
     try:
+
+        # ---------- 0. 优先读最新 JSON 快照（风格同原代码） ----------
+        import json
+
+        snap_dir = Path(MAIN_ROOT) / r'data/backend/static/modify_data' / file_id
+        snap_dir.mkdir(parents=True, exist_ok=True)  # 保证目录存在
+        pattern = f"{file_id}_{sheet_name}_*.json"
+        snap_list = sorted(snap_dir.glob(pattern), reverse=True)
+        if snap_list:
+            latest_snap = snap_list[0]
+            try:
+                with open(latest_snap, 'r', encoding='utf-8') as f:
+                    snap_data = json.load(f)
+                # 直接返回快照数据，格式与原来一致
+                return jsonify({
+                    "rows": snap_data["data"],
+                    "total_rows": len(snap_data["data"]),
+                    "total_columns": len(snap_data["data"][0]) if snap_data["data"] else 0,
+                    "sheet_name": sheet_name,
+                    "excel_file": excel_file_name,
+                    "pdf_id": file_id,
+                    "has_dual_headers": True,
+                    "source": "snapshot"
+                }), 200
+            except Exception as e:
+                print(f"[WARN] 快照读取失败 {latest_snap} -> 回退Excel: {e}")
+
+
         # 1. 构建Excel文件路径
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
         excel_path = excel_dir / excel_file_name
@@ -585,8 +613,6 @@ def serve_excel_file(filename):
     if not file_path.exists():
         return "文件不存在", 404
     return send_from_directory(file_path.parent, file_path.name)
-
-
 
 
 
@@ -924,20 +950,48 @@ def excel_flatten_from_excel():
 # 后端API示例（Python Flask）
 @file_bp.route('/excel/save-final', methods=['POST'])
 def save_final_excel():
-    """最终保存Excel修改"""
+    """最终保存：把前端最新数据写成 JSON 快照"""
     data = request.json
+    print("******************** data ******************")
+    from pprint import pprint
+    pprint(data)
 
-    # 验证数据
-    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'changes']
+    # 1. 基础校验
+    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'data']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'缺少必要字段: {field}'}), 400
 
-    return jsonify({
-            'success': False,
-            'error': ""
-        }), 500
+    # 2. 拼路径：统一用 MAIN_ROOT 风格
+    from pathlib import Path
+    import time
+    import os
 
+    file_id   = data['pdf_id']
+    sheet_name = data['sheet_name']
+
+    snap_dir  = Path(MAIN_ROOT) / r'data/backend/static/modify_data' / file_id
+    snap_dir.mkdir(parents=True, exist_ok=True)
+
+    ts = int(time.time())
+    file_name = f"{file_id}_{sheet_name}_{ts}.json"
+    file_path = snap_dir / file_name
+
+    # 3. 落盘
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            import json
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'写入失败: {e}'}), 500
+
+    # 4. 返回成功
+    return jsonify({
+        'success': True,
+        'message': '已保存最新数据',
+        'saved_file': str(file_name),
+        'saved_path': str(file_path.relative_to(Path(MAIN_ROOT)))   # 相对路径，调试用
+    }), 200
 
 
 # ========== 新增的Excel转PDF接口 ==========

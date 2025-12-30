@@ -155,6 +155,10 @@ class Config:
         self.EXCEL_DATA_FOLDER = self._get_absolute_path(EXCEL_OUTPUT_ROOT)
         self.JOINED_TABLES_FOLDER = self._get_absolute_path(self._config['paths']['joinedTablesFolder'])
         self.PNG_OUTPUT_ROOT = self._get_absolute_path(PNG_OUTPUT_ROOT)
+        # 🔥 新增：JSON 快照根目录（用于 /excel/save-final 及 /excel/latest-data）
+        snapshot_rel = self._config['paths'].get('snapshotFolder', 'static/modify_data')
+        self.SNAPSHOT_ROOT = self._get_absolute_path(snapshot_rel)
+        os.makedirs(self.SNAPSHOT_ROOT, exist_ok=True)   # 启动即自动建好
 
         # LLM配置（通用）
         self.LLM_DEFAULT_BASE_URL = self._config['llm']['defaultBaseUrl']

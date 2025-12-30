@@ -704,6 +704,18 @@ const hasUnsavedChangesInCurrentTable = () => {
 
   // 2. 直接看当前表格的实际数据（这是最可靠的）
   const tableType = showFlatMode.value ? 'flattened' : 'original'
+
+  /* ===== 新增：最终保存锁定（只影响 final，不影响 draft） ===== */
+  const lastFinal = sheetStateManager.getLastFinalSavedCount(tableType)
+  if (lastFinal !== null) {
+    const nowSaved = sheetStateManager.getSavedCount(tableType)
+    if (nowSaved <= lastFinal) {
+      console.log('🔒 已最终保存，无新修改，锁定存后台按钮')
+      return false          // 直接锁死，下面逻辑不再走
+    }
+  }
+  /* =========================================================== */
+
   const currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
 
 
@@ -925,248 +937,118 @@ const restoreDraft = async (retry = 0) => {
 }
 
 
+/* 只改这一处：saveData 函数内部 */
 const saveData = async (type) => {
   console.log('💾 ThreeColumnPage: 保存数据', type)
 
-  // 检查是否有选中的表格
   if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
     ElMessage.warning('请先选择表格')
     return { success: false, error: '未选择表格' }
   }
 
-  // 检查是否有未保存修改
   const currentTableType = showFlatMode.value ? 'flattened' : 'original'
   const hasChanges = window.unsavedCells?.size > 0 || sheetStateManager.hasUnsavedChanges(currentTableType)
-
   if (!hasChanges) {
     ElMessage.warning('没有需要保存的修改')
     return { success: false, error: '没有修改' }
   }
 
-  console.log('✅ 满足保存条件:', {
-    表格: selectedSheet.value.name,
-    保存类型: type,
-    当前表类型: currentTableType,
-    有未保存修改: hasChanges
-  })
-
-  // 设置保存状态
   saving.value = true
   saveType.value = type
 
   try {
-    // 1. 获取当前未保存的修改 - 关键修复部分
+    /* ===== 1. 公共：构造合法修改 =====（你原来就有，不动） */
     let unsavedModifications = []
-
-    // 关键：优先检查全局状态
     if (window.unsavedCells?.size > 0) {
-      console.log('✅ 检测到全局未保存修改，数量:', window.unsavedCells.size)
-
-      // 获取当前表格数据
       const currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
-
-      // 获取表格实例（用于读取单元格值）
       const hotInstance = getActiveHotInstance()
-
-      // 构建修改记录
       for (const key of window.unsavedCells) {
         const [row, col] = key.split(',').map(Number)
         let newValue = ''
-
-        // 尝试获取单元格值
-        if (hotInstance && hotInstance.getDataAtCell) {
-          newValue = hotInstance.getDataAtCell(row, col) || ''
-        } else if (currentData && currentData[row]) {
-          // 从数据数组中获取
-          newValue = currentData[row][col] || ''
-        }
-
-        unsavedModifications.push({
-          row,
-          col,
-          oldValue: '', // 旧值可能无法获取
-          newValue: newValue,
-          saved: false,
-          timestamp: Date.now(),
-          tableType: currentTableType
-        })
+        if (hotInstance && hotInstance.getDataAtCell) newValue = hotInstance.getDataAtCell(row, col) || ''
+        else if (currentData && currentData[row]) newValue = currentData[row][col] || ''
+        unsavedModifications.push({ row, col, oldValue: '', newValue, saved: false, timestamp: Date.now(), tableType: currentTableType })
       }
-
-      console.log(`✅ 已构建 ${unsavedModifications.length} 个修改记录`)
     } else {
-      // 回退到 sheetStateManager
-      unsavedModifications = sheetStateManager.getModifications(currentTableType)
-        .filter(mod => !mod.saved)
+      unsavedModifications = sheetStateManager.getModifications(currentTableType).filter(mod => !mod.saved)
     }
-
-    console.log('📤 准备保存的修改:', {
-      类型: type,
-      表类型: currentTableType,
-      修改数: unsavedModifications.length,
-      全局未保存数: window.unsavedCells?.size || 0
-    })
-
-    // === 新增：过滤非法坐标 ===
     const hot = getActiveHotInstance()
     const maxRow = hot?.countRows() ?? 0
     const maxCol = hot?.countCols() ?? 0
-    const validModifications = unsavedModifications.filter(m => {
-      const r = Number(m.row), c = Number(m.col)
-      return Number.isInteger(r) && r >= 0 && r < maxRow &&
-             Number.isInteger(c) && c >= 0 && c < maxCol
-    })
+    const validModifications = unsavedModifications.filter(m => { const r = Number(m.row), c = Number(m.col); return Number.isInteger(r) && r >= 0 && r < maxRow && Number.isInteger(c) && c >= 0 && c < maxCol })
 
-    // 2. 获取当前数据 - 直接从响应式数据获取
-    let currentData = null
-    let hotInstance = null
-
-    if (showFlatMode.value) {
-      // 扁平化模式：直接从 flatData 获取数据
-      currentData = flatData.value
-      console.log('📊 从 flatData 获取数据:', currentData?.length || 0, '行')
-
-      // 尝试获取实例（可选）
-      if (excelContent.value?.$refs?.flatViewer) {
-        hotInstance = excelContent.value.$refs.flatViewer
-      }
-    } else {
-      // 原始模式：直接从 excelData 获取数据
-      currentData = excelData.value
-      console.log('📊 从 excelData 获取数据:', currentData?.length || 0, '行')
-
-      // 尝试获取实例（可选）
-      if (excelContent.value?.$refs?.originalViewer) {
-        hotInstance = excelContent.value.$refs.originalViewer
-      }
-    }
-
-    // 如果数据为空，尝试从缓存获取
+    /* ===== 2. 取当前全表数据（你原来就有） ===== */
+    let currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
     if (!currentData || currentData.length === 0) {
-      console.warn('⚠️ 表格数据为空，尝试从缓存获取')
       const pdfId = selectedPdf.value.id
       const excelFile = selectedExcelFile.value
       const sheetName = selectedSheet.value.name
-
-      if (showFlatMode.value) {
-        currentData = excelDataCache.getFlattenedData(pdfId, excelFile, sheetName)
-      } else {
-        currentData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
-      }
+      currentData = showFlatMode.value ? excelDataCache.getFlattenedData(pdfId, excelFile, sheetName) : excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
     }
+    if (!currentData || currentData.length === 0) throw new Error('无法获取表格数据')
 
-    if (!currentData || currentData.length === 0) {
-      throw new Error('无法获取表格数据')
-    }
+    /* ===== 3. 草稿分支：只改“写文件”逻辑 ===== */
+      if (type === 'draft') {
+  const storageKey = `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`
+  const draftData = {
+    modifications: validModifications,
+    totalChanges: validModifications.length,
+    timestamp: Date.now(),
+    tableType: currentTableType,
+    pdfId: selectedPdf.value.id,
+    excelFile: selectedExcelFile.value,
+    sheetName: selectedSheet.value.name
+  }
+  localStorage.setItem(storageKey, JSON.stringify(draftData))
 
-    console.log('✅ 成功获取表格数据:', currentData.length, '行')
+  // 最后再清未保存状态
+  sheetStateManager.markChangesAsSaved(currentTableType)
+  // excelContentKey.value++
+  ElMessage.success(`草稿已保存 (${validModifications.length} 处修改)`)
+}
 
-    if (type === 'draft') {
+    /* ===== 4. 最终分支：一行不动 ===== */
+    /* ===== 4. 最终分支：一行不动 + 加锁定逻辑 ===== */
+    else if (type === 'final') {
+      /* ---- 4.0 记录保存前“已保存”数量，作为锁定锚点 ---- */
+      const beforeSavedCount = sheetStateManager.getSavedCount(currentTableType)   // ←新增
 
-      // 只存合法修改，不再存整张表
-        const storageKey = `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`
-        const draftData = {
+      const response = await fetch(getApiUrl('/excel/save-final'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdf_id: selectedPdf.value.id,
+          excel_file: selectedExcelFile.value,
+          sheet_name: selectedSheet.value.name,
+          table_type: currentTableType,
           modifications: validModifications,
-          totalChanges: validModifications.length,
-          timestamp: Date.now(),
-          tableType: currentTableType,
-          pdfId: selectedPdf.value.id,
-          excelFile: selectedExcelFile.value,
-          sheetName: selectedSheet.value.name
-        }
-        localStorage.setItem(storageKey, JSON.stringify(draftData))
-
-        // 标记已保存 & 强制重渲染（其余全部删掉）
-        sheetStateManager.markChangesAsSaved(currentTableType)
-        excelContentKey.value++
-        ElMessage.success(`草稿已保存 (${validModifications.length} 处修改)`)
-
-
-    } else if (type === 'final') {
-      // ============ 最终保存（调用后端API）============
-      try {
-        const response = await fetch(getApiUrl('/save-excel'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            pdf_id: selectedPdf.value.id,
-            excel_file: selectedExcelFile.value,
-            sheet_name: selectedSheet.value.name,
-            table_type: currentTableType,
-            modifications: unsavedModifications,
-            total_changes: unsavedModifications.length,
-            data: currentData // 使用当前数据
-          })
+          total_changes: validModifications.length,
+          data: currentData
         })
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const result = await response.json()
+      if (result.success) {
+        /* 原有清空逻辑 */
+        sheetStateManager.markChangesAsSaved(currentTableType)
+        sheetStateManager.clearUnsavedChanges(currentTableType)
+        window.unsavedCells = new Set()
+        window.currentHasChanges = false
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-
-        const result = await response.json()
-
-        if (result.success) {
-          // 后端保存成功后，标记为已保存
-          sheetStateManager.markChangesAsSaved(currentTableType)
-
-          // 清除未保存状态
-          sheetStateManager.clearUnsavedChanges(currentTableType)
-
-          // 退出编辑模式（如果有实例的话）
-          if (hotInstance && hotInstance.updateSettings) {
-            hotInstance.updateSettings({ readOnly: true })
-          }
-
-          const saveMessage = `最终保存成功 (${result.saved_count || unsavedModifications.length}处修改)`
-          saveStatus.value = {
-            type: 'success',
-            text: saveMessage
-          }
-          ElMessage.success(saveMessage)
-
-          // 强制刷新组件
-          nextTick(() => {
-            excelContentKey.value++
-          })
-        } else {
-          throw new Error(result.error || '后端保存失败')
-        }
-      } catch (error) {
-        console.error('❌ 调用后端API失败:', error)
-        throw new Error(`后端保存失败: ${error.message}`)
+        /* ---- 4.1 记录锁定锚点 ---- */
+        sheetStateManager.setLastFinalSavedCount(currentTableType, beforeSavedCount + validModifications.length) // ←新增
+        ElMessage.success(`最终保存成功 (${result.saved_count || validModifications.length}处修改)`)
+      } else {
+        throw new Error(result.error || '后端保存失败')
       }
     }
 
-    // 更新保存状态
     updateSaveStatus()
     lastSaveTime.value = Date.now()
-
-    // 更新全局状态
-    if (typeof window !== 'undefined') {
-      window.unsavedCells = new Set()
-      window.currentHasChanges = false
-    }
-
-    return {
-      success: true,
-      message: type === 'draft' ? '草稿已保存' : '最终保存成功',
-      data: {
-        saved_cells: unsavedModifications,
-        total_saved: unsavedModifications.length
-      }
-    }
+    return { success: true, message: type === 'draft' ? '草稿已保存' : '最终保存成功' }
   } catch (error) {
-    console.error('❌ 保存过程中出错:', error)
-    saveStatus.value = {
-      type: 'error',
-      text: `保存失败: ${error.message}`
-    }
     ElMessage.error(`保存失败: ${error.message}`)
-    return {
-      success: false,
-      error: error.message
-    }
+    return { success: false, error: error.message }
   } finally {
     saving.value = false
     saveType.value = ''
