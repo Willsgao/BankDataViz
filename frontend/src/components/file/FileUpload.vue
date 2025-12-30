@@ -7,6 +7,8 @@
       :before-upload="beforeUpload"
       :on-success="handleSuccess"
       :on-error="handleError"
+      multiple
+      :limit="20"
       drag
     >
       <div class="upload-content">
