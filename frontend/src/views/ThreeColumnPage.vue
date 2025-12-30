@@ -150,6 +150,7 @@ import sheetStateManager from '@/utils/SheetStateManager.js'
 
 import { saveDraftToIndexedDB, clearDraftFromIndexedDB } from '@/utils/draftDB'
 
+
 // 使用组合函数
 const {
   // 状态
@@ -204,9 +205,8 @@ const {
 } = useSheetOperations(generateTableColumns)
 
 
-
 // ============ 组件方法 ============
-
+const excelContentRef = ref(null)
 const excelContent = ref(null)
 
 // 中间区域折叠
@@ -218,6 +218,12 @@ const toggleMiddleCollapse = () => {
 const onPdfLoad = () => {
   console.log('PDF加载完成')
 }
+
+const currentData = computed(() =>
+  showFlatMode.value
+    ? excelContentRef.value?.flatData ?? []
+    : excelContentRef.value?.tableData ?? []
+)
 
 const isDev = ref(process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev')
 
@@ -698,7 +704,8 @@ const hasUnsavedChangesInCurrentTable = () => {
 
   // 2. 直接看当前表格的实际数据（这是最可靠的）
   const tableType = showFlatMode.value ? 'flattened' : 'original'
-  const currentData = showFlatMode.value ? flatData.value : excelData.value
+  const currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
+
 
   console.log('🔍 检查保存条件:', {
     表格: selectedSheet.value.name,
@@ -856,30 +863,37 @@ const restoreDraft = async (retry = 0) => {
   }
 
   // 2. ===== 数据对比 =====
-  const currentData = hot.getData()          // 当前表格数据
-  const draftData = draft.data               // 草稿数据
-  console.log('📊 数据对比', {
-    当前行数: currentData.length,
-    草稿行数: draftData.length,
-    示例当前: currentData[2],
-    示例草稿: draftData[2]
-  })
+    const currentData = hot.getData?.() || []   // ✅ 防 undefined
+    const draftData   = draft.data || []        // ✅ 防 undefined
+    console.log('📊 数据对比', {
+      当前行数: currentData.length,
+      草稿行数: draftData.length,
+      示例当前: currentData[2],
+      示例草稿: draftData[2]
+    })
 
-  // 3. 写入草稿数据（静默）
-  hot.loadData(draftData)
-  console.log('✅ 已调用 hot.loadData(draftData)')
+  // 3. 逐格写入修改（保持原行数）
+    if (draft.modifications?.length) {
+      const maxRow = hot.countRows()
+      const maxCol = hot.countCols()
 
-  // 4. ★★★ 把草稿数据写回「数据源」，防止下次 loadExcelData 冲掉草稿 ★★★
-  const pdfId   = selectedPdf.value.id
-  const excel   = selectedExcelFile.value
-  const sheet   = selectedSheet.value.name
+      const changes = draft.modifications
+        .filter(m => {
+          const r = Number(m.row)
+          const c = Number(m.col)
+          return Number.isInteger(r) && r >= 0 && r < maxRow &&
+                 Number.isInteger(c) && c >= 0 && c < maxCol
+        })
+        .map(m => [Number(m.row), Number(m.col), m.newValue])
 
-  if (tableType === 'original') {
-    excelDataCache.setOriginalData(pdfId, excel, sheet, draftData)
-  } else {
-    excelDataCache.setFlattenedData(pdfId, excel, sheet, draftData)
-  }
-  sheetStateManager.setData(tableType, draftData)
+      if (changes.length) {
+        hot.setDataAtCell(changes)
+        console.log('✅ setDataAtCell 已调用', changes.length)
+      } else {
+        console.warn('⚠️ 无合法修改，跳过 setDataAtCell')
+      }
+    }
+
 
   // 5. 补录修改记录
   if (draft.modifications?.length) {
@@ -949,7 +963,7 @@ const saveData = async (type) => {
       console.log('✅ 检测到全局未保存修改，数量:', window.unsavedCells.size)
 
       // 获取当前表格数据
-      const currentData = showFlatMode.value ? flatData.value : excelData.value
+      const currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
 
       // 获取表格实例（用于读取单元格值）
       const hotInstance = getActiveHotInstance()
@@ -990,6 +1004,16 @@ const saveData = async (type) => {
       表类型: currentTableType,
       修改数: unsavedModifications.length,
       全局未保存数: window.unsavedCells?.size || 0
+    })
+
+    // === 新增：过滤非法坐标 ===
+    const hot = getActiveHotInstance()
+    const maxRow = hot?.countRows() ?? 0
+    const maxCol = hot?.countCols() ?? 0
+    const validModifications = unsavedModifications.filter(m => {
+      const r = Number(m.row), c = Number(m.col)
+      return Number.isInteger(r) && r >= 0 && r < maxRow &&
+             Number.isInteger(c) && c >= 0 && c < maxCol
     })
 
     // 2. 获取当前数据 - 直接从响应式数据获取
@@ -1037,66 +1061,26 @@ const saveData = async (type) => {
     console.log('✅ 成功获取表格数据:', currentData.length, '行')
 
     if (type === 'draft') {
-      // 1. 落库 localStorage
-      const storageKey = `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`
-      const draftData = {
-        data: currentData,
-        modifications: unsavedModifications,
-        totalChanges: unsavedModifications.length,
-        timestamp: Date.now(),
-        tableType: currentTableType,
-        pdfId: selectedPdf.value.id,
-        excelFile: selectedExcelFile.value,
-        sheetName: selectedSheet.value.name
-      }
-      localStorage.setItem(storageKey, JSON.stringify(draftData))
 
-      // 2. 立即把修改写进当前表格（内存 + 缓存 + 重绘）
-      const updatedData = currentData.map(row => [...row])          // 深拷贝一行
-      unsavedModifications.forEach(m => {
-        if (updatedData[m.row] && updatedData[m.row][m.col] !== undefined) {
-          updatedData[m.row][m.col] = m.newValue
+      // 只存合法修改，不再存整张表
+        const storageKey = `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`
+        const draftData = {
+          modifications: validModifications,
+          totalChanges: validModifications.length,
+          timestamp: Date.now(),
+          tableType: currentTableType,
+          pdfId: selectedPdf.value.id,
+          excelFile: selectedExcelFile.value,
+          sheetName: selectedSheet.value.name
         }
-      })
+        localStorage.setItem(storageKey, JSON.stringify(draftData))
 
-      if (currentTableType === 'original') {
-        excelData.value = updatedData
-        excelDataCache.setOriginalData(
-          selectedPdf.value.id,
-          selectedExcelFile.value,
-          selectedSheet.value.name,
-          updatedData
-        )
-      } else {
-        flatData.value = updatedData
-        excelDataCache.setFlattenedData(
-          selectedPdf.value.id,
-          selectedExcelFile.value,
-          selectedSheet.value.name,
-          updatedData
-        )
-      }
+        // 标记已保存 & 强制重渲染（其余全部删掉）
+        sheetStateManager.markChangesAsSaved(currentTableType)
+        excelContentKey.value++
+        ElMessage.success(`草稿已保存 (${validModifications.length} 处修改)`)
 
-      // 3. 通知 Handsontable 重绘
-      const hot = getActiveHotInstance()
-      if (hot) hot.loadData(updatedData)
 
-      // 4. 标记已保存 & 刷新组件
-      sheetStateManager.markChangesAsSaved(currentTableType)
-      excelContentKey.value++        // 强制重渲染
-
-      // ★★★ 新增：把合并后的数据写回缓存，保证下次加载拿到的是“含草稿”版本 ★★★
-      const pdfId   = selectedPdf.value.id
-      const excel   = selectedExcelFile.value
-      const sheet   = selectedSheet.value.name
-      if (currentTableType === 'original') {
-        excelDataCache.setOriginalData(pdfId, excel, sheet, updatedData)
-      } else {
-        excelDataCache.setFlattenedData(pdfId, excel, sheet, updatedData)
-      }
-      sheetStateManager.setData(currentTableType, updatedData)
-
-      ElMessage.success(`草稿已保存 (${unsavedModifications.length} 处修改)`)
     } else if (type === 'final') {
       // ============ 最终保存（调用后端API）============
       try {

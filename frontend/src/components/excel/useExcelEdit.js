@@ -428,9 +428,19 @@ const onDataChange = (changes, source) => {
       if (!hot || hot.isDestroyed) return
 
       const cellMeta = []
+
       unsavedCells.value.forEach(key => {
         const [row, col] = key.split(',').map(Number)
-        cellMeta.push({ row, col, className: 'unsaved-modified-cell' })
+
+        // ✅ 严格校验
+        if (
+          Number.isInteger(row) && row >= 0 &&
+          Number.isInteger(col) && col >= 0
+        ) {
+          cellMeta.push({ row, col, className: 'unsaved-modified-cell' })
+        } else {
+          console.warn('❌ 非法行列坐标，跳过', { key, row, col })
+        }
       })
 
       hot.updateSettings({ cell: cellMeta }, false)

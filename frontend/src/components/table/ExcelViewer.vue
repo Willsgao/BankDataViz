@@ -178,7 +178,7 @@ const activeSheet = ref('')
 const isFullscreen = ref(false)
 const loading = ref(false)
 const tableContainer = ref(null)
-const tableHeight = ref('auto')
+const tableHeight = ref(200)
 const tableMaxHeight = ref(500)
 
 
@@ -230,16 +230,18 @@ const getAutoWidth = (header, data) => {
 // 计算表格高度
 const calculateTableHeight = () => {
   nextTick(() => {
-    if (tableContainer.value) {
-      const containerRect = tableContainer.value.getBoundingClientRect()
-      const headerHeight = 40
-      const toolbarHeight = 50
-      const footerHeight = 40
-      const padding = 32
+    if (!tableContainer.value) return
+    const containerRect = tableContainer.value.getBoundingClientRect()
+    const headerHeight = 40
+    const toolbarHeight = 50
+    const footerHeight = 40
+    const padding = 32
 
-      const availableHeight = containerRect.height - headerHeight - toolbarHeight - footerHeight - padding
-      tableMaxHeight.value = Math.max(300, availableHeight)
-    }
+    const availableHeight = containerRect.height - headerHeight - toolbarHeight - footerHeight - padding
+    const final = Math.max(300, availableHeight)
+
+    tableMaxHeight.value = final
+    tableHeight.value = final        // 新增：让 el-table 拿到具体像素
   })
 }
 
@@ -332,6 +334,8 @@ onMounted(() => {
   window.addEventListener('resize', calculateTableHeight)
   document.addEventListener('keydown', handleKeydown)
 })
+
+watch(currentSheet, calculateTableHeight)
 
 onUnmounted(() => {
   window.removeEventListener('resize', calculateTableHeight)

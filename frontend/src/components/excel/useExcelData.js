@@ -62,7 +62,9 @@ export default function useExcelData(props) {
       const firstRow = []
 
       // 左上角单元格
-      firstRow.push(headerRowObj.__top_left_cell || metadata.top_left_cell || '')
+      //firstRow.push(headerRowObj.__top_left_cell || metadata.top_left_cell || '')
+      firstRow.push(headerRowObj.__top_left_cell || '')
+
 
       // 横向表头（按顺序 H_1, H_2, H_3...）
       const horizontalCount = metadata.horizontal_headers?.length || 0
@@ -88,6 +90,7 @@ export default function useExcelData(props) {
         const verticalHeader = rowData.__vertical_header ||
                               metadata.vertical_headers?.[rowIndex] ||
                               ``
+        //row.push(verticalHeader || '')
         row.push(verticalHeader || '')
 
         // 数据单元格
@@ -189,6 +192,7 @@ export default function useExcelData(props) {
     // ==================== 结束新增 ====================
 
     return result
+
   })
 
 
@@ -353,38 +357,30 @@ export default function useExcelData(props) {
   })
 
   // 列配置 - 重要：这里需要传入 isEditMode
-  const columns = computed(() => {
-    if (!tableData.value || tableData.value.length === 0) {
-      return []
-    }
+    const columns = computed(() => {
+      if (!tableData.value || tableData.value.length === 0) return []
 
-    const headers = tableData.value[0] || []
-    console.log('🎯 生成列配置:', {
-      列数: headers.length,
-      表头样本: headers.slice(0, 3)
+      const headers = tableData.value[0] || []
+
+      return [
+        // ✅ 第 0 列：左上角文字 + 纵向表头
+        {
+          data: 0,
+          title: '项目',
+          width: 180,
+          className: 'vertical-header-column',
+          readOnly: true
+        },
+        // ✅ 其余列：原来的横向表头
+        ...headers.slice(1).map((h, i) => ({
+          data: i + 1,
+          type: 'text',
+          title: h || `列${i + 2}`,
+          width: 150,
+          readOnly: true
+        }))
+      ]
     })
-
-    return headers.map((header, index) => ({
-      data: index,
-      type: 'text',
-      width: 150,
-      // readOnly 需要在主组件中动态设置
-      readOnly: true, // 默认值，在主组件中会覆盖
-      title: header || (index === 0 ? '' : `列${index}`),
-      // 第一列特殊样式
-      ...(index === 0 && {
-        className: 'vertical-header-column',
-        renderer: function(instance, td, row, col, prop, value) {
-          // 这里需要 Handsontable 实例，稍后在主组件中处理
-          if (window.Handsontable && window.Handsontable.renderers) {
-            window.Handsontable.renderers.TextRenderer.apply(this, arguments)
-            td.style.background = '#f6ffed'
-            td.style.fontWeight = '600'
-          }
-        }
-      })
-    }))
-  })
 
   // ============ 方法 ============
 

@@ -72,36 +72,30 @@
     <!-- 功能操作栏（重新设计） -->
     <div class="action-toolbar" v-if="tableData.length > 0">
 
-
-      <!-- 空白单元格操作组 -->
-      <div v-if="hasEmptyCells" class="action-group empty-cells-group">
-        <div class="group-header">
-          <el-icon><View /></el-icon>
-          <span class="group-title">空白单元格管理</span>
-          <el-tag size="small" type="info">
+      <!-- 空白单元格操作组 → 单行 -->
+        <div v-if="hasEmptyCells" class="action-group empty-cells-group oneline">
+          <span class="group-title">
+            <el-icon><View /></el-icon>
+            空白单元格管理
+          </span>
+          <el-tag size="small" type="info" class="count-tag">
             {{ emptyCellsStats?.total || 0 }}个
           </el-tag>
-        </div>
-        <div class="group-actions">
-          <el-button
-            size="small"
-            :type="showEmptyCellsHighlight ? 'primary' : ''"
-            @click="toggleEmptyCellsHighlight"
-          >
-            <el-icon><View /></el-icon>
-            {{ showEmptyCellsHighlight ? '隐藏高亮' : '高亮空格' }}
-          </el-button>
 
-          <el-button
-            size="small"
-            type="info"
-            link
-            @click="showEmptyCellsDetail"
-          >
-            <el-icon><More /></el-icon>
-          </el-button>
+          <!-- 按钮组 -->
+          <el-button-group size="small" class="btn-grp">
+            <el-button
+              :type="showEmptyCellsHighlight ? 'primary' : ''"
+              @click="toggleEmptyCellsHighlight"
+            >
+              <el-icon><View /></el-icon>
+              {{ showEmptyCellsHighlight ? '隐藏高亮' : '高亮空格' }}
+            </el-button>
+            <el-button size="small" type="info" link @click="showEmptyCellsDetail">
+              <el-icon><More /></el-icon>
+            </el-button>
+          </el-button-group>
         </div>
-      </div>
 
       <!-- 选中区域统计组 -->
       <div v-if="showStatsPanel" class="action-group selection-stats-group">
@@ -287,6 +281,7 @@
         ref="hotTable"
         :data="tableData"
         :columns="computedColumns"
+        :colWidths="colWidths"
         :colHeaders="true"
         :rowHeaders="true"
         :width="'100%'"
@@ -434,8 +429,20 @@ const handleCellChangeFromEdit = (cellInfo) => {
 
 
 
+// 3. 生成列宽
+const colWidths = computed(() =>
+  Array.from({ length: tableData.value[0]?.length || 0 }, (_, i) =>
+    i === 0 ? 180 : 120
+  )
+)
+
+
 const props = defineProps({
   excelData: {
+    type: Array,
+    default: () => []
+  },
+  flatData: {
     type: Array,
     default: () => []
   },
@@ -1704,6 +1711,7 @@ const restoreCellStates = (states) => {
 // ============ 暴露方法 ============
 defineExpose({
   exportData,
+  tableData,
   verifyTableStructure,
   clearSelection,
   getSafeHotInstance,
@@ -1735,6 +1743,43 @@ onMounted(() => {
     tryExpose();        // ← 确保执行
   });
 });
+
+
+/* ===== 1. 确保点击单元格时触发 ===== */
+const onCellClick = (row, col) => {
+  // 单点即显示
+  updateSelectedCellDisplay(row, col)
+  showCellContent.value = true
+}
+
+/* ===== 2. 在 Handsontable 初始化后绑事件 ===== */
+const setupCellClickListener = () => {
+  const hot = getSafeHotInstance()
+  if (!hot) return
+
+  // 清除旧监听，防止重复
+  hot.removeHook('afterOnCellMouseDown')
+  hot.addHook('afterOnCellMouseDown', (event, coords) => {
+    // 只响应左键单击
+    if (event.button === 0) {
+      onCellClick(coords.row, coords.col)
+    }
+  })
+}
+
+/* ===== 3. 在表格 ready 后调用一次 ===== */
+onMounted(() => {
+  nextTick(() => {
+    // 等待渲染完成
+    const hot = getSafeHotInstance()
+    if (hot) {
+      setupCellClickListener()
+    } else {
+      // 如果还未 ready，0.3s 后再试
+      setTimeout(() => setupCellClickListener(), 300)
+    }
+  })
+})
 
 </script>
 
@@ -2022,20 +2067,17 @@ onMounted(() => {
 }
 
 /* ====================
-   表格容器区域（保持不变）
+   表格容器区域（撑满 + 防遮挡）
    ==================== */
 .excel-container {
-  flex: 1;
-  min-height: 0;
-  overflow: auto; /* 确保可以滚动 */
+  flex: 1 1 auto;              /* 关键：占满剩余高度 */
+  min-height: 0;               /* 防止 flex 子项被内容撑爆 */
+  overflow: auto;              /* 内容多时滚动 */
   position: relative;
   border: 1px solid #e0e0e0;
   background: white;
-}
-
-/* 给表格容器添加padding，避免内容被遮挡 */
-.excel-container {
-  padding-top: 1px !important; /* 微小padding避免边界问题 */
+  padding-top: 1px;            /* 微小内距，避免边框被遮挡 */
+  height: 100%;
 }
 
 /* ====================
@@ -2048,7 +2090,7 @@ onMounted(() => {
 }
 
 :deep(.handsontable) {
-  position: relative;
+  height: 100%;          /* 让 Handsontable 内部也吃满 */
 }
 
 /* ====================
@@ -2745,6 +2787,20 @@ onMounted(() => {
   background-color: #ff4d4f !important;
   border-radius: 50% !important;
   z-index: 1000 !important;
+}
+
+
+/* 1. 让整个三栏布局吃满视口高度 */
+.three-column-layout {
+  height: 100vh;
+  display: flex;          /* 你原来就有这条的话可省略 */
+}
+
+/* 2. 右侧放表格的那一列再纵向 flex */
+.right-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 

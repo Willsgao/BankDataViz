@@ -96,11 +96,6 @@
     <!-- 右侧：Excel内容滚动区域 -->
     <div class="right-panel" ref="rightPanel" :style="{ flex: '1 1 auto' }">
 
-
-      <div class="panel-header">
-        <h3>Excel表格内容</h3>
-        <!-- 已移除展开按钮 -->
-      </div>
       <div class="scroll-content">
         <slot name="right"></slot>
       </div>
@@ -479,4 +474,23 @@ onMounted(() => {
 .three-column-layout > * {
   min-width: 0;
 }
+
+/* 锁死整个三栏布局 = 浏览器可视区高度 */
+.three-column-layout { height: 100vh; display: flex; }
+
+/* 右侧 Excel 区域再纵向 flex，吃满剩余高度 */
+.right-panel {
+  flex: 1 1 auto;
+  display: flex;              /* 补上 */
+  flex-direction: column;     /* 补上 */
+  min-width: 350px;
+}
+
+/* 给右侧栏（最后一个 flex-item）纵向 flex */
+.three-column-layout > :last-child {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 </style>

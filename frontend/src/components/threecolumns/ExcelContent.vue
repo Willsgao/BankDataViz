@@ -1,9 +1,10 @@
 <template>
   <div class="excel-content-container">
+    <!-- 第一行：标题 + 按钮（32 px） -->
     <div class="section-header">
       <div class="header-main">
         <div class="header-left">
-          <h3>表格内容</h3>
+          <h3>表格</h3>
           <div v-if="selectedSheet" class="header-info">
             <el-tag type="primary">{{ selectedSheet.name }}</el-tag>
           </div>
@@ -19,43 +20,66 @@
               :loading="loadingFlat"
             >
               <el-icon><DataAnalysis /></el-icon>
-              {{ showFlatMode ? '数据二维化' : '数据扁平化' }}
+              {{ showFlatMode ? '二维化' : '扁平化' }}
             </el-button>
 
             <el-button-group
               size="small"
               class="save-buttons"
-              :key="`save-${forceUpdateKey}-${props.hasUnsavedChanges}`">
+              :key="`save-${forceUpdateKey}-${props.hasUnsavedChanges}`"
+            >
               <el-button
                 type="warning"
                 :class="{ 'is-disabled': !(props.selectedSheet && props.hasUnsavedChanges) }"
-                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'draft')">
-                保存草稿
+                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'draft')"
+              >
+                存草稿
               </el-button>
               <el-button
                 type="success"
                 :class="{ 'is-disabled': !(props.selectedSheet && props.hasUnsavedChanges) }"
-                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'final')">
-                最终保存
+                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'final')"
+              >
+                存后台
               </el-button>
             </el-button-group>
-
-
           </div>
-
         </div>
       </div>
     </div>
 
-    <!-- 保存状态栏 -->
-    <SaveStatus
-      :selected-sheet="selectedSheet"
-      :status="saveStatus"
-      :modified-cells-count="modifiedCellsCount"
-      :last-save-time="lastSaveTime"
-    />
+    <!-- 第二行：统计 + 保存状态（24 px） -->
+    <div class="sub-bar">
+      <!-- 空白单元格 -->
+      <el-tag v-if="emptyCount" size="small" type="info">
+        空白 {{ emptyCount }}
+      </el-tag>
 
-    <!-- Excel内容区域 -->
+      <!-- 选中区域统计 -->
+      <el-tag v-if="stats.rowCount" size="small">
+        选中 {{ stats.rowCount }} 单元格
+        <template v-if="stats.numericCount">
+          总和 {{ stats.sum }} 平均 {{ stats.average }}
+        </template>
+      </el-tag>
+
+      <!-- 保存状态（合并进来） -->
+      <SaveStatus
+        :selected-sheet="selectedSheet"
+        :status="saveStatus"
+        :modified-cells-count="modifiedCellsCount"
+        :last-save-time="lastSaveTime"
+      />
+    </div>
+
+    <!-- 当前单元格信息（有值才显示） -->
+    <template v-if="currentCell.position">
+      <el-tag size="small">{{ currentCell.position }}</el-tag>
+      <el-tag size="small" type="info">{{ currentCell.type }}</el-tag>
+      <span class="cell-txt">{{ currentCell.content }}</span>
+    </template>
+
+    <!-- 表格区域：自动撑满剩余高度 -->
     <div class="excel-content">
       <div v-if="!selectedSheet" class="placeholder">
         <el-icon><Grid /></el-icon>
@@ -69,9 +93,8 @@
         <p>表格为空</p>
       </div>
 
-      <!-- 表格显示逻辑 -->
+      <!-- 表格显示 -->
       <div v-else class="handsontable-container">
-        <!-- 原始模式 -->
         <div v-show="!showFlatMode">
           <HandsontableExcelViewer
             ref="originalViewer"
@@ -79,6 +102,7 @@
             :sheet-name="selectedSheet?.name || ''"
             :pdf-id="selectedPdf?.id"
             :excel-file-name="selectedExcelFile"
+            :flat-data="flatData"
             :key="`original-${selectedSheet?.name}-${excelData.length}`"
             @cell-changed="handleCellChanged"
             @data-changed="handleDataChanged"
@@ -87,7 +111,6 @@
           />
         </div>
 
-        <!-- 扁平化模式 -->
         <div v-show="showFlatMode && flatData.length > 0">
           <HandsontableExcelViewer
             ref="flatViewer"
@@ -103,13 +126,11 @@
           />
         </div>
 
-        <!-- 扁平化加载中的提示 -->
         <div v-if="showFlatMode && flatData.length === 0 && loadingFlat" class="loading-state">
           <el-icon class="is-loading"><Loading /></el-icon>
           正在扁平化数据...
         </div>
 
-        <!-- 扁平化模式下但无数据的提示 -->
         <div v-if="showFlatMode && flatData.length === 0 && !loadingFlat" class="empty-state">
           <el-icon><Grid /></el-icon>
           <p>暂无扁平化数据</p>
@@ -119,6 +140,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup>
 import SaveStatus from './SaveStatus.vue'
@@ -131,6 +153,37 @@ import {
 import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted   } from 'vue'
 
 import { ElMessage } from 'element-plus'
+
+/* ===== 给模板用的空壳变量（先让渲染不报错） ===== */
+const emptyCount = ref(0)          // 空白单元格数量
+const stats = ref({                // 选中区域统计
+  rowCount: 0,
+  numericCount: 0,
+  sum: 0,
+  average: 0,
+  max: 0,
+  min: 0
+})
+
+// 当前单元格信息（空壳先占位）
+const currentCell = ref({
+  position: '',
+  content: '',
+  type: '文本',
+  isNumeric: false
+})
+
+// 监听子组件的选中事件
+const handleCellSelected = (cell) => {
+  currentCell.value = cell
+}
+
+/* ===== 后续你可以把真实数据接进来 ===== */
+// 例：当 Handsontable 抛出选中事件时
+const handleSelection = (sel) => {
+  stats.value = sel                    // 真实统计对象
+  emptyCount.value = sel.emptyCount    // 真实空白数
+}
 
 const forceRefreshKey = ref(0)
 const forceUpdateKey = ref(0)
@@ -408,7 +461,15 @@ const emit = defineEmits([
 ])
 
 
+watch([() => props.excelData, () => props.flatData, () => props.showFlatMode], () => {
+  nextTick(refreshHot)
+}, { deep: true })
 
+function refreshHot () {
+  const viewer = originalViewer.value || flatViewer.value
+  const hot = viewer?.getSafeHotInstance?.()
+  hot && !hot.isDestroyed && hot.render()
+}
 
 
 // 当实际有未保存修改变化时，通知父组件
@@ -452,6 +513,8 @@ defineExpose({
   originalViewer,
   flatViewer,
   checkSaveButtons,
+  tableData: computed(() => hotViewerRef.value?.tableData ?? []),
+  flatData:  computed(() => []),
   debugExcelContent: {
     checkButtons: checkSaveButtons,
     getProps: () => ({
@@ -469,11 +532,6 @@ defineExpose({
 
 
 <style scoped>
-.excel-content-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
 
 .section-header {
   padding: 12px 16px;
@@ -558,12 +616,7 @@ defineExpose({
   margin-left: auto;
 }
 
-.excel-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
+
 
 .placeholder {
   display: flex;
@@ -602,25 +655,7 @@ defineExpose({
   flex-direction: column;
 }
 
-/* Handsontable容器样式 */
-.handsontable-container {
-  height: 100%;
-  min-height: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
 
-.handsontable-container > div {
-  height: 100%;
-  width: 100%;
-}
-
-/* 确保隐藏的组件不占位 */
-.handsontable-container > div[style*="display: none"] {
-  display: none !important;
-}
 
 /* 扁平化加载中的提示 */
 .handsontable-container .loading-state {
@@ -712,4 +747,47 @@ defineExpose({
     text-align: center;
   }
 }
+
+.sub-bar {
+  flex-shrink: 0;        /* 允许它自己收缩，但不要写 height:24px  */
+  line-height: 24px;     /* 如果只想文字垂直居中，用 line-height 即可 */
+  padding: 4px 16px;     /* 用 padding 撑出高度，而不是硬编码 height */
+}
+
+
+
+
+
+/* 在 ExcelContent.vue 的 style 部分，确保这样写 */
+
+.excel-content-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;  /* 关键 */
+  width: 100%;
+}
+
+/* 第二级：继续往下传 */
+.excel-content {
+  flex: 1 1 auto;
+  min-height: 0;  /* 关键 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 第三级：Handsontable 真正占位 */
+.handsontable-container {
+  flex: 1 1 auto;
+  min-height: 0;  /* 关键 */
+  position: relative;
+}
+
+/* 确保 Handsontable 容器内部的 div 吃满 */
+.handsontable-container > div {
+  height: 100%;
+  width: 100%;
+}
+
+
 </style>
