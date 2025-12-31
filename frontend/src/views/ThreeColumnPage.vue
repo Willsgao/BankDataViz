@@ -446,8 +446,8 @@ const selectSheet = async (sheet, excelFileName) => {
 
     sheetStateManager.setActiveContext(
       selectedPdf.value.id,
-      excelFileName,
-      sheet.name,
+      selectedExcelFile.value,
+      selectedSheet.value.name,
       tableType
     )
 
@@ -545,7 +545,6 @@ const loadAllClassData = async (excelFileName) => {
   )
 }
 
-
 // ThreeColumnPage.vue - 修复 toggleFlatMode 函数
 const toggleFlatMode = async () => {
   console.log('🔄 切换扁平化模式...')
@@ -567,26 +566,46 @@ const toggleFlatMode = async () => {
       sheet: selectedSheet.value.name
     })
 
-    // 关键：先更新上下文
-    sheetStateManager.setActiveContext(
-      selectedPdf.value.id,
-      selectedExcelFile.value,
-      selectedSheet.value.name,
-      newTableType
-    )
-
-    console.log('✅ 上下文已更新:', {
-      pdfId: selectedPdf.value.id,
-      excelFile: selectedExcelFile.value,
-      sheetName: selectedSheet.value.name,
-      tableType: newTableType
-    })
-
-    // 如果当前是原始模式，切换到扁平化
-    if (!wasFlatMode) {
+    // 关键修复：如果切换到扁平化模式，先确保有原始数据
+    if (!wasFlatMode) { // 从原始模式切换到扁平化模式
       console.log('🔀 切换到扁平化模式')
 
-      // 清除可能存在的旧缓存
+      // 1. 先确保原始数据已加载
+      const pdfId = selectedPdf.value.id
+      const excelFile = selectedExcelFile.value
+      const sheetName = selectedSheet.value.name
+
+      // 检查缓存中是否有原始数据
+      const cachedOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+      if (!cachedOriginalData || cachedOriginalData.length === 0) {
+        console.log('🔄 缓存中无原始数据，重新加载...')
+
+        // 重新加载原始数据
+        const loadResult = await loadExcelData(sheetName, excelFile)
+        if (!loadResult.success) {
+          throw new Error('无法加载原始表格数据')
+        }
+
+        // 等待数据加载完成
+        await nextTick()
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+
+      // 2. 检查当前显示的原始数据
+      if (!excelData.value || excelData.value.length === 0) {
+        console.log('⚠️ 当前显示数据为空，重新设置数据')
+        const originalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+        if (originalData && originalData.length > 0) {
+          excelData.value = originalData
+          await nextTick()
+        } else {
+          throw new Error('原始数据加载失败')
+        }
+      }
+
+
+
+      // 3. 清除可能存在的旧缓存
       try {
         if (dataManager && dataManager.indexedDBManager) {
           await dataManager.indexedDBManager.deleteFlattenedCache(
@@ -600,12 +619,12 @@ const toggleFlatMode = async () => {
         console.warn('⚠️ 清除缓存失败:', clearError.message)
       }
 
-      // 直接调用 API 函数
+      // 4. 执行扁平化转换
       await convertToFlatData()
 
       // 检查是否成功
       if (flatData.value.length > 0) {
-        // 再次确认上下文（因为convertToFlatData可能会重置）
+        // 设置上下文
         sheetStateManager.setActiveContext(
           selectedPdf.value.id,
           selectedExcelFile.value,
@@ -621,7 +640,7 @@ const toggleFlatMode = async () => {
       // 切换回原始模式
       console.log('🔀 切换回原始模式')
 
-      // 上下文已经在上面更新了，这里只需确认
+      // 设置上下文
       sheetStateManager.setActiveContext(
         selectedPdf.value.id,
         selectedExcelFile.value,
@@ -643,8 +662,13 @@ const toggleFlatMode = async () => {
   } catch (error) {
     console.error('❌ 切换失败:', error)
     ElMessage.error(`切换失败: ${error.message}`)
+
+    // 恢复状态
+    showFlatMode.value = false
+    flatData.value = []
   }
 }
+
 
 
 // 添加清除缓存的方法
@@ -1056,8 +1080,7 @@ const saveData = async (type) => {
 }
 
 
-// ============ 其他方法保持原有逻辑 ============
-// 在convertToFlatData方法中添加重建二维表格的逻辑
+
 const convertToFlatData = async () => {
   if (!selectedSheet.value || !selectedPdf.value) {
     ElMessage.warning('请先选择表格')
@@ -1074,15 +1097,33 @@ const convertToFlatData = async () => {
     console.log('🔄 开始数据扁平化处理...')
 
     // 步骤1：从缓存获取当前sheet的双表头数据
-    const currentOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+    let currentOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+
+    // 如果缓存为空，尝试从当前显示的数据获取
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      console.log('📦 缓存无数据，尝试从当前显示数据获取...')
+      currentOriginalData = excelData.value
+    }
+
+    // 如果仍然为空，重新加载数据
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      console.log('🔄 重新加载原始数据...')
+      const loadResult = await loadExcelData(sheetName, excelFile)
+      if (!loadResult.success) {
+        throw new Error('无法加载原始表格数据')
+      }
+      currentOriginalData = excelData.value
+    }
+
     if (!currentOriginalData || currentOriginalData.length === 0) {
       throw new Error('原始数据为空，无法转换')
     }
 
-    console.log('📊 从缓存获取的原始数据:', {
+    console.log('📊 用于转换的原始数据:', {
       数据类型: typeof currentOriginalData[0],
       总行数: currentOriginalData.length,
-      第一行: currentOriginalData[0]
+      第一行: currentOriginalData[0],
+      第一行列数: currentOriginalData[0]?.length || 0
     })
 
     // 步骤2：重建原始二维表格数据
@@ -1115,7 +1156,11 @@ const convertToFlatData = async () => {
       }
     }
 
-    console.log('📤 发送扁平化请求数据:', requestData)
+    console.log('📤 发送扁平化请求数据:', {
+      表数据行数: requestData.table_data.length,
+      表数据列数: requestData.table_data[0]?.length || 0,
+      来源信息: requestData.source_info
+    })
 
     // 步骤5：调用扁平化API
     const response = await fetch(getApiUrl('/excel-flatten'), {
@@ -1132,19 +1177,25 @@ const convertToFlatData = async () => {
     }
 
     const result = await response.json()
-    console.log('✅ API响应成功:', result)
+    console.log('✅ API响应成功:', {
+      成功: result.success,
+      错误: result.error,
+      返回数据类型: typeof result.rows,
+      是否数组: Array.isArray(result.rows),
+      行数: result.rows?.length || 0
+    })
 
     // 检查返回格式
-    if (result.rows && Array.isArray(result.rows)) {
+    if (result.rows && Array.isArray(result.rows) && result.rows.length > 0) {
         console.log('📊 接收到双表头格式数据:', {
             总行数: result.rows.length,
+            第一行样本: result.rows[0],
             格式: '双表头格式'
         })
 
         // 保存原始的双表头格式数据到内存缓存
         excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, result.rows)
 
-        // ============ 新增：缓存到 IndexedDB ============
         // 设置数据管理器上下文
         dataManager.setContext({
           pdfId: pdfId,
@@ -1154,28 +1205,13 @@ const convertToFlatData = async () => {
 
         // 缓存扁平化数据到 IndexedDB
         try {
-          // 先清除旧缓存，再保存新数据
-          await dataManager.deleteFlattenedData() // 如果这个方法存在
-
-          // 或者使用 update 方法
           await dataManager.saveFlattenedData(result.rows, currentOriginalData)
           console.log('📦 扁平化数据已缓存到 IndexedDB')
         } catch (cacheError) {
           console.warn('⚠️ 缓存到 IndexedDB 失败:', cacheError)
-          // 尝试其他方式
-          try {
-            // 如果是主键冲突，尝试更新
-            if (cacheError.name === 'ConstraintError') {
-              console.log('尝试更新现有缓存...')
-              await dataManager.updateFlattenedData(result.rows, currentOriginalData)
-            }
-          } catch (updateError) {
-            console.warn('⚠️ 更新缓存也失败:', updateError.message)
-          }
         }
 
-
-        // ✅ 新增：保存扁平化数据到状态管理器
+        // 保存扁平化数据到状态管理器
         const currentContext = sheetStateManager.getActiveContext()
         if (currentContext &&
             currentContext.pdfId === pdfId &&
@@ -1185,7 +1221,7 @@ const convertToFlatData = async () => {
           console.log(`📦 扁平化数据已保存到状态管理器: ${result.rows.length}行`)
         }
 
-        // 显示扁平化数据（直接使用rows，这是双表头格式）
+        // 显示扁平化数据
         flatData.value = result.rows
         showFlatMode.value = true
 
@@ -1198,7 +1234,6 @@ const convertToFlatData = async () => {
         // 保存到内存缓存
         excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, result.long_format_data)
 
-        // ============ 新增：缓存到 IndexedDB ============
         // 设置数据管理器上下文
         dataManager.setContext({
           pdfId: pdfId,
@@ -1214,7 +1249,7 @@ const convertToFlatData = async () => {
           console.warn('⚠️ 缓存到 IndexedDB 失败:', cacheError)
         }
 
-        // ✅ 新增：保存扁平化数据到状态管理器
+        // 保存扁平化数据到状态管理器
         const currentContext = sheetStateManager.getActiveContext()
         if (currentContext &&
             currentContext.pdfId === pdfId &&
@@ -1229,7 +1264,7 @@ const convertToFlatData = async () => {
         ElMessage.success('数据扁平化成功')
 
     } else {
-        throw new Error(result.error || '转换失败')
+        throw new Error(result.error || '转换失败，返回数据格式不正确')
     }
 
   } catch (error) {
@@ -1239,6 +1274,11 @@ const convertToFlatData = async () => {
     // 重置状态
     showFlatMode.value = false
     flatData.value = []
+
+    // 重新加载原始数据
+    if (selectedSheet.value) {
+      await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
+    }
   } finally {
     loadingFlat.value = false
     const currentSheet = excelDataCache.getCurrentSheet()
