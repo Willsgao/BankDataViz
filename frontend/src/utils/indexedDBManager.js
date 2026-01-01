@@ -107,6 +107,19 @@ class IndexedDBManager {
     }
   }
 
+
+  // 在 indexedDBManager.js 里新增一个 upsert 方法
+    async upsertRecord(storeName, record, key) {
+      await this.ensureDB()
+      return new Promise((resolve, reject) => {
+        const tx = this.db.transaction([storeName], 'readwrite')
+        const store = tx.objectStore(storeName)
+        const req = key ? store.put(record, key) : store.put(record) // put = 覆盖或新增
+        req.onsuccess = () => resolve(req.result)
+        req.onerror = () => reject(req.error)
+      })
+    }
+
   /**
    * 通用方法：获取记录
    */
@@ -271,7 +284,8 @@ class IndexedDBManager {
       size: JSON.stringify(flattenedData).length
     }
 
-    await this.addRecord('flattened_data', record)
+    //await this.addRecord('flattened_data', record)
+    await indexedDBManager.upsertRecord('flattened_data', record)
     console.log('📦 扁平化数据已缓存:', { pdfId, sheetName })
 
     return cacheKey

@@ -25,19 +25,23 @@
             </el-button>
 
             <!-- 保存组：缩小 + 靠右 -->
-            <el-button-group size="small" class="save-buttons">
+            <el-button-group size="small" class="save-buttons" :key="`save-buttons-${forceUpdateKey}`">
               <el-button
                 type="warning"
-                :disabled="!(props.selectedSheet && props.hasUnsavedChanges)"
-                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'draft')"
+                :disabled="!enableSaveButtons"
+                @click="enableSaveButtons && $emit('save-data', 'draft')"
+                :loading="saving && saveType === 'draft'"
               >
+                <el-icon><Document /></el-icon>
                 存草稿
               </el-button>
               <el-button
                 type="success"
-                :disabled="!(props.selectedSheet && props.hasUnsavedChanges)"
-                @click="props.selectedSheet && props.hasUnsavedChanges && $emit('save-data', 'final')"
+                :disabled="!enableSaveButtons"
+                @click="enableSaveButtons && $emit('save-data', 'final')"
+                :loading="saving && saveType === 'final'"
               >
+                <el-icon><Check /></el-icon>
                 存后台
               </el-button>
             </el-button-group>
@@ -111,7 +115,7 @@
           />
         </div>
 
-        <div v-show="showFlatMode && flatData.length > 0">
+        <div v-show="showFlatMode">
           <HandsontableExcelViewer
             ref="flatViewer"
             :excel-data="flatData"
@@ -327,12 +331,39 @@ const updateLocalUnsavedChanges = () => {
 
 
 // 在 ExcelContent.vue 中检查
-const enableSaveButtons = computed(() => {
+const enableSaveButtons111 = computed(() => {
   console.log('🎯 enableSaveButtons 被计算')
   const result = !!props.selectedSheet && !!props.hasUnsavedChanges
 
   return result
 })
+
+
+// 在 ExcelContent.vue 中检查
+const enableSaveButtons = computed(() => {
+  console.log('🎯 enableSaveButtons 被计算', {
+    有Sheet: !!props.selectedSheet,
+    父组件给的hasUnsavedChanges: props.hasUnsavedChanges,
+    全局修改数: window.unsavedCells?.size || 0,
+    当前时间: new Date().toLocaleTimeString()
+  });
+
+  // 🔥 强制启用逻辑：只要有选中的sheet，并且有全局修改，就启用按钮
+  const hasSheet = !!props.selectedSheet;
+  const hasGlobalChanges = window.unsavedCells?.size > 0;
+
+  // 直接使用全局状态判断
+  const result = hasSheet && hasGlobalChanges;
+
+  console.log('🔥 直接判断结果:', {
+    result,
+    hasSheet,
+    hasGlobalChanges,
+    全局修改: window.unsavedCells?.size || 0
+  });
+
+  return result;
+});
 
 
 // 添加计算属性来调试按钮状态

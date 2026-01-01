@@ -130,7 +130,6 @@
         :fixedColumnsLeft="fixedColumnsLeft"
         :key="langKey"
         @afterFilter="onFilter"
-        @after-change="onDataChange"
         @after-init="onHotInit"
       />
 
@@ -145,13 +144,62 @@
   </div>
 </template>
 
-
 <script setup>
+
+// 1. 更新导入和配置
+import 'handsontable/dist/handsontable.full.min.css'
+import { registerAllModules } from 'handsontable/registry'
+import Handsontable from 'handsontable'
+
+// 注册所有模块（确保功能完整）
+registerAllModules()
+
+// 2. 创建独立的 Handsontable 管理器
+class HotInstanceManager {
+  constructor() {
+    this.instances = new Map()
+    this.instanceQueue = []
+  }
+
+  async getInstance(viewerRef) {
+    if (!viewerRef) return null
+
+    // 直接通过 DOM 查找
+    const hotElement = viewerRef.$el?.querySelector('.handsontable')
+    if (hotElement?.hotInstance) {
+      return hotElement.hotInstance
+    }
+
+    // 使用 Vue ref
+    if (viewerRef.hotInstance && !viewerRef.hotInstance.isDestroyed) {
+      return viewerRef.hotInstance
+    }
+
+    // 等待实例就绪
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (hotElement?.hotInstance && !hotElement.hotInstance.isDestroyed) {
+          clearInterval(checkInterval)
+          resolve(hotElement.hotInstance)
+        }
+      }, 100)
+
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        resolve(null)
+      }, 5000)
+    })
+  }
+}
+
+// 3. 在 setup 中初始化管理器
+const hotManager = new HotInstanceManager()
+
 import { registerLanguageDictionary, zhCN } from 'handsontable/i18n'
-import { ref, computed, defineEmits, defineProps, nextTick, onMounted, onUnmounted, defineExpose } from 'vue'
+import { ref, computed, defineEmits, defineProps, nextTick, onMounted } from 'vue'
 
 import { HotTable } from '@handsontable/vue3'
-import 'handsontable/dist/handsontable.full.min.css'  // 使用最新样式
+import 'handsontable/dist/handsontable.full.css'
 import {
   Download, Edit, View, Grid, Menu, DataAnalysis,
   Close, Position
@@ -172,111 +220,6 @@ try {
 } catch (error) {
   console.warn('⚠️ 注册中文语言包失败，使用英文:', error.message)
 }
-
-// ============ 核心：Handsontable 实例控制器 ============
-class HotInstanceController {
-  constructor() {
-    this.instance = null
-    this.ready = false
-    this.waiters = []
-    this.initPromise = null
-    this.timeout = 5000
-  }
-
-  setInstance(hot) {
-    if (!hot || hot.isDestroyed) return
-
-    this.instance = hot
-    this.ready = true
-
-    // 解决所有等待者
-    this.resolveWaiters()
-
-    console.log('🎯 HotInstanceController: 实例已设置', {
-      行数: hot.countRows?.(),
-      列数: hot.countCols?.()
-    })
-  }
-
-  waitForReady(timeout = 5000) {
-    if (this.ready && this.instance && !this.instance.isDestroyed) {
-      return Promise.resolve(this.instance)
-    }
-
-    return new Promise((resolve, reject) => {
-      const waiterId = Date.now() + Math.random()
-      this.waiters.push({ id: waiterId, resolve, reject })
-
-      const timer = setTimeout(() => {
-        const index = this.waiters.findIndex(w => w.id === waiterId)
-        if (index > -1) {
-          this.waiters.splice(index, 1)
-          reject(new Error(`Handsontable 实例 ${timeout}ms 内未就绪`))
-        }
-      }, timeout)
-
-      // 为第一个等待者启动健康检查
-      if (this.waiters.length === 1 && !this.initPromise) {
-        this.startHealthCheck()
-      }
-    })
-  }
-
-  startHealthCheck() {
-    this.initPromise = new Promise((resolve) => {
-      const checkInterval = setInterval(() => {
-        if (this.ready && this.instance && !this.instance.isDestroyed) {
-          clearInterval(checkInterval)
-          resolve(this.instance)
-          this.resolveWaiters()
-        }
-      }, 100)
-
-      // 超时停止检查
-      setTimeout(() => {
-        clearInterval(checkInterval)
-        if (!this.ready) {
-          console.warn('⚠️ Handsontable 健康检查超时')
-        }
-      }, this.timeout)
-    })
-  }
-
-  resolveWaiters() {
-    while (this.waiters.length > 0) {
-      const waiter = this.waiters.shift()
-      if (waiter.resolve) {
-        try {
-          waiter.resolve(this.instance)
-        } catch (err) {
-          console.error('解析等待者失败:', err)
-        }
-      }
-    }
-  }
-
-  getInstance() {
-    return this.instance
-  }
-
-  isReady() {
-    return this.ready && this.instance && !this.instance.isDestroyed
-  }
-
-  destroy() {
-    this.ready = false
-    this.waiters = []
-    this.initPromise = null
-    if (this.instance && !this.instance.isDestroyed) {
-      this.instance.destroy()
-    }
-    this.instance = null
-  }
-}
-
-// 创建全局控制器
-const hotController = new HotInstanceController()
-const hotInstanceRef = ref(null)
 
 // ============ Props & Emits ============
 const emit = defineEmits([
@@ -318,67 +261,53 @@ const {
 const currentLanguage = ref('zh-CN')
 const langKey = ref('zh-CN-' + Date.now())
 
-// 优化的实例获取函数
-const getHotInstanceDirect = () => {
-  try {
-    // 优先级1：通过控制器获取
-    if (hotController.isReady()) {
-      return hotController.getInstance()
-    }
-
-    // 优先级2：通过组件ref获取
-    if (hotTable.value && hotTable.value.hotInstance) {
-      const instance = hotTable.value.hotInstance
-      if (!instance.isDestroyed) {
-        hotController.setInstance(instance)
-        return instance
-      }
-    }
-
-    // 优先级3：从DOM获取
-    const hotElement = excelContainer.value?.querySelector?.('.handsontable')
-    if (hotElement && hotElement.hotInstance) {
-      const instance = hotElement.hotInstance
-      if (!instance.isDestroyed) {
-        hotController.setInstance(instance)
-        return instance
-      }
-    }
-
-    // 优先级4：全局变量
-    if (window.__excelHotInstance && !window.__excelHotInstance.isDestroyed) {
-      hotController.setInstance(window.__excelHotInstance)
-      return window.__excelHotInstance
-    }
-
-    return null
-  } catch (error) {
-    console.warn('直接获取 Handsontable 实例失败:', error)
-    return null
-  }
-}
-
-// 修改 onHotInit 函数
+// 修改 onHotInit 函数，确保实例正确暴露
 const onHotInit = () => {
   setTimeout(() => {
-    const hot = getHotInstanceDirect()
+    const hot = getHotInstanceDirect();
     if (hot) {
-      hotInstanceRef.value = hot
-      hotController.setInstance(hot)
-      window.__excelHotInstance = hot
-
-      console.log('⚡ Handsontable 实例已立即暴露', {
+      window.__excelHotInstance = hot;
+      console.log('⚡ Handsontable 实例已立即暴露到全局', {
         行数: hot.countRows(),
         列数: hot.countCols()
-      })
-
-      // 发送实例就绪事件
-      emit('instance-ready', hot)
+      });
     }
-  }, 0)
-}
+  }, 0);
+};
 
-// 获取增强版实例（兼容原有逻辑）
+
+// 添加更可靠的实例获取方法
+const getHotInstanceDirect = () => {
+  try {
+    // 方法1：从 vue-handsontable 组件直接获取
+    if (hotTable.value && hotTable.value.hotInstance) {
+      const instance = hotTable.value.hotInstance;
+      if (!instance.isDestroyed) {
+        return instance;
+      }
+    }
+
+    // 方法2：从 DOM 中查找
+    const hotElement = document.querySelector('.handsontable');
+    if (hotElement && hotElement.hotInstance) {
+      return hotElement.hotInstance;
+    }
+
+    // 方法3：全局变量
+    if (window.__excelHotInstance && !window.__excelHotInstance.isDestroyed) {
+      return window.__excelHotInstance;
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('直接获取 Handsontable 实例失败:', error);
+    return null;
+  }
+};
+
+
+
+// 获取增强版实例
 const getEnhancedHotInstance = () => {
   const instance = getSafeHotInstance()
   if (instance) {
@@ -484,14 +413,7 @@ const logic = useExcelViewerLogic(
   emit
 )
 
-// 添加这3个关键方法
-defineExpose({
-  waitForInstanceReady: (timeout = 5000) => hotController.waitForReady(timeout),
-  getHotInstance: () => hotController.getInstance(),
-  isInstanceReady: () => hotController.isReady(),
-})
-
-// 保留原有的 useExcelViewerExpose 调用（不要删除）
+// 暴露方法
 useExcelViewerExpose({
   exportData,
   tableData,
@@ -509,7 +431,6 @@ useExcelViewerExpose({
   forceFixStyles: logic.forceFixStyles,
 })
 
-
 // 模板中使用的属性和方法
 const {
   showEmptyCellsHighlight,
@@ -520,14 +441,6 @@ const {
   toggleEditMode,
   onFilter
 } = logic
-
-// 组件销毁时清理
-onUnmounted(() => {
-  hotController.destroy()
-  if (window.__excelHotInstance === hotInstanceRef.value) {
-    window.__excelHotInstance = null
-  }
-})
 </script>
 
 

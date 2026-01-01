@@ -6,33 +6,15 @@
   "modifications": [
     {
       "row": 2,
-      "col": 2,
-      "oldValue": "",
-      "newValue": "2024 年 9 月 30 日",
-      "saved": false,
-      "timestamp": 1767088858269,
-      "tableType": "original"
-    },
-    {
-      "row": 2,
       "col": 1,
       "oldValue": "",
-      "newValue": "2024年 12 月 31日",
+      "newValue": "2024年 12 月 31",
       "saved": false,
-      "timestamp": 1767088858269,
-      "tableType": "original"
-    },
-    {
-      "row": 2,
-      "col": 3,
-      "oldValue": "",
-      "newValue": "2024 年 6 月 30 日",
-      "saved": false,
-      "timestamp": 1767088858269,
+      "timestamp": 1767255976804,
       "tableType": "original"
     }
   ],
-  "total_changes": 3,
+  "total_changes": 1,
   "data": [
     {
       "__metadata": {

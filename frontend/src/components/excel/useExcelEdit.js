@@ -139,7 +139,9 @@ const onDataChange = (changes, source) => {
 
   changes.forEach(([row, col, oldVal, newVal]) => {
     if (oldVal == newVal) return;          // 宽松比较
-    const cellKey = `${row},${col}`;
+
+    const tableType = window.currentTableType || 'original';
+    const cellKey = `${row},${col},${tableType}`;
     console.log('🚀 写入前 unsavedCells.size', unsavedCells.value.size);
     unsavedCells.value.add(cellKey);
     console.log('✅ 写入后 unsavedCells.size', unsavedCells.value.size, 'key', cellKey);
