@@ -311,6 +311,28 @@ class SheetStateManager {
   }
 
 
+   // 新增：完全清除所有修改记录
+    clearAllModifications(tableType = null) {
+      const state = this.getActiveSheetState()
+      if (!state) return false
+
+      const typesToClear = tableType ? [tableType] : ['original', 'flattened']
+
+      typesToClear.forEach(type => {
+        // 直接清空整个Map
+        state.modifications[type] = new Map()
+        state.stats[type] = {
+          savedCount: 0,
+          unsavedCount: 0
+        }
+
+        console.log(`🗑️ 完全清除${type}表所有修改记录`)
+      })
+
+      this.triggerUpdate.value++
+      return true
+    }
+
 
   // 在 SheetStateManager.js 的类中添加这个方法
     getSavedChangesCount(tableType = null) {

@@ -30,12 +30,30 @@ export default function useExcelTable(props) {
   }
 
   // 表格高度计算属性（直接从原文件复制）
-    const tableHeight = computed(() => {
+    const tableHeight11 = computed(() => {
       // 如果没有 tableData 参数，直接使用容器高度
       const minHeight = 400
       const calculatedHeight = Math.max(minHeight, containerHeight.value)
 
       return calculatedHeight
+    })
+
+    const tableHeight = computed(() => {
+      // 获取窗口高度
+      const windowHeight = window.innerHeight
+      const fixedHeights = 60 + 40 + 50 + 30
+
+      // 计算可用高度
+      const availableHeight = Math.max(windowHeight - fixedHeights, 300)
+
+      console.log('📏 表格高度计算:', {
+        窗口高度: windowHeight,
+        固定高度: fixedHeights,
+        可用高度: availableHeight,
+        原计算高度: containerHeight.value
+      })
+
+      return availableHeight
     })
 
 

@@ -24,31 +24,21 @@
               {{ showFlatMode ? '二维化' : '扁平化' }}
             </el-button>
 
-            <!-- 保存组：缩小 + 靠右 -->
-            <el-button-group size="small" class="save-buttons" :key="`save-buttons-${forceUpdateKey}`">
-              <el-button
-                type="warning"
-                :disabled="!enableSaveButtons"
-                @click="enableSaveButtons && $emit('save-data', 'draft')"
-                :loading="saving && saveType === 'draft'"
-              >
-                <el-icon><Document /></el-icon>
-                存草稿
-              </el-button>
+            <div class="save-buttons">
               <el-button
                 type="success"
+                size="small"
                 :disabled="!enableSaveButtons"
-                @click="enableSaveButtons && $emit('save-data', 'final')"
-                :loading="saving && saveType === 'final'"
+                @click="triggerSave"
+                :loading="saving"
               >
                 <el-icon><Check /></el-icon>
-                存后台
+                保存
               </el-button>
-            </el-button-group>
+            </div>
 
           </div>
         </div>
-
       </div>
     </div>
 
@@ -183,6 +173,28 @@ const handleCellSelected = (cell) => {
 }
 
 
+// 存后台按钮启用条件
+const enableFinalButton = computed(() => {
+  console.log('🔍 [存后台按钮] 启用条件检查:', {
+    时间: new Date().toLocaleTimeString(),
+    有sheet: !!props.selectedSheet,
+    全局unsavedCells数量: window.unsavedCells?.size || 0,
+    状态管理器修改数: sheetStateManager?.getUnsavedChangesCount?.(props.showFlatMode ? 'flattened' : 'original') || 0
+  })
+
+  if (!props.selectedSheet) {
+    return false
+  }
+
+  // 检查未保存修改
+  const hasUnsaved =
+    (window.unsavedCells?.size > 0) ||
+    (sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
+
+  console.log('  ✅ 是否有未保存修改:', hasUnsaved)
+  return hasUnsaved
+})
+
 
 /* ===== 后续你可以把真实数据接进来 ===== */
 // 例：当 Handsontable 抛出选中事件时
@@ -245,6 +257,15 @@ const canSaveFinal = computed(() =>
   !savingFinal.value && (window.unsavedCells?.size > 0 || sheetStateManager.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
 )
 
+
+// 触发保存的方法
+const triggerSave = () => {
+  console.log('💾 ExcelContent: 保存按钮点击')
+  // 触发父组件的 save-data 事件
+  emit('save-data')
+}
+
+
 /* 存草稿：纯前端，永远可点 */
 async function handleSaveDraft() {
   savingDraft.value = true
@@ -254,9 +275,10 @@ async function handleSaveDraft() {
     const key = `draft_${props.selectedPdf.id}_${props.selectedExcelFile}_${props.selectedSheet.name}_${props.showFlatMode ? 'flat' : 'orig'}`
 
     // 2. 写 localStorage（确保字符串化）
+    // modifications: Array.from(window.unsavedCells || []),
     const draft = {
       data: viewer.tableData,
-      modifications: Array.from(window.unsavedCells || []),
+      modifications: Array.from(window.unsavedCells?.[props.showFlatMode ? 'flattened' : 'original'] || []),
       savedAt: Date.now()
     }
     localStorage.setItem(key, JSON.stringify(draft))
@@ -293,7 +315,8 @@ async function handleSaveFinal() {
     }
     await axios.post('/api/excel/save-final', payload)
     // 成功 → 清前端未保存状态
-    window.unsavedCells.clear()
+    // window.unsavedCells.clear()
+    window.unsavedCells?.[props.showFlatMode ? 'flattened' : 'original']?.clear()
     sheetStateManager.markChangesAsSaved(props.showFlatMode ? 'flattened' : 'original')
     emit('unsaved-changes-updated', false)
     ElMessage.success('已保存到后台')
@@ -303,7 +326,6 @@ async function handleSaveFinal() {
     savingFinal.value = false
   }
 }
-
 
 
 // 原有事件处理（向上传递）
@@ -330,40 +352,30 @@ const updateLocalUnsavedChanges = () => {
 }
 
 
-// 在 ExcelContent.vue 中检查
-const enableSaveButtons111 = computed(() => {
-  console.log('🎯 enableSaveButtons 被计算')
-  const result = !!props.selectedSheet && !!props.hasUnsavedChanges
 
-  return result
-})
-
-
-// 在 ExcelContent.vue 中检查
+// 统一的条件：有选中sheet且有未保存修改
 const enableSaveButtons = computed(() => {
-  console.log('🎯 enableSaveButtons 被计算', {
-    有Sheet: !!props.selectedSheet,
-    父组件给的hasUnsavedChanges: props.hasUnsavedChanges,
-    全局修改数: window.unsavedCells?.size || 0,
-    当前时间: new Date().toLocaleTimeString()
-  });
+  console.log('🔍 保存按钮启用条件检查:', {
+    时间: new Date().toLocaleTimeString(),
+    有sheet: !!props.selectedSheet,
+    全局unsavedCells: window.unsavedCells?.size || 0,
+    状态管理器有修改: sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original')
+  })
 
-  // 🔥 强制启用逻辑：只要有选中的sheet，并且有全局修改，就启用按钮
-  const hasSheet = !!props.selectedSheet;
-  const hasGlobalChanges = window.unsavedCells?.size > 0;
+  // 条件1：必须有选中的sheet
+  if (!props.selectedSheet) {
+    console.log('  ❌ 无选中的sheet，按钮禁用')
+    return false
+  }
 
-  // 直接使用全局状态判断
-  const result = hasSheet && hasGlobalChanges;
+  // 条件2：必须有未保存的修改
+  const hasUnsaved =
+    (window.unsavedCells?.size > 0) ||
+    (sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
 
-  console.log('🔥 直接判断结果:', {
-    result,
-    hasSheet,
-    hasGlobalChanges,
-    全局修改: window.unsavedCells?.size || 0
-  });
-
-  return result;
-});
+  console.log('  ✅ 是否有未保存修改:', hasUnsaved)
+  return hasUnsaved
+})
 
 
 // 添加计算属性来调试按钮状态

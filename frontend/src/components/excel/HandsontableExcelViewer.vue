@@ -1597,6 +1597,27 @@ onUnmounted(() => {
   margin-right: 4px;
 }
 
+/* 未保存：深红+红点 */
+:deep(.unsaved-modified-cell){
+  background-color: #ffd8d2 !important;
+  border: 1px solid #ff7875 !important;
+  position: relative;
+}
+:deep(.unsaved-modified-cell::after){
+  content: '';
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 6px; height: 6px;
+  background: #ff4d4f;
+  border-radius: 50%;
+}
+
+/* 历史已保存：浅红，无红点 */
+:deep(.history-modified-cell){
+  background-color: #ffe7e6 !important;
+  border: 1px solid #ffb7b3 !important;
+}
+
 </style>
 
 
