@@ -374,6 +374,8 @@ const onHotInit = () => {
 
       // 发送实例就绪事件
       emit('instance-ready', hot)
+      /* ===== 新增：实例就绪后立即恢复红色标记 ===== */
+      nextTick(() => restoreModifiedCellsStyle())
     }
   }, 0)
 }
@@ -1614,6 +1616,38 @@ onUnmounted(() => {
 
 /* 历史已保存：浅红，无红点 */
 :deep(.history-modified-cell){
+  background-color: #ffe7e6 !important;
+  border: 1px solid #ffb7b3 !important;
+}
+
+
+/* 放在 HandsontableExcelViewer.vue 的 <style scoped> 最末尾 */
+:deep(.handsontable td.unsaved-modified-cell) {
+  background-color: #ffd8d2 !important;
+  border: 1px solid #ff7875 !important;
+}
+:deep(.handsontable td.history-modified-cell) {
+  background-color: #ffe7e6 !important;
+  border: 1px solid #ffb7b3 !important;
+}
+
+/* 放在 <style scoped> 最末尾，权重要最高 */
+:deep(.handsontable td.unsaved-modified-cell) {
+  background-color: #ffd8d2 !important;
+  border: 1px solid #ff7875 !important;
+  position: relative;
+}
+:deep(.handsontable td.unsaved-modified-cell::after) {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  background: #ff4d4f;
+  border-radius: 50%;
+}
+:deep(.handsontable td.history-modified-cell) {
   background-color: #ffe7e6 !important;
   border: 1px solid #ffb7b3 !important;
 }

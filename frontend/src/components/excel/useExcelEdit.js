@@ -178,6 +178,13 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     }
 
 
+    // 新增：供外部一次性写入历史
+   const fillHistoryCells = (keys) => {
+  historyCells.value = new Set(keys)         // 直接替换
+  console.log('📚 fillHistoryCells 被调用，历史池数量=', historyCells.value.size)
+}
+
+
   const updateModifiedCellsCount = () => {
       const unsavedCount = unsavedCells.value.size
       const totalCount = modifiedCells.value.size
@@ -231,44 +238,47 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   const RETRY_DELAY = 200
 
   const updateModifiedCellsStyle = async (retry = 0) => {
-  console.log('🎨 进入刷样式函数', { saved: savedCells.value.size, unsaved: unsavedCells.value.size, history: historyCells.value.size, retry });
+  console.log('🎨 进入刷样式函数', { saved: savedCells.value.size, unsaved: unsavedCells.value.size, history: historyCells.value.size, retry })
 
-  const hot = getHotInstanceWithCache();
+  const hot = getHotInstanceWithCache()
   if (!hot || hot.isDestroyed) {
-    if (retry < 3) setTimeout(() => updateModifiedCellsStyle(retry + 1), 200);
-    else console.warn('❌ 实例无效，放弃样式更新');
-    return;
+    if (retry < 3) setTimeout(() => updateModifiedCellsStyle(retry + 1), 200)
+    else console.warn('❌ 实例无效，放弃样式更新')
+    return
   }
 
-  const cellConfig = [];
+  const cellConfig = []
 
-  /* 1. 未保存 → 深红 + 红点 */
+  // 1. 未保存（深红+红点）
   unsavedCells.value.forEach(key => {
-    const [row, col] = key.split(',').map(Number);
-    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return;
-    cellConfig.push({ row, col, className: 'unsaved-modified-cell' });
-  });
+    const [row, col] = key.split(',').map(Number)
+    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return
+    cellConfig.push({ row, col, className: 'unsaved-modified-cell' })
+  })
 
-  /* 2. 历史已保存 → 浅红，无红点 */
+  // 2. 历史已保存（浅红，无红点）
   historyCells.value.forEach(key => {
-    const [row, col] = key.split(',').map(Number);
-    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return;
-    // 如果已经染过深红，就跳过，避免叠色
-    if (!unsavedCells.value.has(key)) {
-      cellConfig.push({ row, col, className: 'history-modified-cell' });
+    const [row, col] = key.split(',').map(Number)
+    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return
+    if (!unsavedCells.value.has(key)) {   // 避免重复
+      cellConfig.push({ row, col, className: 'history-modified-cell' })
     }
-  });
+  })
 
-  hot.updateSettings({ cell: cellConfig }, false);
-  hot.render();
+  // 🔍 打印最终数组，必须 > 0
+  console.log('📋 最终 cellConfig', cellConfig)
+
+  // 3. 应用配置 + 强制重绘
+  hot.updateSettings({ cell: cellConfig }, false)
+  hot.render()          // 立刻重绘，确保 td 吃到 class
 
   console.log('✅ 样式更新完成', {
     未保存单元格数: unsavedCells.value.size,
     已保存单元格数: savedCells.value.size,
     历史单元格数: historyCells.value.size,
     样式规则数: cellConfig.length
-  });
-};
+  })
+}
 
   const collectModifiedData = () => {
     const hot = getHotInstanceWithCache()
@@ -485,50 +495,45 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     }
   }
 
+
   const saveChanges = async (saveCallback) => {
-    if (!hasChanges.value || saving.value) return
+      if (!hasChanges.value || saving.value) return
 
-    saving.value = true
-    console.log('💾 开始保存修改...')
+      saving.value = true
+      console.log('💾 开始保存修改...')
 
-    try {
-      const modifiedData = collectModifiedData()
-      const unsavedCount = unsavedCells.value.size
+      try {
+        const modifiedData = collectModifiedData()
+        const unsavedCount = unsavedCells.value.size
 
-      if (saveCallback) {
-        await saveCallback(modifiedData, unsavedCount)
+        if (saveCallback) {
+          await saveCallback(modifiedData, unsavedCount)
+        }
+
+        // ✅ 保存成功后：未保存 → 已保存 + 写历史池（永久留痕）
+        unsavedCells.value.forEach(cellKey => {
+          savedCells.value.add(cellKey)
+          historyCells.value.add(cellKey) // ⬅️ 关键：永久记住
+        })
+
+        console.log('✅ 保存完成:', {
+          保存单元格数: modifiedData.length,
+          标记为已保存: savedCells.value.size,
+          历史池数量: historyCells.value.size
+        })
+
+        return {
+          success: true,
+          message: `成功保存 ${unsavedCount} 个修改`,
+          savedCount: unsavedCount
+        }
+      } catch (error) {
+        console.error('❌ 保存失败:', error)
+        return { success: false, message: `保存失败: ${error.message}` }
+      } finally {
+        saving.value = false
       }
-
-      // 将未保存的单元格标记为已保存
-      unsavedCells.value.forEach(cellKey => savedCells.value.add(cellKey))
-      unsavedCells.value.clear()
-      hasChanges.value = false
-
-      updateModifiedCellsStyle()
-
-      console.log('✅ 保存完成:', {
-        保存单元格数: modifiedData.length,
-        标记为已保存: savedCells.value.size
-      })
-
-      return {
-        success: true,
-        message: `成功保存 ${unsavedCount} 个修改`,
-        savedCount: unsavedCount
-      }
-    } catch (error) {
-      console.error('❌ 保存失败:', error)
-      return { success: false, message: `保存失败: ${error.message}` }
-    } finally {
-      saving.value = false
     }
-
-    // ✅ 保存成功后：只清未保存池，永不清历史池
-  unsavedCells.value.clear()
-  hasChanges.value = false
-  updateModifiedCellsStyle() // 重新刷一次，只剩浅红
-
-  }
 
   const resetChanges = () => {
     console.log('🔄 重置所有修改')
@@ -705,6 +710,7 @@ monitorTimer.value = setInterval(() => {
     checkInstanceHealth,
     refreshCache,
     getHotInstance: getHotInstanceWithCache,
-    validateHotInstance
+    validateHotInstance,
+    fillHistoryCells,
   }
 }

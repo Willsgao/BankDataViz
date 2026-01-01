@@ -779,22 +779,32 @@ const restoreDraftIfExists = (pdfId, excelFile, sheetName, tableType, silent = f
   })
 }
 
+function applyDraftModifications(draft, tableType) {
+  const hot = getActiveHotInstance();
+  if (!hot) return;
 
-function applyDraftModifications (draft, tableType) {
-  const hot = getActiveHotInstance()
-  if (!hot) return
-
-  hot.suspendRender()
+  hot.suspendRender();
   draft.modifications.forEach(item => {
-    // item 就是 {row, col, newValue}
-    hot.setDataAtCell(item.row, item.col, item.newValue, 'restore')
-  })
-  hot.resumeRender()
+    hot.setDataAtCell(item.row, item.col, item.newValue, 'restore');
+  });
+  hot.resumeRender();
+
+  // 🔥 关键：把「历史池」坐标一次性灌进当前 viewer
+  const viewer = excelContent.value?.$refs[showFlatMode.value ? 'flatViewer' : 'originalViewer'];
+  if (viewer?.fillHistoryCells) {
+    // 把本地缓存的历史坐标灌进去
+    const historyKeys = Array.from(window.historyCells || []);
+    viewer.fillHistoryCells(historyKeys);
+  }
 
   nextTick(() => {
-    const viewer = excelContent.value?.$refs[showFlatMode.value ? 'flatViewer' : 'originalViewer']
-    viewer?.updateModifiedCellsStyle?.()
-  })
+    console.log('🔁 nextTick 里准备刷样式', {
+      viewer: !!viewer,
+      flat: showFlatMode.value,
+      历史池数量: viewer?.historyCells?.size || 0
+    });
+    viewer?.updateModifiedCellsStyle?.();
+  });
 }
 
 

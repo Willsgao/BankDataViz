@@ -499,6 +499,39 @@ export default function useExcelViewerLogic(
     }
   }
 
+  function restoreModifiedCellsStyle () {
+  const hot = getHotInstanceDirect()
+  if (!hot || hot.isDestroyed) return
+
+  const tableType = window.currentTableType || 'original'
+  const unsaved = window.unsavedCells?.[tableType] || new Set()
+  const history = historyCells.value                       // useExcelEdit 里返回的 Set
+
+  const cellMeta = []
+
+  // 1. 未保存（深红+红点）
+  unsaved.forEach(key => {
+    const [r, c] = key.split(',').map(Number)
+    if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && c >= 0) {
+      cellMeta.push({ row: r, col: c, className: 'unsaved-modified-cell' })
+    }
+  })
+
+  // 2. 历史已保存（浅红，无点）
+  history.forEach(key => {
+    const [r, c] = key.split(',').map(Number)
+    if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && c >= 0 && !unsaved.has(key)) {
+      cellMeta.push({ row: r, col: c, className: 'history-modified-cell' })
+    }
+  })
+
+  if (cellMeta.length) {
+    hot.updateSettings({ cell: cellMeta }, false)
+    hot.render()
+    console.log(`✅ 恢复标记完成：未保存${unsaved.size} 历史${history.size}`)
+  }
+}
+
   const copyCellContent = () => {
     if (selectedCell.value.content) {
       navigator.clipboard.writeText(selectedCell.value.content)
@@ -1000,7 +1033,8 @@ export default function useExcelViewerLogic(
       debugSavedCells,
       restoreCellStates,
       toggleEditMode,
-      forceFixStyles
+      forceFixStyles,
+      restoreModifiedCellsStyle
     }
   }
 }

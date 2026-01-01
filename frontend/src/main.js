@@ -9,6 +9,10 @@ import router from './router'
 import { initConfig } from '@/utils/config'
 import { updateApiBaseUrl } from '@/api/index'
 
+
+// ✅ 全局历史修改池（最先初始化）
+window.historyCells = new Set()
+
 // 初始化配置并启动应用
 const initApp = async () => {
   try {
