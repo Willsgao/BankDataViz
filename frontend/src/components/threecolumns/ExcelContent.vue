@@ -352,26 +352,24 @@ const updateLocalUnsavedChanges = () => {
 }
 
 
-
 // 统一的条件：有选中sheet且有未保存修改
 const enableSaveButtons = computed(() => {
   console.log('🔍 保存按钮启用条件检查:', {
     时间: new Date().toLocaleTimeString(),
     有sheet: !!props.selectedSheet,
-    全局unsavedCells: window.unsavedCells?.size || 0,
-    状态管理器有修改: sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original')
+    对应未保存数: window.unsavedCells?.[props.showFlatMode ? 'flattened' : 'original']?.size ?? 0,
+    状态管理器: sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original')
   })
 
-  // 条件1：必须有选中的sheet
   if (!props.selectedSheet) {
     console.log('  ❌ 无选中的sheet，按钮禁用')
     return false
   }
 
-  // 条件2：必须有未保存的修改
-  const hasUnsaved =
-    (window.unsavedCells?.size > 0) ||
-    (sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
+  const tableType = props.showFlatMode ? 'flattened' : 'original'
+  const unsavedSize = window.unsavedCells?.[tableType]?.size ?? 0
+  const hasUnsaved = unsavedSize > 0 ||
+                   sheetStateManager?.hasUnsavedChanges(tableType)
 
   console.log('  ✅ 是否有未保存修改:', hasUnsaved)
   return hasUnsaved
@@ -561,6 +559,7 @@ if (typeof window !== 'undefined') {
 }
 
 
+
 // ============ 暴露给父组件的 hasUnsavedChanges ============
 // 我们需要向上传递实际的状态
 const emit = defineEmits([
@@ -639,6 +638,9 @@ defineExpose({
     enableSaveButtons: () => enableSaveButtons.value
   }
 })
+
+
+
 
 
 </script>
