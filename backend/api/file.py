@@ -604,6 +604,748 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
         return jsonify({"error": f"处理请求失败: {str(e)}"}), 500
 
 
+@file_bp.route('/excel/save-final', methods=['POST'])
+def save_final_excel():
+    """统一保存整个表格数据 - 保护其他Sheet"""
+    data = request.json
+    print("******************** 保存整个表格（保护其他Sheet） ******************")
+
+    # 基础校验
+    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'data']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'缺少必要字段: {field}'}), 400
+
+    try:
+        pdf_id = data['pdf_id']
+        excel_file = data['excel_file']
+        sheet_name = data['sheet_name']
+        table_type = data['table_type']
+        table_data = data['data']
+
+        print(f"💾 保存数据: PDF={pdf_id}, 文件={excel_file}, Sheet={sheet_name}, 类型={table_type}")
+        print(f"📊 接收数据: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
+
+        # 根据表类型选择保存方式
+        if table_type == 'original':
+            result = save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type)
+        elif table_type == 'flattened':
+            result = save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_type)
+        else:
+            return jsonify({'error': f'不支持的表类型: {table_type}'}), 400
+
+        if not result['success']:
+            return jsonify({'success': False, 'error': result['error']}), 500
+
+        return jsonify({
+            'success': True,
+            'message': '表格数据保存成功',
+            'saved_count': result.get('saved_rows', 0),
+            'data_dimensions': result.get('data_dimensions', '未知'),
+            'excel_updated': result.get('excel_updated', False),
+            'sheets_protected': result.get('sheets_protected', False),
+            'protected_sheets_count': result.get('protected_sheets_count', 0),
+            'file_created': result.get('file_created', False)
+        }), 200
+
+    except Exception as e:
+        print(f"❌ 保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'保存失败: {str(e)}'}), 500
+
+
+def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type):
+    """保存完整表格数据 - 只覆盖目标Sheet"""
+    print("📊 保存完整表格数据（保护其他Sheet）...")
+
+    try:
+        # 1. 获取Excel文件路径
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+
+        from pathlib import Path
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_path = excel_dir / excel_file
+
+        print(f"📁 Excel文件路径: {excel_path}")
+
+        if not excel_path.exists():
+            return {'success': False, 'error': f'Excel文件不存在: {excel_path}'}
+
+        # 2. 加载工作簿
+        from openpyxl import load_workbook
+        workbook = load_workbook(excel_path)
+
+        # 🔥 记录所有Sheet，确保保护其他Sheet
+        all_sheets = workbook.sheetnames.copy()
+        print(f"📋 工作簿包含 {len(all_sheets)} 个Sheet: {all_sheets}")
+        print(f"🎯 目标Sheet: {sheet_name}")
+
+        if sheet_name not in all_sheets:
+            workbook.close()
+            return {'success': False, 'error': f'Sheet不存在: {sheet_name}'}
+
+        # 3. 🔥 只操作目标Sheet，保护其他Sheet
+        worksheet = workbook[sheet_name]
+        print(f"📈 目标Sheet原维度: {worksheet.max_row}行 × {worksheet.max_column}列")
+        print(f"📦 新数据维度: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
+
+        # 4. 🔥 只清空目标Sheet的数据（保留表头结构）
+        if worksheet.max_row > 0:
+            # 删除所有行（包括表头）
+            worksheet.delete_rows(1, worksheet.max_row)
+            print(f"🗑️ 清空目标Sheet: 删除了{worksheet.max_row}行")
+
+        # 5. 🔥 写入完整数据到目标Sheet
+        for row_idx, row_data in enumerate(table_data, 1):  # 从第1行开始
+            for col_idx, cell_value in enumerate(row_data, 1):
+                worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+        print(f"📝 写入目标Sheet: {len(table_data)}行 × {len(table_data[0])}列")
+
+        # 6. 🔥 保存工作簿（其他Sheet自动保留）
+        workbook.save(excel_path)
+        workbook.close()
+
+        # 7. 🔥 验证其他Sheet是否被保护
+        workbook_after = load_workbook(excel_path)
+        sheets_after = workbook_after.sheetnames
+        workbook_after.close()
+
+        print(f"✅ 保存完成，验证Sheet保护:")
+        print(f"  保存前Sheet数: {len(all_sheets)}")
+        print(f"  保存后Sheet数: {len(sheets_after)}")
+        print(f"  Sheet保持一致: {set(all_sheets) == set(sheets_after)}")
+
+        # 显示受保护的Sheet
+        protected_sheets = [s for s in all_sheets if s != sheet_name]
+        if protected_sheets:
+            print(f"  🛡️ 受保护的Sheet: {protected_sheets}")
+
+        print("✅ 完整表格数据保存成功（其他Sheet已保护）")
+
+        return {
+            'success': True,
+            'saved_rows': len(table_data),
+            'saved_columns': len(table_data[0]) if table_data else 0,
+            'data_dimensions': f'{len(table_data)}行 × {len(table_data[0])}列',
+            'excel_updated': True,
+            'sheets_protected': True,
+            'protected_sheets_count': len(protected_sheets)
+        }
+
+    except Exception as e:
+        print(f"❌ 完整表格保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': f'完整表格保存失败: {str(e)}'}
+
+
+def save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_type):
+    """保存扁平化表格数据 - 只覆盖目标Sheet"""
+    print("📊 保存扁平化表格数据（保护其他Sheet）...")
+
+    try:
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+
+        from pathlib import Path
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_dir.mkdir(parents=True, exist_ok=True)
+        excel_path = excel_dir / excel_file
+
+        print(f"📁 Excel文件路径: {excel_path}")
+
+        from openpyxl import Workbook, load_workbook
+
+        file_exists = excel_path.exists()
+        all_sheets = []
+
+        if file_exists:
+            # 🔥 文件存在，加载现有工作簿（保护其他Sheet）
+            workbook = load_workbook(excel_path)
+            all_sheets = workbook.sheetnames.copy()
+            print(f"📄 加载现有Excel文件，包含 {len(all_sheets)} 个Sheet: {all_sheets}")
+        else:
+            # 文件不存在，创建新工作簿
+            workbook = Workbook()
+            # 删除默认Sheet
+            default_sheet = workbook.active
+            workbook.remove(default_sheet)
+            print("📄 创建新Excel文件")
+
+        # 🔥 处理目标Sheet（不影响其他Sheet）
+        if sheet_name in workbook.sheetnames:
+            print(f"📋 Sheet已存在，删除重写: {sheet_name}")
+            del workbook[sheet_name]
+
+        # 创建/重写目标Sheet
+        worksheet = workbook.create_sheet(sheet_name)
+        print(f"✅ 创建/重写目标Sheet: {sheet_name}")
+
+        # 写入完整数据到目标Sheet
+        for row_idx, row_data in enumerate(table_data, 1):
+            for col_idx, cell_value in enumerate(row_data, 1):
+                worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+        print(f"📝 写入目标Sheet: {len(table_data)}行 × {len(table_data[0])}列")
+
+        # 保存工作簿
+        workbook.save(excel_path)
+        workbook.close()
+
+        # 验证Sheet保护
+        if file_exists and all_sheets:
+            workbook_after = load_workbook(excel_path)
+            sheets_after = workbook_after.sheetnames
+            workbook_after.close()
+
+            protected_sheets = [s for s in all_sheets if s != sheet_name]
+            print(f"✅ Sheet保护验证:")
+            print(f"  保存前Sheet: {len(all_sheets)}个")
+            print(f"  保存后Sheet: {len(sheets_after)}个")
+            print(f"  受保护Sheet: {len(protected_sheets)}个")
+            print(f"  Sheet列表: {protected_sheets}")
+
+        action = "创建" if not file_exists else "更新"
+        print(f"✅ 扁平化数据{action}成功（其他Sheet已保护）")
+
+        return {
+            'success': True,
+            'file_created': not file_exists,
+            'saved_rows': len(table_data),
+            'saved_columns': len(table_data[0]) if table_data else 0,
+            'excel_updated': True,
+            'sheets_protected': file_exists,  # 只有文件存在时才有其他Sheet需要保护
+            'protected_sheets_count': len(all_sheets) - 1 if file_exists else 0
+        }
+
+    except Exception as e:
+        print(f"❌ 扁平化数据保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}
+
+
+def handle_frontend_data_format(data):
+    """处理前端发送的数据格式"""
+    print("🎯 处理前端数据格式...")
+
+    pdf_id = data['pdf_id']
+    excel_file = data['excel_file']
+    sheet_name = data['sheet_name']
+    table_type = data['table_type']
+
+    # 🔥 关键：检查前端发送的数据字段
+    modifications = data.get('modifications', [])
+    current_data = data.get('current_data') or data.get('data')  # 兼容两种字段名
+    total_changes = data.get('total_changes', 0)
+
+    print(f"📊 前端数据详情:")
+    print(f"  📝 修改记录数: {len(modifications)}")
+    print(f"  📦 当前数据行数: {len(current_data) if current_data else 0}")
+    print(f"  🔢 总修改数: {total_changes}")
+
+    # 🔥 策略1：优先使用修改记录（最精确）
+    if modifications and len(modifications) > 0:
+        print("🔧 策略1: 使用修改记录进行精确更新")
+        result = save_with_modifications(pdf_id, excel_file, sheet_name, modifications, table_type)
+        if result['success']:
+            return result
+        else:
+            print(f"⚠️ 修改记录保存失败，回退到完整数据: {result['error']}")
+
+    # 🔥 策略2：使用当前数据
+    if current_data and len(current_data) > 0:
+        print("📊 策略2: 使用当前完整数据")
+        return save_with_current_data(pdf_id, excel_file, sheet_name, current_data, table_type)
+
+    # 🔥 策略3：没有有效数据
+    print("❌ 策略3: 没有接收到有效数据")
+    return {'success': False, 'error': '没有接收到有效数据'}
+
+
+def save_with_modifications(pdf_id, excel_file, sheet_name, modifications, table_type):
+    """使用修改记录精确更新"""
+    print(f"🔧 使用修改记录更新: {len(modifications)} 个修改")
+
+    try:
+        # 1. 获取Excel文件路径
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+
+        from pathlib import Path
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_path = excel_dir / excel_file
+
+        print(f"📁 Excel文件路径: {excel_path}")
+
+        if not excel_path.exists():
+            return {'success': False, 'error': f'Excel文件不存在: {excel_path}'}
+
+        # 2. 加载工作簿
+        from openpyxl import load_workbook
+        workbook = load_workbook(excel_path)
+
+        if sheet_name not in workbook.sheetnames:
+            workbook.close()
+            return {'success': False, 'error': f'Sheet不存在: {sheet_name}'}
+
+        worksheet = workbook[sheet_name]
+        print(f"📊 目标工作表: {worksheet.max_row}行 × {worksheet.max_column}列")
+
+        # 3. 🔥 精确解析前端修改记录格式
+        applied_count = 0
+        failed_count = 0
+
+        for i, mod in enumerate(modifications):
+            try:
+                # 🔥 前端格式：{ row, col, oldValue, newValue, saved, timestamp, tableType }
+                row_idx = mod.get('row')
+                col_idx = mod.get('col')
+                new_value = mod.get('newValue') or mod.get('new_value')  # 兼容两种字段名
+
+                print(f"  🔍 处理修改 {i + 1}: row={row_idx}, col={col_idx}, value={new_value}")
+
+                # 验证修改记录
+                if (row_idx is not None and col_idx is not None and
+                        new_value is not None and
+                        isinstance(row_idx, (int, float)) and
+                        isinstance(col_idx, (int, float))):
+
+                    # 转换为整数（前端从0开始，Excel从1开始）
+                    excel_row = int(row_idx) + 1
+                    excel_col = int(col_idx) + 1
+
+                    # 检查行列是否在有效范围内
+                    if (excel_row >= 1 and excel_row <= worksheet.max_row and
+                            excel_col >= 1 and excel_col <= worksheet.max_column):
+
+                        # 应用修改
+                        worksheet.cell(row=excel_row, column=excel_col, value=new_value)
+                        applied_count += 1
+                        print(f"    ✅ 应用修改: [{row_idx},{col_idx}] = '{new_value}'")
+                    else:
+                        print(f"    ⚠️ 坐标超出范围: [{row_idx},{col_idx}] -> Excel[{excel_row},{excel_col}]")
+                        failed_count += 1
+                else:
+                    print(f"    ⚠️ 无效修改格式: {mod}")
+                    failed_count += 1
+
+            except Exception as e:
+                print(f"    ❌ 修改处理失败: {e}")
+                failed_count += 1
+                continue
+
+        # 4. 保存文件
+        workbook.save(excel_path)
+        workbook.close()
+
+        print(f"✅ 修改应用完成: {applied_count}成功, {failed_count}失败")
+
+        return {
+            'success': True,
+            'strategy_used': 'modifications',
+            'saved_count': applied_count,
+            'failed_count': failed_count,
+            'excel_updated': applied_count > 0,
+            'data_dimensions': f'{applied_count}处修改'
+        }
+
+    except Exception as e:
+        print(f"❌ 修改记录保存失败: {e}")
+        return {'success': False, 'error': f'修改记录保存失败: {str(e)}'}
+
+
+def save_with_current_data(pdf_id, excel_file, sheet_name, current_data, table_type):
+    """使用当前完整数据覆盖"""
+    print("📊 使用当前完整数据覆盖")
+    print(f"🔍 接收数据格式: {type(current_data)}, 长度: {len(current_data)}")
+
+    try:
+        # 1. 获取Excel文件路径
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+
+        from pathlib import Path
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_path = excel_dir / excel_file
+
+        print(f"📁 Excel文件路径: {excel_path}")
+
+        if not excel_path.exists():
+            return {'success': False, 'error': f'Excel文件不存在: {excel_path}'}
+
+        # 2. 🔥 转换前端数据格式为二维数组
+        print("🔄 转换前端数据格式...")
+        backend_data = convert_frontend_to_backend_format(current_data)
+
+        if not backend_data or len(backend_data) == 0:
+            return {'success': False, 'error': '转换后数据为空'}
+
+        print(f"✅ 转换后数据: {len(backend_data)}行 × {len(backend_data[0]) if backend_data else 0}列")
+
+        # 3. 加载工作簿
+        from openpyxl import load_workbook
+        workbook = load_workbook(excel_path)
+
+        if sheet_name not in workbook.sheetnames:
+            workbook.close()
+            return {'success': False, 'error': f'Sheet不存在: {sheet_name}'}
+
+        worksheet = workbook[sheet_name]
+        expected_columns = worksheet.max_column
+
+        print(f"📈 Excel工作表列数: {expected_columns}")
+        print(f"📊 转换后数据列数: {len(backend_data[0])}")
+
+        # 4. 修复列数不匹配
+        if len(backend_data[0]) != expected_columns:
+            print(f"⚠️ 列数不匹配! 数据{len(backend_data[0])}列, Excel{expected_columns}列")
+            backend_data = fix_column_mismatch(backend_data, expected_columns)
+            print(f"✅ 修复后数据: {len(backend_data)}行 × {len(backend_data[0])}列")
+
+        # 5. 清空数据行（保留表头）
+        if worksheet.max_row > 1:
+            rows_to_delete = worksheet.max_row - 1
+            worksheet.delete_rows(2, rows_to_delete)
+            print(f"🗑️ 清空数据行: 删除了{rows_to_delete}行")
+
+        # 6. 写入新数据
+        if backend_data and len(backend_data) > 0:
+            for row_idx, row_data in enumerate(backend_data, 2):  # 从第2行开始（保留表头）
+                for col_idx, cell_value in enumerate(row_data, 1):
+                    if col_idx <= worksheet.max_column:
+                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+            print(f"📝 写入数据: {len(backend_data)}行 × {len(backend_data[0])}列")
+
+        # 7. 保存文件
+        workbook.save(excel_path)
+        workbook.close()
+
+        print("✅ 完整数据覆盖完成")
+
+        return {
+            'success': True,
+            'strategy_used': 'current_data',
+            'saved_count': len(backend_data),
+            'excel_updated': True,
+            'data_dimensions': f'{len(backend_data)}行 × {len(backend_data[0])}列'
+        }
+
+    except Exception as e:
+        print(f"❌ 完整数据保存失败: {e}")
+        return {'success': False, 'error': f'完整数据保存失败: {str(e)}'}
+
+
+def convert_frontend_to_backend_format(frontend_data):
+    """🔥 精确转换前端数据格式为二维数组"""
+    if not frontend_data:
+        print("⚠️ 前端数据为空")
+        return []
+
+    print("🔄 转换前端数据格式...")
+    print(f"📊 原始数据: {len(frontend_data)}行")
+
+    backend_data = []
+
+    for i, row in enumerate(frontend_data):
+        # 🔥 处理前端可能的多种格式
+        if isinstance(row, list):
+            # 已经是数组格式，直接使用
+            backend_data.append(row)
+            if i < 2:  # 只打印前2行样本
+                print(f"  ✅ 行{i}: 数组格式 ({len(row)}列)")
+
+        elif isinstance(row, dict):
+            # 🔥 处理对象格式：{ H_1: '值1', H_2: '值2', ... }
+            if any(key.startswith('H_') for key in row.keys()):
+                # 提取 H_1, H_2, H_3, ... 字段
+                row_values = []
+                col_idx = 1
+
+                while f'H_{col_idx}' in row:
+                    value = row[f'H_{col_idx}']
+                    row_values.append(value)
+                    col_idx += 1
+
+                if row_values:
+                    backend_data.append(row_values)
+                    if i < 2:
+                        print(f"  ✅ 行{i}: H_*对象格式 ({len(row_values)}列)")
+                else:
+                    print(f"  ⚠️ 行{i}: H_*对象但无有效值")
+
+            # 🔥 跳过元数据行
+            elif row.get('__metadata') or row.get('__is_first_row'):
+                if i < 2:
+                    print(f"  ⏭️ 行{i}: 跳过元数据行")
+                continue
+
+            else:
+                # 其他对象格式，尝试提取所有值（跳过内部字段）
+                row_values = []
+                for key, value in row.items():
+                    if not key.startswith('__'):  # 跳过内部字段
+                        row_values.append(value)
+
+                if row_values:
+                    backend_data.append(row_values)
+                    if i < 2:
+                        print(f"  ✅ 行{i}: 普通对象格式 ({len(row_values)}列)")
+                else:
+                    print(f"  ⚠️ 行{i}: 无法处理的对象格式")
+
+        else:
+            # 其他格式（字符串、数字等），包装成数组
+            backend_data.append([row])
+            if i < 2:
+                print(f"  ✅ 行{i}: 简单值转数组")
+
+    print(f"📈 转换完成: {len(backend_data)}行有效数据")
+
+    if backend_data and len(backend_data) > 0:
+        print(f"📏 数据维度: {len(backend_data)}行 × {len(backend_data[0])}列")
+        # 显示样本数据
+        for i, row in enumerate(backend_data[:2]):
+            sample = row[:3] if len(row) > 3 else row
+            print(f"    行{i}样本: {sample}")
+
+    return backend_data
+
+
+def fix_column_mismatch(data, expected_columns):
+    """修复列数不匹配"""
+    print(f"🔧 修复列数不匹配: {len(data[0])}列 -> {expected_columns}列")
+
+    fixed_data = []
+    for i, row in enumerate(data):
+        if len(row) < expected_columns:
+            # 补全缺失列
+            fixed_row = row + [''] * (expected_columns - len(row))
+            if i < 2:
+                print(f"  ✅ 行{i}: 补全{expected_columns - len(row)}列")
+        elif len(row) > expected_columns:
+            # 截断多余列
+            fixed_row = row[:expected_columns]
+            if i < 2:
+                print(f"  ✅ 行{i}: 截断{len(row) - expected_columns}列")
+        else:
+            fixed_row = row
+        fixed_data.append(fixed_row)
+
+    return fixed_data
+
+
+def save_original_data(pdf_id, excel_file, sheet_name, data):
+    """保存原始数据 - 修复前端数据格式转换"""
+    from pathlib import Path
+    from openpyxl import load_workbook
+
+    try:
+        # 🔥 使用默认路径（不导入外部常量）
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"  # 默认Excel目录
+
+        # 构建完整路径
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_path = excel_dir / excel_file
+
+        print(f"📁 完整Excel路径: {excel_path}")
+
+        if not excel_path.exists():
+            return {'success': False, 'error': f'Excel文件不存在: {excel_path}'}
+
+        # 🔥 关键修复：转换前端数据格式
+        print("🔄 转换前端数据格式...")
+        converted_data = convert_frontend_to_backend_format(data)
+
+        if not converted_data or len(converted_data) == 0:
+            return {'success': False, 'error': '转换后数据为空，无法保存'}
+
+        print(f"✅ 转换后数据: {len(converted_data)}行 × {len(converted_data[0])}列")
+
+        # 加载工作簿
+        workbook = load_workbook(excel_path)
+
+        if sheet_name not in workbook.sheetnames:
+            workbook.close()
+            return {'success': False, 'error': f'Sheet不存在: {sheet_name}'}
+
+        worksheet = workbook[sheet_name]
+        expected_columns = worksheet.max_column
+
+        print(f"📈 Excel工作表列数: {expected_columns}")
+        print(f"📊 转换后数据列数: {len(converted_data[0])}")
+
+        # 🔥 修复列数匹配
+        if len(converted_data[0]) != expected_columns:
+            print(f"⚠️ 列数不匹配! 数据{len(converted_data[0])}列, Excel{expected_columns}列")
+            converted_data = fix_column_mismatch(converted_data, expected_columns)
+            print(f"✅ 修复后数据: {len(converted_data)}行 × {len(converted_data[0])}列")
+
+        # 清空数据行（保留表头）
+        if worksheet.max_row > 1:
+            rows_to_delete = worksheet.max_row - 1
+            worksheet.delete_rows(2, rows_to_delete)
+            print(f"🗑️ 清空数据行: 删除了{rows_to_delete}行")
+
+        # 写入新数据
+        if converted_data and len(converted_data) > 0:
+            for row_idx, row_data in enumerate(converted_data, 2):
+                for col_idx, cell_value in enumerate(row_data, 1):
+                    if col_idx <= worksheet.max_column:
+                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+            print(f"📝 写入数据: {len(converted_data)}行 × {len(converted_data[0])}列")
+
+        # 保存工作簿
+        workbook.save(excel_path)
+        workbook.close()
+
+        print("✅ Excel文件更新完成")
+
+        return {
+            'success': True,
+            'excel_updated': True,
+            'data_dimensions': f"{len(converted_data)}行 × {len(converted_data[0])}列"
+        }
+
+    except Exception as e:
+        print(f"❌ 原始数据保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': f'原始数据保存失败: {str(e)}'}
+
+
+def save_flattened_data(pdf_id, excel_file, sheet_name, data):
+    """保存扁平化数据 - 修复前端数据格式转换"""
+    from pathlib import Path
+    from openpyxl import Workbook, load_workbook
+
+    try:
+        # 🔥 使用默认路径
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+
+        # 构建完整路径
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_dir.mkdir(parents=True, exist_ok=True)
+        excel_path = excel_dir / excel_file
+
+        print(f"📁 完整Excel路径: {excel_path}")
+
+        # 🔥 转换前端数据格式
+        print("🔄 转换前端数据格式...")
+        converted_data = convert_frontend_to_backend_format(data)
+
+        if not converted_data or len(converted_data) == 0:
+            return {'success': False, 'error': '转换后数据为空，无法保存'}
+
+        print(f"✅ 转换后数据: {len(converted_data)}行 × {len(converted_data[0])}列")
+
+        file_created = False
+
+        # 文件存在性检查
+        if not excel_path.exists():
+            print("📄 Excel文件不存在，创建新工作簿...")
+            workbook = Workbook()
+            # 删除默认Sheet
+            default_sheet = workbook.active
+            workbook.remove(default_sheet)
+            file_created = True
+        else:
+            print("📄 Excel文件已存在，加载现有工作簿...")
+            workbook = load_workbook(excel_path)
+            print(f"📊 现有Sheet: {workbook.sheetnames}")
+
+        # 处理目标Sheet
+        if sheet_name in workbook.sheetnames:
+            print(f"📋 Sheet已存在，删除重写: {sheet_name}")
+            del workbook[sheet_name]
+
+        # 创建/重写目标Sheet
+        worksheet = workbook.create_sheet(sheet_name)
+
+        # 写入数据
+        if converted_data and len(converted_data) > 0:
+            for row_idx, row_data in enumerate(converted_data, 1):
+                for col_idx, cell_value in enumerate(row_data, 1):
+                    worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+            print(f"📝 写入数据: {len(converted_data)}行 × {len(converted_data[0])}列")
+
+        # 保存
+        workbook.save(excel_path)
+        workbook.close()
+
+        action = "创建" if file_created else "更新"
+        print(f"✅ 扁平化数据{action}成功")
+
+        return {
+            'success': True,
+            'excel_updated': True,
+            'file_created': file_created,
+            'data_dimensions': f"{len(converted_data)}行 × {len(converted_data[0])}列"
+        }
+
+    except Exception as e:
+        print(f"❌ 扁平化数据保存失败: {e}")
+        return {'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}
+
+
+
+
+def save_data_snapshot(pdf_id, excel_file, sheet_name, data, table_type):
+    """保存数据快照"""
+    from pathlib import Path
+    import json
+    import time
+
+    try:
+        # 🔥 使用默认路径
+        SNAPSHOT_ROOT = "data/backend/static/modify_data"
+
+        # 创建快照目录
+        snap_dir = Path(MAIN_ROOT) / SNAPSHOT_ROOT / pdf_id
+        snap_dir.mkdir(parents=True, exist_ok=True)
+
+        # 生成时间戳文件名
+        ts = int(time.time())
+        snap_file = f"{pdf_id}_{sheet_name}_{table_type}_{ts}.json"
+        snap_path = snap_dir / snap_file
+
+        # 准备快照数据
+        snapshot_data = {
+            'pdf_id': pdf_id,
+            'excel_file': excel_file,
+            'sheet_name': sheet_name,
+            'table_type': table_type,
+            'data': data,  # 保存原始数据
+            'saved_at': ts,
+            'data_dimensions': {
+                'rows': len(data),
+                'columns': len(data[0]) if data else 0
+            }
+        }
+
+        # 保存快照
+        with open(snap_path, 'w', encoding='utf-8') as f:
+            json.dump(snapshot_data, f, ensure_ascii=False, indent=2)
+
+        print(f"✅ 数据快照已保存: {snap_path}")
+
+        return {
+            'success': True,
+            'path': str(snap_path),
+            'file': snap_file
+        }
+
+    except Exception as e:
+        print(f"⚠️ 快照保存失败（不影响主流程）: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+
+
 
 @file_bp.route('/excel-data/<path:filename>')
 def serve_excel_file(filename):
@@ -948,8 +1690,8 @@ def excel_flatten_from_excel():
 
 
 # 后端API示例（Python Flask）
-@file_bp.route('/excel/save-final', methods=['POST'])
-def save_final_excel():
+@file_bp.route('/excel/save-final123', methods=['POST'])
+def save_final_excel123():
     """最终保存：把前端最新数据写成 JSON 快照"""
     data = request.json
     print("******************** data ******************")

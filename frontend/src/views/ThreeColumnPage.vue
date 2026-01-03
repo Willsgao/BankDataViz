@@ -1583,6 +1583,186 @@ const restoreDraft = async () => {
 
 
 const saveData = async () => {
+  console.log('💾 直接保存整个表格数据...');
+
+  if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
+    ElMessage.warning('请先选择表格');
+    return { success: false, error: '未选择表格' };
+  }
+
+  const currentTableType = showFlatMode.value ? 'flattened' : 'original';
+  console.log('🎯 当前表类型:', currentTableType);
+
+  saving.value = true;
+
+  try {
+    /* ===== 1. 直接读取整个表格的当前数据 ===== */
+    const hotInstance = getActiveHotInstance();
+    if (!hotInstance) {
+      throw new Error('无法获取表格实例');
+    }
+
+    // 🔥 直接读取整个表格的当前数据
+    const currentTableData = hotInstance.getData();
+    console.log('📊 读取整个表格数据:', {
+      行数: currentTableData.length,
+      列数: currentTableData[0]?.length || 0,
+      样本: currentTableData.slice(0, 2)
+    });
+
+    if (!currentTableData || currentTableData.length === 0) {
+      throw new Error('表格数据为空');
+    }
+
+    /* ===== 2. 准备保存数据 ===== */
+    const savePayload = {
+      pdf_id: selectedPdf.value.id,
+      excel_file: selectedExcelFile.value,
+      sheet_name: selectedSheet.value.name,
+      table_type: currentTableType,
+      data: currentTableData,  // 🔥 直接发送整个表格数据
+      timestamp: Date.now(),
+      metadata: {
+        total_rows: currentTableData.length,
+        total_columns: currentTableData[0]?.length || 0,
+        source: 'direct_table_read'
+      }
+    };
+
+    console.log('📤 发送保存请求...');
+
+    /* ===== 3. 发送到后端 ===== */
+    const response = await fetch(getApiUrl('/excel/save-final'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(savePayload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('📥 保存API返回:', result);
+
+    if (result.success) {
+      console.log('✅ 保存成功，清除修改状态');
+
+      // 清除所有修改状态
+      if (window.unsavedCells?.[currentTableType]) {
+        window.unsavedCells[currentTableType].clear();
+      }
+      window.currentHasChanges = false;
+      sheetStateManager.clearAllModifications(currentTableType);
+      sheetEverDirty.value = false;
+
+      // 清除草稿
+      const draftKey = ExcelKey.getDraftKey(
+        selectedPdf.value.id,
+        selectedExcelFile.value,
+        selectedSheet.value.name,
+        currentTableType
+      );
+      localStorage.removeItem(draftKey);
+
+      ElMessage.success(`保存成功 (${result.saved_count || '全部'}数据)`);
+
+      updateSaveStatus();
+      lastSaveTime.value = Date.now();
+
+      return { success: true, message: '保存成功' };
+    } else {
+      throw new Error(result.error || '后端保存失败');
+    }
+
+  } catch (error) {
+    console.error('❌ 保存失败:', error);
+    ElMessage.error(`保存失败: ${error.message}`);
+    return { success: false, error: error.message };
+  } finally {
+    saving.value = false;
+  }
+};
+
+
+// 🔥 新增：数据格式转换函数
+function convertFrontendToBackendFormat(frontendData) {
+  if (!frontendData || !Array.isArray(frontendData)) {
+    console.warn('⚠️ 前端数据为空或不是数组');
+    return [];
+  }
+
+  console.log('🔄 转换前端数据格式...');
+  console.log('📊 原始数据:', {
+    行数: frontendData.length,
+    第一行类型: typeof frontendData[0],
+    第一行内容: frontendData[0]
+  });
+
+  const backendData = [];
+
+  for (let i = 0; i < frontendData.length; i++) {
+    const row = frontendData[i];
+
+    if (Array.isArray(row)) {
+      // 已经是数组格式，直接使用
+      backendData.push(row);
+      console.log(`✅ 行${i}: 使用数组格式 (${row.length}列)`);
+    }
+    else if (typeof row === 'object' && row !== null) {
+      // 对象格式：需要转换
+      if (row.H_1 !== undefined) {
+        // 提取 H_1, H_2, H_3, ... 字段
+        const rowArray = [];
+        let colIndex = 1;
+
+        while (row[`H_${colIndex}`] !== undefined) {
+          rowArray.push(row[`H_${colIndex}`]);
+          colIndex++;
+        }
+
+        if (rowArray.length > 0) {
+          backendData.push(rowArray);
+          console.log(`✅ 行${i}: 对象转数组 (${rowArray.length}列)`);
+        } else {
+          console.warn(`⚠️ 行${i}: 对象格式但无H_*字段`);
+        }
+      }
+      else if (row.__metadata || row.__is_first_row) {
+        // 跳过元数据行
+        console.log(`⏭️ 行${i}: 跳过元数据行`);
+        continue;
+      }
+      else {
+        // 其他对象格式，尝试提取所有值
+        const rowArray = Object.values(row).filter(val =>
+          !(typeof val === 'string' && val.startsWith('__'))
+        );
+        if (rowArray.length > 0) {
+          backendData.push(rowArray);
+          console.log(`✅ 行${i}: 对象值转数组 (${rowArray.length}列)`);
+        } else {
+          console.warn(`⚠️ 行${i}: 无法转换的对象格式`);
+        }
+      }
+    }
+    else {
+      // 其他格式（字符串、数字等）
+      backendData.push([row]);
+      console.log(`✅ 行${i}: 简单值转数组`);
+    }
+  }
+
+  console.log('📈 转换完成:', {
+    转换前行数: frontendData.length,
+    转换后行数: backendData.length,
+    样本数据: backendData.slice(0, 2)
+  });
+
+  return backendData;
+}
+
+const saveData1111 = async () => {
 
   cacheDebug.log('ThreeColumnPage', 'saveData_start', {
     hasUnsavedChanges: actualHasUnsavedChanges.value,
