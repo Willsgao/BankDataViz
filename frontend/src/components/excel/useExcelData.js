@@ -369,7 +369,7 @@ export default function useExcelData(props) {
           title: '项目',
           width: 180,
           className: 'vertical-header-column',
-          readOnly: true
+          readOnly: false
         },
         // ✅ 其余列：原来的横向表头
         ...headers.slice(1).map((h, i) => ({
