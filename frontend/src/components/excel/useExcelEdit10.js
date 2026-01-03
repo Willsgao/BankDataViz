@@ -1,6 +1,5 @@
 // frontend/src/components/excel/useExcelEdit.js
 import { ref, computed, watch, nextTick, onUnmounted  } from 'vue'
-import * as ExcelKey from '@/utils/excelKeyUtils.js'
 import sheetStateManager from '@/utils/SheetStateManager.js'
 
 /* -------- 极简 IndexedDB 工具（inline） -------- */
@@ -83,6 +82,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 }
 
 
+
   // ============ 清理缓存 ============
   const clearCache = () => {
     cachedHotInstance = null
@@ -130,7 +130,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   }
 
 
-    // ============ 核心修复：处理单元格修改 ============
+  // ============ 核心修复：处理单元格修改 ============
     const onDataChange = (changes, source) => {
       console.log('🎯 onDataChange 被执行', changes, source)
       if (!changes || source === 'loadData' || source === 'restore') return
@@ -138,17 +138,10 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       const tableType = window.currentTableType || 'original'
       const modifiedCells = []
 
-      // ✅ 新增：生成和父组件一致的唯一前缀（核心修改）
-      const currentPdfId = window.currentPdfId || '';
-      const currentExcelFile = window.currentExcelFile || '';
-      const currentSheetName = window.currentSheetName || '';
-      const keyPrefix = `${currentPdfId}_${currentExcelFile}_${currentSheetName}_`;
-
       changes.forEach(([row, col, oldVal, newVal]) => {
         if (oldVal == newVal) return
 
-        // ✅ 修改：cellKey 加入前缀（和父组件匹配）
-        const cellKey = ExcelKey.getCellKey(window.currentPdfId, window.currentExcelFile, window.currentSheetName, tableType, row, col);
+        const cellKey = `${row},${col},${tableType}`
         unsavedCells.value.add(cellKey)
         historyCells.value.add(cellKey)
         modifiedCells.push({ row, col, oldValue: oldVal, newValue: newVal, cellKey })
@@ -163,33 +156,12 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
       const changeList = []
       for (const key of unsavedCells.value) {
-          // ✅ 用工具函数解析
-          const parsed = ExcelKey.parseCellKey(key);
-          if (!parsed) continue;          // 解析失败就跳过
-          const { row, col } = parsed;
-          changeList.push({ row, col, newValue: hot.getDataAtCell(row, col) ?? '' });
-        }
-
-      const draftKey = ExcelKey.getDraftKey(window.currentPdfId, window.currentExcelFile, window.currentSheetName, tableType)
-
+        const [row, col] = key.split(',').map(Number)
+        changeList.push({ row, col, newValue: hot.getDataAtCell(row, col) ?? '' })
+      }
+      const draftKey = `excel_draft_${window.currentPdfId}_${window.currentExcelFile}_${window.currentSheetName}_${tableType}`
       localStorage.setItem(draftKey, JSON.stringify({ modifications: changeList, savedAt: Date.now() }))
       console.log('💾 草稿已写入 localStorage', draftKey, '条数=', changeList.length, changeList)
-
-       // ✅ 刚写完就读回来
-        const justWritten = localStorage.getItem(draftKey)
-        console.log('🧪 刚写完就读:', !!justWritten, '长度', justWritten?.length)
-        if (!justWritten) {
-          console.error('❌ localStorage 写入失败！可能 quota 超限或 key 为空')
-        }
-
-       /* 🔥 新增：写入索引，方便切表时快速找回 */
-        const indexKey = `excel_draft_index_${window.currentPdfId}_${window.currentExcelFile}`;
-        let idx = JSON.parse(localStorage.getItem(indexKey) || '[]');
-        if (!idx.includes(draftKey)) idx.push(draftKey);
-        localStorage.setItem(indexKey, JSON.stringify(idx));
-
-        /* 🔥 新增：立即把颜色刷出来 */
-        nextTick(() => updateModifiedCellsStyle());
 
       /* === 回调通知 === */
       if (typeof onCellChangeCallback === 'function' && modifiedCells.length > 0) {
@@ -264,61 +236,49 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
   const MAX_RETRY = 3
   const RETRY_DELAY = 200
+
   const updateModifiedCellsStyle = async (retry = 0) => {
-      console.log('🎨 进入刷样式函数', {
-        saved: savedCells.value.size,
-        unsaved: unsavedCells.value.size,
-        history: historyCells.value.size,
-        retry
-      })
+  console.log('🎨 进入刷样式函数', { saved: savedCells.value.size, unsaved: unsavedCells.value.size, history: historyCells.value.size, retry })
 
-      const hot = getHotInstanceWithCache()
-      if (!hot || hot.isDestroyed) {
-        if (retry < MAX_RETRY) {
-          setTimeout(() => updateModifiedCellsStyle(retry + 1), RETRY_DELAY)
-        } else {
-          console.warn('❌ 实例无效，放弃样式更新')
-        }
-        return
-      }
+  const hot = getHotInstanceWithCache()
+  if (!hot || hot.isDestroyed) {
+    if (retry < 3) setTimeout(() => updateModifiedCellsStyle(retry + 1), 200)
+    else console.warn('❌ 实例无效，放弃样式更新')
+    return
+  }
 
-      const cellConfig = []
+  const cellConfig = []
 
-      // 1. 未保存（深红+红点）
-      unsavedCells.value.forEach(key => {
-        const parsed = ExcelKey.parseCellKey(key)
-        if (!parsed) return
-        const { row, col } = parsed
-        // 🔒 防呆：必须非负整数
-        if (!Number.isInteger(row) || row < 0 || !Number.isInteger(col) || col < 0) return
-        cellConfig.push({ row, col, className: 'unsaved-modified-cell' })
-      })
+  // 1. 未保存（深红+红点）
+  unsavedCells.value.forEach(key => {
+    const [row, col] = key.split(',').map(Number)
+    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return
+    cellConfig.push({ row, col, className: 'unsaved-modified-cell' })
+  })
 
-      // 2. 历史已保存（浅红，无红点）
-      historyCells.value.forEach(key => {
-        if (unsavedCells.value.has(key)) return // 避免重复
-        const parsed = ExcelKey.parseCellKey(key)
-        if (!parsed) return
-        const { row, col } = parsed
-        // 🔒 防呆：必须非负整数
-        if (!Number.isInteger(row) || row < 0 || !Number.isInteger(col) || col < 0) return
-        cellConfig.push({ row, col, className: 'history-modified-cell' })
-      })
-
-      // 🔍 打印最终数组，必须 > 0
-      console.log('📋 最终 cellConfig', cellConfig)
-
-      // 3. 应用配置 + 强制重绘（空数组也安全）
-      if (cellConfig.length) hot.updateSettings({ cell: cellConfig }, false)
-      hot.render()
-
-      console.log('✅ 样式更新完成', {
-        未保存单元格数: unsavedCells.value.size,
-        已保存单元格数: savedCells.value.size,
-        历史单元格数: historyCells.value.size,
-        样式规则数: cellConfig.length
-      })
+  // 2. 历史已保存（浅红，无红点）
+  historyCells.value.forEach(key => {
+    const [row, col] = key.split(',').map(Number)
+    if (row < 0 || col < 0 || !Number.isInteger(row) || !Number.isInteger(col)) return
+    if (!unsavedCells.value.has(key)) {   // 避免重复
+      cellConfig.push({ row, col, className: 'history-modified-cell' })
     }
+  })
+
+  // 🔍 打印最终数组，必须 > 0
+  console.log('📋 最终 cellConfig', cellConfig)
+
+  // 3. 应用配置 + 强制重绘
+  hot.updateSettings({ cell: cellConfig }, false)
+  hot.render()          // 立刻重绘，确保 td 吃到 class
+
+  console.log('✅ 样式更新完成', {
+    未保存单元格数: unsavedCells.value.size,
+    已保存单元格数: savedCells.value.size,
+    历史单元格数: historyCells.value.size,
+    样式规则数: cellConfig.length
+  })
+}
 
   const collectModifiedData = () => {
     const hot = getHotInstanceWithCache()
@@ -345,7 +305,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
 
   // 3. 新增：启动恢复函数
-    const restoreUnsavedFromIndexedDB = async () => {
+  const restoreUnsavedFromIndexedDB = async () => {
       const hot = getHotInstanceWithCache()
       if (!hot || hot.isDestroyed) return
 
@@ -361,24 +321,21 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       stored.changes.forEach(({ row, col, oldValue, newValue }) => {
         // ① 写回表格（不触发 onDataChange）
         hot.setDataAtCell(row, col, newValue, 'restore')
-
-        // ② 加入未保存集合（⬅️ 第1处，改成官方 key）
-        const cellKey = ExcelKey.getCellKey(
-          window.currentPdfId,
-          window.currentExcelFile,
-          window.currentSheet,
-          tableType,
-          row,
-          col
-        )
-        unsavedCells.value.add(cellKey)
-
+        // ② 加入未保存集合
+        unsavedCells.value.add(`${row},${col}`)
         // ③ 让 sheetStateManager 也认账
         sheetStateManager.recordCellChange(row, col, oldValue, newValue, tableType)
       })
 
       /* 4. 刷新计数 + 样式 + 按钮状态 */
       updateModifiedCellsCount()
+
+      stored.changes.forEach(({ row, col, oldValue, newValue }) => {
+          hot.setDataAtCell(row, col, newValue, 'restore')
+          unsavedCells.value.add(`${row},${col}`)
+          sheetStateManager.recordCellChange(row, col, oldValue ?? '', newValue, tableType)
+        })
+
     }
 
 
@@ -460,7 +417,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     }
 
 
-
     /* 把单元格标成红色（仅未保存的） */
     const markModifiedCellsRed = () => {
       const hot = getHotInstanceWithCache()
@@ -469,24 +425,26 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       const cellMeta = []
 
       unsavedCells.value.forEach(key => {
-        const parsed = ExcelKey.parseCellKey(key)
-        if (!parsed) return
-        const { row, col } = parsed
-        /* 🔥 关键：必须是非负整数 */
-        if (!Number.isInteger(row) || row < 0 || !Number.isInteger(col) || col < 0) {
-          console.warn('❌ 非法行列，跳过', { key, row, col })
-          return
+        const [row, col] = key.split(',').map(Number)
+
+        // ✅ 严格校验
+        if (
+          Number.isInteger(row) && row >= 0 &&
+          Number.isInteger(col) && col >= 0
+        ) {
+          cellMeta.push({ row, col, className: 'unsaved-modified-cell' })
+        } else {
+          console.warn('❌ 非法行列坐标，跳过', { key, row, col })
         }
-        cellMeta.push({ row, col, className: 'unsaved-modified-cell' })
       })
 
-      if (cellMeta.length) hot.updateSettings({ cell: cellMeta }, false)
+      hot.updateSettings({ cell: cellMeta }, false)
       hot.render()
     }
 
 
-   // 确保 updateTableReadOnly 函数存在
-   const updateTableReadOnly = () => {
+  // 确保 updateTableReadOnly 函数存在
+  const updateTableReadOnly = () => {
     const hot = getHotInstanceWithCache()
     if (!hot || !validateHotInstance(hot)) {
       console.warn('❌ 无法更新表格只读状态：表格实例无效')
@@ -538,7 +496,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   }
 
 
-   const saveChanges = async (saveCallback) => {
+  const saveChanges = async (saveCallback) => {
       if (!hasChanges.value || saving.value) return
 
       saving.value = true
@@ -577,7 +535,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       }
     }
 
-   const resetChanges = () => {
+  const resetChanges = () => {
     console.log('🔄 重置所有修改')
     modifiedCells.value.clear()
     unsavedCells.value.clear()
@@ -593,8 +551,8 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     return { success: true, message: '已重置所有修改' }
   }
 
-   // 标记已保存单元格
-   const markSavedCells = (savedCellKeys) => {
+  // 标记已保存单元格
+  const markSavedCells = (savedCellKeys) => {
     if (!Array.isArray(savedCellKeys)) return
 
     savedCellKeys.forEach(cellKey => {

@@ -1,0 +1,739 @@
+{
+  "generatedAt": "2026-01-03T10:26:57.391Z",
+  "statistics": {
+    "totalFiles": 125,
+    "cacheFiles": 31,
+    "cacheFileRatio": "24.8"
+  },
+  "files": [
+    {
+      "file": "src\\App.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "removeItem"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\excel\\HandsontableExcelViewer.vue",
+      "keywords": [
+        "unsavedCells"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\components\\excel\\HandsontableExcelViewer10.vue",
+      "keywords": [
+        "unsavedCells"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\components\\excel\\HandsontableExcelViewer6.vue",
+      "keywords": [
+        "sheetStateManager",
+        "CellKey",
+        "unsavedCells"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\excel\\HandsontableExcelViewer7.vue",
+      "keywords": [
+        "unsavedCells"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\components\\excel\\HandsontableExcelViewer8.vue",
+      "keywords": [
+        "sheetStateManager",
+        "CellKey",
+        "unsavedCells"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\excel\\HandsontableExcelViewer9.vue",
+      "keywords": [
+        "unsavedCells"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\components\\excel\\useExcelEdit.js",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "openDB",
+        "sheetStateManager",
+        "SheetStateManager",
+        "getDraftKey",
+        "getCellKey",
+        "DraftKey",
+        "CellKey",
+        "unsavedCells"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\excel\\useExcelEdit10.js",
+      "keywords": [
+        "localStorage",
+        "setItem",
+        "openDB",
+        "sheetStateManager",
+        "SheetStateManager",
+        "CellKey",
+        "unsavedCells"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\excel\\useExcelViewerHelpers.js",
+      "keywords": [
+        "unsavedCells"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\components\\excel\\useExcelViewerLogic.js",
+      "keywords": [
+        "sheetStateManager",
+        "CellKey",
+        "unsavedCells"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\threecolumns\\ExcelContent.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "sheetStateManager",
+        "SheetStateManager",
+        "getDraftKey",
+        "getCellKey",
+        "DraftKey",
+        "CellKey",
+        "unsavedCells",
+        "hasUnsavedChanges"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\threecolumns\\ExcelContent10.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "sheetStateManager",
+        "SheetStateManager",
+        "unsavedCells",
+        "hasUnsavedChanges"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\threecolumns\\useDataManager.js",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem",
+        "sheetStateManager",
+        "SheetStateManager",
+        "hasUnsavedChanges",
+        "saveDraft",
+        "restoreDraft",
+        "saveData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\threecolumns\\useDataManager1.js",
+      "keywords": [
+        "sheetStateManager",
+        "SheetStateManager",
+        "hasUnsavedChanges",
+        "saveData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\components\\threecolumns\\useSheetOperations.js",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "excelDataCache",
+        "sheetStateManager",
+        "getOriginalData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\composables\\operations\\useBatchTableCrop.js",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\composables\\useBatchTableCrop.js",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\router\\index.js",
+      "keywords": [
+        "localStorage",
+        "getItem"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\utils\\dataManager.js",
+      "keywords": [
+        "indexedDB",
+        "indexedDBManager",
+        "hasUnsavedChanges",
+        "getFlattenedData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\utils\\draftDB.js",
+      "keywords": [
+        "openDB",
+        "saveDraft",
+        "clearDraft"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\utils\\excelDataCache.js",
+      "keywords": [
+        "excelDataCache",
+        "ExcelDataCache",
+        "setOriginalData",
+        "getOriginalData",
+        "setFlattenedData",
+        "getFlattenedData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\utils\\excelKeyUtils.js",
+      "keywords": [
+        "getDraftKey",
+        "getCellKey",
+        "getBizDraftKey",
+        "DraftKey",
+        "CellKey"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\utils\\indexedDBManager.js",
+      "keywords": [
+        "sessionStorage",
+        "getItem",
+        "setItem",
+        "indexedDB",
+        "db.transaction",
+        "indexedDBManager",
+        "IndexedDBManager"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\utils\\SheetStateManager.js",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "sheetStateManager",
+        "SheetStateManager",
+        "hasUnsavedChanges"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\views\\LoginPage.vue",
+      "keywords": [
+        "localStorage",
+        "setItem"
+      ],
+      "isHotspot": false
+    },
+    {
+      "file": "src\\views\\ThreeColumnPage.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem",
+        "indexedDB",
+        "excelDataCache",
+        "sheetStateManager",
+        "SheetStateManager",
+        "indexedDBManager",
+        "getDraftKey",
+        "getCellKey",
+        "getBizDraftKey",
+        "DraftKey",
+        "CellKey",
+        "unsavedCells",
+        "hasUnsavedChanges",
+        "restoreDraft",
+        "setOriginalData",
+        "getOriginalData",
+        "setFlattenedData",
+        "getFlattenedData",
+        "saveData",
+        "autoSaveDraft"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\views\\ThreeColumnPage1.vue",
+      "keywords": [
+        "excelDataCache",
+        "setOriginalData",
+        "getOriginalData",
+        "setFlattenedData",
+        "getFlattenedData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\views\\ThreeColumnPage10.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem",
+        "indexedDB",
+        "excelDataCache",
+        "sheetStateManager",
+        "SheetStateManager",
+        "indexedDBManager",
+        "getDraftKey",
+        "DraftKey",
+        "unsavedCells",
+        "hasUnsavedChanges",
+        "saveDraft",
+        "restoreDraft",
+        "clearDraft",
+        "setOriginalData",
+        "getOriginalData",
+        "setFlattenedData",
+        "getFlattenedData",
+        "saveData",
+        "autoSaveDraft"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\views\\ThreeColumnPage4.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem",
+        "excelDataCache",
+        "sheetStateManager",
+        "SheetStateManager",
+        "CellKey",
+        "hasUnsavedChanges",
+        "setOriginalData",
+        "getOriginalData",
+        "setFlattenedData",
+        "getFlattenedData",
+        "saveData"
+      ],
+      "isHotspot": true
+    },
+    {
+      "file": "src\\views\\ThreeColumnPage5.vue",
+      "keywords": [
+        "localStorage",
+        "getItem",
+        "setItem",
+        "removeItem",
+        "excelDataCache",
+        "sheetStateManager",
+        "SheetStateManager",
+        "CellKey",
+        "hasUnsavedChanges",
+        "setOriginalData",
+        "getOriginalData",
+        "setFlattenedData",
+        "getFlattenedData",
+        "saveData"
+      ],
+      "isHotspot": true
+    }
+  ],
+  "keywords": [
+    {
+      "keyword": "localStorage",
+      "fileCount": 16,
+      "files": [
+        "src\\App.vue",
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\components\\threecolumns\\ExcelContent10.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\components\\threecolumns\\useSheetOperations.js",
+        "src\\composables\\operations\\useBatchTableCrop.js",
+        "src\\composables\\useBatchTableCrop.js",
+        "src\\router\\index.js"
+      ]
+    },
+    {
+      "keyword": "sessionStorage",
+      "fileCount": 1,
+      "files": [
+        "src\\utils\\indexedDBManager.js"
+      ]
+    },
+    {
+      "keyword": "getItem",
+      "fileCount": 15,
+      "files": [
+        "src\\App.vue",
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\components\\threecolumns\\ExcelContent10.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\components\\threecolumns\\useSheetOperations.js",
+        "src\\composables\\operations\\useBatchTableCrop.js",
+        "src\\composables\\useBatchTableCrop.js",
+        "src\\router\\index.js",
+        "src\\utils\\indexedDBManager.js"
+      ]
+    },
+    {
+      "keyword": "setItem",
+      "fileCount": 14,
+      "files": [
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\components\\threecolumns\\ExcelContent10.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\composables\\operations\\useBatchTableCrop.js",
+        "src\\composables\\useBatchTableCrop.js",
+        "src\\utils\\indexedDBManager.js",
+        "src\\utils\\SheetStateManager.js",
+        "src\\views\\LoginPage.vue"
+      ]
+    },
+    {
+      "keyword": "removeItem",
+      "fileCount": 8,
+      "files": [
+        "src\\App.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\composables\\operations\\useBatchTableCrop.js",
+        "src\\composables\\useBatchTableCrop.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "indexedDB",
+      "fileCount": 4,
+      "files": [
+        "src\\utils\\dataManager.js",
+        "src\\utils\\indexedDBManager.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "openDB",
+      "fileCount": 3,
+      "files": [
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\utils\\draftDB.js"
+      ]
+    },
+    {
+      "keyword": "db.transaction",
+      "fileCount": 1,
+      "files": [
+        "src\\utils\\indexedDBManager.js"
+      ]
+    },
+    {
+      "keyword": "excelDataCache",
+      "fileCount": 7,
+      "files": [
+        "src\\components\\threecolumns\\useSheetOperations.js",
+        "src\\utils\\excelDataCache.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage1.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "ExcelDataCache",
+      "fileCount": 1,
+      "files": [
+        "src\\utils\\excelDataCache.js"
+      ]
+    },
+    {
+      "keyword": "sheetStateManager",
+      "fileCount": 15,
+      "files": [
+        "src\\components\\excel\\HandsontableExcelViewer6.vue",
+        "src\\components\\excel\\HandsontableExcelViewer8.vue",
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\components\\excel\\useExcelViewerLogic.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\components\\threecolumns\\ExcelContent10.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\components\\threecolumns\\useDataManager1.js",
+        "src\\components\\threecolumns\\useSheetOperations.js"
+      ]
+    },
+    {
+      "keyword": "SheetStateManager",
+      "fileCount": 11,
+      "files": [
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\components\\threecolumns\\ExcelContent10.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\components\\threecolumns\\useDataManager1.js",
+        "src\\utils\\SheetStateManager.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue"
+      ]
+    },
+    {
+      "keyword": "indexedDBManager",
+      "fileCount": 4,
+      "files": [
+        "src\\utils\\dataManager.js",
+        "src\\utils\\indexedDBManager.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "IndexedDBManager",
+      "fileCount": 1,
+      "files": [
+        "src\\utils\\indexedDBManager.js"
+      ]
+    },
+    {
+      "keyword": "getDraftKey",
+      "fileCount": 5,
+      "files": [
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\utils\\excelKeyUtils.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "getCellKey",
+      "fileCount": 4,
+      "files": [
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\utils\\excelKeyUtils.js",
+        "src\\views\\ThreeColumnPage.vue"
+      ]
+    },
+    {
+      "keyword": "getBizDraftKey",
+      "fileCount": 2,
+      "files": [
+        "src\\utils\\excelKeyUtils.js",
+        "src\\views\\ThreeColumnPage.vue"
+      ]
+    },
+    {
+      "keyword": "DraftKey",
+      "fileCount": 5,
+      "files": [
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\utils\\excelKeyUtils.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "CellKey",
+      "fileCount": 10,
+      "files": [
+        "src\\components\\excel\\HandsontableExcelViewer6.vue",
+        "src\\components\\excel\\HandsontableExcelViewer8.vue",
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\components\\excel\\useExcelViewerLogic.js",
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\utils\\excelKeyUtils.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "unsavedCells",
+      "fileCount": 14,
+      "files": [
+        "src\\components\\excel\\HandsontableExcelViewer.vue",
+        "src\\components\\excel\\HandsontableExcelViewer10.vue",
+        "src\\components\\excel\\HandsontableExcelViewer6.vue",
+        "src\\components\\excel\\HandsontableExcelViewer7.vue",
+        "src\\components\\excel\\HandsontableExcelViewer8.vue",
+        "src\\components\\excel\\HandsontableExcelViewer9.vue",
+        "src\\components\\excel\\useExcelEdit.js",
+        "src\\components\\excel\\useExcelEdit10.js",
+        "src\\components\\excel\\useExcelViewerHelpers.js",
+        "src\\components\\excel\\useExcelViewerLogic.js"
+      ]
+    },
+    {
+      "keyword": "hasUnsavedChanges",
+      "fileCount": 10,
+      "files": [
+        "src\\components\\threecolumns\\ExcelContent.vue",
+        "src\\components\\threecolumns\\ExcelContent10.vue",
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\components\\threecolumns\\useDataManager1.js",
+        "src\\utils\\dataManager.js",
+        "src\\utils\\SheetStateManager.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "saveDraft",
+      "fileCount": 3,
+      "files": [
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\utils\\draftDB.js",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "restoreDraft",
+      "fileCount": 3,
+      "files": [
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "clearDraft",
+      "fileCount": 2,
+      "files": [
+        "src\\utils\\draftDB.js",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    },
+    {
+      "keyword": "setOriginalData",
+      "fileCount": 6,
+      "files": [
+        "src\\utils\\excelDataCache.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage1.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "getOriginalData",
+      "fileCount": 7,
+      "files": [
+        "src\\components\\threecolumns\\useSheetOperations.js",
+        "src\\utils\\excelDataCache.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage1.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "setFlattenedData",
+      "fileCount": 6,
+      "files": [
+        "src\\utils\\excelDataCache.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage1.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "getFlattenedData",
+      "fileCount": 7,
+      "files": [
+        "src\\utils\\dataManager.js",
+        "src\\utils\\excelDataCache.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage1.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "saveData",
+      "fileCount": 6,
+      "files": [
+        "src\\components\\threecolumns\\useDataManager.js",
+        "src\\components\\threecolumns\\useDataManager1.js",
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue",
+        "src\\views\\ThreeColumnPage4.vue",
+        "src\\views\\ThreeColumnPage5.vue"
+      ]
+    },
+    {
+      "keyword": "autoSaveDraft",
+      "fileCount": 2,
+      "files": [
+        "src\\views\\ThreeColumnPage.vue",
+        "src\\views\\ThreeColumnPage10.vue"
+      ]
+    }
+  ]
+}

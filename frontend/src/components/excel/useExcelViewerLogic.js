@@ -1,4 +1,5 @@
 // frontend\src\components\excel\useExcelViewerLogic.js
+import * as ExcelKey from '@/utils/excelKeyUtils.js'
 import { watch, ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Handsontable from 'handsontable'
@@ -499,38 +500,47 @@ export default function useExcelViewerLogic(
     }
   }
 
-  function restoreModifiedCellsStyle () {
-  const hot = getHotInstanceDirect()
-  if (!hot || hot.isDestroyed) return
 
-  const tableType = window.currentTableType || 'original'
-  const unsaved = window.unsavedCells?.[tableType] || new Set()
-  const history = historyCells.value                       // useExcelEdit 里返回的 Set
+  const restoreModifiedCellsStyle = () => {
+      const hot = getSafeHotInstance()
+      if (!hot || hot.isDestroyed) return
 
-  const cellMeta = []
+      const tableType = window.currentTableType || 'original'
+      const unsaved = window.unsavedCells?.[tableType] || new Set()
+      const history = historyCells.value          // 来自 useExcelEdit 的永久历史池
 
-  // 1. 未保存（深红+红点）
-  unsaved.forEach(key => {
-    const [r, c] = key.split(',').map(Number)
-    if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && c >= 0) {
-      cellMeta.push({ row: r, col: c, className: 'unsaved-modified-cell' })
+      const cellMeta = []
+
+      /* -------- 唯一需要改的地方 ↓ ------- */
+      // 1. 未保存（深红+红点）
+      unsaved.forEach(key => {
+        // key 已经是「pdf_excel_sheet_type_row,col」完整格式，直接解析即可
+        const parsed = ExcelKey.parseCellKey(key)   // ⬅️ 用工具解析
+        if (!parsed) return
+        const { row, col } = parsed
+        if (Number.isInteger(row) && Number.isInteger(col) && row >= 0 && col >= 0) {
+          cellMeta.push({ row, col, className: 'unsaved-modified-cell' })
+        }
+      })
+
+      // 2. 历史已保存（浅红，无点）
+      history.forEach(key => {
+        if (unsaved.has(key)) return               // 避免重复
+        const parsed = ExcelKey.parseCellKey(key)  // ⬅️ 同样用工具解析
+        if (!parsed) return
+        const { row, col } = parsed
+        if (Number.isInteger(row) && Number.isInteger(col) && row >= 0 && col >= 0) {
+          cellMeta.push({ row, col, className: 'history-modified-cell' })
+        }
+      })
+      /* -------- 改动结束 ↑ ------------- */
+
+      if (cellMeta.length) {
+        hot.updateSettings({ cell: cellMeta }, false)
+        hot.render()
+        console.log(`✅ 恢复标记完成：未保存${unsaved.size} 历史${history.size}`)
+      }
     }
-  })
-
-  // 2. 历史已保存（浅红，无点）
-  history.forEach(key => {
-    const [r, c] = key.split(',').map(Number)
-    if (Number.isInteger(r) && Number.isInteger(c) && r >= 0 && c >= 0 && !unsaved.has(key)) {
-      cellMeta.push({ row: r, col: c, className: 'history-modified-cell' })
-    }
-  })
-
-  if (cellMeta.length) {
-    hot.updateSettings({ cell: cellMeta }, false)
-    hot.render()
-    console.log(`✅ 恢复标记完成：未保存${unsaved.size} 历史${history.size}`)
-  }
-}
 
   const copyCellContent = () => {
     if (selectedCell.value.content) {

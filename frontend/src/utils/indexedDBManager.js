@@ -284,8 +284,7 @@ class IndexedDBManager {
       size: JSON.stringify(flattenedData).length
     }
 
-    //await this.addRecord('flattened_data', record)
-    await indexedDBManager.upsertRecord('flattened_data', record)
+    await this.upsertRecord('flattened_data', record)
     console.log('📦 扁平化数据已缓存:', { pdfId, sheetName })
 
     return cacheKey
@@ -422,6 +421,9 @@ class IndexedDBManager {
       request.onerror = () => reject(request.error)
     })
   }
+
+
+
 }
 
 // 创建单例实例

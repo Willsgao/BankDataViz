@@ -26,15 +26,15 @@
 
             <div class="save-buttons">
               <el-button
-              type="success"
-              size="small"
-              :disabled="!enableSaveButtons || saving"
-              @click="triggerSave"
-              :loading="saving"
-            >
-              <el-icon><Check /></el-icon>
-              保存
-            </el-button>
+                type="success"
+                size="small"
+                :disabled="!enableSaveButtons"
+                @click="triggerSave"
+                :loading="saving"
+              >
+                <el-icon><Check /></el-icon>
+                保存
+              </el-button>
             </div>
 
           </div>
@@ -101,7 +101,6 @@
             @cell-changed="handleCellChanged"
             @data-changed="handleDataChanged"
             @cell-change="handleSheetCellChange"
-            @instance-ready="handleInstanceReady"
             @edit-status-changed="handleEditStatusChanged"
           />
         </div>
@@ -117,7 +116,6 @@
             @cell-changed="handleCellChanged"
             @data-changed="handleDataChanged"
             @cell-change="handleSheetCellChange"
-            @instance-ready="handleInstanceReady"
             @edit-status-changed="handleEditStatusChanged"
           />
         </div>
@@ -140,7 +138,6 @@
 
 <script setup>
 import SaveStatus from './SaveStatus.vue'
-import * as ExcelKey from '@/utils/excelKeyUtils.js'
 import sheetStateManager from '@/utils/SheetStateManager.js'
 
 import HandsontableExcelViewer from '@/components/excel/HandsontableExcelViewer.vue'
@@ -243,12 +240,6 @@ const props = defineProps({
   isDev: {
     type: Boolean,
     default: false
-  },
-  // 新增：接收父组件透传的 actualHasUnsavedChanges（核心修复）
-  actualHasUnsavedChanges: {
-    type: Boolean,
-    default: false,
-    required: false
   }
 })
 
@@ -275,34 +266,16 @@ const triggerSave = () => {
 }
 
 
-// ExcelContent.vue - 在 script 部分添加
-const handleInstanceReady = (instanceInfo) => {
-  console.log('📡 ExcelContent: 收到实例就绪事件', instanceInfo)
-
-  // 透传给父组件
-  emit('instance-ready', instanceInfo)
-
-  // 同时更新本地状态（如果需要）
-  if (instanceInfo.tableType === 'original') {
-    console.log('✅ 原始表格实例就绪')
-  } else {
-    console.log('✅ 扁平化表格实例就绪')
-  }
-}
-
 /* 存草稿：纯前端，永远可点 */
 async function handleSaveDraft() {
   savingDraft.value = true
   try {
     // 1. 取当前数据
     const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
-    const key = ExcelKey.getDraftKey(props.selectedPdf.id,
-        props.selectedExcelFile,
-        props.selectedSheet.name,
-        props.showFlatMode ? 'flattened' : 'original')
-
+    const key = `draft_${props.selectedPdf.id}_${props.selectedExcelFile}_${props.selectedSheet.name}_${props.showFlatMode ? 'flat' : 'orig'}`
 
     // 2. 写 localStorage（确保字符串化）
+    // modifications: Array.from(window.unsavedCells || []),
     const draft = {
       data: viewer.tableData,
       modifications: Array.from(window.unsavedCells?.[props.showFlatMode ? 'flattened' : 'original'] || []),
@@ -468,20 +441,13 @@ const handleSheetCellChange = (changeData) => {
         tableType
       )
 
-      // 2. 🔥 关键：同步到全局 Set（让按钮/样式生效）
-    const cellKey = ExcelKey.getCellKey(
-      props.selectedPdf.id,
-      props.selectedExcelFile,
-      props.selectedSheet.name,
-      tableType,
-      row,
-      col
-    );
-    if (!window.unsavedCells) {
-      window.unsavedCells = { original: new Set(), flattened: new Set() };
-    }
-    window.unsavedCells[tableType].add(cellKey);
-
+      console.log(`📝 记录修改结果:`, {
+        成功: success,
+        单元格: `[${row},${col}]`,
+        旧值: oldValue,
+        新值: newValue,
+        表类型: tableType
+      })
     } catch (error) {
       console.error('❌ 记录修改失败:', error)
     }
@@ -610,8 +576,7 @@ const emit = defineEmits([
   'run-comprehensive-test',
   'cell-changed',
   'data-changed',
-  'instance-ready',
-  'unsaved-changes-updated'
+  'unsaved-changes-updated'  // 新增
 ])
 
 
