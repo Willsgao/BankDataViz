@@ -1,20 +1,8 @@
 {
-  "pdf_id": "2762e089-7048-4e91-a408-2756419530e1",
-  "excel_file": "2762e089-7048-4e91-a408-2756419530e1_合并_20251225_135319.xlsx",
+  "pdf_id": "e57dd6ba-93f0-4dfb-85c9-7d417eeae589",
+  "excel_file": "e57dd6ba-93f0-4dfb-85c9-7d417eeae589_合并_20251224_210244.xlsx",
   "sheet_name": "P005_监管并表关键审慎监管指标",
   "table_type": "original",
-  "modifications": [
-    {
-      "row": 2,
-      "col": 1,
-      "oldValue": "",
-      "newValue": "2024年 12 月 31",
-      "saved": false,
-      "timestamp": 1767091927060,
-      "tableType": "original"
-    }
-  ],
-  "total_changes": 1,
   "data": [
     {
       "__metadata": {
@@ -280,5 +268,10 @@
       "__is_data_row": true,
       "__vertical_header": "列标记"
     }
-  ]
+  ],
+  "saved_at": 1767443857,
+  "data_dimensions": {
+    "rows": 26,
+    "columns": 1
+  }
 }

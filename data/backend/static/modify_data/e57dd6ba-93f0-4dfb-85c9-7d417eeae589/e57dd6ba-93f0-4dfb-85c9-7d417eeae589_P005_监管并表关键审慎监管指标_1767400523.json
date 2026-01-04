@@ -1,6 +1,6 @@
 {
-  "pdf_id": "2762e089-7048-4e91-a408-2756419530e1",
-  "excel_file": "2762e089-7048-4e91-a408-2756419530e1_合并_20251225_135319.xlsx",
+  "pdf_id": "e57dd6ba-93f0-4dfb-85c9-7d417eeae589",
+  "excel_file": "e57dd6ba-93f0-4dfb-85c9-7d417eeae589_合并_20251224_210244.xlsx",
   "sheet_name": "P005_监管并表关键审慎监管指标",
   "table_type": "original",
   "modifications": [
@@ -8,9 +8,9 @@
       "row": 2,
       "col": 1,
       "oldValue": "",
-      "newValue": "2024年 12 月 31大",
+      "newValue": "2024年 12 月 31日",
       "saved": false,
-      "timestamp": 1767093455205,
+      "timestamp": 1767400523705,
       "tableType": "original"
     }
   ],

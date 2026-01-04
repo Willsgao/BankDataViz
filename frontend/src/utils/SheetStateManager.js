@@ -210,44 +210,46 @@ class SheetStateManager {
       this.triggerUpdate.value++
       console.log(`🔄 触发响应式更新，计数器: ${this.triggerUpdate.value}`)
 
-      // ===== 同步刷样式 =====
-      let hot = window.__excelHotInstance
-      if (!hot || hot.isDestroyed) {
-        // 兜底：从 ref 再摸一次
-        const hotTable = document.querySelector('.handsontable')?.__vueParentComponent?.refs?.hotTable
-        hot = hotTable?.hotInstance
-        if (hot && !hot.isDestroyed) {
-          window.__excelHotInstance = hot   // 立即补挂
-          console.log('🔁 兜底拿到实例并写回', hot)
+      // ===== 延迟刷样式：等表格 mount 后再刷 =====
+      const tryRender = () => {
+        let hot = window.__excelHotInstance
+        if (!hot || hot.isDestroyed) {
+          // 兜底：从 DOM 再摸一次
+          const hotTable = document.querySelector('.handsontable')?.__vueParentComponent?.refs?.hotTable
+          hot = hotTable?.hotInstance
+          if (hot && !hot.isDestroyed) window.__excelHotInstance = hot
         }
+        if (!hot || hot.isDestroyed) return
+
+        const maxRow = hot.countRows() - 1
+        const maxCol = hot.countCols() - 1
+        if (row > maxRow || col > maxCol) return
+
+        hot.setCellMeta(row, col, 'className', 'unsaved-modified-cell')
+        hot.render()
+        console.log(`✅ 延迟刷样式成功 [${row},${col}]`)
       }
 
-      // 🔥 注意：这里直接使用已经转换过的 row 和 col，不需要再次转换
-      console.log('🔍 最终行列:', { row, col, type: `${typeof row},${typeof col}` });
-
-      if (hot && !hot.isDestroyed) {
-        try {
-          // 确保行列在有效范围内（新增范围检查）
-          const maxRow = hot.countRows() - 1;
-          const maxCol = hot.countCols() - 1;
-
-          if (row > maxRow || col > maxCol) {
-            console.warn(`⚠️ 行列超出范围: [${row},${col}] 最大: [${maxRow},${maxCol}]`);
-            console.log('⏭️ 跳过样式设置');
-          } else {
-            hot.setCellMeta(row, col, 'className', 'unsaved-modified-cell');
-            hot.render();
-            console.log(`✅ 已强制加类名并 render [${row},${col}]`);
-          }
-        } catch (error) {
-          console.error('❌ 设置单元格样式失败:', error);
+      if (typeof window !== 'undefined') {
+        if (window.__excelHotInstance) {
+          tryRender()          // 实例已存在，立即刷
+        } else {
+          // 实例还没挂载，最多等 5 次 * 300 ms
+          let retries = 0
+          const timer = setInterval(() => {
+            retries++
+            if (window.__excelHotInstance || retries >= 5) {
+              clearInterval(timer)
+              tryRender()
+            }
+          }, 300)
         }
-      } else {
-        console.warn('⚠️ 实例无效，没刷样式');
       }
 
       return true
     }
+
+
 
   // ============ 查询方法 ============
   getUnsavedChangesCount(tableType = null) {
@@ -308,6 +310,28 @@ class SheetStateManager {
     return true
   }
 
+
+   // 新增：完全清除所有修改记录
+    clearAllModifications(tableType = null) {
+      const state = this.getActiveSheetState()
+      if (!state) return false
+
+      const typesToClear = tableType ? [tableType] : ['original', 'flattened']
+
+      typesToClear.forEach(type => {
+        // 直接清空整个Map
+        state.modifications[type] = new Map()
+        state.stats[type] = {
+          savedCount: 0,
+          unsavedCount: 0
+        }
+
+        console.log(`🗑️ 完全清除${type}表所有修改记录`)
+      })
+
+      this.triggerUpdate.value++
+      return true
+    }
 
 
   // 在 SheetStateManager.js 的类中添加这个方法

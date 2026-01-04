@@ -1,214 +1,108 @@
 <template>
   <div class="handsontable-excel-viewer" :class="{ 'edit-mode': isEditMode }">
+    <!-- 第一行：主控栏（最简科学） -->
+    <div class="main-toolbar">
+      <div class="toolbar-section left-section">
+        <el-button type="primary" size="small" :disabled="!tableData.length" @click="exportData">
+          <el-icon><Download /></el-icon>导出
+        </el-button>
 
+        <el-button
+          v-if="hasEmptyCells"
+          :type="showEmptyCellsHighlight ? 'primary' : ''"
+          size="small"
+          @click="toggleEmptyCellsHighlight"
+        >
+          <el-icon><View /></el-icon>{{ showEmptyCellsHighlight ? '隐藏空格' : '高亮空格' }}
+        </el-button>
 
+        <el-button
+          :type="isEditMode ? 'danger' : 'warning'"
+          size="small"
+          :disabled="!tableData.length"
+          @click="toggleEditMode"
+        >
+          <el-icon><Edit /></el-icon>{{ isEditMode ? '退出' : '编辑' }}
+        </el-button>
+      </div>
 
+      <div class="toolbar-section center-section" v-if="tableData.length > 0">
+        <el-tag size="small" type="info" class="data-summary">
+          <el-icon><Grid /></el-icon>
+          {{ tableData.length - 1 }}行 × {{ columns.length }}列
+        </el-tag>
 
-    <!-- 功能操作栏（重新设计） -->
-    <div class="action-toolbar" v-if="tableData.length > 0">
+        <el-divider
+          v-if="hasDualHeaders && tableInfo"
+          direction="vertical"
+          style="margin: 0 8px;"
+        />
 
-      <!-- 空白单元格操作组 → 单行 -->
-        <div v-if="hasEmptyCells" class="action-group empty-cells-group oneline">
-          <span class="group-title">
-            <el-icon><View /></el-icon>
-            空白单元格管理
-          </span>
-          <el-tag size="small" type="info" class="count-tag">
-            {{ emptyCellsStats?.total || 0 }}个
+        <div v-if="hasDualHeaders && tableInfo" class="dual-header-info">
+          <el-tag type="success" size="small">
+            <el-icon><Menu /></el-icon>双表头
           </el-tag>
-
-          <!-- 按钮组 -->
-          <el-button-group size="small" class="btn-grp">
-            <el-button
-              :type="showEmptyCellsHighlight ? 'primary' : ''"
-              @click="toggleEmptyCellsHighlight"
-            >
-              <el-icon><View /></el-icon>
-              {{ showEmptyCellsHighlight ? '隐藏高亮' : '高亮空格' }}
-            </el-button>
-            <el-button size="small" type="info" link @click="showEmptyCellsDetail">
-              <el-icon><More /></el-icon>
-            </el-button>
-          </el-button-group>
+          <span class="structure-info">
+            {{ tableInfo.横向表头 }}列 × {{ tableInfo.纵向表头 }}行
+          </span>
         </div>
+      </div>
 
-      <!-- 选中区域统计组 -->
+      <div class="toolbar-section right-section">
+        <el-tooltip
+          v-if="isEditMode"
+          :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
+          placement="bottom"
+        >
+          <el-tag
+            :type="hasChanges ? 'warning' : 'success'"
+            size="small"
+            class="status-tag"
+          >
+            <el-icon><Edit /></el-icon>
+            {{ hasChanges ? `已修改(${modifiedCellsCount})` : '编辑中' }}
+          </el-tag>
+        </el-tooltip>
+      </div>
+    </div>
+
+    <!-- 第二行：功能操作栏（合并当前单元格完整信息，选中才显） -->
+    <div class="action-toolbar compact-line" v-if="tableData.length > 0 && (showStatsPanel || selectedCell.position)">
+      <!-- 左侧：选中统计（原有） -->
       <div v-if="showStatsPanel" class="action-group selection-stats-group">
         <div class="group-header">
           <el-icon><DataAnalysis /></el-icon>
           <span class="group-title">选中区域统计</span>
-          <el-tag
-            size="small"
-            :type="stats.selectionType === 'column' ? 'info' : 'success'"
-          >
+          <el-tag size="small" :type="stats.selectionType === 'column' ? 'info' : 'success'">
             {{ stats.selectionType === 'column' ? '整列' : '区域' }}
           </el-tag>
         </div>
         <div class="stats-content">
           <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-label">单元格数:</span>
-              <span class="stat-value">{{ stats.rowCount }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">数值:</span>
-              <span class="stat-value">{{ stats.numericCount }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">总和:</span>
-              <span class="stat-value">{{ stats.sum }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">平均值:</span>
-              <span class="stat-value">{{ stats.average }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">最大值:</span>
-              <span class="stat-value">{{ stats.max }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">最小值:</span>
-              <span class="stat-value">{{ stats.min }}</span>
-            </div>
+            <div class="stat-item"><span class="stat-label">单元格数:</span><span class="stat-value">{{ stats.rowCount }}</span></div>
+            <div class="stat-item"><span class="stat-label">数值:</span><span class="stat-value">{{ stats.numericCount }}</span></div>
+            <div class="stat-item"><span class="stat-label">总和:</span><span class="stat-value">{{ stats.sum }}</span></div>
+            <div class="stat-item"><span class="stat-label">平均值:</span><span class="stat-value">{{ stats.average }}</span></div>
+            <div class="stat-item"><span class="stat-label">最大值:</span><span class="stat-value">{{ stats.max }}</span></div>
+            <div class="stat-item"><span class="stat-label">最小值:</span><span class="stat-value">{{ stats.min }}</span></div>
           </div>
-          <el-button
-            size="small"
-            type="info"
-            link
-            @click="clearSelection"
-            title="清除选择"
-            class="clear-btn"
-          >
-            <el-icon><Close /></el-icon>
-          </el-button>
+          <el-button size="small" type="info" link @click="clearSelection" title="清除选择" class="clear-btn"><el-icon><Close /></el-icon></el-button>
         </div>
       </div>
 
-      <!-- 当前单元格信息组 - 单行分块展示 -->
-    <div v-if="showCellContent && selectedCell.position" class="action-group current-cell-group compact-single-row">
-      <div class="group-header">
-        <el-icon><Position /></el-icon>
-        <span class="group-title">当前单元格</span>
-      </div>
-
-      <div class="single-row-content">
-        <!-- 第一块：基本信息 -->
-        <div class="info-block basic-info">
-          <!-- 位置 -->
-          <el-tag size="small" type="info" class="cell-position">
-            <el-icon><Position /></el-icon>
-            {{ selectedCell.position }}
-          </el-tag>
-
-          <!-- 类型 -->
-          <el-tag
-            size="small"
-            :type="getCellTypeTag(selectedCell.type)"
-            class="cell-type"
-          >
-            {{ selectedCell.type }}
-          </el-tag>
-
-          <!-- 修改状态 -->
-          <el-tag
-            v-if="selectedCell.isModified"
-            size="small"
-            type="danger"
-            class="cell-modified"
-          >
-            <el-icon><Edit /></el-icon>
-          </el-tag>
-        </div>
-
-        <!-- 分隔线 -->
-        <div class="separator"></div>
-
-        <!-- 第二块：内容 -->
-        <div class="info-block cell-content-block">
-          <div
-            class="cell-content-display"
-            :class="{
-              'numeric-cell': selectedCell.isNumeric,
-              'formula-cell': selectedCell.isFormula,
-              'modified-cell': selectedCell.isModified,
-              'invalid-number': selectedCell.isNumeric && !selectedCell.isValidNumber,
-              'empty-cell': selectedCell.isEmpty
-            }"
-            :title="`${selectedCell.content || '[空]'} (${selectedCell.charCount}字符)`"
-          >
-            <span class="content-text">{{ selectedCell.content || '[空]' }}</span>
-            <span v-if="selectedCell.charCount > 0" class="char-count">
-              ({{ selectedCell.charCount }})
-            </span>
-          </div>
-        </div>
-
-        <!-- 分隔线 -->
-        <div class="separator"></div>
-
-        <!-- 第三块：状态信息 -->
-        <div class="info-block status-info">
-          <!-- 验证状态 -->
-          <div v-if="selectedCell.isNumeric && selectedCell.numberValidationMsg"
-               class="status-item validation-status"
-               :class="selectedCell.isValidNumber ? 'valid' : 'invalid'">
-            <el-icon v-if="selectedCell.isValidNumber"><Check /></el-icon>
-            <el-icon v-else><Warning /></el-icon>
-            <span class="status-text">{{ selectedCell.numberValidationMsg }}</span>
-          </div>
-
-          <!-- 日期类型 -->
-          <div v-if="selectedCell.type === '日期'" class="status-item date-status">
-            <el-icon><Calendar /></el-icon>
-            <span class="status-text">日期</span>
-          </div>
-
-          <!-- 格式信息 -->
-          <div v-if="selectedCell.format && selectedCell.format !== '文本'"
-               class="status-item format-info">
-            <el-icon><Document /></el-icon>
-            <span class="status-text">{{ selectedCell.format }}</span>
-          </div>
-
-          <!-- 只读状态 -->
-          <div v-if="selectedCell.isReadOnly" class="status-item readonly-status">
-            <el-icon><Lock /></el-icon>
-            <span class="status-text">只读</span>
-          </div>
-        </div>
-
-        <!-- 分隔线 -->
-        <div class="separator"></div>
-
-        <!-- 第四块：操作按钮 -->
-        <div class="info-block action-buttons" v-if="isEditMode && !selectedCell.isReadOnly">
-          <el-button
-            size="small"
-            type="primary"
-            link
-            @click="copyCellContent"
-            title="复制内容"
-            class="action-btn"
-          >
-            <el-icon><CopyDocument /></el-icon>
-          </el-button>
-          <el-button
-            size="small"
-            type="warning"
-            link
-            @click="editCellInModal"
-            title="编辑内容"
-            class="action-btn"
-          >
-            <el-icon><Edit /></el-icon>
-          </el-button>
-        </div>
+      <!-- 右侧：当前单元格完整信息（合并进来，不省略） -->
+      <div v-if="selectedCell.position" class="action-group current-cell-inline">
+        <el-tag size="small" type="info" style="white-space: normal; line-height: 1.4;">
+          <el-icon><Position /></el-icon>
+          <span class="cell-pos">{{ selectedCell.position }}</span> |
+          <span class="cell-type">{{ selectedCell.type }}</span> |
+          <span class="cell-content">{{ selectedCell.content || '[空]' }}</span>
+          <span v-if="selectedCell.isModified" style="color: #f56c6c;">（已修改）</span>
+        </el-tag>
       </div>
     </div>
 
-    </div>
-
-    <!-- Handsontable 表格区域（保持不变） -->
+    <!-- 表格区域（完全不动） -->
     <div class="excel-container" ref="excelContainer">
       <HotTable
         ref="hotTable"
@@ -237,21 +131,18 @@
         :key="langKey"
         @afterFilter="onFilter"
         @after-init="onHotInit"
-
       />
 
       <div v-if="tableData.length === 0" class="empty-state">
         <el-empty description="暂无表格数据" />
       </div>
 
-      <!-- 横向滚动提示 -->
       <div v-if="showScrollHint" class="horizontal-scroll-hint">
         ← → 可左右滚动查看完整表格
       </div>
     </div>
   </div>
 </template>
-
 
 
 <script setup>
@@ -2740,6 +2631,46 @@ onMounted(() => {
   justify-content: space-between;   /* 左中右分离 */
   align-items: center;
   gap: 16px;                        /* 区间距 */
+}
+
+.current-cell-full {
+  margin-left: 8px;
+  max-width: 320px;          /* 限制最大宽度，防止溢出 */
+  word-break: break-all;     /* 长内容自动换行 */
+  line-height: 1.4;
+}
+
+
+.main-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.current-cell-bar {
+  padding: 6px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cell-pos,
+.cell-type,
+.cell-content {
+  font-weight: 500;
+  margin-right: 4px;
 }
 
 </style>

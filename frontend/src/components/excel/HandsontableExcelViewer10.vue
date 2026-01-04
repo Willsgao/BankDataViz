@@ -359,7 +359,6 @@ const getHotInstanceDirect = () => {
 }
 
 // 修改 onHotInit 函数
-// HandsontableExcelViewer.vue - 修改 onHotInit 函数
 const onHotInit = () => {
   setTimeout(() => {
     const hot = getHotInstanceDirect()
@@ -370,23 +369,12 @@ const onHotInit = () => {
 
       console.log('⚡ Handsontable 实例已立即暴露', {
         行数: hot.countRows(),
-        列数: hot.countCols(),
-        实例ID: hot.guid,
-        时间戳: Date.now()
+        列数: hot.countCols()
       })
 
-      // 🔥 关键修改：发射强化版的就绪事件
-      emit('instance-ready', {
-        instance: hot,
-        guid: hot.guid,
-        pdfId: props.pdfId,
-        excelFileName: props.excelFileName,
-        sheetName: props.sheetName,
-        tableType: props.excelData === props.flatData ? 'flattened' : 'original',
-        timestamp: Date.now()
-      })
-
-      // 原有的恢复红色标记
+      // 发送实例就绪事件
+      emit('instance-ready', hot)
+      /* ===== 新增：实例就绪后立即恢复红色标记 ===== */
       nextTick(() => restoreModifiedCellsStyle())
     }
   }, 0)

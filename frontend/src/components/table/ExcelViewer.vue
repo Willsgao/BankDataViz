@@ -178,11 +178,16 @@ const activeSheet = ref('')
 const isFullscreen = ref(false)
 const loading = ref(false)
 const tableContainer = ref(null)
-const tableHeight = ref(200)
+//const tableHeight = ref(200)
 const tableMaxHeight = ref(500)
 
 
-
+const tableHeight = computed(() => {
+  const windowHeight = window.innerHeight
+  // 减去预估的其他元素高度（标题、工具栏等）
+  const estimatedOtherHeight = 250 // 根据实际情况调整
+  return Math.max(windowHeight - estimatedOtherHeight, 400)
+})
 
 
 // 设置默认激活的工作表
