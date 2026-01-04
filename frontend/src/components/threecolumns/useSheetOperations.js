@@ -20,7 +20,7 @@ export function useSheetOperations(generateTableColumns) {
      * 1. 优先读本地草稿；存在则直接用，不再请求接口
      * 2. 无草稿才走原流程：fetch → 缓存 → 状态管理器
      */
-    const selectSheet = async (
+    const selectSheet11 = async (
       sheet,
       excelFileName,
       selectedPdf,
@@ -104,6 +104,157 @@ export function useSheetOperations(generateTableColumns) {
         excelDataRef.value = []
       } finally {
         loadingExcel.value = false
+      }
+    }
+
+
+
+    const selectSheet = async (
+  sheet,
+  excelFileName,
+  selectedPdf,
+  selectedSheetRef,
+  selectedExcelFileRef,
+  sheetStateManager,
+  excelDataRef,
+  tableColumnsRef,
+  flatDataRef,
+  showFlatModeRef,
+  currentTableModeRef,
+  loadExcelDataFn,
+  loadAllClassDataFn
+) => {
+      console.log('🔄 选择sheet:', {
+        sheet名称: sheet.name,
+        excel文件: excelFileName,
+        当前PDF: selectedPdf?.id,
+        currentTableModeRef存在: !!currentTableModeRef
+      })
+
+      // 🔥🔥🔥 关键修复1：添加安全检查
+      if (!selectedSheetRef || !selectedExcelFileRef || !sheetStateManager) {
+        console.error('❌❌❌ 关键参数缺失:', {
+          selectedSheetRef: !!selectedSheetRef,
+          selectedExcelFileRef: !!selectedExcelFileRef,
+          sheetStateManager: !!sheetStateManager,
+          currentTableModeRef: !!currentTableModeRef
+        })
+        throw new Error('函数参数不完整，无法选择表格')
+      }
+
+      // 🔥🔥🔥 关键修复2：检查PDF参数
+      if (!selectedPdf) {
+        console.error('❌❌❌ selectedPdf 参数为 undefined 或 null')
+        ElMessage.error('PDF参数缺失，请先选择PDF文件')
+        return { success: false, error: 'PDF参数缺失' }
+      }
+
+      try {
+        /* ---------- 1. 重置状态 ---------- */
+        console.log('🔄 开始重置状态...')
+
+        selectedSheetRef.value = { ...sheet, excel_file: excelFileName }
+        selectedExcelFileRef.value = excelFileName
+
+        // 🔥 安全设置 currentTableModeRef
+        if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
+          currentTableModeRef.value = 'original'
+          console.log('✅ currentTableModeRef 设置为: original')
+        } else {
+          console.warn('⚠️ currentTableModeRef 不可用，跳过设置')
+        }
+
+        // 🔥 安全设置 window.currentTableMode
+        if (typeof window !== 'undefined') {
+          window.currentTableMode = 'original'
+          console.log('✅ window.currentTableMode 设置为: original')
+        }
+
+//        showFlatModeRef.value = false
+//        flatDataRef.value = []
+
+        console.log('✅ 状态重置完成')
+
+        /* ---------- 2. 状态管理器上下文 ---------- */
+        console.log('🔄 设置状态管理器上下文...')
+        sheetStateManager.setActiveContext(
+          selectedPdf.id,
+          excelFileName,
+          sheet.name,
+          'original'
+        )
+        console.log('✅ 上下文设置完成')
+
+        /* ---------- 3. 优先读本地草稿 ---------- */
+        const draftKey = `excel_draft_${selectedPdf.id}_${excelFileName}_${sheet.name}_original`
+        const draftRaw = localStorage.getItem(draftKey)
+
+        if (draftRaw) {
+          try {
+            const draft = JSON.parse(draftRaw)
+            if (draft.data && Array.isArray(draft.data)) {
+              console.log('📦 发现本地草稿', new Date(draft.timestamp).toLocaleTimeString())
+
+              // 直接用草稿数据
+              excelDataRef.value = draft.data
+              tableColumnsRef.value = generateTableColumns(draft.data)
+              sheetStateManager.setData('original', draft.data)
+
+              // 把修改记录还原（可选）
+              if (draft.modifications?.length) {
+                draft.modifications.forEach(m =>
+                  sheetStateManager.recordCellChange(m.row, m.col, m.oldValue, m.newValue, 'original')
+                )
+              }
+
+              ElMessage.success('已恢复本地草稿')
+              console.log('✅ 草稿恢复完成')
+              return { success: true, source: 'draft' } // ⚠️ 提前结束，不再请求接口
+            }
+          } catch (e) {
+            console.warn('⚠️ 草稿解析失败，回退到接口', e)
+          }
+        }
+
+        /* ---------- 4. 无草稿 → 正常加载 ---------- */
+        console.log('🔄 无草稿，开始正常加载数据...')
+        loadingExcel.value = true
+
+        try {
+          if (sheet.name === '目录') {
+            console.log('📁 加载目录数据...')
+            await loadAllClassDataFn(excelFileName)
+          } else {
+            console.log('📊 加载普通表格数据...')
+            await loadExcelDataFn(sheet.name, excelFileName)
+          }
+
+          // 此时 excelDataRef 已被 loadExcelDataFn 填充
+          sheetStateManager.setData('original', excelDataRef.value)
+          console.log('✅ 数据加载完成，数据长度:', excelDataRef.value?.length || 0)
+
+        } catch (err) {
+          console.error('❌ 加载失败', err)
+          ElMessage.error(err.message)
+          excelDataRef.value = []
+          throw err // 重新抛出错误
+
+        } finally {
+          loadingExcel.value = false
+        }
+
+        console.log('✅✅✅ selectSheet 完成')
+        return { success: true, source: 'api' }
+
+      } catch (error) {
+        console.error('❌❌❌ selectSheet 执行失败:', error)
+        // 确保在出错时清理状态
+        excelDataRef.value = []
+        tableColumnsRef.value = []
+        flatDataRef.value = []
+        showFlatModeRef.value = false
+
+        throw error // 重新抛出错误
       }
     }
 

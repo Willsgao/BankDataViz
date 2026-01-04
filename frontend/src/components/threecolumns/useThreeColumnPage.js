@@ -2,6 +2,7 @@ import { ref, computed, inject } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getApiUrl, getBackendUrl } from '@/utils/config'
 
+
 /**
  * 三列页面主逻辑组合函数
  */
@@ -15,7 +16,7 @@ export function useThreeColumnPage() {
   const pdfUrl = ref('')
   const downloadLoading = ref(false)
   const isMiddleCollapsed = ref(false)
-  const showFlatMode = ref(false)
+  const showFlatMode = ref(true)
   const flatData = ref([])
   const sheetList = ref([])
   const excelFiles = ref([])

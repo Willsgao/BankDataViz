@@ -207,118 +207,52 @@ const {
   loadingFlat,
   currentPage,
   totalPages,
-  selectSheet: selectSheetUtil,
+  selectSheet: selectSheetOperation,
   toggleFlatMode: toggleFlatModeUtil,
   loadExcelSheets: loadExcelSheetsUtil,
   loadAllClassData: loadAllClassDataUtil
 } = useSheetOperations(generateTableColumns)
 
 
-// src/views/ThreeColumnPage.vue
-// 修复 actualHasUnsavedChanges 计算属性
+
+// 🔥 完全替换 actualHasUnsavedChanges
+const forceUpdateFlag = ref(0) // 强制响应式依赖
+const lastGlobalState = ref(null) // 跟踪上次状态
+
+// 🔥 监听全局状态变化
+if (typeof window !== 'undefined') {
+  // 每100ms检查一次全局状态
+  setInterval(() => {
+    const currentState = window.currentHasChanges
+    if (currentState !== lastGlobalState.value) {
+      console.log('🔄 全局状态变化，触发更新:', {
+        旧值: lastGlobalState.value,
+        新值: currentState
+      })
+      lastGlobalState.value = currentState
+      forceUpdateFlag.value++ // 🔥 强制触发重新计算
+    }
+  }, 100)
+}
+
 const actualHasUnsavedChanges = computed(() => {
-  forceUnsavedUpdate.value;
-  console.log('🔍 开始计算 actualHasUnsavedChanges');
+  // 🔥 强制依赖响应式变量
+  forceUpdateFlag.value
 
-  // 保留兜底逻辑
-  if (!window.unsavedCells) {
-    console.warn('⚠️ 兜底：window.unsavedCells 未定义，紧急初始化');
-    window.unsavedCells = { original: new Set(), flattened: new Set() };
-  } else if (window.unsavedCells instanceof Set) {
-    console.warn('⚠️ 兜底：window.unsavedCells 是 Set 结构，转换为对象结构');
-    const originalSet = new Set();
-    const flattenedSet = new Set();
-    for (const key of window.unsavedCells) {
-      if (typeof key === 'string') {
-        if (key.includes('flattened') || key.endsWith(',flattened')) {
-          flattenedSet.add(key);
-        } else {
-          originalSet.add(key);
-        }
-      }
-    }
-    window.unsavedCells = { original: originalSet, flattened: flattenedSet };
-  }
+  console.log('🔥🔥🔥 actualHasUnsavedChanges 被调用', {
+    时间: new Date().toLocaleTimeString(),
+    强制更新计数: forceUpdateFlag.value,
+    全局状态: window.currentHasChanges
+  })
 
-  const tableType = showFlatMode.value ? 'flattened' : 'original';
-  const currentKeyPrefix = currentUniqueKey.value;
+  // 🔥 直接返回全局状态
+  const result = typeof window !== 'undefined' ? window.currentHasChanges === true : false
 
-  // 获取当前PDF和Sheet信息用于精确匹配
-  const currentPdfId = selectedPdf.value?.id;
-  const currentExcelFile = selectedExcelFile.value;
-  const currentSheetName = selectedSheet.value?.name || selectedSheet.value; // 修复：统一获取sheet名称
+  console.log('🎯 计算结果:', result)
+  return result
+})
 
-  let unsavedSize = 0;
 
-  const targetSet = window.unsavedCells?.[tableType] || new Set();
-  if (targetSet instanceof Set) {
-    console.log('📌 过滤调试：', {
-      currentKeyPrefix: currentKeyPrefix,
-      currentPdfId: currentPdfId,
-      currentExcelFile: currentExcelFile,
-      currentSheetName: currentSheetName,
-      targetSetSize: targetSet.size,
-      targetSetValues: Array.from(targetSet).slice(0, 3)
-    });
-
-    // 🔥 修复的匹配逻辑 - 使用精确解析
-    for (const key of targetSet) {
-      if (typeof key === 'string') {
-        let isCurrentSheetCell = false;
-
-        try {
-          // 方法1：使用修复后的parseCellKey进行精确匹配
-          const parsedKey = ExcelKey.parseCellKey(key);
-          if (parsedKey) {
-            isCurrentSheetCell =
-              parsedKey.pdfId === currentPdfId &&
-              parsedKey.excelFile === currentExcelFile &&
-              parsedKey.sheetName === currentSheetName &&
-              parsedKey.tableType === tableType;
-
-            if (isCurrentSheetCell) {
-              console.log(`✅ 精确匹配到未保存单元格:`, {
-                key: key,
-                parsed: parsedKey,
-                context: { currentPdfId, currentExcelFile, currentSheetName, tableType }
-              });
-            }
-          } else {
-            // 如果解析失败，使用备用匹配逻辑
-            console.warn('⚠️ 解析key失败，使用备用匹配:', key);
-            isCurrentSheetCell = fallbackKeyMatch(key, currentPdfId, currentExcelFile, currentSheetName, tableType);
-          }
-        } catch (error) {
-          console.warn('❌ 解析过程出错，使用备用匹配:', key, error);
-          isCurrentSheetCell = fallbackKeyMatch(key, currentPdfId, currentExcelFile, currentSheetName, tableType);
-        }
-
-        if (isCurrentSheetCell) {
-          unsavedSize++;
-          if (unsavedSize <= 3) {
-            console.log(`📝 计数增加至 ${unsavedSize}: ${key}`);
-          }
-        }
-      }
-    }
-  }
-
-  // 额外的状态检查（保持不变）
-  const sheetState = sheetStateManager?.hasUnsavedChanges(tableType) || false;
-  const hasModifiedCells = modifiedCellsCount.value > 0;
-
-  const result = unsavedSize > 0 || sheetState || hasModifiedCells;
-
-  console.log('🚨 actualHasUnsavedChanges最终值:', result, {
-    '未保存数(当前Sheet)': unsavedSize,
-    'sheetStateManager状态': sheetState,
-    'modifiedCellsCount': modifiedCellsCount.value,
-    '当前PDF': currentPdfId,
-    '当前Sheet': currentSheetName
-  });
-
-  return result;
-});
 
 // 🔥 新增：备用匹配函数
 const fallbackKeyMatch = (key, currentPdfId, currentExcelFile, currentSheetName, tableType) => {
@@ -543,8 +477,6 @@ const handleCellChanged = (cellInfo) => {
     })
   }
 
-  // 🔥 关键修复4：清除最终保存锁定
-  sheetStateManager.clearLastFinalSavedCount(tableType)
 
   // ✅ 一次性脏锁：只要改过一次就永远亮
   sheetEverDirty.value = true
@@ -765,38 +697,36 @@ const loadExcelSheets = async (pdfId) => {
 }
 
 
+// 🔥 创建包装函数
 const selectSheet = async (sheet, excelFileName) => {
-    console.log('🎯🎯🎯🎯🎯🎯🎯🎯 选择Sheet:', sheet?.name);
+  if (!selectedPdf.value) {
+    ElMessage.error('请先选择PDF文件')
+    return { success: false }
+  }
 
-    if (!sheet || !excelFileName || !selectedPdf.value) {
-        console.error('❌❌❌❌ 选择Sheet参数错误:', { sheet, excelFileName, selectedPdf: selectedPdf.value });
-        return { success: false, error: '参数不完整' };
-    }
+  try {
+    return await selectSheetOperation(
+      sheet,
+      excelFileName,
+      selectedPdf.value,
+      selectedSheet,
+      selectedExcelFile,
+      sheetStateManager,
+      excelData,
+      tableColumns,
+      flatData,
+      showFlatMode,
+      currentTableMode,
+      loadExcelData,
+      loadAllClassData
+    )
+  } catch (error) {
+    console.error('❌ selectSheet 失败:', error)
+    ElMessage.error(`选择表格失败: ${error.message}`)
+    return { success: false, error: error.message }
+  }
+}
 
-    try {
-        const pdfId = selectedPdf.value.id;
-        const tableType = showFlatMode.value ? 'flattened' : 'original';
-
-        // 🔥🔥🔥 关键修复：使用正确的函数名
-        selectedExcelFile.value = excelFileName;
-
-        // ✅ 修改这里：loadExcelData → loadExcelData
-        const loadResult = await loadExcelData(sheet.name, excelFileName);
-
-        if (!loadResult.success) {
-            throw new Error(loadResult.error || '数据加载失败');
-        }
-
-        // 2. 设置选中状态
-        selectedSheet.value = sheet;
-
-        // ... 其他代码保持不变
-    } catch (error) {
-        console.error('❌❌❌❌ 选择Sheet失败:', error);
-        ElMessage.error(`选择表格失败: ${error.message}`);
-        return { success: false, error: error.message };
-    }
-};
 
 
 // useThreeColumnPage.js 中的 restoreUnsavedModifications 函数
@@ -1714,7 +1644,7 @@ const clearModificationStatesOnly = async () => {
         // 6. 清除最终保存锁定
         if (sheetStateManager && sheetStateManager.clearLastFinalSavedCount) {
             try {
-                sheetStateManager.clearLastFinalSavedCount(tableType);
+                // sheetStateManager.clearLastFinalSavedCount(tableType);
                 console.log('✅ 最终保存计数已清除');
             } catch (e) {
                 console.warn('⚠️ 清除最终保存计数失败:', e.message);
@@ -2609,6 +2539,241 @@ const convertToFlatData = async () => {
   try {
     console.log('🔄 开始数据扁平化处理...')
 
+    // 步骤1：获取当前数据
+    let currentOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      console.log('📦 缓存无数据，尝试从当前显示数据获取...')
+      currentOriginalData = excelData.value
+    }
+
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      console.log('🔄 重新加载原始数据...')
+      const loadResult = await loadExcelData(sheetName, excelFile)
+      if (!loadResult.success) {
+        throw new Error('无法加载原始表格数据')
+      }
+      currentOriginalData = excelData.value
+    }
+
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      throw new Error('原始数据为空，无法转换')
+    }
+
+    console.log('📊 用于转换的原始数据:', {
+      数据类型: typeof currentOriginalData[0],
+      总行数: currentOriginalData.length,
+      第一行: currentOriginalData[0],
+      第一行列数: currentOriginalData[0]?.length || 0
+    })
+
+    // 步骤2：重建二维表格数据
+    const tableData = rebuildTwoDimensionalTable(currentOriginalData)
+
+    if (!tableData || tableData.length === 0) {
+      throw new Error('无法重建二维表格数据')
+    }
+
+    console.log('✅ 重建的二维表格数据:', {
+      行数: tableData.length,
+      列数: tableData[0]?.length || 0,
+      表格样本: tableData.slice(0, Math.min(3, tableData.length))
+    })
+
+    // 步骤3：从表格中提取必要信息用于source_info
+    const tableInfo = extractTableInfoFromData(currentOriginalData, tableData)
+
+    // 步骤4：构建请求数据
+    const requestData = {
+      table_data: tableData,
+      source_info: {
+        table_name: sheetName,
+        bank_name: "中国建设银行",
+        page_num: tableInfo.pageNum || extractPageFromSheetName(sheetName) || 1,
+        default_unit: tableInfo.defaultUnit || "",
+        default_currency: tableInfo.defaultCurrency || "人民币",
+        default_report_period: tableInfo.reportPeriod || "",
+        entity: "本集团"
+      }
+    }
+
+    console.log('📤 发送扁平化请求数据:', {
+      表数据行数: requestData.table_data.length,
+      表数据列数: requestData.table_data[0]?.length || 0,
+      来源信息: requestData.source_info
+    })
+
+    // 步骤5：调用扁平化API
+    const response = await fetch(getApiUrl('/excel-flatten'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
+      throw new Error(errorData.error || 'API调用失败')
+    }
+
+    const result = await response.json()
+    console.log('📥 扁平化API返回数据:', result)
+    console.log('✅ API响应成功:', {
+      成功: result.success,
+      错误: result.error,
+      返回数据类型: typeof result,
+      返回数据键: Object.keys(result),
+      是否有rows: !!result.rows,
+      rows类型: typeof result.rows,
+      rows是否为数组: Array.isArray(result.rows),
+      rows长度: result.rows?.length || 0,
+      是否有long_format_data: !!result.long_format_data,
+      long_format_data类型: typeof result.long_format_data,
+      long_format_data是否为数组: Array.isArray(result.long_format_data),
+      long_format_data长度: result.long_format_data?.length || 0
+    })
+
+    // 🔥 关键修复：更宽松的格式检查
+    if (result.success) {
+      let flattenedData = []
+
+      // 情况1：新格式（rows字段）
+      if (result.rows && Array.isArray(result.rows)) {
+        console.log('📊 接收到新格式数据 (rows字段)')
+        flattenedData = result.rows
+      }
+      // 情况2：旧格式（long_format_data字段）
+      else if (result.long_format_data && Array.isArray(result.long_format_data)) {
+        console.log('📊 接收到旧格式数据 (long_format_data字段)')
+        flattenedData = result.long_format_data
+      }
+      // 情况3：直接返回数组
+      else if (Array.isArray(result)) {
+        console.log('📊 接收到直接数组格式数据')
+        flattenedData = result
+      }
+      // 情况4：其他格式，尝试提取数据
+      else {
+        console.log('🔄 尝试从返回结果中提取数据...')
+
+        // 尝试查找可能的数组字段
+        for (const key in result) {
+          if (Array.isArray(result[key])) {
+            console.log(`📊 找到数组字段 "${key}": ${result[key].length} 条记录`)
+            flattenedData = result[key]
+            break
+          }
+        }
+
+        // 如果没有找到数组，检查是否有data字段
+        if (flattenedData.length === 0 && result.data) {
+          if (Array.isArray(result.data)) {
+            flattenedData = result.data
+            console.log(`📊 使用data字段: ${result.data.length} 条记录`)
+          } else if (result.data.rows && Array.isArray(result.data.rows)) {
+            flattenedData = result.data.rows
+            console.log(`📊 使用data.rows字段: ${result.data.rows.length} 条记录`)
+          }
+        }
+      }
+
+      // 🔥 检查是否成功获取到数据
+      if (flattenedData.length > 0) {
+        console.log('📊 接收到扁平化格式数据:', {
+          总行数: flattenedData.length,
+          第一行样本: flattenedData[0],
+          格式: '扁平化格式'
+        })
+
+        // 保存原始的双表头格式数据到内存缓存
+        excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, flattenedData)
+
+        // 设置数据管理器上下文
+        dataManager.setContext({
+          pdfId: pdfId,
+          excelFile: excelFile,
+          sheetName: sheetName
+        })
+
+        // 缓存扁平化数据到 IndexedDB
+        try {
+          await dataManager.saveFlattenedData(flattenedData, currentOriginalData)
+          console.log('📦 扁平化数据已缓存到 IndexedDB')
+        } catch (cacheError) {
+          console.warn('⚠️ 缓存到 IndexedDB 失败:', cacheError)
+        }
+
+        // 保存扁平化数据到状态管理器
+        const currentContext = sheetStateManager.getActiveContext()
+        if (currentContext &&
+            currentContext.pdfId === pdfId &&
+            currentContext.excelFile === excelFile &&
+            currentContext.sheetName === sheetName) {
+          sheetStateManager.setData('flattened', flattenedData)
+          console.log(`📦 扁平化数据已保存到状态管理器: ${flattenedData.length}行`)
+        }
+
+        // 显示扁平化数据
+        flatData.value = flattenedData
+        showFlatMode.value = true
+
+        ElMessage.success(`数据扁平化成功，生成 ${flattenedData.length} 行数据`)
+
+      } else {
+        // 🔥 如果没有数据，但API返回success: true，可能是空数据
+        console.warn('⚠️ API返回success: true但没有数据，可能是空表格')
+        if (result.message) {
+          ElMessage.info(result.message)
+        } else {
+          ElMessage.info('表格数据为空或无需转换')
+        }
+
+        // 设置空数据
+        flatData.value = []
+        showFlatMode.value = true
+      }
+
+    } else {
+      throw new Error(result.error || '后端处理失败')
+    }
+
+  } catch (error) {
+    console.error('❌ 数据扁平化失败:', error)
+    ElMessage.error(`转换失败: ${error.message}`)
+
+    // 重置状态
+    showFlatMode.value = false
+    flatData.value = []
+
+    // 重新加载原始数据
+    if (selectedSheet.value) {
+      await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
+    }
+  } finally {
+    loadingFlat.value = false
+    const currentSheet = excelDataCache.getCurrentSheet()
+    if (currentSheet) {
+      excelDataCache.setFlatteningState(currentSheet.pdfId, currentSheet.excelFile, currentSheet.sheetName, false)
+    }
+  }
+}
+
+const convertToFlatData22 = async () => {
+  if (!selectedSheet.value || !selectedPdf.value) {
+    ElMessage.warning('请先选择表格')
+    return
+  }
+
+  loadingFlat.value = true
+
+  const pdfId = selectedPdf.value.id
+  const excelFile = selectedExcelFile.value
+  const sheetName = selectedSheet.value.name
+
+  try {
+    console.log('🔄 开始数据扁平化处理...')
+
     // 步骤1：从缓存获取当前sheet的双表头数据
     let currentOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
 
@@ -3132,39 +3297,101 @@ watch(excelFiles, (newFiles) => {
 })
 
 
-// ThreeColumnPage.vue - 切换PDF/Sheet的监听函数
-watch([() => selectedPdf.value?.id, () => selectedSheet.value?.name, () => selectedExcelFile.value],
-  async ([newPdfId, newSheetName, newExcelFile]) => {
-    if (!newPdfId || !newSheetName || !newExcelFile) {
-      currentUniqueKey.value = '';
-      forceUnsavedUpdate.value++;
-      return;
-    }
-    // ✅ 关键：和useExcelEdit.js中cellKey的前缀完全一致
-    // 格式：`${pdfId}_${excelFile}_${sheetName}_`（需和useExcelEdit.js对应）
-    currentUniqueKey.value = ExcelKey.getPrefixKey(newPdfId, newExcelFile, newSheetName);
-    forceUnsavedUpdate.value++;
-    await nextTick();
+
+
+// 监听1：未保存单元格变化
+watch(
+  () => {
+    const tableType = showFlatMode.value ? 'flattened' : 'original';
+    const unsavedSet = window.unsavedCells?.[tableType];
+
+    return {
+      tableType,
+      unsavedCount: unsavedSet?.size || 0,
+      // 转换为数组确保深度监听有效
+      unsavedArray: unsavedSet ? Array.from(unsavedSet) : [],
+      timestamp: Date.now()
+    };
   },
-  { immediate: true }
+  (newVal, oldVal) => {
+    if (newVal.unsavedCount !== oldVal?.unsavedCount) {
+      console.log('🔍 未保存单元格数量变化:', {
+        模式: newVal.tableType,
+        从: oldVal?.unsavedCount,
+        到: newVal.unsavedCount
+      });
+      forceUnsavedUpdate.value++;
+    }
+  },
+  { deep: true, immediate: true }
 );
+
+// 监听2：扁平化模式切换（关键！）
+watch(
+  () => showFlatMode.value,
+  (newMode, oldMode) => {
+    console.log('🎯 扁平化模式切换:', {
+      从: oldMode ? '扁平化' : '原始',
+      到: newMode ? '扁平化' : '原始'
+    });
+
+    // 延迟触发更新，确保DOM已更新
+    nextTick(() => {
+      forceUnsavedUpdate.value++;
+      console.log('✅ 模式切换后强制更新状态');
+    });
+  }
+);
+
+// 监听3：Sheet切换时重置状态
+watch(
+  () => selectedSheet.value,
+  (newSheet, oldSheet) => {
+    if (newSheet?.name !== oldSheet?.name) {
+      console.log('📋 Sheet切换，重置未保存状态');
+      // 清空所有未保存状态
+      if (window.unsavedCells) {
+        window.unsavedCells.original?.clear();
+        window.unsavedCells.flattened?.clear();
+      }
+      forceUnsavedUpdate.value++;
+    }
+  }
+);
+
+
+
+// 在ThreeColumnPage.vue中添加调试
+watch(() => actualHasUnsavedChanges.value, (newVal, oldVal) => {
+  console.log('🔄🔄🔄 ThreeColumnPage actualHasUnsavedChanges 变化:', {
+    旧值: oldVal,
+    新值: newVal,
+    时间: new Date().toLocaleTimeString(),
+    传递给ExcelContent: newVal
+  })
+})
+
+// 检查模板中的传递
+console.log('🔍 检查传递给ExcelContent的props:', {
+  hasUnsavedChanges: actualHasUnsavedChanges.value,
+  actualHasUnsavedChanges: actualHasUnsavedChanges.value
+})
 
 
 // 新增：监听全局未保存单元格变化，实时刷新状态
 watch(
   () => {
     const tableType = showFlatMode.value ? 'flattened' : 'original';
-    // 读取子组件暴露的全局unsavedCells
-    return window.unsavedCells?.size || 0;
+    // 问题1：没有使用 tableType
+    return window.unsavedCells?.size || 0; // ❌ 直接返回整个 Set 的 size
   },
   () => {
-    // 触发actualHasUnsavedChanges重新计算
+    // 问题2：tableType 变量在回调中不可用
     forceUnsavedUpdate.value++;
     console.log('🔍 全局未保存单元格变化，触发父组件状态更新');
   },
-  { deep: true, immediate: true } // deep监听Set大小变化，首次加载执行
+  { deep: true, immediate: true }
 );
-
 
 // 添加一个手动检查函数
 const checkExcelContentProps = () => {
@@ -3253,6 +3480,8 @@ if (typeof window !== 'undefined') {
     hasUnsavedChanges: () => hasUnsavedChangesInCurrentTable()
   }
 }
+
+
 
 
 
@@ -3461,6 +3690,54 @@ onMounted(() => {
   console.log('✅ onMounted 初始化完成');
 });
 
+
+
+// 🔥 新增：手动测试函数
+const testCellChange = () => {
+  console.group('🧪 手动测试单元格修改')
+
+  console.log('1. 当前状态检查:')
+  console.log('   window.unsavedCells 存在:', !!window.unsavedCells)
+  console.log('   window.unsavedCells.original 大小:', window.unsavedCells?.original?.size || 0)
+  console.log('   selectedPdf:', selectedPdf.value?.id)
+  console.log('   selectedSheet:', selectedSheet.value?.name)
+  console.log('   selectedExcelFile:', selectedExcelFile.value)
+
+  // 模拟单元格修改
+  const testCellInfo = {
+    row: 1,
+    col: 1,
+    oldValue: '原值',
+    newValue: '新值'
+  }
+
+  console.log('2. 模拟单元格修改:', testCellInfo)
+
+  // 手动调用 handleCellChanged
+  console.log('3. 调用 handleCellChanged...')
+  handleCellChanged(testCellInfo)
+
+  console.log('4. 调用后状态检查:')
+  console.log('   window.unsavedCells.original 大小:', window.unsavedCells?.original?.size || 0)
+  console.log('   window.unsavedCells.original 内容:', Array.from(window.unsavedCells?.original || []))
+
+  const result = {
+    beforeSize: 0,
+    afterSize: window.unsavedCells?.original?.size || 0,
+    success: (window.unsavedCells?.original?.size || 0) > 0
+  }
+
+  console.log('5. 测试结果:', result)
+  console.groupEnd()
+
+  return result
+}
+
+// 🔥 暴露给全局调试
+if (typeof window !== 'undefined') {
+  window.testCellChange = testCellChange
+  console.log('✅ testCellChange 函数已暴露到全局')
+}
 
 
 

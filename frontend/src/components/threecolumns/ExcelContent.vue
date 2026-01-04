@@ -515,27 +515,13 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
 }, { immediate: true })
 
 
-// ExcelContent.vue - 确保调试函数正确暴露
 
 // 调试函数
 const checkSaveButtons = () => {
   console.group('🔍 ExcelContent 保存按钮状态检查')
-
-  console.log('1. 来自父组件的参数:')
-  console.log('   - hasUnsavedChanges:', props.hasUnsavedChanges)
-  console.log('   - selectedSheet:', props.selectedSheet?.name)
-  console.log('   - selectedPdf:', props.selectedPdf?.id)
-  console.log('   - selectedExcelFile:', props.selectedExcelFile)
-
-  console.log('2. 计算属性结果:')
-  console.log('   - enableSaveButtons:', enableSaveButtons.value)
-
-  console.log('3. 按钮禁用条件:')
   const noSheet = !props.selectedSheet
   const noChanges = !enableSaveButtons.value
   const shouldDisable = noSheet || noChanges
-  console.log('   - 没有选中的sheet:', noSheet)
-  console.log('   - 没有未保存修改:', noChanges)
   console.log('   - 按钮应该禁用?', shouldDisable)
 
   console.log('4. 当前DOM按钮状态:')
@@ -573,32 +559,53 @@ if (typeof window !== 'undefined') {
 
 /* ===== 本地实时状态：决定按钮亮灭 ===== */
 const localHasUnsaved = computed(() => {
-  if (!props.selectedSheet) return false
-  const t = props.showFlatMode ? 'flattened' : 'original'
-
-  // 1. 优先读全局 Set（Handsontable 改完立即写这里）
-  if (window.unsavedCells?.[t]?.size) return true
-
-  // 2. 兜底读状态管理器（防止有人绕开 window）
-  return sheetStateManager?.hasUnsavedChanges(t) || false
-})
-
-/* 统一的条件：有选中 sheet 且有未保存修改 */
-const enableSaveButtons = computed(() => {
-  console.log('🔍 保存按钮启用条件检查:', {
-    时间: new Date().toLocaleTimeString(),
-    有sheet: !!props.selectedSheet,
-    本地未保存: localHasUnsaved.value
-  })
-
   if (!props.selectedSheet) {
-    console.log('  ❌ 无选中的 sheet，按钮禁用')
+    console.log('❌ localHasUnsaved: 无选中的 sheet，返回 false')
     return false
   }
 
-  const ok = localHasUnsaved.value
-  console.log('  ✅ 本地未保存结果:', ok)
-  return ok
+  const t = props.showFlatMode ? 'flattened' : 'original'
+
+  // 🔥 修复调试信息显示
+  console.group('🔍🔍🔍 localHasUnsaved 详细检查')
+  console.log('targetSet大小:', window.unsavedCells?.[t]?.size ?? 0)
+  console.log('sheetStateManager存在:', !!sheetStateManager)
+  console.log('sheetStateManager结果:', sheetStateManager?.hasUnsavedChanges?.(t) ?? false)
+  console.groupEnd()
+
+  // 1. 优先读全局 Set
+  const targetSetSize = window.unsavedCells?.[t]?.size ?? 0
+  if (targetSetSize > 0) {
+    console.log('✅✅✅ 方式1: window.unsavedCells 检测到修改，返回 true')
+    return true
+  }
+
+  // 2. 兜底读状态管理器
+  const sheetManagerResult = sheetStateManager?.hasUnsavedChanges?.(t) ?? false
+  console.log('🔄 方式2: sheetStateManager 结果:', sheetManagerResult)
+
+  return sheetManagerResult
+})
+
+
+
+
+/* 统一的条件：有选中 sheet 且有未保存修改 */
+// 🔥 替换 enableSaveButtons 计算属性
+const enableSaveButtons = computed(() => {
+  console.log('🔍🔍🔍 enableSaveButtons 计算:', {
+    时间: new Date().toLocaleTimeString(),
+    有sheet: !!props.selectedSheet,
+    sheet名称: props.selectedSheet?.name,
+    hasUnsavedChanges: props.hasUnsavedChanges,           // 旧prop
+    actualHasUnsavedChanges: props.actualHasUnsavedChanges, // 新prop
+    使用哪个: 'actualHasUnsavedChanges'
+  })
+
+  // 🔥 关键修复：使用 actualHasUnsavedChanges
+  const result = props.selectedSheet && props.actualHasUnsavedChanges
+  console.log('✅ enableSaveButtons 结果:', result)
+  return result
 })
 
 // ============ 暴露给父组件的 hasUnsavedChanges ============
