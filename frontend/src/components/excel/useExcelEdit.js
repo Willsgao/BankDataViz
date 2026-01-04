@@ -538,7 +538,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   }
 
 
-   const saveChanges = async (saveCallback) => {
+   const saveChanges1111 = async (saveCallback) => {
       if (!hasChanges.value || saving.value) return
 
       saving.value = true
@@ -571,6 +571,65 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         }
       } catch (error) {
         console.error('❌ 保存失败:', error)
+        return { success: false, message: `保存失败: ${error.message}` }
+      } finally {
+        saving.value = false
+      }
+    }
+
+
+    // useExcelEdit.js - 修改 saveChanges 函数
+    const saveChanges = async (saveCallback) => {
+      if (!hasChanges.value || saving.value) return
+
+      saving.value = true
+      console.log('💾💾 开始保存修改...')
+
+      try {
+        const modifiedData = collectModifiedData()
+        const unsavedCount = unsavedCells.value.size
+
+        if (saveCallback) {
+          await saveCallback(modifiedData, unsavedCount)
+        }
+
+        // ✅ 保存成功后：清除所有缓存
+        unsavedCells.value.clear()
+        savedCells.value.clear()
+        modifiedCells.value.clear()
+        hasChanges.value = false
+        modifiedCellsCount.value = 0
+
+        // ✅ 清除 localStorage 草稿
+        const draftKey = ExcelKey.getDraftKey(
+          window.currentPdfId,
+          window.currentExcelFile,
+          window.currentSheetName,
+          window.currentTableType || 'original'
+        )
+        localStorage.removeItem(draftKey)
+
+        // ✅ 清除索引
+        const indexKey = `excel_draft_index_${window.currentPdfId}_${window.currentExcelFile}`
+        let idx = JSON.parse(localStorage.getItem(indexKey) || '[]')
+        idx = idx.filter(key => key !== draftKey)
+        localStorage.setItem(indexKey, JSON.stringify(idx))
+
+        // ✅ 更新全局状态
+        window.currentHasChanges = false
+        window.modifiedCellsCount = 0
+        window.unsavedCellsCount = 0
+        window.unsavedCells = new Set()
+
+        console.log('✅ 保存完成，缓存已清除')
+
+        return {
+          success: true,
+          message: `成功保存 ${unsavedCount} 个修改`,
+          savedCount: unsavedCount
+        }
+      } catch (error) {
+        console.error('❌❌ 保存失败:', error)
         return { success: false, message: `保存失败: ${error.message}` }
       } finally {
         saving.value = false
