@@ -291,4 +291,19 @@ window.addEventListener('storage', (e) => {
   margin-top: 60px;
   overflow: auto;
 }
+
+/* 在 frontend/src/App.vue 的 <style> 标签中 */
+.empty-cell-highlight {
+  background-color: #e6f7ff !important;  /* 淡蓝色背景 */
+  border: 2px solid #1890ff !important;  /* 蓝色边框 */
+  box-shadow: 0 0 6px rgba(24, 144, 255, 0.3) !important;
+}
+
+/* 如果需要更明显的效果 */
+.handsontable td.empty-cell-highlight {
+  background-color: #e6f7ff !important;
+  border: 2px solid #1890ff !important;
+  position: relative;
+}
+
 </style>

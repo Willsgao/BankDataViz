@@ -1,7 +1,7 @@
 """
 文件相关蓝图 - 重构版本（只重构Excel转PDF功能）
 """
-from flask import Blueprint, request, jsonify, send_from_directory
+from flask import Blueprint, request, jsonify, send_from_directory, make_response
 from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
@@ -640,7 +640,6 @@ def save_final_excel():
         return jsonify({'success': False, 'error': f'保存失败: {str(e)}'}), 500
 
 
-
 def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type):
     """保存完整表格数据 - 只覆盖目标Sheet"""
     print("📊 保存完整表格数据（保护其他Sheet）...")
@@ -736,6 +735,7 @@ def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_t
         import traceback
         traceback.print_exc()
         return {'success': False, 'error': f'完整表格保存失败: {str(e)}'}
+
 
 def save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_type):
     """保存扁平化表格数据 - 只覆盖目标Sheet"""
@@ -1183,6 +1183,186 @@ def save_data_snapshot(pdf_id, excel_file, sheet_name, data, table_type):
             'error': str(e)
         }
 
+
+@file_bp.route('/excel/save-flattened', methods=['POST', 'OPTIONS'])
+def save_flattened_data():
+    """保存扁平化数据到独立的Excel文件（通过文件名前缀映射）"""
+    if request.method == 'OPTIONS':
+        # CORS预检请求处理
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    data = request.json
+    print("******************** 保存扁平化数据到独立文件 ******************")
+
+    print("==========================================")
+    print(data)
+
+    # 基础校验
+    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'flattened_data']
+    for field in required_fields:
+        if field not in data:
+            print("fieldfieldfieldfield", field)
+            return jsonify({'error': f'缺少必要字段: {field}'}), 400
+
+    try:
+        pdf_id = data['pdf_id']
+        original_excel_file = data['excel_file']  # 原Excel文件名
+        sheet_name = data['sheet_name']
+        table_type = data['table_type']
+        table_data = data['flattened_data']
+
+        print(f"💾 保存扁平化数据: PDF={pdf_id}, 原文件={original_excel_file}, Sheet={sheet_name}")
+
+        # 通过固定前缀生成扁平化Excel文件名
+        flattened_excel_file = generate_flattened_filename(original_excel_file)
+        print(f"📁 扁平化文件名: {flattened_excel_file}")
+
+        # 保存到独立文件
+        result = save_to_flattened_excel(
+            pdf_id,
+            original_excel_file,
+            flattened_excel_file,
+            sheet_name,
+            table_data
+        )
+
+        if not result['success']:
+            return jsonify({'success': False, 'error': result['error']}), 500
+
+        return jsonify({
+            'success': True,
+            'message': '扁平化数据保存成功',
+            'flattened_file': flattened_excel_file,
+            'original_file': original_excel_file,
+            'file_created': result.get('file_created', False),
+            'sheet_created': result.get('sheet_created', False),
+            'saved_rows': result.get('saved_rows', 0),
+            'saved_columns': result.get('saved_columns', 0),
+            'data_dimensions': result.get('data_dimensions', '未知')
+        }), 200
+
+    except Exception as e:
+        print(f"❌ 扁平化数据保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
+
+
+def generate_flattened_filename(original_excel_file):
+    """通过固定前缀生成扁平化Excel文件名"""
+    from pathlib import Path
+
+    original_path = Path(original_excel_file)
+
+    # 使用固定前缀 "flattened_" 来建立映射关系
+    flattened_name = f"flattened_{original_path.name}"
+
+    print(f"📝 文件名映射: {original_excel_file} -> {flattened_name}")
+    return flattened_name
+
+
+def save_to_flattened_excel(pdf_id, original_excel_file, flattened_excel_file, sheet_name, table_data):
+    """保存数据到独立的扁平化Excel文件"""
+    print("📊 保存到独立扁平化Excel文件...")
+
+    try:
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+
+        from pathlib import Path
+        import os
+
+        # 使用相同的目录结构，通过文件名区分
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
+        excel_dir.mkdir(parents=True, exist_ok=True)
+
+        flattened_excel_path = excel_dir / flattened_excel_file
+        print(f"📁 扁平化文件路径: {flattened_excel_path}")
+
+        from openpyxl import Workbook, load_workbook
+
+        file_exists = flattened_excel_path.exists()
+        file_created = not file_exists
+        sheet_created = False
+
+        if file_exists:
+            # 文件存在，加载现有工作簿
+            workbook = load_workbook(flattened_excel_path)
+            existing_sheets = workbook.sheetnames.copy()
+            print(f"📄 加载现有扁平化文件，包含 {len(existing_sheets)} 个Sheet: {existing_sheets}")
+        else:
+            # 文件不存在，创建新工作簿
+            workbook = Workbook()
+            # 删除默认Sheet
+            default_sheet = workbook.active
+            workbook.remove(default_sheet)
+            print("📄 创建新的扁平化Excel文件")
+
+        # 处理目标Sheet
+        if sheet_name in workbook.sheetnames:
+            print(f"📋 Sheet已存在，覆盖: {sheet_name}")
+            # 删除现有Sheet
+            del workbook[sheet_name]
+            sheet_created = False
+        else:
+            sheet_created = True
+
+        # 创建/重写目标Sheet
+        worksheet = workbook.create_sheet(sheet_name)
+        print(f"✅ 创建/覆盖Sheet: {sheet_name}")
+
+        # 转换前端数据格式
+        backend_data = convert_frontend_to_backend_format(table_data)
+        if not backend_data or len(backend_data) == 0:
+            workbook.close()
+            return {'success': False, 'error': '转换后数据为空'}
+
+        print(f"📊 转换后数据: {len(backend_data)}行 × {len(backend_data[0])}列")
+
+        # 写入完整数据到目标Sheet
+        for row_idx, row_data in enumerate(backend_data, 1):
+            for col_idx, cell_value in enumerate(row_data, 1):
+                worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+        print(f"📝 写入数据: {len(backend_data)}行 × {len(backend_data[0])}列")
+
+        # 保存工作簿
+        workbook.save(flattened_excel_path)
+        workbook.close()
+
+        # 验证原文件是否存在（可选，用于调试）
+        original_excel_path = excel_dir / original_excel_file
+        print(f"🔍 验证原文件存在: {original_excel_path.exists()}")
+
+        print("✅ 扁平化文件保存成功")
+
+        return {
+            'success': True,
+            'file_created': file_created,
+            'sheet_created': sheet_created,
+            'saved_rows': len(backend_data),
+            'saved_columns': len(backend_data[0]) if backend_data else 0,
+            'data_dimensions': f'{len(backend_data)}行 × {len(backend_data[0])}列',
+            'flattened_path': str(flattened_excel_path),
+            'original_path': str(original_excel_path)
+        }
+
+    except Exception as e:
+        print(f"❌ 扁平化文件保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': f'扁平化文件保存失败: {str(e)}'}
+
+
+def get_flattened_filename(original_excel_file):
+    """根据原文件名获取对应的扁平化文件名"""
+    from pathlib import Path
+
+    original_path = Path(original_excel_file)
+    return f"flattened_{original_path.name}"
 
 
 @file_bp.route('/excel-data/<path:filename>')
