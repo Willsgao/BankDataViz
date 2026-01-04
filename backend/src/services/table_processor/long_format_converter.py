@@ -393,6 +393,7 @@ class FinalDataConverter:
                     print(f"过滤第{row_idx}行：行数据为空")
 
         print(f"清理后表格尺寸: {len(cleaned_data)}行 × {len(cleaned_data[0]) if cleaned_data else 0}列")
+
         return cleaned_data
 
 
@@ -719,7 +720,7 @@ class FinalDataConverter:
             return 4
 
 
-    def convert_table_to_long_format(self, table_data: List[List],
+    def convert_table_to_long_format11(self, table_data: List[List],
                                      table_metadata: Dict[str, Any],
                                      marks_info: Dict[str, Any],
                                      bank_name: str = "中国建设银行",
@@ -748,7 +749,7 @@ class FinalDataConverter:
 
         # 清理表格数据（移除标记列和标记行）
         cleaned_table_data = self._filter_and_clean_table_data(table_data, marks_info)
-
+        print("cleaned_table_data:::", len(cleaned_table_data))
         if not cleaned_table_data or len(cleaned_table_data) < 2:
             return []
 
@@ -770,10 +771,14 @@ class FinalDataConverter:
         for row_idx in range(1, len(cleaned_table_data)):
             row_data = cleaned_table_data[row_idx]
 
-            if not row_data:
-                continue
+            print("row_datarow_datarow_data:", row_data, row_idx)
+
+
+            print("row_marksrow_marks", row_marks, len(row_marks))
+            print(sum(row_marks))
 
             # 获取对应的原始行标记
+            print("row_idxrow_idx", row_idx, len(row_marks))
             if row_idx < len(row_marks):
                 current_row_mark = row_marks[row_idx]
             else:
@@ -782,6 +787,13 @@ class FinalDataConverter:
             # 核心优化1：只处理行标记不为0的数据
             if current_row_mark == 0:
                 continue
+
+
+            if not row_data:
+                continue
+
+
+            print("TTTTTTTTTTTTTTTcurrent_row_markTTTTTTT", current_row_mark)
 
             # 获取行表头（第一列）
             row_header_cell = row_data[0] if len(row_data) > 0 else ""
@@ -792,6 +804,7 @@ class FinalDataConverter:
                 if not row_header or str(row_header).strip() == "":
                     # LLM行表头为空，使用单元格中的行表头
                     row_header = str(row_header_cell).strip() if row_header_cell else ""
+
             else:
                 # 没有LLM行表头，使用单元格中的行表头
                 row_header = str(row_header_cell).strip() if row_header_cell else ""
@@ -888,5 +901,299 @@ class FinalDataConverter:
                         f"[DEBUG] 行{row_idx} 列{col_idx}: 行标记={record['行标记']}, 列标记={current_col_mark}, 备注特征={record['备注特征']}")
 
         print(f"[DEBUG] 表格 {table_metadata.get('name', '')} 转换出 {len(long_format_data)} 条记录")
+        print("long_format_datalong_format_data", len(long_format_data))
         return long_format_data
 
+    def convert_table_to_long_format(self, table_data: List[List],
+                                     table_metadata: Dict[str, Any],
+                                     marks_info: Dict[str, Any],
+                                     bank_name: str = "中国建设银行",
+                                     page_num: int = 1,
+                                     entity: str = "本集团") -> List[Dict]:
+        """
+        将单个表格转换为长格式（修复版）- 在清理前处理数据，避免索引不匹配
+        """
+        if not table_data or len(table_data) < 2:
+            print("❌ 表格数据为空或不足2行")
+            return []
+
+        # 🔥 获取标记信息
+        row_marks = marks_info.get("row_marks", [])
+        col_marks = marks_info.get("col_marks", [])
+        row_mark_col_index = marks_info.get("row_mark_col_index", -1)
+        col_mark_row_index = marks_info.get("col_mark_row_index", -1)
+
+        print(f"[DEBUG] 🔥 原始数据尺寸: {len(table_data)}行 × {len(table_data[0])}列")
+        print(f"[DEBUG] 🔥 标记信息:")
+        print(f"  行标记数: {len(row_marks)}个")
+        print(f"  列标记数: {len(col_marks)}个")
+        print(f"  行标记列索引: {row_mark_col_index}")
+        print(f"  列标记行索引: {col_mark_row_index}")
+
+        long_format_data = []
+
+        # 🔥 获取表头信息
+        col_headers = table_data[0] if table_data else []
+        row_headers_original = table_metadata.get('headers', {}).get('rows', [])
+        default_unit = table_metadata.get('default_unit', '')
+
+        print(f"[DEBUG] 🔥 表头信息:")
+        print(f"  列表头数: {len(col_headers)}")
+        print(f"  LLM行表头数: {len(row_headers_original)}")
+        print(f"  默认单位: {default_unit}")
+
+        # 🔥 遍历所有数据行（跳过表头行，从第1行开始）
+        for row_idx in range(1, len(table_data)):
+            row_data = table_data[row_idx]
+
+            if not row_data:
+                print(f"[DEBUG] ⏭️ 跳过空行 {row_idx}")
+                continue
+
+            # 🔥 跳过列标记行
+            if row_idx == col_mark_row_index:
+                print(f"[DEBUG] ⏭️ 跳过列标记行 {row_idx}")
+                continue
+
+            # 🔥 获取行标记（注意索引对应）
+            if row_idx < len(row_marks):
+                current_row_mark = row_marks[row_idx]
+            else:
+                current_row_mark = 0
+
+            print(f"[DEBUG] 🔍 处理行{row_idx}: 行标记={current_row_mark}")
+
+            # 🔥 应用行标记过滤：行标记为0的要过滤
+            if current_row_mark == 0:
+                print(f"[DEBUG] ⏭️ 过滤行标记为0的行 {row_idx}")
+                continue
+
+            # 🔥 获取行表头（第一列）
+            row_header_cell = row_data[0] if len(row_data) > 0 else ""
+
+            # 🔥 优先使用LLM分析的行表头
+            if row_idx - 1 < len(row_headers_original):
+                row_header = row_headers_original[row_idx - 1]
+                if not row_header or str(row_header).strip() == "":
+                    # LLM行表头为空，使用单元格中的行表头
+                    row_header = str(row_header_cell).strip() if row_header_cell else ""
+            else:
+                # 没有LLM行表头，使用单元格中的行表头
+                row_header = str(row_header_cell).strip() if row_header_cell else ""
+
+            # 🔥 如果行表头为空，跳过这一行
+            if not row_header or row_header == "":
+                print(f"[DEBUG] ⏭️ 过滤行表头为空的第{row_idx}行")
+                continue
+
+            print(f"[DEBUG] ✅ 处理有效行{row_idx}: 行表头='{row_header}'")
+
+            # 🔥 第一遍：收集当前行所有列标记为0的单元格值（用于备注特征）
+            remark_features = []
+
+            # 遍历所有列（跳过第一列，因为第一列是行表头）
+            for col_idx in range(1, len(row_data)):
+                cell_value = row_data[col_idx]
+
+                # 🔥 跳出行标记列
+                if col_idx == row_mark_col_index:
+                    continue
+
+                # 跳过空值
+                if cell_value is None or cell_value == "":
+                    continue
+
+                # 🔥 获取对应的列标记（需要映射索引）
+                # 因为跳过了行标记列，所以需要调整索引
+                if row_mark_col_index >= 0 and col_idx > row_mark_col_index:
+                    mapped_col_idx = col_idx - 1
+                else:
+                    mapped_col_idx = col_idx
+
+                if mapped_col_idx < len(col_marks):
+                    col_mark = col_marks[mapped_col_idx]
+                else:
+                    col_mark = 0
+
+                # 🔥 如果列标记为0，收集该单元格的值
+                if col_mark == 0:
+                    remark_features.append(str(cell_value).strip())
+                    print(f"[DEBUG] 📝 收集列{col_idx}的备注特征: {cell_value}")
+
+            # 🔥 第二遍：只处理列标记不为0的列
+            for col_idx in range(1, len(row_data)):
+                cell_value = row_data[col_idx]
+
+                # 🔥 跳出行标记列
+                if col_idx == row_mark_col_index:
+                    continue
+
+                # 跳过空值
+                if cell_value is None or cell_value == "":
+                    continue
+
+                # 🔥 获取对应的列标记（需要映射索引）
+                if row_mark_col_index >= 0 and col_idx > row_mark_col_index:
+                    mapped_col_idx = col_idx - 1
+                else:
+                    mapped_col_idx = col_idx
+
+                if mapped_col_idx < len(col_marks):
+                    current_col_mark = col_marks[mapped_col_idx]
+                else:
+                    current_col_mark = 0
+
+                print(f"[DEBUG] 🔍 处理行{row_idx}列{col_idx}: 列标记={current_col_mark}")
+
+                # 🔥 应用列标记过滤：列标记为0的要过滤
+                if current_col_mark == 0:
+                    print(f"[DEBUG] ⏭️ 过滤列标记为0的列 {col_idx}")
+                    continue
+
+                # 🔥 获取列表头
+                if col_idx < len(col_headers):
+                    col_header = col_headers[col_idx]
+                else:
+                    col_header = ""
+
+                # 🔥 判断报告期（优先使用列标题中的报告期）
+                report_period = self._extract_report_period(col_header, table_metadata)
+
+                # 🔥 判断数据类型
+                data_type = self.data_type_detector.get_data_type(
+                    row_header=row_header,
+                    col_header=col_header,
+                    cell_value=cell_value,
+                    table_context=table_metadata.get('name', '')
+                )
+
+                # 🔥 根据行表头和列表头确定单位（优先于LLM默认单位）
+                unit = self._determine_unit_by_headers(row_header, col_header, default_unit)
+
+                # 🔥 格式化数值
+                formatted_value = self._format_numeric_value(cell_value)
+
+                # 🔥 计算行标记
+                row_marker = self._calculate_simple_row_marker(formatted_value)
+
+                # 🔥 构建长格式数据记录
+                record = {
+                    '银行名': bank_name,
+                    '表名': table_metadata.get('name', ''),
+                    '页号': page_num,
+                    '主体': entity,
+                    '纵向层级路径': row_header,
+                    '横向层级路径': col_header,
+                    '数据类型': data_type,
+                    '币种': table_metadata.get('default_currency', ''),
+                    '单位': unit,
+                    '报告期': report_period,
+                    '数值': formatted_value,
+                    '行标记': row_marker,
+                    '备注特征': "@@".join(remark_features) if remark_features else ""
+                }
+
+                long_format_data.append(record)
+
+                print(f"[DEBUG] ✅ 添加记录: 行{row_idx}列{col_idx}")
+                print(f"  行表头: {row_header}")
+                print(f"  列表头: {col_header}")
+                print(f"  数值: {formatted_value}")
+                print(f"  行标记: {row_marker}")
+                if remark_features:
+                    print(f"  备注特征: {remark_features}")
+
+        print(f"[DEBUG] ✅ 表格 {table_metadata.get('name', '')} 转换完成")
+        print(f"  共转换出 {len(long_format_data)} 条记录")
+
+        return long_format_data
+
+    # 🔥 辅助方法：根据行表头和列表头确定单位
+    def _determine_unit_by_headers1(self, row_header: str, col_header: str, default_unit: str) -> str:
+        """根据行表头和列表头确定单位"""
+        # 合并表头文本用于检查
+        header_text = f"{row_header}{col_header}".lower()
+        row_header_str = str(row_header).lower()
+        col_header_str = str(col_header).lower()
+
+        # 1. 检查是否包含百分比
+        if ('%' in row_header_str or '%' in col_header_str or
+                '百分比' in header_text or '比例' in header_text or
+                '率' in header_text):
+            return "%"
+
+        # 2. 检查特定单位关键词
+        unit_keywords = {
+            '万元': ['万元', '万'],
+            '亿元': ['亿元', '亿'],
+            '元': ['元', '人民币', '￥', '¥'],
+            '百万': ['百万', 'm', '百万美元'],
+            '千元': ['千元', '千'],
+            '百万元': ['百万元'],
+            '亿元': ['亿元', '亿'],
+            '美元': ['美元', '$', 'usd'],
+            '欧元': ['欧元', '€', 'eur'],
+            '港元': ['港元', '港币', 'hk$'],
+            '日元': ['日元', '¥', 'jpy']
+        }
+
+        for unit, keywords in unit_keywords.items():
+            for keyword in keywords:
+                if keyword in header_text:
+                    return unit
+
+        # 3. 返回默认单位
+        return default_unit
+
+    # 🔥 辅助方法：格式化数值
+    def _format_numeric_value1(self, value) -> str:
+        """格式化数值"""
+        if value is None:
+            return ""
+
+        value_str = str(value).strip()
+
+        # 处理括号表示法（表示负数）
+        if value_str.startswith('(') and value_str.endswith(')'):
+            value_str = '-' + value_str[1:-1]
+
+        # 去掉千分位逗号
+        value_str = value_str.replace(',', '')
+
+        # 去掉空格
+        value_str = value_str.replace(' ', '')
+
+        return value_str
+
+    # 🔥 辅助方法：提取报告期
+    def _extract_report_period1(self, col_header: str, table_metadata: Dict[str, Any]) -> str:
+        """提取报告期"""
+        if not col_header:
+            return table_metadata.get('default_report_period', '')
+
+        header_str = str(col_header)
+
+        # 常见的报告期模式
+        patterns = [
+            # 年份模式
+            r'(20\d{2})年',  # 2024年
+            r'(20\d{2})年度',  # 2024年度
+            r'(20\d{2})年(?:第)?([一二三四1-4])季度',  # 2024年第一季度
+            r'(20\d{2})年(?:上|下)半年',  # 2024年上半年
+            r'(20\d{2})年(?:第)?([1-4])季度',  # 2024年第1季度
+            # 完整日期模式
+            r'(20\d{2})年(\d{1,2})月(\d{1,2})日',  # 2024年12月31日
+            r'(20\d{2})-(\d{2})-(\d{2})',  # 2024-12-31
+            # 相对时间模式
+            r'截至(20\d{2})年(\d{1,2})月(\d{1,2})日',  # 截至2024年12月31日
+            # 季度模式
+            r'第[一二三四1-4]季度',  # 第一季度
+            r'Q[1-4]',  # Q1, Q2, Q3, Q4
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, header_str)
+            if match:
+                return match.group(0)
+
+        return table_metadata.get('default_report_period', '')

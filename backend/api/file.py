@@ -449,56 +449,34 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
     根据文件ID、Excel文件名和sheet名称获取Excel数据
     """
     try:
-
-        # ---------- 0. 优先读最新 JSON 快照（风格同原代码） ----------
-        import json
-
-        snap_dir = Path(MAIN_ROOT) / r'data/backend/static/modify_data' / file_id
-        snap_dir.mkdir(parents=True, exist_ok=True)  # 保证目录存在
-        pattern = f"{file_id}_{sheet_name}_*.json"
-        snap_list = sorted(snap_dir.glob(pattern), reverse=True)
-        if snap_list:
-            latest_snap = snap_list[0]
-            try:
-                with open(latest_snap, 'r', encoding='utf-8') as f:
-                    snap_data = json.load(f)
-                # 直接返回快照数据，格式与原来一致
-                return jsonify({
-                    "rows": snap_data["data"],
-                    "total_rows": len(snap_data["data"]),
-                    "total_columns": len(snap_data["data"][0]) if snap_data["data"] else 0,
-                    "sheet_name": sheet_name,
-                    "excel_file": excel_file_name,
-                    "pdf_id": file_id,
-                    "has_dual_headers": True,
-                    "source": "snapshot"
-                }), 200
-            except Exception as e:
-                print(f"[WARN] 快照读取失败 {latest_snap} -> 回退Excel: {e}")
-
+        print("🎯 直接读取Excel文件数据（跳过快照）")
+        print(f"📋 请求参数: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
 
         # 1. 构建Excel文件路径
+        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
         excel_path = excel_dir / excel_file_name
 
-        print("获取Excel数据 - 文件ID:", file_id)
-        print("Excel文件路径:", excel_path)
+        print("📁 Excel文件路径:", excel_path)
 
         if not excel_path.exists():
+            print("❌ Excel文件不存在")
             return jsonify({"error": "Excel文件不存在"}), 404
 
         # 2. 读取指定sheet，不把任何行当作表头
+        import pandas as pd
         df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None)
         df = df.fillna('')
 
-        print("Excel原始数据形状:", df.shape)
-        print("列数:", df.shape[1], "行数:", df.shape[0])
-
+        print("✅ Excel文件读取成功")
+        print("📊 Excel原始数据形状:", df.shape)
+        print("🔢 列数:", df.shape[1], "行数:", df.shape[0])
 
         # 获取表头
         horizontal_headers = []
         vertical_headers = []
         data_rows = []
+        top_left_cell = ""
 
         # 提取横向表头（第一行，从第二列开始）
         if df.shape[0] > 0:
@@ -537,15 +515,15 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
                     data_row.append(str(value) if value != '' else "")
             data_rows.append(data_row)
 
-        print("数据结构分析:")
-        print(f"- 左上角单元格: {top_left_cell}")
-        print(f"- 横向表头数: {len(horizontal_headers)}")
-        print(f"- 纵向表头数: {len(vertical_headers)}")
-        print(f"- 数据行数: {len(data_rows)}")
-        print(f"- 数据列数: {len(data_rows[0]) if data_rows else 0}")
-        print(f"- 横向表头样本: {horizontal_headers[:3]}")
-        print(f"- 纵向表头样本: {vertical_headers[:3]}")
-        print(f"- 数据样本: {data_rows[0][:3] if data_rows else '无'}")
+        print("📈 数据结构分析:")
+        print(f"   - 左上角单元格: '{top_left_cell}'")
+        print(f"   - 横向表头数: {len(horizontal_headers)}")
+        print(f"   - 纵向表头数: {len(vertical_headers)}")
+        print(f"   - 数据行数: {len(data_rows)}")
+        print(f"   - 数据列数: {len(data_rows[0]) if data_rows else 0}")
+        print(f"   - 横向表头样本: {horizontal_headers[:3]}")
+        print(f"   - 纵向表头样本: {vertical_headers[:3]}")
+        print(f"   - 数据样本: {data_rows[0][:3] if data_rows else '无'}")
 
         # 4. 构建前端友好的数据结构
         frontend_data = []
@@ -586,6 +564,11 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
 
             frontend_data.append(row_obj)
 
+        print("✅ 前端数据构建完成:")
+        print(f"   - 总行数: {len(frontend_data)}")
+        print(f"   - 总列数: {len(horizontal_headers)}")
+        print(f"   - 数据样本: {frontend_data[:2]}")
+
         # 5. 返回给前端
         return jsonify({
             "rows": frontend_data,
@@ -594,14 +577,16 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
             "sheet_name": sheet_name,
             "excel_file": excel_file_name,
             "pdf_id": file_id,
-            "has_dual_headers": True
+            "has_dual_headers": True,
+            "source": "excel_file"  # 标记数据来源为Excel文件
         })
 
     except Exception as e:
-        print(f"处理Excel数据请求失败: {e}")
+        print(f"❌ 处理Excel数据请求失败: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"处理请求失败: {str(e)}"}), 500
+
 
 
 @file_bp.route('/excel/save-final', methods=['POST'])
@@ -655,9 +640,13 @@ def save_final_excel():
         return jsonify({'success': False, 'error': f'保存失败: {str(e)}'}), 500
 
 
+
 def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type):
     """保存完整表格数据 - 只覆盖目标Sheet"""
     print("📊 保存完整表格数据（保护其他Sheet）...")
+
+    # 🔥 在函数开头初始化变量
+    protected_sheets = []
 
     try:
         # 1. 获取Excel文件路径
@@ -712,15 +701,21 @@ def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_t
         sheets_after = workbook_after.sheetnames
         workbook_after.close()
 
+        # 🔥 计算受保护的Sheet
+        protected_sheets = [s for s in all_sheets if s != sheet_name]
+
         print(f"✅ 保存完成，验证Sheet保护:")
         print(f"  保存前Sheet数: {len(all_sheets)}")
         print(f"  保存后Sheet数: {len(sheets_after)}")
         print(f"  Sheet保持一致: {set(all_sheets) == set(sheets_after)}")
 
-        # 显示受保护的Sheet
-        protected_sheets = [s for s in all_sheets if s != sheet_name]
         if protected_sheets:
             print(f"  🛡️ 受保护的Sheet: {protected_sheets}")
+
+        # 8. 🔥 保存快照
+        print("📸 开始保存数据快照...")
+        snapshot_result = save_data_snapshot(pdf_id, excel_file, sheet_name, table_data, table_type)
+        print(f"✅ 快照保存结果: {snapshot_result.get('success', False)}")
 
         print("✅ 完整表格数据保存成功（其他Sheet已保护）")
 
@@ -731,7 +726,9 @@ def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_t
             'data_dimensions': f'{len(table_data)}行 × {len(table_data[0])}列',
             'excel_updated': True,
             'sheets_protected': True,
-            'protected_sheets_count': len(protected_sheets)
+            'protected_sheets_count': len(protected_sheets),  # 🔥 现在这个变量已定义
+            'snapshot_saved': snapshot_result.get('success', False),
+            'snapshot_path': snapshot_result.get('path', '')
         }
 
     except Exception as e:
@@ -739,7 +736,6 @@ def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_t
         import traceback
         traceback.print_exc()
         return {'success': False, 'error': f'完整表格保存失败: {str(e)}'}
-
 
 def save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_type):
     """保存扁平化表格数据 - 只覆盖目标Sheet"""
@@ -1135,163 +1131,6 @@ def fix_column_mismatch(data, expected_columns):
     return fixed_data
 
 
-def save_original_data(pdf_id, excel_file, sheet_name, data):
-    """保存原始数据 - 修复前端数据格式转换"""
-    from pathlib import Path
-    from openpyxl import load_workbook
-
-    try:
-        # 🔥 使用默认路径（不导入外部常量）
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"  # 默认Excel目录
-
-        # 构建完整路径
-        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
-        excel_path = excel_dir / excel_file
-
-        print(f"📁 完整Excel路径: {excel_path}")
-
-        if not excel_path.exists():
-            return {'success': False, 'error': f'Excel文件不存在: {excel_path}'}
-
-        # 🔥 关键修复：转换前端数据格式
-        print("🔄 转换前端数据格式...")
-        converted_data = convert_frontend_to_backend_format(data)
-
-        if not converted_data or len(converted_data) == 0:
-            return {'success': False, 'error': '转换后数据为空，无法保存'}
-
-        print(f"✅ 转换后数据: {len(converted_data)}行 × {len(converted_data[0])}列")
-
-        # 加载工作簿
-        workbook = load_workbook(excel_path)
-
-        if sheet_name not in workbook.sheetnames:
-            workbook.close()
-            return {'success': False, 'error': f'Sheet不存在: {sheet_name}'}
-
-        worksheet = workbook[sheet_name]
-        expected_columns = worksheet.max_column
-
-        print(f"📈 Excel工作表列数: {expected_columns}")
-        print(f"📊 转换后数据列数: {len(converted_data[0])}")
-
-        # 🔥 修复列数匹配
-        if len(converted_data[0]) != expected_columns:
-            print(f"⚠️ 列数不匹配! 数据{len(converted_data[0])}列, Excel{expected_columns}列")
-            converted_data = fix_column_mismatch(converted_data, expected_columns)
-            print(f"✅ 修复后数据: {len(converted_data)}行 × {len(converted_data[0])}列")
-
-        # 清空数据行（保留表头）
-        if worksheet.max_row > 1:
-            rows_to_delete = worksheet.max_row - 1
-            worksheet.delete_rows(2, rows_to_delete)
-            print(f"🗑️ 清空数据行: 删除了{rows_to_delete}行")
-
-        # 写入新数据
-        if converted_data and len(converted_data) > 0:
-            for row_idx, row_data in enumerate(converted_data, 2):
-                for col_idx, cell_value in enumerate(row_data, 1):
-                    if col_idx <= worksheet.max_column:
-                        worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
-
-            print(f"📝 写入数据: {len(converted_data)}行 × {len(converted_data[0])}列")
-
-        # 保存工作簿
-        workbook.save(excel_path)
-        workbook.close()
-
-        print("✅ Excel文件更新完成")
-
-        return {
-            'success': True,
-            'excel_updated': True,
-            'data_dimensions': f"{len(converted_data)}行 × {len(converted_data[0])}列"
-        }
-
-    except Exception as e:
-        print(f"❌ 原始数据保存失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return {'success': False, 'error': f'原始数据保存失败: {str(e)}'}
-
-
-def save_flattened_data(pdf_id, excel_file, sheet_name, data):
-    """保存扁平化数据 - 修复前端数据格式转换"""
-    from pathlib import Path
-    from openpyxl import Workbook, load_workbook
-
-    try:
-        # 🔥 使用默认路径
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
-
-        # 构建完整路径
-        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
-        excel_dir.mkdir(parents=True, exist_ok=True)
-        excel_path = excel_dir / excel_file
-
-        print(f"📁 完整Excel路径: {excel_path}")
-
-        # 🔥 转换前端数据格式
-        print("🔄 转换前端数据格式...")
-        converted_data = convert_frontend_to_backend_format(data)
-
-        if not converted_data or len(converted_data) == 0:
-            return {'success': False, 'error': '转换后数据为空，无法保存'}
-
-        print(f"✅ 转换后数据: {len(converted_data)}行 × {len(converted_data[0])}列")
-
-        file_created = False
-
-        # 文件存在性检查
-        if not excel_path.exists():
-            print("📄 Excel文件不存在，创建新工作簿...")
-            workbook = Workbook()
-            # 删除默认Sheet
-            default_sheet = workbook.active
-            workbook.remove(default_sheet)
-            file_created = True
-        else:
-            print("📄 Excel文件已存在，加载现有工作簿...")
-            workbook = load_workbook(excel_path)
-            print(f"📊 现有Sheet: {workbook.sheetnames}")
-
-        # 处理目标Sheet
-        if sheet_name in workbook.sheetnames:
-            print(f"📋 Sheet已存在，删除重写: {sheet_name}")
-            del workbook[sheet_name]
-
-        # 创建/重写目标Sheet
-        worksheet = workbook.create_sheet(sheet_name)
-
-        # 写入数据
-        if converted_data and len(converted_data) > 0:
-            for row_idx, row_data in enumerate(converted_data, 1):
-                for col_idx, cell_value in enumerate(row_data, 1):
-                    worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
-
-            print(f"📝 写入数据: {len(converted_data)}行 × {len(converted_data[0])}列")
-
-        # 保存
-        workbook.save(excel_path)
-        workbook.close()
-
-        action = "创建" if file_created else "更新"
-        print(f"✅ 扁平化数据{action}成功")
-
-        return {
-            'success': True,
-            'excel_updated': True,
-            'file_created': file_created,
-            'data_dimensions': f"{len(converted_data)}行 × {len(converted_data[0])}列"
-        }
-
-    except Exception as e:
-        print(f"❌ 扁平化数据保存失败: {e}")
-        return {'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}
-
-
-
-
 def save_data_snapshot(pdf_id, excel_file, sheet_name, data, table_type):
     """保存数据快照"""
     from pathlib import Path
@@ -1338,12 +1177,11 @@ def save_data_snapshot(pdf_id, excel_file, sheet_name, data, table_type):
         }
 
     except Exception as e:
-        print(f"⚠️ 快照保存失败（不影响主流程）: {e}")
+        print(f"⚠️ 快照保存失败: {e}")
         return {
             'success': False,
             'error': str(e)
         }
-
 
 
 
@@ -1401,50 +1239,9 @@ def excel_flatten_from_excel():
         print(f"📊 开始处理Excel表格数据:")
         print(f"  - 原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
 
-        # 关键：检查第一行是否是表头，如果不是，需要添加表头行
-        print(f"📊 检查表格结构...")
-        print(f"  - 第一行数据: {table_data[0] if len(table_data) > 0 else '无'}")
-
-        # 判断是否需要添加表头行
-        # 规则：如果第一行看起来不像表头（都是数字或空），则添加默认表头
-        needs_header_row = False
-
-        if len(table_data) > 0 and len(table_data[0]) > 0:
-            first_row = table_data[0]
-            # 检查第一行是否包含表头特征（文本而非纯数字）
-            has_text_header = False
-            for cell in first_row:
-                if isinstance(cell, str) and cell.strip() and not cell.replace('.', '').replace(',', '').replace('-',
-                                                                                                                 '').isdigit():
-                    has_text_header = True
-                    break
-
-            if not has_text_header:
-                print(f"⚠️ 第一行看起来不是表头，需要添加表头行")
-                needs_header_row = True
-
-        # 如果需要添加表头行
-        processed_table_data = []
-        if needs_header_row:
-            print(f"🔄 添加表头行到表格数据中...")
-
-            # 创建表头行
-            # 第一列是空或行表头标记
-            num_columns = len(table_data[0]) if table_data else 0
-            header_row = [""]  # 左上角单元格为空
-
-            # 添加列标题
-            for i in range(1, num_columns):
-                header_row.append(f"列{i}")
-
-            processed_table_data = [header_row] + table_data
-        else:
-            processed_table_data = table_data
-
-        print(
-            f"📊 处理后的表格尺寸: {len(processed_table_data)}行 × {len(processed_table_data[0]) if processed_table_data else 0}列")
-        print(f"📊 第一行（表头）: {processed_table_data[0] if len(processed_table_data) > 0 else '无'}")
-        print(f"📊 第二行（数据）: {processed_table_data[1] if len(processed_table_data) > 1 else '无'}")
+        # 🔥 修复1：直接使用原始数据，不自动添加表头
+        processed_table_data = table_data
+        print(f"📊 使用原始数据，不添加表头行")
 
         # 创建转换器实例
         converter = FinalDataConverter()
@@ -1456,16 +1253,14 @@ def excel_flatten_from_excel():
             'default_currency': source_info.get('default_currency', '人民币'),
             'default_report_period': source_info.get('default_report_period', ''),
             'headers': {
-                'rows': [],  # 行表头
-                'cols': []  # 列表头
+                'rows': [],
+                'cols': []
             }
         }
 
         print(f"📊 提取原始标记信息...")
 
-        print(f"\n📊 ============ 正确读取标记信息 ============")
-
-        # 1. 找行标记列（在第一行中找）
+        # 1. 找行标记列
         row_mark_col_index = -1
         if len(processed_table_data) > 0:
             first_row = processed_table_data[0]
@@ -1473,105 +1268,60 @@ def excel_flatten_from_excel():
                 header = str(first_row[j]).strip() if first_row[j] else ""
                 if header == "行标记":
                     row_mark_col_index = j
-                    print(f"✅ '行标记'列位置: 第{j}列（索引{j}）")
-                    print(f"   这一列存储每行的行标记值")
+                    print(f"✅ '行标记'列位置: 第{j}列")
                     break
 
-        # 2. 找列标记行（在第一列中找）
+        # 2. 找列标记行
         col_mark_row_index = -1
         for i in range(len(processed_table_data)):
             if len(processed_table_data[i]) > 0:
                 cell_value = str(processed_table_data[i][0]).strip() if processed_table_data[i][0] else ""
                 if cell_value == "列标记":
                     col_mark_row_index = i
-                    print(f"✅ '列标记'行位置: 第{i}行（索引{i}）")
-                    print(f"   这一行存储每列的列标记值")
+                    print(f"✅ '列标记'行位置: 第{i}行")
                     break
 
-        # 3. 读取行标记（从行标记列读取）
-        print(f"\n🔍 读取行标记（从'行标记'列读取）...")
+        # 3. 读取行标记
         row_marks = []
         if row_mark_col_index >= 0:
-            print(f"  读取'行标记'列（第{row_mark_col_index}列）的数据作为行标记:")
-
-            # 从第二行开始读取（跳过表头行）
+            print(f"🔍 读取行标记...")
             for i in range(1, len(processed_table_data)):
                 if row_mark_col_index < len(processed_table_data[i]):
                     mark_value = processed_table_data[i][row_mark_col_index]
-                    print(f"    行{i}（索引{i}）: 值='{mark_value}', 类型={type(mark_value)}")
                     try:
                         if mark_value is None or mark_value == "":
                             row_mark = 1
                         else:
-                            # 尝试转换为整数
                             if isinstance(mark_value, (int, float)):
                                 row_mark = int(mark_value)
                             else:
                                 row_mark = int(float(mark_value)) if '.' in str(mark_value) else int(mark_value)
-                        print(f"      → 行标记值: {row_mark}")
-                    except Exception as e:
-                        print(f"      ❌ 转换失败: {e}, 使用默认值1")
+                    except:
                         row_mark = 1
                     row_marks.append(row_mark)
                 else:
-                    print(f"    行{i}: 无数据，使用默认值1")
                     row_marks.append(1)
+            print(f"✅ 读取完成: {len(row_marks)}个行标记")
 
-            print(f"  ✅ 读取完成: {len(row_marks)}个行标记值")
-            print(f"    行标记: {row_marks}")
-        else:
-            print(f"  ❌ 未找到'行标记'列")
-
-        # 4. 读取列标记（从列标记行读取）
-        print(f"\n🔍 读取列标记（从'列标记'行读取）...")
+        # 4. 读取列标记
         col_marks = []
         if col_mark_row_index >= 0:
-            print(f"  读取'列标记'行（第{col_mark_row_index}行）的数据作为列标记:")
-
-            col_mark_row = processed_table_data[col_mark_row_index]
-            print(f"  列标记行数据: {col_mark_row}")
-
-            # 从第二列开始读取（跳过第一列的"列标记"文本）
+            print(f"🔍 读取列标记...")
+            col_mark_row = processed_table_data[col_mark_row_index]  # 🔥 修复变量名
             for j in range(1, len(col_mark_row)):
                 mark_value = col_mark_row[j]
-                print(f"    列{j}（索引{j}）: 值='{mark_value}', 类型={type(mark_value)}")
                 try:
                     if mark_value is None or mark_value == "":
                         col_mark = 1
                     else:
-                        # 尝试转换为整数
                         if isinstance(mark_value, (int, float)):
                             col_mark = int(mark_value)
                         else:
                             col_mark = int(float(mark_value)) if '.' in str(mark_value) else int(mark_value)
-                    print(f"      → 列标记值: {col_mark}")
-                except Exception as e:
-                    print(f"      ❌ 转换失败: {e}, 使用默认值1")
+                except:
                     col_mark = 1
                 col_marks.append(col_mark)
-
-            print(f"  ✅ 读取完成: {len(col_marks)}个列标记值")
-            print(f"    列标记: {col_marks}")
-        else:
-            print(f"  ❌ 未找到'列标记'行")
-
-        print(f"\n📊 ============ 标记信息验证 ============")
-        print(
-            f"表格尺寸: {len(processed_table_data)}行 × {len(processed_table_data[0]) if processed_table_data else 0}列")
-        print(f"行标记列位置: {row_mark_col_index}")
-        print(f"列标记行位置: {col_mark_row_index}")
-        print(f"行标记数量: {len(row_marks)} (应有数据行: {len(processed_table_data) - 1})")
-        print(
-            f"列标记数量: {len(col_marks)} (应有数据列: {len(processed_table_data[0]) - 1 if processed_table_data else 0})")
-
-        # 验证
-        expected_row_marks = len(processed_table_data) - 1  # 减去表头行
-        expected_col_marks = len(processed_table_data[0]) - 1 if processed_table_data else 0  # 减去行表头列
-
-        if len(row_marks) != expected_row_marks:
-            print(f"⚠️ 行标记数量不匹配: 预期{expected_row_marks}，实际{len(row_marks)}")
-        if len(col_marks) != expected_col_marks:
-            print(f"⚠️ 列标记数量不匹配: 预期{expected_col_marks}，实际{len(col_marks)}")
+            print(f"✅ 读取完成: {len(col_marks)}个列标记")
 
         marks_info = {
             'row_marks': row_marks,
@@ -1580,12 +1330,11 @@ def excel_flatten_from_excel():
             'col_mark_row_index': col_mark_row_index
         }
 
-
         # 执行转换
         print(f"🔄 开始转换表格数据...")
 
         long_format_data = converter.convert_table_to_long_format(
-            table_data=table_data,
+            table_data=processed_table_data,
             table_metadata=table_metadata,
             marks_info=marks_info,
             bank_name=source_info.get('bank_name', '中国建设银行'),
@@ -1595,52 +1344,50 @@ def excel_flatten_from_excel():
 
         print(f"✅ 转换完成: {len(long_format_data)} 条标准格式记录")
 
-        # ============ 关键：将长格式数据转换为前端需要的双表头格式 ============
+        # 将长格式数据转换为前端需要的双表头格式
         print(f"🔄 将长格式数据转换为前端双表头格式...")
 
         if not long_format_data or len(long_format_data) == 0:
             print("⚠️ 长格式数据为空，返回空结构")
             frontend_rows = []
+            field_names = []
         else:
-            # 1. 提取所有字段名作为表头
+            # 提取所有字段名作为表头
             field_names = list(long_format_data[0].keys())
             print(f"📊 字段名（表头）: {field_names}")
 
-            # 2. 构建前端需要的rows数组
+            # 构建前端需要的rows数组
             frontend_rows = []
 
-            # 2.1 添加元数据行
+            # 添加元数据行
             metadata_row = {
                 "__metadata": {
                     "has_dual_headers": True,
                     "top_left_cell": "",
-                    "horizontal_headers": field_names,  # 所有字段名作为横向表头
-                    "vertical_headers": []  # 纵向表头为空，因为每条记录是一行
+                    "horizontal_headers": field_names,
+                    "vertical_headers": []
                 }
             }
             frontend_rows.append(metadata_row)
 
-            # 2.2 添加表头行（第一行数据是字段名本身）
+            # 添加表头行
             header_row = {
                 "__is_first_row": True,
                 "__top_left_cell": "字段名"
             }
             for i, field_name in enumerate(field_names, 1):
                 header_row[f"H_{i}"] = field_name
-
             frontend_rows.append(header_row)
 
-            # 2.3 添加数据行
+            # 添加数据行
             for record_idx, record in enumerate(long_format_data):
                 data_row = {
                     "__is_data_row": True,
-                    "__vertical_header": f"记录{record_idx + 1}"  # 行表头
+                    "__vertical_header": f"记录{record_idx + 1}"
                 }
 
-                # 将每个字段的值放入对应的列
                 for i, field_name in enumerate(field_names, 1):
                     value = record.get(field_name, "")
-                    # 特殊处理：如果是行标记，保持数值类型
                     if field_name == '行标记' and isinstance(value, (int, float)):
                         data_row[f"H_{i}"] = value
                     else:
@@ -1649,10 +1396,9 @@ def excel_flatten_from_excel():
                 frontend_rows.append(data_row)
 
             print(f"✅ 转换完成: {len(frontend_rows)} 行前端格式数据")
-            print(f"📊 数据结构: 元数据行1 + 表头行1 + {len(long_format_data)} 数据行")
 
-        # ============ 返回与get_excel_data相同的格式 ============
-        return jsonify({
+        # 返回结果
+        result = {
             "rows": frontend_rows,
             "total_rows": len(frontend_rows),
             "total_columns": len(field_names) if long_format_data else 0,
@@ -1668,12 +1414,9 @@ def excel_flatten_from_excel():
                 "converted_records": len(long_format_data),
                 "has_data": len(long_format_data) > 0
             }
-        })
+        }
 
-        print("------------------------------")
-        print(result)
-
-        # 返回数据
+        print("✅ API处理完成，返回结果")
         return jsonify(result)
 
     except Exception as e:
@@ -1686,56 +1429,7 @@ def excel_flatten_from_excel():
             "error": f"处理失败: {str(e)}"
         }), 500
 
-
-
-
 # 后端API示例（Python Flask）
-@file_bp.route('/excel/save-final123', methods=['POST'])
-def save_final_excel123():
-    """最终保存：把前端最新数据写成 JSON 快照"""
-    data = request.json
-    print("******************** data ******************")
-    from pprint import pprint
-    pprint(data)
-
-    # 1. 基础校验
-    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'data']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'缺少必要字段: {field}'}), 400
-
-    # 2. 拼路径：统一用 MAIN_ROOT 风格
-    from pathlib import Path
-    import time
-    import os
-
-    file_id   = data['pdf_id']
-    sheet_name = data['sheet_name']
-
-    snap_dir  = Path(MAIN_ROOT) / r'data/backend/static/modify_data' / file_id
-    snap_dir.mkdir(parents=True, exist_ok=True)
-
-    ts = int(time.time())
-    file_name = f"{file_id}_{sheet_name}_{ts}.json"
-    file_path = snap_dir / file_name
-
-    # 3. 落盘
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            import json
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'写入失败: {e}'}), 500
-
-    # 4. 返回成功
-    return jsonify({
-        'success': True,
-        'message': '已保存最新数据',
-        'saved_file': str(file_name),
-        'saved_path': str(file_path.relative_to(Path(MAIN_ROOT)))   # 相对路径，调试用
-    }), 200
-
-
 # ========== 新增的Excel转PDF接口 ==========
 @file_bp.route('/convert/excel-to-pdf', methods=['POST'])
 def convert_excel_to_pdf_api():

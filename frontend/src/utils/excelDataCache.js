@@ -206,6 +206,45 @@ class ExcelDataCache {
     }
   }
 
+
+  /**
+     * 更新缓存数据（同步修改）
+     */
+    updateCachedData(pdfId, excelFile, sheetName, tableType, newData) {
+        console.log('🔄🔄 更新缓存数据:', {
+            pdfId, excelFile, sheetName, tableType,
+            新数据行数: newData?.length
+        });
+
+        if (tableType === 'flattened') {
+            this.setFlattenedData(pdfId, excelFile, sheetName, newData);
+        } else {
+            this.setOriginalData(pdfId, excelFile, sheetName, newData);
+        }
+    }
+
+    /**
+     * 清除指定表格的缓存
+     */
+    clearSheetCache(pdfId, excelFile, sheetName) {
+        console.log('🧹🧹 清除表格缓存:', { pdfId, excelFile, sheetName });
+
+        // 清除原始数据缓存
+        const originalKey = this.getOriginalDataKey(pdfId, excelFile, sheetName);
+        if (this.originalDataCache[originalKey]) {
+            delete this.originalDataCache[originalKey];
+        }
+
+        // 清除扁平化数据缓存
+        const flattenedKey = this.getFlattenedDataKey(pdfId, excelFile, sheetName);
+        if (this.flattenedDataCache[flattenedKey]) {
+            delete this.flattenedDataCache[flattenedKey];
+        }
+
+        console.log('✅✅ 表格缓存已清除');
+    }
+
+
   /**
    * 清除所有缓存
    */

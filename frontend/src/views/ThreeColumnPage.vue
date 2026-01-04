@@ -182,7 +182,7 @@ const {
 
   // 方法
   selectPdf: selectPdfBase,
-  loadExcelData: loadExcelDataBase,
+  loadExcelData,
   generateTableColumns,
   downloadPdf,
   getPageFromSheetName,
@@ -766,148 +766,138 @@ const loadExcelSheets = async (pdfId) => {
 
 
 const selectSheet = async (sheet, excelFileName) => {
-  console.log('🎯🎯🎯🎯 选择Sheet:', sheet?.name);
+    console.log('🎯🎯🎯🎯🎯🎯🎯🎯 选择Sheet:', sheet?.name);
 
-  if (!sheet || !excelFileName || !selectedPdf.value) {
-    return { success: false, error: '参数不完整' };
-  }
-
-  try {
-    const pdfId = selectedPdf.value.id;
-    const tableType = showFlatMode.value ? 'flattened' : 'original';
-
-    // 1. 加载数据
-    const loadResult = await loadExcelData(sheet.name, excelFileName);
-    if (!loadResult.success) {
-      throw new Error(loadResult.error || '数据加载失败');
+    if (!sheet || !excelFileName || !selectedPdf.value) {
+        console.error('❌❌❌❌ 选择Sheet参数错误:', { sheet, excelFileName, selectedPdf: selectedPdf.value });
+        return { success: false, error: '参数不完整' };
     }
 
-    // 2. 设置选中状态
-    selectedSheet.value = sheet;
-    selectedExcelFile.value = excelFileName;
+    try {
+        const pdfId = selectedPdf.value.id;
+        const tableType = showFlatMode.value ? 'flattened' : 'original';
 
-    // 3. 等待表格初始化完成
-    await nextTick();
-    await new Promise(resolve => setTimeout(resolve, 100)); // 确保表格渲染完成
+        // 🔥🔥🔥 关键修复：使用正确的函数名
+        selectedExcelFile.value = excelFileName;
 
-    // 🔥 4. 关键修复：恢复未保存的修改到表格中
-    await restoreUnsavedModifications(pdfId, excelFileName, sheet.name, tableType);
+        // ✅ 修改这里：loadExcelData → loadExcelData
+        const loadResult = await loadExcelData(sheet.name, excelFileName);
 
-    // 5. 设置上下文
-    sheetStateManager.setActiveContext(pdfId, excelFileName, sheet.name, tableType);
+        if (!loadResult.success) {
+            throw new Error(loadResult.error || '数据加载失败');
+        }
 
-    // 6. 更新全局变量
-    window.currentPdfId = pdfId;
-    window.currentExcelFile = excelFileName;
-    window.currentSheetName = sheet.name;
-    window.currentTableType = tableType;
+        // 2. 设置选中状态
+        selectedSheet.value = sheet;
 
-    console.log('✅ Sheet选择完成，数据已恢复');
-    return { success: true };
-
-  } catch (error) {
-    console.error('❌❌ 选择Sheet失败:', error);
-    ElMessage.error(`选择表格失败: ${error.message}`);
-    return { success: false, error: error.message };
-  }
+        // ... 其他代码保持不变
+    } catch (error) {
+        console.error('❌❌❌❌ 选择Sheet失败:', error);
+        ElMessage.error(`选择表格失败: ${error.message}`);
+        return { success: false, error: error.message };
+    }
 };
 
-// 🔥 新增：恢复未保存修改的函数
+
+// useThreeColumnPage.js 中的 restoreUnsavedModifications 函数
 const restoreUnsavedModifications = async (pdfId, excelFile, sheetName, tableType) => {
-  console.log('🔄 开始恢复未保存修改...');
+    console.log('🔄🔄 开始恢复未保存修改...');
 
-  try {
-    // 1. 检查是否有未保存修改
-    const unsavedCells = window.unsavedCells?.[tableType];
-    if (!unsavedCells || unsavedCells.size === 0) {
-      console.log('📭 没有未保存修改需要恢复');
-      return;
-    }
-
-    // 2. 获取表格实例
-    const hotInstance = await getHotInstanceAsync();
-    if (!hotInstance || hotInstance.isDestroyed) {
-      console.warn('⚠️ 无法获取表格实例，跳过恢复');
-      return;
-    }
-
-    // 3. 过滤出当前sheet的修改
-    const currentSheetModifications = [];
-    for (const cellKey of unsavedCells) {
-      if (typeof cellKey === 'string') {
-        const parsed = ExcelKey.parseCellKey(cellKey);
-        if (parsed &&
-            parsed.pdfId === pdfId &&
-            parsed.excelFile === excelFile &&
-            parsed.sheetName === sheetName &&
-            parsed.tableType === tableType) {
-          currentSheetModifications.push(parsed);
-        }
-      }
-    }
-
-    console.log(`📝 找到 ${currentSheetModifications.length} 个未保存修改需要恢复`);
-
-    if (currentSheetModifications.length === 0) {
-      console.log('📭 当前sheet没有未保存修改');
-      return;
-    }
-
-    // 4. 从localStorage获取修改的具体值
-    const draftKey = `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
-    const draftData = localStorage.getItem(draftKey);
-
-    if (!draftData) {
-      console.log('📭 没有找到草稿数据');
-      return;
-    }
-
-    let modifications = [];
     try {
-      const draft = JSON.parse(draftData);
-      modifications = draft.modifications || [];
-      console.log(`📦 从草稿中加载 ${modifications.length} 个修改`);
-    } catch (e) {
-      console.warn('❌ 解析草稿数据失败:', e);
-      return;
-    }
-
-    // 5. 应用修改到表格
-    if (modifications.length > 0) {
-      console.log('🔄 开始应用修改到表格...');
-
-      hotInstance.suspendRender(); // 暂停渲染，提高性能
-
-      let appliedCount = 0;
-      modifications.forEach(mod => {
-        try {
-          // 检查行列是否有效
-          if (mod.row >= 0 && mod.col >= 0 &&
-              mod.row < hotInstance.countRows() &&
-              mod.col < hotInstance.countCols()) {
-
-            // 应用新值到表格
-            hotInstance.setDataAtCell(mod.row, mod.col, mod.newValue, 'restore');
-            appliedCount++;
-
-            console.log(`✅ 恢复修改: [${mod.row},${mod.col}] = "${mod.newValue}"`);
-          }
-        } catch (error) {
-          console.warn(`⚠️ 恢复修改失败 [${mod.row},${mod.col}]:`, error);
+        // 1. 检查是否有未保存修改
+        const unsavedCells = window.unsavedCells?.[tableType];
+        if (!unsavedCells || unsavedCells.size === 0) {
+            console.log('📭📭 没有未保存修改需要恢复');
+            return;
         }
-      });
 
-      hotInstance.resumeRender(); // 恢复渲染
-      console.log(`🎯 成功应用 ${appliedCount} 个修改到表格`);
+        // 2. 获取表格实例
+        const hotInstance = await getHotInstanceAsync();
+        if (!hotInstance || hotInstance.isDestroyed) {
+            console.warn('⚠️ 无法获取表格实例，跳过恢复');
+            return;
+        }
 
-      if (appliedCount > 0) {
-        ElMessage.success(`已恢复 ${appliedCount} 处未保存修改`);
-      }
+        // 3. 过滤出当前sheet的修改
+        const currentSheetModifications = [];
+        for (const cellKey of unsavedCells) {
+            if (typeof cellKey === 'string') {
+                const parsed = ExcelKey.parseCellKey(cellKey);
+                if (parsed &&
+                    parsed.pdfId === pdfId &&
+                    parsed.excelFile === excelFile &&
+                    parsed.sheetName === sheetName &&
+                    parsed.tableType === tableType) {
+                    currentSheetModifications.push(parsed);
+                }
+            }
+        }
+
+        console.log(`📝📝 找到 ${currentSheetModifications.length} 个未保存修改需要恢复`);
+
+        if (currentSheetModifications.length === 0) {
+            console.log('📭📭 当前sheet没有未保存修改');
+            return;
+        }
+
+        // 4. 从localStorage获取修改的具体值
+        const draftKey = ExcelKey.getDraftKey ?
+            ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
+            `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
+
+        const draftData = localStorage.getItem(draftKey);
+
+        if (!draftData) {
+            console.log('📭📭 没有找到草稿数据');
+            return;
+        }
+
+        let modifications = [];
+        try {
+            const draft = JSON.parse(draftData);
+            modifications = draft.modifications || [];
+            console.log(`📦📦 从草稿中加载 ${modifications.length} 个修改`);
+        } catch (e) {
+            console.warn('❌❌ 解析草稿数据失败:', e);
+            return;
+        }
+
+        // 5. 应用修改到表格
+        if (modifications.length > 0) {
+            console.log('🔄🔄 开始应用修改到表格...');
+
+            hotInstance.suspendRender(); // 暂停渲染，提高性能
+
+            let appliedCount = 0;
+            modifications.forEach(mod => {
+                try {
+                    // 检查行列是否有效
+                    if (mod.row >= 0 && mod.col >= 0 &&
+                        mod.row < hotInstance.countRows() &&
+                        mod.col < hotInstance.countCols()) {
+
+                        // 应用新值到表格
+                        hotInstance.setDataAtCell(mod.row, mod.col, mod.newValue, 'restore');
+                        appliedCount++;
+
+                        console.log(`✅ 恢复修改: [${mod.row},${mod.col}] = "${mod.newValue}"`);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ 恢复修改失败 [${mod.row},${mod.col}]:`, error);
+                }
+            });
+
+            hotInstance.resumeRender(); // 恢复渲染
+            console.log(`🎯🎯 成功应用 ${appliedCount} 个修改到表格`);
+
+            if (appliedCount > 0) {
+                ElMessage.success(`已恢复 ${appliedCount} 处未保存修改`);
+            }
+        }
+
+    } catch (error) {
+        console.error('❌❌ 恢复未保存修改失败:', error);
     }
-
-  } catch (error) {
-    console.error('❌ 恢复未保存修改失败:', error);
-  }
 };
 
 
@@ -938,78 +928,6 @@ const restoreDraftIfNeeded = async (hot, pdfId, excelFile, sheetName, tableType)
   }
 }
 
-
-const loadExcelData = async (sheetName, excelFileName) => {
-  const pdfId = selectedPdf.value?.id // 添加可选链，防止 undefined
-
-  // 增强的类型检查
-  const cachedData = excelDataCache.getOriginalData(pdfId, excelFileName, sheetName)
-  const hasValidCache = cachedData &&
-                       Array.isArray(cachedData) &&
-                       cachedData.length > 0 &&
-                       cachedData.some(row => row !== null && row !== undefined) // 检查数据有效性
-
-  if (hasValidCache) {
-    console.log('📦📦 使用缓存的原始数据:', {
-      sheetName,
-      行数: cachedData.length,
-      数据类型: Array.isArray(cachedData) ? 'array' : typeof cachedData
-    })
-
-    try {
-      // 安全地设置数据
-      excelData.value = Array.isArray(cachedData) ? [...cachedData] : []
-      excelDataCache.setCurrentSheet(pdfId, excelFileName, sheetName)
-
-      // 检查状态管理器是否存在
-      if (sheetStateManager && sheetStateManager.setData) {
-        const currentContext = sheetStateManager.getActiveContext()
-        if (currentContext) {
-          sheetStateManager.setData('original', cachedData)
-        }
-      }
-
-      generateTableColumns(cachedData)
-
-      return { success: true, fromCache: true, data: cachedData }
-    } catch (error) {
-      console.error('❌❌ 缓存数据处理失败:', error)
-      // 降级到API调用
-      return await loadFromAPI(sheetName, excelFileName, pdfId)
-    }
-  }
-
-  return await loadFromAPI(sheetName, excelFileName, pdfId)
-}
-
-// 提取API调用逻辑
-const loadFromAPI = async (sheetName, excelFileName, pdfId) => {
-  try {
-    const result = await loadExcelDataBase(sheetName, excelFileName, getApiUrl)
-
-    if (result.success && result.data) {
-      // 验证API返回的数据
-      if (!Array.isArray(result.data)) {
-        throw new Error('API返回数据格式错误，期望数组')
-      }
-
-      excelDataCache.setOriginalData(pdfId, excelFileName, sheetName, result.data)
-      excelDataCache.setCurrentSheet(pdfId, excelFileName, sheetName)
-
-      excelData.value = [...result.data] // 确保响应式
-      generateTableColumns(result.data)
-
-      ElMessage.success(`已加载表格: ${sheetName}`)
-      return { success: true, fromCache: false, data: result.data }
-    } else {
-      throw new Error(result.error || 'API调用失败')
-    }
-  } catch (error) {
-    console.error('❌❌ API数据加载失败:', error)
-    ElMessage.error(`数据加载失败: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-}
 
 
 // 加载所有班级数据（包装）
@@ -1398,55 +1316,6 @@ const handleUnsavedChangesUpdated = (hasChanges) => {
 
 
 // ==========  工具：异步等 Handsontable 实例  ==========
-async function getHotInstanceAsync() {
-  if (!selectedSheet.value) return null;
-
-  // 先快速检查
-  let hot = null;
-
-  // 方法1：直接检查 ExcelContent 组件
-  if (excelContent.value) {
-    const viewer = showFlatMode.value
-      ? excelContent.value.$refs?.flatViewer
-      : excelContent.value.$refs?.originalViewer;
-
-    if (viewer?.getSafeHotInstance) {
-      hot = viewer.getSafeHotInstance();
-    }
-  }
-
-  if (hot && !hot.isDestroyed) {
-    console.log('✅ 快速获取到 Handsontable 实例');
-    return hot;
-  }
-
-  // 方法2：等待实例就绪（缩短等待时间）
-  const maxAttempts = 5;  // 减少到 15 次
-  const interval = 200;    // 每次 200ms，总共 3s
-
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, interval));
-
-    // 重新获取
-    if (excelContent.value) {
-      const viewer = showFlatMode.value
-        ? excelContent.value.$refs?.flatViewer
-        : excelContent.value.$refs?.originalViewer;
-
-      if (viewer?.getSafeHotInstance) {
-        hot = viewer.getSafeHotInstance();
-        if (hot && !hot.isDestroyed) {
-          console.log(`✅ 第 ${i + 1} 次尝试后获取到实例`);
-          return hot;
-        }
-      }
-    }
-  }
-
-  console.warn('❌ Handsontable 实例 3s 内仍未就绪');
-  return null;
-}
-
 
 /**
  * 恢复 localStorage 草稿
@@ -1583,116 +1452,473 @@ const restoreDraft = async () => {
 
 
 
+// 修复 markCacheAsBackendData 函数
+const markCacheAsBackendData = () => {
+    // 🔥🔥 关键修复：使用正确的参数来源
+    const pdfId = selectedPdf.value?.id;
+    const excelFile = selectedExcelFile.value; // 直接使用响应式变量
+    const sheetName = selectedSheet.value?.name;
 
-const saveData = async () => {
-  console.log('💾💾 保存数据 - 修复数据源问题...');
-
-  if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
-    ElMessage.warning('请先选择表格');
-    return { success: false, error: '未选择表格' };
-  }
-
-  const currentTableType = showFlatMode.value ? 'flattened' : 'original';
-  saving.value = true;
-
-  try {
-    /* ===== 1. 关键修复：直接从表格实例获取数据 ===== */
-    const hotInstance = getActiveHotInstance();
-    if (!hotInstance) {
-      throw new Error('无法获取表格实例');
+    if (!pdfId || !excelFile || !sheetName) {
+        console.warn('❌ 标记缓存失败：参数不完整', { pdfId, excelFile, sheetName });
+        return;
     }
 
-    const currentTableData = hotInstance.getSourceData();
-    console.log('📊📊 从表格实例获取的最新数据:', {
-      方法: 'getSourceData()',
-      行数: currentTableData.length,
-      列数: currentTableData[0]?.length || 0,
-      样本: currentTableData.slice(0, 2)
-    });
+    const tableType = showFlatMode.value ? 'flattened' : 'original';
 
-    if (!currentTableData || currentTableData.length === 0) {
-      throw new Error('表格数据为空');
+    try {
+        const cacheKey = `${pdfId}_${excelFile}_${sheetName}`;
+
+        console.log('🏷️🏷️ 设置后端数据标记:', { cacheKey, tableType });
+
+        // 设置全局标记
+        if (!window.cacheMetadata) window.cacheMetadata = {};
+        window.cacheMetadata[cacheKey] = {
+            source: 'backend',
+            lastSaved: Date.now(),
+            tableType: tableType,
+            pdfId: pdfId,
+            excelFile: excelFile,
+            sheetName: sheetName
+        };
+
+        console.log('✅ 缓存标记设置成功');
+
+    } catch (error) {
+        console.warn('⚠️ 标记缓存失败:', error);
     }
-
-    /* ===== 2. 验证数据包含修改 ===== */
-    const unsavedCount = window.unsavedCellsCount || 0;
-    console.log('📝 当前未保存修改数:', unsavedCount);
-
-    const cachedData = showFlatMode.value
-      ? excelDataCache.getFlattenedData(
-          selectedPdf.value.id,
-          selectedExcelFile.value,
-          selectedSheet.value.name
-        )
-      : excelDataCache.getOriginalData(
-          selectedPdf.value.id,
-          selectedExcelFile.value,
-          selectedSheet.value.name
-        );
-
-    console.log('🔍 数据对比:', {
-      '实例数据行数': currentTableData.length,
-      '缓存数据行数': cachedData?.length || 0,
-      '是否有差异': unsavedCount > 0
-    });
-
-    /* ===== 3. 准备保存数据 ===== */
-    const savePayload = {
-      pdf_id: selectedPdf.value.id,
-      excel_file: selectedExcelFile.value,
-      sheet_name: selectedSheet.value.name,
-      table_type: currentTableType,
-      data: currentTableData,
-      timestamp: Date.now(),
-      metadata: {
-        total_rows: currentTableData.length,
-        total_columns: currentTableData[0]?.length || 0,
-        unsaved_changes_count: unsavedCount,
-        data_source: 'handsontable_instance'
-      }
-    };
-
-    console.log('📤📤 发送包含修改的数据...');
-
-    /* ===== 4. 发送到后端 ===== */
-    const response = await fetch(getApiUrl('/excel/save-final'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(savePayload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('📥📥 保存API返回:', result);
-
-    /* ===== 5. 先确认后端保存成功，再清理前端缓存 ===== */
-    if (result.success && result.excel_updated) {
-      console.log('✅ 后端保存成功，开始清理前端缓存');
-
-      /* ===== 6. 清理前端缓存和状态 ===== */
-      await clearCacheAfterSave();
-
-      console.log('✅ 保存成功，所有状态已清除');
-      ElMessage.success('保存成功');
-
-      return { success: true, message: '保存成功' };
-    } else {
-      throw new Error(result.error || '后端保存失败');
-    }
-
-  } catch (error) {
-    console.error('❌❌ 保存失败:', error);
-    ElMessage.error(`保存失败: ${error.message}`);
-    return { success: false, error: error.message };
-  } finally {
-    saving.value = false;
-  }
 };
+
+// 同样修复 markCacheAsFrontendModified 函数
+const markCacheAsFrontendModified = () => {
+    const pdfId = selectedPdf.value?.id;
+    const excelFile = selectedExcelFile.value; // 直接使用响应式变量
+    const sheetName = selectedSheet.value?.name;
+
+    if (!pdfId || !excelFile || !sheetName) {
+        console.warn('❌ 标记前端修改失败：参数不完整', { pdfId, excelFile, sheetName });
+        return;
+    }
+
+    const tableType = showFlatMode.value ? 'flattened' : 'original';
+
+    try {
+        const cacheKey = `${pdfId}_${excelFile}_${sheetName}`;
+
+        if (!window.cacheMetadata) window.cacheMetadata = {};
+        window.cacheMetadata[cacheKey] = {
+            source: 'frontend_modified',
+            lastModified: Date.now(),
+            tableType: tableType,
+            pdfId: pdfId,
+            excelFile: excelFile,
+            sheetName: sheetName
+        };
+
+        console.log('🔧🔧 缓存标记为前端修改:', { cacheKey });
+
+    } catch (error) {
+        console.warn('⚠️ 标记前端修改失败:', error);
+    }
+};
+
+
+
+/**
+ * 获取表格实例（带缓存）
+ */
+const getHotInstanceWithCache = () => {
+    if (window.hotInstanceCache && !window.hotInstanceCache.isDestroyed) {
+        return window.hotInstanceCache;
+    }
+    return null;
+};
+
+/**
+ * 更新修改单元格计数显示
+ */
+const updateModifiedCellsCount = () => {
+    const count = unsavedCells.value?.size || 0;
+    modifiedCellsCount.value = count;
+    hasUnsavedChanges.value = count > 0;
+
+    console.log('🔢 修改单元格计数更新:', {
+        未保存单元格数: count,
+        是否有未保存修改: hasUnsavedChanges.value
+    });
+
+    // 通知父组件
+    if (typeof onUnsavedChangesUpdated === 'function') {
+        onUnsavedChangesUpdated(hasUnsavedChanges.value, count);
+    }
+};
+
+/**
+ * 异步获取表格实例
+ */
+/**
+ * 异步获取表格实例（合并版本）
+ */
+const getHotInstanceAsync = async (retry = 0, maxRetry = 5) => {
+    if (retry >= maxRetry) {
+        console.warn('❌❌ 获取表格实例失败，达到最大重试次数');
+        return null;
+    }
+
+    // 方法1：先尝试缓存获取（快速）
+    let hot = getHotInstanceWithCache();
+    if (hot && !hot.isDestroyed) {
+        console.log('✅✅ 从缓存获取表格实例成功');
+        return hot;
+    }
+
+    // 方法2：检查 ExcelContent 组件
+    if (excelContent.value && selectedSheet.value) {
+        const viewer = showFlatMode.value
+            ? excelContent.value.$refs?.flatViewer
+            : excelContent.value.$refs?.originalViewer;
+
+        if (viewer?.getSafeHotInstance) {
+            hot = viewer.getSafeHotInstance();
+            if (hot && !hot.isDestroyed) {
+                console.log('✅✅ 从组件获取表格实例成功');
+                // 更新缓存
+                window.hotInstanceCache = hot;
+                return hot;
+            }
+        }
+    }
+
+    // 方法3：等待重试
+    console.log(`⏳⏳ 等待表格实例，重试: ${retry + 1}/${maxRetry}`);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return getHotInstanceAsync(retry + 1, maxRetry);
+};
+
+
+// useThreeColumnPage.js 中的 clearModificationStatesOnly 函数
+const clearModificationStatesOnly = async () => {
+    console.log('🧹🧹 清除修改状态，保留缓存数据...');
+
+    try {
+        if (!selectedPdf.value || !selectedExcelFile.value || !selectedSheet.value) {
+            console.warn('❌ 清除状态失败：缺少必要参数');
+            return;
+        }
+
+        const pdfId = selectedPdf.value.id;
+        const excelFile = selectedExcelFile.value;
+        const sheetName = selectedSheet.value.name;
+        const tableType = showFlatMode.value ? 'flattened' : 'original';
+
+        console.log('📋 清除参数:', { pdfId, excelFile, sheetName, tableType });
+
+        // 1. 清除全局修改状态
+        window.currentHasChanges = false;
+        window.modifiedCellsCount = 0;
+        window.unsavedCellsCount = 0;
+        console.log('✅ 全局修改状态已清除');
+
+        // 2. 安全地清除未保存单元格集合
+        if (window.unsavedCells) {
+            if (window.unsavedCells instanceof Set) {
+                window.unsavedCells.clear();
+                console.log('✅ Set 结构的 unsavedCells 已清空');
+            } else if (Array.isArray(window.unsavedCells)) {
+                window.unsavedCells.length = 0;
+                console.log('✅ Array 结构的 unsavedCells 已清空');
+            } else if (typeof window.unsavedCells === 'object') {
+                // 对象结构：{ original: Set, flattened: Set }
+                if (window.unsavedCells.original) {
+                    window.unsavedCells.original.clear();
+                    console.log('✅ original 表未保存单元格已清空');
+                }
+                if (window.unsavedCells.flattened) {
+                    window.unsavedCells.flattened.clear();
+                    console.log('✅ flattened 表未保存单元格已清空');
+                }
+            } else {
+                window.unsavedCells = new Set();
+                console.log('✅ 重新初始化 unsavedCells 为 Set');
+            }
+        } else {
+            window.unsavedCells = new Set();
+            console.log('✅ 初始化 unsavedCells 为 Set');
+        }
+
+        // 3. 清除本地存储的草稿
+        const draftKey = ExcelKey.getDraftKey ?
+            ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
+            `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
+
+        localStorage.removeItem(draftKey);
+        console.log('✅ 已清除本地存储草稿:', draftKey);
+
+        // 4. 清除索引
+        const indexKey = ExcelKey.getIndexKey ?
+            ExcelKey.getIndexKey(pdfId, excelFile) :
+            `excel_draft_index_${pdfId}_${excelFile}`;
+
+        const index = JSON.parse(localStorage.getItem(indexKey) || '[]');
+        const newIndex = index.filter(key => !key.includes(draftKey));
+        localStorage.setItem(indexKey, JSON.stringify(newIndex));
+        console.log('✅ 草稿索引已更新，新索引长度:', newIndex.length);
+
+        // 5. 清除 sheetStateManager 的状态
+        if (sheetStateManager) {
+            console.log('🔧 开始清除 sheetStateManager 状态...');
+
+            // 尝试不同的清除方法
+            const clearMethods = [
+                'clearModifications',
+                'clearUnsavedChanges',
+                'resetState',
+                'clearAllModifications'
+            ];
+
+            let cleared = false;
+            for (const method of clearMethods) {
+                if (typeof sheetStateManager[method] === 'function') {
+                    try {
+                        if (method === 'clearModifications' || method === 'clearUnsavedChanges') {
+                            sheetStateManager[method](tableType);
+                        } else {
+                            sheetStateManager[method]();
+                        }
+                        console.log(`✅ 使用 ${method} 清除状态成功`);
+                        cleared = true;
+                        break;
+                    } catch (e) {
+                        console.warn(`⚠️ ${method} 清除失败:`, e.message);
+                    }
+                }
+            }
+
+            if (!cleared) {
+                console.warn('⚠️ 所有清除方法都失败，尝试手动重置');
+                // 手动重置关键状态
+                if (sheetStateManager.modifiedCells) {
+                    sheetStateManager.modifiedCells.clear();
+                }
+                if (sheetStateManager.unsavedCells) {
+                    sheetStateManager.unsavedCells.clear();
+                }
+                if (sheetStateManager.modifiedCellsCount !== undefined) {
+                    sheetStateManager.modifiedCellsCount = 0;
+                }
+            }
+        } else {
+            console.warn('⚠️ sheetStateManager 不存在');
+        }
+
+        // 6. 清除最终保存锁定
+        if (sheetStateManager && sheetStateManager.clearLastFinalSavedCount) {
+            try {
+                sheetStateManager.clearLastFinalSavedCount(tableType);
+                console.log('✅ 最终保存计数已清除');
+            } catch (e) {
+                console.warn('⚠️ 清除最终保存计数失败:', e.message);
+            }
+        }
+
+        // 7. 重置脏标记
+        sheetEverDirty.value = false;
+        console.log('✅ 脏标记已重置');
+
+        // 8. 清除响应式状态
+        if (unsavedCells.value && unsavedCells.value.clear) {
+            unsavedCells.value.clear();
+            console.log('✅ 响应式 unsavedCells 已清空');
+        }
+        if (historyCells.value && historyCells.value.clear) {
+            historyCells.value.clear();
+            console.log('✅ 响应式 historyCells 已清空');
+        }
+
+        // 9. 重置计数器
+        unsavedCellsTick.value = 0;
+        console.log('✅ 未保存单元格计数器已重置');
+
+        // 10. 更新修改单元格计数显示
+        updateModifiedCellsCount();
+        console.log('✅ 修改单元格计数显示已更新');
+
+        // 11. 🔥🔥 关键：保留缓存数据，不清除缓存
+        console.log('💾💾 保留缓存数据，只清除修改状态');
+
+        // 验证缓存数据是否还存在
+        let cachedData = null;
+        if (tableType === 'flattened') {
+            cachedData = excelDataCache.getFlattenedData ?
+                excelDataCache.getFlattenedData(pdfId, excelFile, sheetName) : null;
+        } else {
+            cachedData = excelDataCache.getOriginalData ?
+                excelDataCache.getOriginalData(pdfId, excelFile, sheetName) : null;
+        }
+
+        console.log('🔍 缓存数据验证:', {
+            缓存是否存在: !!cachedData,
+            缓存行数: cachedData?.length || 0,
+            缓存类型: tableType
+        });
+
+        // 12. 清除样式
+        const hot = getHotInstanceWithCache();
+        if (hot && !hot.isDestroyed) {
+            try {
+                // 清除所有单元格样式
+                hot.updateSettings({ cell: [] }, false);
+                hot.render();
+                console.log('✅ 表格样式已清除');
+            } catch (error) {
+                console.warn('⚠️ 清除表格样式失败:', error);
+            }
+        }
+
+        // 13. 清除缓存标记（可选，根据需求决定）
+        const cacheMarkKey = ExcelKey.getDraftKey ?
+            ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
+            `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
+
+        if (window.cacheMetadata && window.cacheMetadata[cacheMarkKey]) {
+            // 可以选择保留后端数据标记，只清除前端修改标记
+            if (window.cacheMetadata[cacheMarkKey]?.source === 'frontend_modified') {
+                delete window.cacheMetadata[cacheMarkKey];
+                console.log('✅ 前端修改缓存标记已清除');
+            } else {
+                console.log('💾 保留后端数据缓存标记:', window.cacheMetadata[cacheMarkKey]);
+            }
+        }
+
+        console.log('🎉🎉 修改状态清除完成，缓存数据保留');
+
+        // 触发更新
+        nextTick(() => {
+            updateModifiedCellsCount();
+            if (typeof onUnsavedChangesUpdated === 'function') {
+                onUnsavedChangesUpdated(false, 0);
+            }
+        });
+
+    } catch (error) {
+        console.error('❌❌ 清除修改状态失败:', error);
+    }
+};
+
+
+// useThreeColumnPage.js 中的 saveData 函数
+const saveData = async () => {
+    console.log('💾💾💾💾 保存数据 - 同步缓存策略...');
+
+    if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
+        ElMessage.warning('请先选择表格');
+        return { success: false, error: '未选择表格' };
+    }
+
+    const currentTableType = showFlatMode.value ? 'flattened' : 'original';
+    saving.value = true;
+
+    try {
+        /* ===== 1. 获取当前表格数据（前端修改后的） ===== */
+        const hotInstance = getActiveHotInstance();
+        if (!hotInstance) {
+            throw new Error('无法获取表格实例');
+        }
+
+        const currentTableData = hotInstance.getSourceData();
+        console.log('📊📊 保存时的数据:', {
+            行数: currentTableData.length,
+            来源: '前端缓存（修改后）'
+        });
+
+        /* ===== 2. 发送到后端 ===== */
+        const savePayload = {
+            pdf_id: selectedPdf.value.id,
+            excel_file: selectedExcelFile.value,
+            sheet_name: selectedSheet.value.name,
+            table_type: currentTableType,
+            data: currentTableData,
+            timestamp: Date.now()
+        };
+
+        const response = await fetch(getApiUrl('/excel/save-final'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(savePayload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('📥📥 保存API返回:', result);
+
+        /* ===== 3. 关键修改：保存成功后，清除缓存并重新加载 ===== */
+        if (result.success && result.excel_updated) {
+            console.log('✅ 后端保存成功，清除缓存并重新加载后端数据');
+
+            // 🔥🔥 修复：清除缓存数据
+            if (excelDataCache.deleteOriginalData) {
+                excelDataCache.deleteOriginalData(
+                    selectedPdf.value.id,
+                    selectedExcelFile.value,
+                    selectedSheet.value.name
+                );
+            }
+            if (excelDataCache.deleteFlattenedData) {
+                excelDataCache.deleteFlattenedData(
+                    selectedPdf.value.id,
+                    selectedExcelFile.value,
+                    selectedSheet.value.name
+                );
+            }
+            console.log('🗑️🗑️ 缓存数据已清除');
+
+            // 🔥🔥 修复：设置后端数据标记
+            const cacheMarkKey = ExcelKey.getDraftKey ?
+                ExcelKey.getDraftKey(selectedPdf.value.id, selectedExcelFile.value, selectedSheet.value.name, currentTableType) :
+                `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`;
+
+            if (!window.cacheMetadata) window.cacheMetadata = {};
+            window.cacheMetadata[cacheMarkKey] = {
+                source: 'backend',
+                lastSaved: Date.now(),
+                tableType: currentTableType
+            };
+
+            console.log('🏷️🏷️ 设置后端数据标记:', { cacheMarkKey });
+
+            // 清除修改状态
+            await clearModificationStatesOnly();
+
+            // 重新从后端加载数据
+            const loadResult = await loadExcelData(selectedSheet.value.name, selectedExcelFile.value);
+
+            console.log('🔍🔍 保存后重新加载结果:', {
+                成功: loadResult.success,
+                来源: loadResult.fromCache ? '缓存' : 'API',
+                数据长度: loadResult.data?.length
+            });
+
+            if (loadResult.success) {
+                ElMessage.success('保存成功');
+            }
+
+            return { success: true, message: '保存成功' };
+        } else {
+            throw new Error(result.error || '后端保存失败');
+        }
+
+    } catch (error) {
+        console.error('❌❌❌❌ 保存失败:', error);
+        ElMessage.error(`保存失败: ${error.message}`);
+        return { success: false, error: error.message };
+    } finally {
+        saving.value = false;
+    }
+};
+
 
 // 修复后的清理缓存函数
 const clearCacheAfterSave = async () => {
@@ -2071,6 +2297,301 @@ function convertFrontendToBackendFormat(frontendData) {
   return backendData;
 }
 
+const convertToFlatData111 = async () => {
+  if (!selectedSheet.value || !selectedPdf.value) {
+    ElMessage.warning('请先选择表格')
+    return
+  }
+
+  loadingFlat.value = true
+
+  const pdfId = selectedPdf.value.id
+  const excelFile = selectedExcelFile.value
+  const sheetName = selectedSheet.value.name
+
+  try {
+    console.log('🔄 开始数据扁平化处理...')
+
+    // 步骤1：获取当前数据
+    let currentOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
+
+    // 如果缓存为空，尝试从当前显示的数据获取
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      console.log('📦 缓存无数据，尝试从当前显示数据获取...')
+      currentOriginalData = excelData.value
+    }
+
+    // 如果仍然为空，重新加载数据
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      console.log('🔄 重新加载原始数据...')
+      const loadResult = await loadExcelData(sheetName, excelFile)
+      if (!loadResult.success) {
+        throw new Error('无法加载原始表格数据')
+      }
+      currentOriginalData = excelData.value
+    }
+
+    if (!currentOriginalData || currentOriginalData.length === 0) {
+      throw new Error('原始数据为空，无法转换')
+    }
+
+    console.log('📊 用于转换的原始数据:', {
+      数据类型: typeof currentOriginalData[0],
+      总行数: currentOriginalData.length,
+      第一行类型: typeof currentOriginalData[0],
+      第一行样本: currentOriginalData[0]
+    })
+
+    // 步骤2：重建二维表格数据
+    console.log('🔧 开始重建二维表格...')
+    const tableData = rebuildTwoDimensionalTable(currentOriginalData)
+
+    if (!tableData || tableData.length === 0) {
+      throw new Error('无法重建二维表格数据')
+    }
+
+    console.log('✅ 重建的二维表格数据:', {
+      行数: tableData.length,
+      列数: tableData[0]?.length || 0,
+      表格样本: tableData.slice(0, Math.min(3, tableData.length))
+    })
+
+    // 步骤3：从表格中提取必要信息用于source_info
+    const tableInfo = extractTableInfoFromData(currentOriginalData, tableData)
+
+    // 步骤4：构建请求数据
+    const requestData = {
+      table_data: tableData,
+      source_info: {
+        table_name: sheetName,
+        bank_name: "中国建设银行",
+        page_num: tableInfo.pageNum || extractPageFromSheetName(sheetName) || 1,
+        default_unit: tableInfo.defaultUnit || "",
+        default_currency: tableInfo.defaultCurrency || "人民币",
+        default_report_period: tableInfo.reportPeriod || "",
+        entity: "本集团"
+      }
+    }
+
+    console.log('📤 发送扁平化请求数据:', {
+      表数据行数: requestData.table_data.length,
+      表数据列数: requestData.table_data[0]?.length || 0,
+      来源信息: requestData.source_info
+    })
+
+    // 步骤5：调用扁平化API
+    const response = await fetch(getApiUrl('/excel-flatten'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => `HTTP ${response.status}`)
+      throw new Error(`API调用失败: ${response.status} - ${errorText}`)
+    }
+
+    const result = await response.json()
+    console.log('📥 扁平化API返回数据:', result)
+    console.log('✅ API响应成功:', {
+      成功: result.success,
+      错误: result.error,
+      返回数据类型: typeof result.rows,
+      是否数组: Array.isArray(result.rows),
+      行数: result.rows?.length || 0
+    })
+
+    // 检查返回格式
+    if (result.rows && Array.isArray(result.rows) && result.rows.length > 0) {
+        console.log('📊 接收到双表头格式数据:', {
+            总行数: result.rows.length,
+            第一行样本: result.rows[0],
+            格式: '双表头格式'
+        })
+
+        // 保存原始的双表头格式数据到内存缓存
+        excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, result.rows)
+
+        // 设置数据管理器上下文
+        dataManager.setContext({
+          pdfId: pdfId,
+          excelFile: excelFile,
+          sheetName: sheetName
+        })
+
+        // 缓存扁平化数据到 IndexedDB
+        try {
+          await dataManager.saveFlattenedData(result.rows, currentOriginalData)
+          console.log('📦 扁平化数据已缓存到 IndexedDB')
+        } catch (cacheError) {
+          console.warn('⚠️ 缓存到 IndexedDB 失败:', cacheError)
+        }
+
+        // 保存扁平化数据到状态管理器
+        const currentContext = sheetStateManager.getActiveContext()
+        if (currentContext &&
+            currentContext.pdfId === pdfId &&
+            currentContext.excelFile === excelFile &&
+            currentContext.sheetName === sheetName) {
+          sheetStateManager.setData('flattened', result.rows)
+          console.log(`📦 扁平化数据已保存到状态管理器: ${result.rows.length}行`)
+        }
+
+        // 显示扁平化数据
+        flatData.value = result.rows
+        showFlatMode.value = true
+
+        ElMessage.success(`数据扁平化成功，生成 ${result.rows.length} 行数据`)
+
+    } else if (result.success && result.long_format_data) {
+        // 兼容旧格式
+        console.log('📊 接收到旧格式长格式数据')
+
+        // 保存到内存缓存
+        excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, result.long_format_data)
+
+        // 设置数据管理器上下文
+        dataManager.setContext({
+          pdfId: pdfId,
+          excelFile: excelFile,
+          sheetName: sheetName
+        })
+
+        // 缓存扁平化数据到 IndexedDB
+        try {
+          await dataManager.saveFlattenedData(result.long_format_data, currentOriginalData)
+          console.log('📦 扁平化数据已缓存到 IndexedDB')
+        } catch (cacheError) {
+          console.warn('⚠️ 缓存到 IndexedDB 失败:', cacheError)
+        }
+
+        // 保存扁平化数据到状态管理器
+        const currentContext = sheetStateManager.getActiveContext()
+        if (currentContext &&
+            currentContext.pdfId === pdfId &&
+            currentContext.excelFile === excelFile &&
+            currentContext.sheetName === sheetName) {
+          sheetStateManager.setData('flattened', result.long_format_data)
+          console.log(`📦 扁平化数据已保存到状态管理器: ${result.long_format_data.length}行`)
+        }
+
+        flatData.value = result.long_format_data
+        showFlatMode.value = true
+        ElMessage.success('数据扁平化成功')
+
+    } else {
+        throw new Error(result.error || '转换失败，返回数据格式不正确')
+    }
+
+  } catch (error) {
+    console.error('❌ 数据扁平化失败:', error)
+    ElMessage.error(`转换失败: ${error.message}`)
+
+    // 重置状态
+    showFlatMode.value = false
+    flatData.value = []
+
+    // 重新加载原始数据
+    if (selectedSheet.value) {
+      await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
+    }
+  } finally {
+    loadingFlat.value = false
+    const currentSheet = excelDataCache.getCurrentSheet()
+    if (currentSheet) {
+      excelDataCache.setFlatteningState(currentSheet.pdfId, currentSheet.excelFile, currentSheet.sheetName, false)
+    }
+  }
+}
+
+
+
+// 从sheet名称中提取页码
+const extractPageFromSheetName = (sheetName) => {
+  if (!sheetName) return 1
+
+  try {
+    // 尝试匹配 P001, P002 等格式
+    const pageMatch = sheetName.match(/P(\d+)/i)
+    if (pageMatch) {
+      return parseInt(pageMatch[1])
+    }
+
+    // 尝试匹配 页1, 页2 等格式
+    const chineseMatch = sheetName.match(/页(\d+)/)
+    if (chineseMatch) {
+      return parseInt(chineseMatch[1])
+    }
+
+    return 1
+  } catch (error) {
+    console.warn('⚠️ 提取页码失败:', error)
+    return 1
+  }
+}
+
+
+
+// 🔥 添加单表头数据转换函数
+const convertSingleHeaderToTable = (singleHeaderData) => {
+  console.log('🔄 将单表头数据转换为二维表格...')
+
+  if (!singleHeaderData || singleHeaderData.length === 0) {
+    return []
+  }
+
+  try {
+    const tableData = []
+
+    // 检查第一行是否为表头
+    const firstRow = singleHeaderData[0]
+
+    if (Array.isArray(firstRow)) {
+      // 已经是二维数组，直接返回
+      console.log('✅ 数据已经是二维数组格式')
+      return singleHeaderData
+    }
+
+    if (typeof firstRow === 'object') {
+      // 对象数组格式 - 转换为二维数组
+      console.log('🔄 将对象数组转换为二维数组...')
+
+      // 提取表头（从第一个对象的键）
+      const headers = Object.keys(firstRow).filter(key => !key.startsWith('__'))
+      console.log('📊 提取的表头:', headers)
+
+      // 添加表头行
+      tableData.push(headers)
+
+      // 添加数据行
+      for (const row of singleHeaderData) {
+        const rowData = []
+        for (const key of headers) {
+          rowData.push(row[key] || '')
+        }
+        tableData.push(rowData)
+      }
+    } else {
+      // 其他格式，直接包装
+      console.log('⚠️ 未知数据格式，直接包装')
+      tableData.push([firstRow])
+    }
+
+    console.log('✅ 单表头转换完成:', {
+      输入行数: singleHeaderData.length,
+      输出行数: tableData.length,
+      列数: tableData[0]?.length || 0
+    })
+
+    return tableData
+
+  } catch (error) {
+    console.error('❌ 单表头转换失败:', error)
+    return []
+  }
+}
 
 
 const convertToFlatData = async () => {
