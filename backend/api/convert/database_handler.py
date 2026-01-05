@@ -5,7 +5,6 @@
 from datetime import datetime
 from flask import jsonify
 from backend.utils.constants import DATABASE_PATH
-# from backend.models.new_database import NewDatabaseManager
 from backend.models.unified_db import NewDatabaseManager
 
 

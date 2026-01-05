@@ -125,7 +125,7 @@
 
 
 // 这个应该放在最前面
-import { ref, inject, computed, watch, onMounted, onUnmounted, nextTick, onBeforeUnmount, onUpdated, defineEmits } from 'vue'
+import { ref, inject, computed, watch, onMounted, onUnmounted, nextTick, onBeforeUnmount, onUpdated, defineEmits, provide } from 'vue'
 import * as ExcelKey from '@/utils/excelKeyUtils.js'
 
 // 然后是组件导入
@@ -3084,6 +3084,8 @@ const convertToFlatData = async () => {
 }
 
 
+
+
 /**
  * 获取缓存的扁平化数据
  */
@@ -3366,11 +3368,6 @@ const updateExcelContent = () => {
 }
 
 
-
-
-const searchResults = inject('searchResults', [])
-const isSearching = inject('isSearching', ref(false))
-
 const sheetStateUpdateTrigger = ref(0)
 
 const emit = defineEmits([
@@ -3381,6 +3378,193 @@ const emit = defineEmits([
   'toggle-flat-mode',            // 切换扁平化模式
   'restore-unsaved-data'         // 恢复未保存数据
 ])
+
+// 保持现有的注入（不变）
+const searchResults = inject('searchResults', [])
+const isSearching = inject('isSearching', ref(false))
+const handleSearch = inject('handleSearch', null)
+
+console.log('🔍 ThreeColumnPage 接收的搜索结果:', {
+  结果数量: searchResults.value.length,
+  搜索中: isSearching.value,
+  有搜索函数: !!handleSearch
+})
+
+
+// 在 ThreeColumnPage.vue 的 <script setup> 中添加调试代码
+console.log('=== ThreeColumnPage 调试 ===')
+
+
+console.log('注入的搜索结果:', {
+  值: searchResults.value,
+  长度: searchResults.value?.length || 0,
+  类型: typeof searchResults.value,
+  是数组: Array.isArray(searchResults.value)
+})
+
+// 2. 检查搜索状态
+console.log('搜索状态:', isSearching.value)
+
+
+// 4. 检查计算属性
+const displayedPdfs = computed(() => {
+  console.log('计算 displayedPdfs，searchResults:', searchResults.value?.length)
+
+  // 如果有搜索结果，使用搜索结果
+  if (searchResults.value && searchResults.value.length > 0) {
+    console.log('使用搜索结果，数量:', searchResults.value.length)
+    return searchResults.value
+  }
+
+  // 否则使用默认PDF列表
+  console.log('使用默认PDF列表')
+  return pdfList.value || []  // 或者你的默认PDF列表
+})
+
+
+
+
+
+// 🔥🔥 替换为：使用新版后端接口的搜索函数
+const searchPdfFilesCompatible = async (keyword = '') => {
+  try {
+    isSearching.value = true
+    console.log(`🔍🔍 新版本搜索PDF: '${keyword}'`)
+
+    // 🔥🔥 关键修复：使用正确的API路径
+    const apiUrl = `/search-pdf-compatible?keyword=${encodeURIComponent(keyword)}&limit=100`
+
+    console.log('🔗 请求URL:', apiUrl)
+
+    const response = await fetch(getApiUrl(apiUrl))
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    console.log('📥 后端返回:', {
+      文件数: result.files ? result.files.length : 0,
+      总数量: result.count
+    })
+
+    if (result.files) {
+      searchResults.value = result.files
+      console.log(`✅ 新版本搜索完成，找到 ${searchResults.value.length} 个文件`)
+
+      // 调试：打印第一个文件的数据格式
+      if (searchResults.value.length > 0) {
+        console.log('📊 搜索返回的数据格式:', {
+          id: searchResults.value[0].id,
+          file_id: searchResults.value[0].file_id,
+          filename: searchResults.value[0].filename,
+          disk_name: searchResults.value[0].disk_name
+        })
+      }
+    } else {
+      searchResults.value = []
+      console.log('⚠️ 新版本搜索返回空结果')
+    }
+
+  } catch (error) {
+    console.error('❌❌ 新版本搜索失败:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+
+// 添加这行来查找现有的搜索处理函数
+console.log('搜索注入:', {
+  handleSearchInput: inject('handleSearchInput', '未找到'),
+  searchPdfFiles: inject('searchPdfFiles', '未找到'),
+  handleSearch: inject('handleSearch', '未找到')
+})
+
+
+// 🔥🔥 防抖函数（保持不变）
+function debounce(func, wait) {
+  let timeout
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout)
+      func(...args)
+    }
+    clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
+
+// 🔥🔥 修改：创建兼容的搜索处理函数
+const handleSearchInputCompatible = debounce((keyword) => {
+  console.log('🔍 处理搜索输入:', keyword)
+  searchPdfFilesCompatible(keyword)
+}, 300)
+
+
+
+// 搜索版本控制
+const useNewSearch = ref(true) // 默认使用旧版本，可以逐步切换
+
+// 🔥🔥 统一的搜索入口函数
+const unifiedSearchPdfFiles = async (keyword = '') => {
+  if (useNewSearch.value) {
+    // 使用新版本（数据库搜索）
+    await searchPdfFilesCompatible(keyword)
+  } else {
+    // 使用旧版本（保持现有逻辑）
+    // 这里调用现有的搜索函数，保持完全不变
+    console.log('🔍 使用旧版本搜索逻辑')
+    // 现有的搜索逻辑会通过 inject('searchResults') 自动更新
+  }
+}
+
+// 🔥🔥 统一的搜索输入处理
+const handleSearchInputUnified = debounce((keyword) => {
+  unifiedSearchPdfFiles(keyword)
+}, 300)
+
+// 提供统一的搜索函数给子组件
+provide('searchPdfFiles', unifiedSearchPdfFiles)
+provide('handleSearchInput', handleSearchInputUnified)
+
+// 🔥🔥 添加调试函数，用于比较数据格式
+const debugSearchDataFormat = () => {
+  console.group('🔍🔍 搜索数据格式调试')
+
+  if (searchResults.value.length > 0) {
+    const sampleFile = searchResults.value[0]
+    console.log('📊 当前搜索结果的格式:', {
+      '是否有id字段': 'id' in sampleFile,
+      '是否有file_id字段': 'file_id' in sampleFile,
+      '是否有filename字段': 'filename' in sampleFile,
+      '是否有disk_name字段': 'disk_name' in sampleFile,
+      'id值': sampleFile.id,
+      'file_id值': sampleFile.file_id,
+      'filename值': sampleFile.filename,
+      'disk_name值': sampleFile.disk_name,
+      '所有字段': Object.keys(sampleFile)
+    })
+  } else {
+    console.log('📭 搜索结果为空')
+  }
+
+  console.groupEnd()
+}
+
+// 暴露给全局用于调试
+if (typeof window !== 'undefined') {
+  window.debugSearchDataFormat = debugSearchDataFormat
+  window.toggleSearchVersion = () => {
+    useNewSearch.value = !useNewSearch.value
+    console.log(`🔄 切换搜索版本: ${useNewSearch.value ? '新版本(数据库)' : '旧版本'}`)
+    ElMessage.info(`搜索版本: ${useNewSearch.value ? '新版本(数据库)' : '旧版本'}`)
+  }
+}
+
+
 
 // 监听器
 watch(selectedPdf, (newPdf, oldPdf) => {
@@ -3410,6 +3594,61 @@ watch(excelFiles, (newFiles) => {
     totalPages.value = Math.max(maxPage, totalPages.value)
     console.log(`📊 根据sheets计算总页数: ${totalPages.value}`)
   }
+})
+
+
+
+// 调试函数 - 只在控制台使用
+const initSearchDebug = () => {
+  if (typeof window !== 'undefined') {
+    window.debugSearch = {
+      // 切换搜索版本
+      toggleVersion: () => {
+        useNewSearch.value = !useNewSearch.value
+        console.log(`🔄 搜索版本: ${useNewSearch.value ? '新(数据库)' : '旧'}`)
+        return useNewSearch.value
+      },
+
+      // 查看当前状态
+      getStatus: () => {
+        return {
+          useNewSearch: useNewSearch.value,
+          searchResultsCount: searchResults.value.length,
+          isSearching: isSearching.value
+        }
+      },
+
+      // 查看数据格式
+      checkFormat: () => {
+        if (searchResults.value.length > 0) {
+          const sample = searchResults.value[0]
+          return {
+            fields: Object.keys(sample),
+            sample: sample
+          }
+        }
+        return { message: '无搜索结果' }
+      },
+
+      // 测试搜索
+      testSearch: async (keyword = '测试') => {
+        console.log(`🔍 测试搜索: "${keyword}"`)
+        await unifiedSearchPdfFiles(keyword)
+      }
+    }
+
+    console.log('🔧 搜索调试工具已加载')
+    console.log('可用命令:')
+    console.log('  debugSearch.toggleVersion() - 切换搜索版本')
+    console.log('  debugSearch.getStatus() - 查看状态')
+    console.log('  debugSearch.checkFormat() - 检查数据格式')
+    console.log('  debugSearch.testSearch("关键词") - 测试搜索')
+  }
+}
+
+// 在onMounted中初始化调试
+onMounted(() => {
+  initSearchDebug()
 })
 
 

@@ -26,7 +26,7 @@
       <!-- 搜索框 -->
       <div class="search-box">
         <el-input
-          v-model="searchKeyword"
+          v-model="searchState.keyword"
           placeholder="搜索PDF文件名称..."
           clearable
           size="small"
@@ -81,7 +81,7 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { Search, ArrowDown } from '@element-plus/icons-vue'
-import { ref, computed, provide, onMounted, watch } from 'vue'
+import { ref, computed, provide, onMounted, watch, reactive, toRefs } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -92,6 +92,15 @@ const searchKeyword = ref('')
 // 用户信息
 const username = ref('')
 const userRole = ref('')
+
+
+// 使用 reactive 对象包装搜索相关状态
+const searchState = reactive({
+  keyword: '',
+  results: [],
+  isSearching: false
+})
+
 
 // 计算属性
 const isLoggedIn = computed(() => {
@@ -187,7 +196,57 @@ const handleLogout = () => {
 const searchResults = ref([])
 const isSearching = ref(false)
 
+
+// 修改 handleSearch 函数
 const handleSearch = async () => {
+  if (!searchState.keyword.trim()) {
+    searchState.results = []
+    console.log('🔍 搜索关键词为空，清空结果')
+    return
+  }
+
+  console.log(`🔍🔍 App.vue 搜索: '${searchState.keyword}'`)
+  searchState.isSearching = true
+
+  try {
+    const apiUrl = `/search-pdf-compatible?keyword=${encodeURIComponent(searchState.keyword)}&limit=100`
+    console.log('🔗 请求URL:', apiUrl)
+
+    const response = await fetch(getApiUrl(apiUrl))
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    console.log('📥 后端返回:', {
+      文件数: result.files ? result.files.length : 0,
+      总数量: result.count
+    })
+
+    if (result.files) {
+      searchState.results = result.files
+      console.log(`✅ App.vue 搜索完成，找到 ${searchState.results.length} 个文件`)
+    } else {
+      searchState.results = []
+    }
+
+  } catch (error) {
+    console.error('❌❌ App.vue 搜索失败:', error)
+    searchState.results = []
+  } finally {
+    searchState.isSearching = false
+  }
+}
+
+
+// ✅ 只保留这一个 provide
+provide('searchResults', searchResults)
+provide('isSearching', isSearching)
+provide('handleSearch', handleSearch)
+
+const handleSearch111 = async () => {
   if (!searchKeyword.value.trim()) {
     searchResults.value = []
     return

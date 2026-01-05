@@ -1099,7 +1099,7 @@ def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_
     """真实的表格处理函数 - 使用聚合系统"""
     try:
         table_service = TableProcessingService()
-        image_paths = image_paths[:4]
+        # image_paths = image_paths[:4]
 
         total_images = len(image_paths)
         print(f"🔧 开始真实表格处理: {pdf_folder} - {total_images} 张图片")

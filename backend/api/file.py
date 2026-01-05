@@ -8,9 +8,9 @@ from pathlib import Path
 import datetime
 
 # 新增导入
+from backend.models.safe_unified_db import SafeDatabaseManager  # 使用安全的数据库管理器
 from backend.service.file_mapping_service import file_mapping_service
 
-import pandas as pd
 
 file_bp = Blueprint('file', __name__)
 
@@ -1675,4 +1675,314 @@ def save_excel_modifications():
     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
+
+
+
+# 在Python中直接查看数据库内容
+@file_bp.route('/debug-files')
+def debug_files():
+    """调试接口：查看数据库中的实际文件名"""
+    conn = db.connect()
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT id, filename, raw_filename, file_type
+        FROM files 
+        WHERE deleted = 0 AND file_type = 'pdf'
+        LIMIT 10
+    """)
+
+    rows = c.fetchall()
+    conn.close()
+
+    print("📋 数据库中的文件:")
+    for row in rows:
+        print(f"  ID: {row['id']}")
+        print(f"  文件名: {row['filename']}")
+        print(f"  原始名: {row['raw_filename']}")
+        print(f"  类型: {row['file_type']}")
+        print("  ---")
+
+    return jsonify({
+        "files": [dict(row) for row in rows]
+    })
+
+
+
+@file_bp.route('/debug-table-data')
+def debug_table_data():
+    """调试接口：查看表数据"""
+    try:
+        table_name = request.args.get('table', 'table_processing_records')
+        limit = request.args.get('limit', 10, type=int)
+
+        db_manager = SafeDatabaseManager()
+        db_manager._connect()
+
+        # 获取表数据
+        db_manager.cursor.execute(f"SELECT * FROM {table_name} LIMIT ?", (limit,))
+        rows = db_manager.cursor.fetchall()
+
+        # 获取表结构
+        db_manager.cursor.execute(f"PRAGMA table_info({table_name})")
+        columns = [dict(row) for row in db_manager.cursor.fetchall()]
+
+        db_manager._close()
+
+        return jsonify({
+            "table": table_name,
+            "columns": columns,
+            "data": [dict(row) for row in rows],
+            "count": len(rows)
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@file_bp.route('/debug-search-query')
+def debug_search_query():
+    """调试搜索查询"""
+    try:
+        keyword = request.args.get('keyword', '建设银行')
+
+        db_manager = SafeDatabaseManager()
+        db_manager._connect()
+
+        # 执行搜索查询
+        query = """
+            SELECT * FROM table_processing_records 
+            WHERE bank_name LIKE ? OR pdf_folder LIKE ? 
+            ORDER BY created_at DESC LIMIT 10
+        """
+        params = (f'%{keyword}%', f'%{keyword}%')
+
+        print(f"🔍🔍 调试搜索查询:")
+        print(f"SQL: {query}")
+        print(f"参数: {params}")
+
+        db_manager.cursor.execute(query, params)
+        rows = db_manager.cursor.fetchall()
+
+        db_manager._close()
+
+        return jsonify({
+            "query": query,
+            "params": params,
+            "results": [dict(row) for row in rows],
+            "count": len(rows)
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+
+@file_bp.route('/debug-search-complete')
+def debug_search_complete():
+    """完整调试搜索流程"""
+    try:
+        keyword = request.args.get('keyword', '建设银行')
+
+        print(f"🔍🔍 完整调试搜索流程: 关键词='{keyword}'")
+
+        # 1. 直接执行SQL查询
+        db_manager = SafeDatabaseManager()
+        db_manager._connect()
+
+        query = "SELECT * FROM table_processing_records WHERE bank_name LIKE ? LIMIT 5"
+        params = (f'%{keyword}%',)
+
+        db_manager.cursor.execute(query, params)
+        rows = db_manager.cursor.fetchall()
+
+        print(f"  📊 直接SQL查询结果: {len(rows)} 条")
+
+        # 2. 转换为字典
+        dict_results = []
+        for i, row in enumerate(rows):
+            row_dict = dict(row)
+            dict_results.append(row_dict)
+            print(f"    第{i + 1}条: {row_dict.get('bank_name', '无银行名')}")
+
+        db_manager._close()
+
+        # 3. 测试SafeDatabaseManager方法
+        manager_results = db_manager.search_pdf_files(keyword, 5)
+        print(f"  📊 SafeDatabaseManager结果: {len(manager_results)} 条")
+
+        return jsonify({
+            "direct_sql_count": len(rows),
+            "direct_sql_results": dict_results,
+            "manager_results_count": len(manager_results),
+            "manager_results_sample": manager_results[:2] if manager_results else []
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+@file_bp.route('/test-simple-search')
+def test_simple_search():
+    """最简单的测试接口 - 硬编码返回数据"""
+    print("🔥🔥 最简单的测试接口被调用")
+
+    # 硬编码返回测试数据
+    test_data = [
+        {
+            "id": "test-id-1",
+            "file_id": "test-file-1",
+            "disk_name": "test.pdf",
+            "file_type": "pdf",
+            "filename": "建设银行测试文件1.pdf",
+            "name": "建设银行测试文件1.pdf",
+            "matchType": "硬编码测试",
+            "status": "test",
+            "created_at": "2024-01-01 00:00:00"
+        },
+        {
+            "id": "test-id-2",
+            "file_id": "test-file-2",
+            "disk_name": "test2.pdf",
+            "file_type": "pdf",
+            "filename": "中国建设银行报告.pdf",
+            "name": "中国建设银行报告.pdf",
+            "matchType": "硬编码测试",
+            "status": "test",
+            "created_at": "2024-01-01 00:00:00"
+        }
+    ]
+
+    print(f"✅ 返回 {len(test_data)} 条测试数据")
+    return jsonify({
+        "files": test_data,
+        "count": len(test_data)
+    })
+
+
+@file_bp.route('/search-pdf-compatible1')
+def search_pdf_compatible1():
+    """搜索PDF文件 - 带完整调试信息"""
+    import traceback
+
+    print("\n" + "=" * 60)
+    print("🔥🔥🔥 /api/search-pdf-compatible 被调用")
+    print("=" * 60)
+
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        limit = request.args.get('limit', 100, type=int)
+
+        print(f"🔍 参数: keyword='{keyword}', limit={limit}")
+        print(f"🔍 完整URL: {request.url}")
+
+        # 🔥 1. 先硬编码返回测试数据
+        print("🧪 阶段1: 硬编码测试数据")
+        test_data = {
+            "files": [
+                {
+                    "id": "hardcoded-test-1",
+                    "file_id": "hardcoded-1",
+                    "disk_name": "hardcoded.pdf",
+                    "file_type": "pdf",
+                    "filename": "硬编码测试文件.pdf",
+                    "name": "硬编码测试文件.pdf",
+                    "matchType": "硬编码测试"
+                }
+            ],
+            "count": 1
+        }
+
+        print("✅ 硬编码数据:", test_data)
+        return jsonify(test_data)
+
+    except Exception as e:
+        print(f"❌❌❌ 严重错误: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "files": [],
+            "count": 0,
+            "error": str(e)
+        })
+
+print("🔥🔥🔥🔥🔥 file.py 文件被加载了！")
+
+
+@file_bp.route('/search-pdf-compatible-test')
+def search_pdf_compatible_test():
+    """测试函数 - 验证路由是否工作"""
+    print("🔥🔥🔥🔥🔥 search_pdf_compatible_test 函数被调用了！")
+
+    return jsonify({
+        "message": "测试函数正常工作",
+        "count": 1
+    })
+
+
+@file_bp.route('/search-pdf-compatible')
+def search_pdf_compatible():
+    """搜索PDF文件 - 实际搜索数据库版本"""
+    print("🔥🔥🔥🔥🔥 search_pdf_compatible 函数被调用了！")
+
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        limit = request.args.get('limit', 100, type=int)
+
+        print(f"🔍 搜索关键词: '{keyword}'")
+
+        # 连接数据库
+        db_manager = SafeDatabaseManager()
+
+        # 使用 search_pdf_files 方法
+        results = db_manager.search_pdf_files(keyword, limit)
+
+        print(f"📊 数据库返回 {len(results)} 条结果")
+
+        if not results:
+            return jsonify({
+                "files": [],
+                "count": 0
+            })
+
+        # 转换为前端需要的格式
+        files = []
+        for row in results:
+            # 确保 row 是字典
+            if not isinstance(row, dict):
+                row = dict(row)
+
+            # 构建文件信息
+            file_info = {
+                "id": str(row.get("id", "")),
+                "file_id": str(row.get("id", "")),  # 重复id字段确保兼容
+                "disk_name": row.get("pdf_folder", ""),
+                "file_type": "pdf",
+                "filename": row.get("bank_name", "未知银行"),
+                "name": row.get("bank_name", "未知银行"),
+                "matchType": "数据库匹配",
+                "status": row.get("status", ""),
+                "created_at": row.get("created_at", ""),
+                "raw_filename": row.get("bank_name", "未知银行"),
+            }
+
+            files.append(file_info)
+
+        print(f"✅ 转换完成，返回 {len(files)} 个文件")
+
+        return jsonify({
+            "files": files,
+            "count": len(files)
+        })
+
+    except Exception as e:
+        print(f"❌❌ 搜索失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # 出错时返回空数组
+        return jsonify({
+            "files": [],
+            "count": 0
+        })
+
 

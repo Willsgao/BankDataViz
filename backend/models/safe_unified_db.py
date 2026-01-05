@@ -290,3 +290,59 @@ class SafeDatabaseManager:
         except Exception as e:
             print(f"[SafeDatabaseManager] ❌ 获取数据库信息失败: {e}")
             return {}
+
+    def search_pdf_files(self, keyword: str = '', limit: int = 100) -> List[Dict]:
+        """搜索PDF文件 - 修复版本"""
+        try:
+            print(f"🔍🔍 search_pdf_files 被调用: 关键词='{keyword}'")
+
+            self._connect()
+
+            # 检查表是否存在
+            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='table_processing_records'")
+            table_exists = self.cursor.fetchone() is not None
+
+            if not table_exists:
+                print("❌❌ 表不存在")
+                return []
+
+            if keyword:
+                query = """
+                    SELECT * FROM table_processing_records 
+                    WHERE bank_name LIKE ? OR pdf_folder LIKE ? 
+                    ORDER BY created_at DESC LIMIT ?
+                """
+                params = (f'%{keyword}%', f'%{keyword}%', limit)
+            else:
+                query = "SELECT * FROM table_processing_records ORDER BY created_at DESC LIMIT ?"
+                params = (limit,)
+
+            print(f"  SQL: {query}")
+            self.cursor.execute(query, params)
+            rows = self.cursor.fetchall()
+
+            print(f"  📊 数据库返回 {len(rows)} 行数据")
+
+            # 🔥🔥 关键修复：正确处理sqlite3.Row对象
+            results = []
+            for row in rows:
+                # 将Row对象转换为普通字典
+                row_dict = dict(row)
+                results.append(row_dict)
+
+            # 打印调试信息
+            if results:
+                print(f"  ✅ 第一条结果键: {list(results[0].keys())}")
+                print(f"  ✅ 第一条结果值: {results[0]}")
+            else:
+                print("  ⚠️ 无结果")
+
+            return results
+
+        except Exception as e:
+            print(f"❌❌ search_pdf_files 错误: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+        finally:
+            self._close()
