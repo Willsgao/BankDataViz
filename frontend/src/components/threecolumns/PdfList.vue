@@ -23,13 +23,13 @@
     <div v-else class="pdf-items">
       <div
         v-for="pdf in searchResults"
-        :key="pdf.id || pdf.name"
+        :key="pdf.id || pdf.filename"
         class="pdf-item"
         :class="{ 'active': selectedPdf && selectedPdf.id === pdf.id }"
         @click="$emit('select-pdf', pdf)"
       >
         <el-icon><Document /></el-icon>
-        <span class="pdf-name">{{ pdf.name }}</span>
+        <span class="pdf-name">{{ pdf.filename }}</span>
         <el-tag v-if="pdf.matchType" size="small" type="success">
           {{ pdf.matchType }}
         </el-tag>
@@ -38,10 +38,14 @@
   </div>
 </template>
 
+
+
 <script setup>
+import { defineProps, onMounted, watch } from 'vue'
 import { Close, Loading, Document } from '@element-plus/icons-vue'
 
-defineProps({
+// 🔥 正确：先定义 props
+const props = defineProps({
   searchResults: {
     type: Array,
     default: () => []
@@ -58,7 +62,23 @@ defineProps({
 })
 
 defineEmits(['toggle-middle', 'select-pdf'])
+
+// 调试代码 - 现在可以正确使用 props
+onMounted(() => {
+  console.log('🔍 PdfList 组件挂载')
+  console.log('初始 searchResults:', props.searchResults)
+})
+
+watch(() => props.searchResults, (newVal) => {
+  console.log('🔍 PdfList 接收到搜索结果:', newVal)
+  if (newVal && newVal.length > 0) {
+    console.log('🔍 第一个PDF的字段:', Object.keys(newVal[0]))
+    console.log('🔍 第一个PDF的数据:', newVal[0])
+  }
+}, { immediate: true })
+
 </script>
+
 
 <style scoped>
 .pdf-list {

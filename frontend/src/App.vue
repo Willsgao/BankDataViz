@@ -220,6 +220,11 @@ const handleSearch = async () => {
 
     const result = await response.json()
 
+    // 🔥🔥🔥 添加这两行调试代码
+    console.log('📥📥📥 后端返回完整数据:', result)
+    console.log('📊 files数组内容:', result.files)
+    // 🔥🔥🔥 到这里为止
+
     console.log('📥 后端返回:', {
       文件数: result.files ? result.files.length : 0,
       总数量: result.count
@@ -228,6 +233,11 @@ const handleSearch = async () => {
     if (result.files) {
       searchState.results = result.files
       console.log(`✅ App.vue 搜索完成，找到 ${searchState.results.length} 个文件`)
+
+      // 🔥 添加这行：检查第一个文件
+      if (searchState.results.length > 0) {
+        console.log('📊 第一个文件数据:', searchState.results[0])
+      }
     } else {
       searchState.results = []
     }
@@ -237,14 +247,24 @@ const handleSearch = async () => {
     searchState.results = []
   } finally {
     searchState.isSearching = false
+
+    // 🔥🔥🔥 在这里添加你的调试代码
+    console.log('🔍 App.vue 搜索完成，检查数据传递:')
+    console.log('searchState.results:', searchState.results)
+    console.log('searchState.results 长度:', searchState.results.length)
   }
 }
 
 
 // ✅ 只保留这一个 provide
-provide('searchResults', searchResults)
-provide('isSearching', isSearching)
+provide('searchResults', searchState.results)  // 🔥 改成 searchState.results
+provide('isSearching', searchState.isSearching)  // 🔥 改成 searchState.isSearching
 provide('handleSearch', handleSearch)
+
+// 在 provide 语句后添加：
+console.log('🔍 App.vue 提供给子组件的数据:')
+console.log('searchResults:', searchState.results)
+console.log('isSearching:', searchState.isSearching)
 
 const handleSearch111 = async () => {
   if (!searchKeyword.value.trim()) {
@@ -273,11 +293,6 @@ const handleSearchClear = () => {
   searchResults.value = []
 }
 
-// 提供给子组件使用
-provide('searchResults', searchResults)
-provide('isSearching', isSearching)
-provide('handleSearch', handleSearch)
-provide('userRole', userRole)
 
 // 监听localStorage变化（用于跨标签页同步）
 window.addEventListener('storage', (e) => {

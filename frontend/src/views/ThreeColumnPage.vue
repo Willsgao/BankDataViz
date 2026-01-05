@@ -238,6 +238,24 @@ if (typeof window !== 'undefined') {
   }, 100)
 }
 
+
+const localSearchResults = ref([])
+// 添加全局调试函数
+// 修改为：
+if (typeof window !== 'undefined') {
+  window.debugTP = () => {
+    console.log('🔍 ThreeColumnPage 调试:')
+    console.log('注入的 searchResults:', searchResults.value)
+    console.log('searchResults 长度:', searchResults.value.length)
+    console.log('本地的 localSearchResults:', localSearchResults.value)
+
+    if (searchResults.value.length > 0) {
+      console.log('第一个文件:', searchResults.value[0])
+      console.log('filename字段:', searchResults.value[0].filename)
+    }
+  }
+}
+
 const actualHasUnsavedChanges = computed(() => {
   // 🔥 强制依赖响应式变量
   forceUpdateFlag.value
@@ -3379,31 +3397,19 @@ const emit = defineEmits([
   'restore-unsaved-data'         // 恢复未保存数据
 ])
 
-// 保持现有的注入（不变）
-const searchResults = inject('searchResults', [])
+
+// 修改为：
+const searchResults = inject('searchResults', ref([]))
 const isSearching = inject('isSearching', ref(false))
 const handleSearch = inject('handleSearch', null)
 
+// 安全访问
 console.log('🔍 ThreeColumnPage 接收的搜索结果:', {
-  结果数量: searchResults.value.length,
+  结果数量: searchResults?.value?.length || 0,    // ✅ 安全访问
   搜索中: isSearching.value,
   有搜索函数: !!handleSearch
 })
 
-
-// 在 ThreeColumnPage.vue 的 <script setup> 中添加调试代码
-console.log('=== ThreeColumnPage 调试 ===')
-
-
-console.log('注入的搜索结果:', {
-  值: searchResults.value,
-  长度: searchResults.value?.length || 0,
-  类型: typeof searchResults.value,
-  是数组: Array.isArray(searchResults.value)
-})
-
-// 2. 检查搜索状态
-console.log('搜索状态:', isSearching.value)
 
 
 // 4. 检查计算属性
@@ -3422,11 +3428,53 @@ const displayedPdfs = computed(() => {
 })
 
 
-
-
-
-// 🔥🔥 替换为：使用新版后端接口的搜索函数
 const searchPdfFilesCompatible = async (keyword = '') => {
+  try {
+    isSearching.value = true
+    console.log(`🔍 搜索PDF: '${keyword}'`)
+
+    const apiUrl = `/search-pdf-compatible?keyword=${encodeURIComponent(keyword)}&limit=100`
+    const response = await fetch(getApiUrl(apiUrl))
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+    const result = await response.json()
+    console.log('📥 后端返回完整数据:', result)
+
+    if (result.files && Array.isArray(result.files)) {
+      searchResults.value = result.files
+
+      // 🔥 详细调试信息
+      console.log('🔍🔍🔍 搜索完成，详细数据检查:')
+      console.log('数据长度:', searchResults.value.length)
+
+      if (searchResults.value.length > 0) {
+        const firstPdf = searchResults.value[0]
+        console.log('📊 第一个PDF的所有字段:', Object.keys(firstPdf))
+        console.log('📊 第一个PDF完整数据:', firstPdf)
+
+        // 检查所有可能的文件名字段
+        console.log('🔤 文件名字段检查:')
+        console.log('- filename:', firstPdf.filename)
+        console.log('- name:', firstPdf.name)
+        console.log('- raw_filename:', firstPdf.raw_filename)
+        console.log('- bank_name:', firstPdf.bank_name)
+        console.log('- original_name:', firstPdf.original_name)
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ 搜索失败:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+
+
+
+const searchPdfFilesCompatible111 = async (keyword = '') => {
   try {
     isSearching.value = true
     console.log(`🔍🔍 新版本搜索PDF: '${keyword}'`)
@@ -3475,13 +3523,6 @@ const searchPdfFilesCompatible = async (keyword = '') => {
   }
 }
 
-
-// 添加这行来查找现有的搜索处理函数
-console.log('搜索注入:', {
-  handleSearchInput: inject('handleSearchInput', '未找到'),
-  searchPdfFiles: inject('searchPdfFiles', '未找到'),
-  handleSearch: inject('handleSearch', '未找到')
-})
 
 
 // 🔥🔥 防抖函数（保持不变）
@@ -3598,60 +3639,6 @@ watch(excelFiles, (newFiles) => {
 
 
 
-// 调试函数 - 只在控制台使用
-const initSearchDebug = () => {
-  if (typeof window !== 'undefined') {
-    window.debugSearch = {
-      // 切换搜索版本
-      toggleVersion: () => {
-        useNewSearch.value = !useNewSearch.value
-        console.log(`🔄 搜索版本: ${useNewSearch.value ? '新(数据库)' : '旧'}`)
-        return useNewSearch.value
-      },
-
-      // 查看当前状态
-      getStatus: () => {
-        return {
-          useNewSearch: useNewSearch.value,
-          searchResultsCount: searchResults.value.length,
-          isSearching: isSearching.value
-        }
-      },
-
-      // 查看数据格式
-      checkFormat: () => {
-        if (searchResults.value.length > 0) {
-          const sample = searchResults.value[0]
-          return {
-            fields: Object.keys(sample),
-            sample: sample
-          }
-        }
-        return { message: '无搜索结果' }
-      },
-
-      // 测试搜索
-      testSearch: async (keyword = '测试') => {
-        console.log(`🔍 测试搜索: "${keyword}"`)
-        await unifiedSearchPdfFiles(keyword)
-      }
-    }
-
-    console.log('🔧 搜索调试工具已加载')
-    console.log('可用命令:')
-    console.log('  debugSearch.toggleVersion() - 切换搜索版本')
-    console.log('  debugSearch.getStatus() - 查看状态')
-    console.log('  debugSearch.checkFormat() - 检查数据格式')
-    console.log('  debugSearch.testSearch("关键词") - 测试搜索')
-  }
-}
-
-// 在onMounted中初始化调试
-onMounted(() => {
-  initSearchDebug()
-})
-
-
 
 
 // 监听1：未保存单元格变化
@@ -3759,6 +3746,15 @@ const checkExcelContentProps = () => {
 }
 
 
+
+// 在 ThreeColumnPage.vue 的 setup 中添加
+watch(searchResults, (newVal) => {
+  console.log('🔍 ThreeColumnPage searchResults 变化:', newVal)
+  console.log('数据长度:', newVal.length)
+  if (newVal.length > 0) {
+    console.log('第一个文件:', newVal[0])
+  }
+}, { immediate: true, deep: true })
 
 
 // ============ 新添加的监听器 ============
@@ -4127,6 +4123,25 @@ if (typeof window !== 'undefined') {
   console.log('✅ testCellChange 函数已暴露到全局')
 }
 
+
+
+// 在 ThreeColumnPage.vue 中添加全局调试函数
+if (typeof window !== 'undefined') {
+  window.debugSearchResults = () => {
+    console.log('🔍 全局调试搜索数据:')
+    console.log('searchResults:', searchResults.value)
+    console.log('searchResults 长度:', searchResults.value.length)
+
+    if (searchResults.value.length > 0) {
+      const firstPdf = searchResults.value[0]
+      console.log('第一个PDF的字段:', Object.keys(firstPdf))
+      console.log('第一个PDF的数据:', firstPdf)
+      console.log('filename字段:', firstPdf.filename)
+      console.log('name字段:', firstPdf.name)
+      console.log('raw_filename字段:', firstPdf.raw_filename)
+    }
+  }
+}
 
 
 </script>

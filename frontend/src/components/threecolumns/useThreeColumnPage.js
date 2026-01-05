@@ -8,7 +8,7 @@ import { getApiUrl, getBackendUrl } from '@/utils/config'
  */
 export function useThreeColumnPage() {
   // 注入的搜索数据
-  const searchResults = inject('searchResults', [])
+  const searchResults = inject('searchResults', ref([]))
   const isSearching = inject('isSearching', ref(false))
 
   // 主要状态
@@ -29,7 +29,7 @@ export function useThreeColumnPage() {
   const globalModifiedCount = ref(0)
 
   // 计算属性
-  const filteredPdfCount = computed(() => searchResults.value.length)
+  const filteredPdfCount = computed(() => searchResults?.value?.length || 0)  // ✅ 安全访问
   const tableCount = computed(() => {
     return excelFiles.value.reduce((total, file) => total + file.sheets.length, 0)
   })

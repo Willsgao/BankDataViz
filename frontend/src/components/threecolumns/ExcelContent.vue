@@ -641,20 +641,24 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
 }, { immediate: true })
 
 
-watch(() => selectedSheet.value, (newSheet) => {
+// 正确的写法：
+watch(() => props.selectedSheet, (newSheet) => {  // ✅ 使用 props.selectedSheet
   console.log('🔍 ExcelContent: selectedSheet 变化', newSheet?.name)
 
   // 🔥 检查是否有扁平化数据
   setTimeout(() => {
-    if (flatData.value && flatData.value.length > 0) {
+    if (props.flatData && props.flatData.length > 0) {  // ✅ 使用 props.flatData
       // 有扁平化数据，确保显示扁平化模式
-      if (!showFlatMode.value) {
-        showFlatMode.value = true
+      if (!props.showFlatMode) {  // ✅ 使用 props.showFlatMode
+        // 这里需要触发父组件切换模式
+        emit('toggle-flat-mode')
         console.log('🔄 ExcelContent: 强制切换到扁平化模式')
       }
     }
   }, 200)
 }, { deep: true })
+
+
 
 /* ===== 最小全局源：只告诉按钮“有没有” ===== */
 const hasMod = computed(() => props.hasUnsavedChanges)   // 父组件给的 props
