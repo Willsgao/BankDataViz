@@ -378,7 +378,7 @@ export const normalizeChange = (change) => {
 }
 
 
-export const rebuildTwoDimensionalTable = (inputData) => {
+export const rebuildTwoDimensionalTable222 = (inputData) => {
   if (!inputData || inputData.length === 0) {
     console.error('❌❌❌ 数据为空，无法重建')
     return []
@@ -481,6 +481,80 @@ export const rebuildTwoDimensionalTable = (inputData) => {
     return []
   }
 }
+
+
+export const rebuildTwoDimensionalTable = (inputData) => {
+  if (!inputData || inputData.length === 0) {
+    console.log('⚠️ 输入数据为空')
+    return []
+  }
+
+  console.log('🔧 开始重建二维表格...')
+  console.log('输入数据:', inputData)
+  console.log('输入类型:', typeof inputData)
+  console.log('输入长度:', inputData.length)
+  console.log('第一个元素:', inputData[0])
+  console.log('第一个元素类型:', typeof inputData[0])
+
+  // 情况1：已经是二维数组
+  if (Array.isArray(inputData) && Array.isArray(inputData[0])) {
+    console.log('✅ 输入已经是二维数组，直接返回')
+    return inputData
+  }
+
+  // 情况2：对象数组
+  if (Array.isArray(inputData) && typeof inputData[0] === 'object' && !Array.isArray(inputData[0])) {
+    console.log('🔄 对象数组转换为二维数组')
+
+    try {
+      const twoDArray = []
+      const allKeys = new Set()
+
+      // 收集所有可能的键
+      inputData.forEach(item => {
+        if (item && typeof item === 'object') {
+          Object.keys(item).forEach(key => {
+            allKeys.add(key)
+          })
+        }
+      })
+
+      const keys = Array.from(allKeys)
+      console.log('🔍 发现列:', keys)
+
+      // 添加表头行
+      twoDArray.push(keys)
+
+      // 添加数据行
+      inputData.forEach(item => {
+        const row = keys.map(key => item[key] !== undefined ? item[key] : '')
+        twoDArray.push(row)
+      })
+
+      console.log('✅ 转换完成:', {
+        行数: twoDArray.length,
+        列数: twoDArray[0]?.length || 0
+      })
+
+      return twoDArray
+
+    } catch (error) {
+      console.error('❌ 对象数组转换失败:', error)
+      return []
+    }
+  }
+
+  // 情况3：一维数组
+  if (Array.isArray(inputData) && !Array.isArray(inputData[0])) {
+    console.log('🔄 一维数组转换为二维数组')
+    return [inputData]
+  }
+
+  // 情况4：未知格式
+  console.error('❌ 无法识别的输入格式:', typeof inputData)
+  return []
+}
+
 
 // 🔥 新增：单表头结构处理函数
 const rebuildSingleHeaderTable = (singleHeaderData) => {

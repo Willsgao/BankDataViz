@@ -15,95 +15,22 @@ export function useSheetOperations(generateTableColumns) {
   const currentPage = ref(1)
   const totalPages = ref(0)
 
-  /**
-     * 选择Sheet并加载数据
-     * 1. 优先读本地草稿；存在则直接用，不再请求接口
-     * 2. 无草稿才走原流程：fetch → 缓存 → 状态管理器
-     */
-    const selectSheet11 = async (
-      sheet,
-      excelFileName,
-      selectedPdf,
-      selectedSheetRef,
-      selectedExcelFileRef,
-      sheetStateManager,
-      excelDataRef,
-      tableColumnsRef,
-      flatDataRef,
-      showFlatModeRef,
-      currentTableModeRef,
-      loadExcelDataFn,
-      loadAllClassDataFn
-    ) => {
-      console.log('🔄 选择sheet:', {
-        sheet名称: sheet.name,
-        excel文件: excelFileName,
-        当前PDF: selectedPdf?.id
-      })
 
-      /* ---------- 1. 重置状态 ---------- */
-      selectedSheetRef.value = { ...sheet, excel_file: excelFileName }
-      selectedExcelFileRef.value = excelFileName
-      currentTableModeRef.value = 'original'
-      window.currentTableMode = 'original'
-      showFlatModeRef.value = false
-      flatDataRef.value = []
-
-      /* ---------- 2. 状态管理器上下文 ---------- */
-      if (!selectedPdf) {
-        console.error('❌ 无法设置上下文：没有选中的PDF')
-        ElMessage.error('请先选择PDF文件')
-        return
+  // 检查扁平化缓存的辅助函数
+    const checkFlattenedCache = (pdfId, excelFile, sheetName) => {
+      if (!pdfId || !excelFile || !sheetName) {
+        return false
       }
-      sheetStateManager.setActiveContext(
-        selectedPdf.id,
-        excelFileName,
-        sheet.name,
-        'original'
-      )
-
-      /* ---------- 3. 优先读本地草稿 ---------- */
-      const draftKey = `excel_draft_${selectedPdf.id}_${excelFileName}_${sheet.name}_original`
-      const draftRaw = localStorage.getItem(draftKey)
-      if (draftRaw) {
-        try {
-          const draft = JSON.parse(draftRaw)
-          if (draft.data && Array.isArray(draft.data)) {
-            console.log('📦 发现本地草稿', new Date(draft.timestamp).toLocaleTimeString())
-            // 直接用草稿数据
-            excelDataRef.value = draft.data
-            tableColumnsRef.value = generateTableColumns(draft.data)
-            sheetStateManager.setData('original', draft.data)
-            // 把修改记录还原（可选）
-            if (draft.modifications?.length) {
-              draft.modifications.forEach(m =>
-                sheetStateManager.recordCellChange(m.row, m.col, m.oldValue, m.newValue, 'original')
-              )
-            }
-            ElMessage.success('已恢复本地草稿')
-            return // ⚠️ 提前结束，不再请求接口
-          }
-        } catch (e) {
-          console.warn('⚠️ 草稿解析失败，回退到接口', e)
-        }
-      }
-
-      /* ---------- 4. 无草稿 → 正常加载 ---------- */
-      loadingExcel.value = true
       try {
-        if (sheet.name === '目录') {
-          await loadAllClassDataFn(excelFileName)
-        } else {
-          await loadExcelDataFn(sheet.name, excelFileName)
+        // 从缓存系统中检查
+        if (window.excelDataCache && typeof window.excelDataCache.getFlattenedData === 'function') {
+          const cache = window.excelDataCache.getFlattenedData(pdfId, excelFile, sheetName)
+          return !!(cache && cache.length > 0)
         }
-        // 此时 excelDataRef 已被 loadExcelDataFn 填充
-        sheetStateManager.setData('original', excelDataRef.value)
-      } catch (err) {
-        console.error('❌ 加载失败', err)
-        ElMessage.error(err.message)
-        excelDataRef.value = []
-      } finally {
-        loadingExcel.value = false
+        return false
+      } catch (error) {
+        console.warn('检查扁平化缓存失败:', error)
+        return false
       }
     }
 
@@ -158,7 +85,7 @@ export function useSheetOperations(generateTableColumns) {
 
         // 🔥 安全设置 currentTableModeRef
         if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
-          currentTableModeRef.value = 'original'
+          //currentTableModeRef.value = 'original'
           console.log('✅ currentTableModeRef 设置为: original')
         } else {
           console.warn('⚠️ currentTableModeRef 不可用，跳过设置')
@@ -170,8 +97,6 @@ export function useSheetOperations(generateTableColumns) {
           console.log('✅ window.currentTableMode 设置为: original')
         }
 
-//        showFlatModeRef.value = false
-//        flatDataRef.value = []
 
         console.log('✅ 状态重置完成')
 
@@ -222,15 +147,64 @@ export function useSheetOperations(generateTableColumns) {
 
         try {
           if (sheet.name === '目录') {
-            console.log('📁 加载目录数据...')
-            await loadAllClassDataFn(excelFileName)
-          } else {
-            console.log('📊 加载普通表格数据...')
-            await loadExcelDataFn(sheet.name, excelFileName)
-          }
+              console.log('📁 加载目录数据...')
+              await loadAllClassDataFn(excelFileName)
+            } else {
+              console.log('📊 加载普通表格数据...')
+
+              // 🔥 先检查是否有扁平化缓存
+              const hasFlattenedCache = window.excelDataCache?.hasFlattenedData?.(selectedPdf.id, excelFileName, sheet.name)
+              console.log(`📊 扁平化缓存检查: ${hasFlattenedCache ? '有' : '无'}`)
+
+
+              if (hasFlattenedCache) {
+                  // 有缓存，加载扁平化数据
+                  console.log('🎯 加载扁平化数据')
+                  await loadExcelDataFn(sheet.name, excelFileName, 'flattened')
+
+                  // 设置扁平化模式
+                  if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
+                    currentTableModeRef.value = 'flattened'
+                  }
+
+                  // 立即激活扁平化模式
+                  showFlatModeRef.value = true
+                  console.log('✅ 立即激活扁平化模式（有缓存）')
+
+                } else {
+                  // 无缓存，但尝试加载扁平化数据
+                  console.log('🎯 尝试加载扁平化数据')
+                  await loadExcelDataFn(sheet.name, excelFileName, 'flattened')
+
+                  // 检查是否成功加载到扁平化数据
+                  if (flatDataRef.value && flatDataRef.value.length > 0) {
+                    // 成功加载到扁平化数据
+                    if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
+                      currentTableModeRef.value = 'flattened'
+                    }
+                    showFlatModeRef.value = true
+                    console.log('✅ 成功加载扁平化数据，激活扁平化模式')
+                  } else {
+                    // 没有扁平化数据，加载原始数据
+                    console.log('🔄 无扁平化数据，加载原始数据')
+                    await loadExcelDataFn(sheet.name, excelFileName, 'original')
+
+                    if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
+                      currentTableModeRef.value = 'original'
+                    }
+                    showFlatModeRef.value = false
+                    console.log('✅ 设置为原始模式')
+                  }
+                }
+
+
+
+            }
 
           // 此时 excelDataRef 已被 loadExcelDataFn 填充
           sheetStateManager.setData('original', excelDataRef.value)
+          // 🔥 根据当前模式设置数据
+
           console.log('✅ 数据加载完成，数据长度:', excelDataRef.value?.length || 0)
 
         } catch (err) {
@@ -244,6 +218,21 @@ export function useSheetOperations(generateTableColumns) {
         }
 
         console.log('✅✅✅ selectSheet 完成')
+
+        // 🔥🔥🔥 关键修复：检查是否有扁平化数据并激活扁平化模式
+        setTimeout(() => {
+          if (flatDataRef.value && flatDataRef.value.length > 0) {
+            // 有扁平化数据，激活扁平化模式
+            showFlatModeRef.value = true
+            console.log('🔄 自动激活扁平化模式（检测到扁平化数据）')
+          } else {
+            // 没有扁平化数据，使用原始模式
+            showFlatModeRef.value = false
+            console.log('🔄 设置为原始模式')
+          }
+        }, 100)
+
+
         return { success: true, source: 'api' }
 
       } catch (error) {

@@ -19,6 +19,7 @@
               :disabled="!props.selectedSheet || excelData.length === 0"
               @click="$emit('toggle-flat-mode')"
               :loading="loadingFlat"
+              :key="`flat-button-${showFlatMode}`"
             >
               <el-icon><DataAnalysis /></el-icon>
               {{ showFlatMode ? '二维化' : '扁平化' }}
@@ -639,6 +640,21 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
   forceRefreshKey.value++
 }, { immediate: true })
 
+
+watch(() => selectedSheet.value, (newSheet) => {
+  console.log('🔍 ExcelContent: selectedSheet 变化', newSheet?.name)
+
+  // 🔥 检查是否有扁平化数据
+  setTimeout(() => {
+    if (flatData.value && flatData.value.length > 0) {
+      // 有扁平化数据，确保显示扁平化模式
+      if (!showFlatMode.value) {
+        showFlatMode.value = true
+        console.log('🔄 ExcelContent: 强制切换到扁平化模式')
+      }
+    }
+  }, 200)
+}, { deep: true })
 
 /* ===== 最小全局源：只告诉按钮“有没有” ===== */
 const hasMod = computed(() => props.hasUnsavedChanges)   // 父组件给的 props

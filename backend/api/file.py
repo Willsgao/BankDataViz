@@ -424,10 +424,6 @@ def get_excel_sheets(file_id):
                 })
                 continue
 
-
-        print("&&&&&&&&&&&file_info&&&&&&&&&&&")
-        print(file_info)
-
         return jsonify({
             "excel_files": result,
             "pdf_id": file_id,
@@ -453,7 +449,6 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
         print(f"📋 请求参数: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
 
         # 1. 构建Excel文件路径
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
         excel_path = excel_dir / excel_file_name
 
@@ -569,8 +564,8 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
         print(f"   - 总列数: {len(horizontal_headers)}")
         print(f"   - 数据样本: {frontend_data[:2]}")
 
-        # 5. 返回给前端
-        return jsonify({
+
+        result = {
             "rows": frontend_data,
             "total_rows": len(frontend_data),
             "total_columns": len(horizontal_headers),
@@ -579,7 +574,13 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
             "pdf_id": file_id,
             "has_dual_headers": True,
             "source": "excel_file"  # 标记数据来源为Excel文件
-        })
+        }
+
+        print("++++++++++++++++result+++++++++++++++++++")
+        print(result)
+
+        # 5. 返回给前端
+        return jsonify(result)
 
     except Exception as e:
         print(f"❌ 处理Excel数据请求失败: {e}")
@@ -649,7 +650,7 @@ def save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_t
 
     try:
         # 1. 获取Excel文件路径
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+        
 
         from pathlib import Path
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
@@ -742,7 +743,7 @@ def save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_
     print("📊 保存扁平化表格数据（保护其他Sheet）...")
 
     try:
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+        
 
         from pathlib import Path
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
@@ -866,7 +867,7 @@ def save_with_modifications(pdf_id, excel_file, sheet_name, modifications, table
 
     try:
         # 1. 获取Excel文件路径
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+        
 
         from pathlib import Path
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
@@ -958,7 +959,7 @@ def save_with_current_data(pdf_id, excel_file, sheet_name, current_data, table_t
 
     try:
         # 1. 获取Excel文件路径
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+        
 
         from pathlib import Path
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / pdf_id
@@ -1198,9 +1199,6 @@ def save_flattened_data():
     data = request.json
     print("******************** 保存扁平化数据到独立文件 ******************")
 
-    print("==========================================")
-    print(data)
-
     # 基础校验
     required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'flattened_data']
     for field in required_fields:
@@ -1270,7 +1268,7 @@ def save_to_flattened_excel(pdf_id, original_excel_file, flattened_excel_file, s
     print("📊 保存到独立扁平化Excel文件...")
 
     try:
-        EXCEL_OUTPUT_ROOT = "data/backend/static/excel_data"
+        
 
         from pathlib import Path
         import os
@@ -1376,7 +1374,6 @@ def serve_excel_file(filename):
 
 
 
-
 # ---------- 7. Excel数据扁平化处理（支持Excel标准格式） ----------
 @file_bp.route('/excel-flatten', methods=['POST', 'OPTIONS'])
 def excel_flatten_from_excel():
@@ -1426,12 +1423,17 @@ def excel_flatten_from_excel():
         # 创建转换器实例
         converter = FinalDataConverter()
 
+        print("source_infosource_infosource_info:", source_info)
+        ori_table_metadata = data.get("table_metadata", {})
+        print("table_metadata:", ori_table_metadata)
+        print("data:", data)
+
         # 准备表格元数据
         table_metadata = {
-            'name': source_info.get('table_name', 'Excel表格'),
-            'default_unit': source_info.get('default_unit', ''),
-            'default_currency': source_info.get('default_currency', '人民币'),
-            'default_report_period': source_info.get('default_report_period', ''),
+            'name': ori_table_metadata.get('name', ''),
+            'default_unit': ori_table_metadata.get('default_unit', ''),
+            'default_currency': ori_table_metadata.get('default_currency', '人民币'),
+            'default_report_period': ori_table_metadata.get('default_report_period', ''),
             'headers': {
                 'rows': [],
                 'cols': []
@@ -1518,7 +1520,6 @@ def excel_flatten_from_excel():
             table_metadata=table_metadata,
             marks_info=marks_info,
             bank_name=source_info.get('bank_name', '中国建设银行'),
-            page_num=source_info.get('page_num', 1),
             entity=source_info.get('entity', '本集团')
         )
 
