@@ -31,8 +31,6 @@ export default function useExcelViewerLogic(
     updateTableReadOnly,
     markSavedCells,
     toggleEditModeFromHook,
-    highlightEmptyCells,
-    clearEmptyCellsHighlight,
     cleanup,
     onDataChange
   },
@@ -169,18 +167,147 @@ export default function useExcelViewerLogic(
     hot.render()
   }
 
+
+  // 高亮空白单元格
+  const highlightEmptyCells = () => {
+      console.log('🟡 执行高亮空单元格')
+      const hot = getSafeHotInstance()
+      if (!hot) {
+        console.error('❌ 无法获取表格实例')
+        return false
+      }
+
+      try {
+        const data = tableData.value
+        if (!data || data.length === 0) {
+          console.log('📭 表格数据为空')
+          ElMessage.warning('表格数据为空')
+          return false
+        }
+
+        // 计算有效数据区域
+        let maxDataRow = -1
+        let maxDataCol = -1
+
+        // 找到最后一个有数据的行和列
+        for (let row = 0; row < data.length; row++) {
+          for (let col = 0; col < (data[row]?.length || 0); col++) {
+            const value = data[row][col]
+            const hasValue = value !== null &&
+                            value !== undefined &&
+                            value !== '' &&
+                            !(typeof value === 'string' && value.trim() === '') &&
+                            !(typeof value === 'number' && isNaN(value))
+
+            if (hasValue) {
+              maxDataRow = Math.max(maxDataRow, row)
+              maxDataCol = Math.max(maxDataCol, col)
+            }
+          }
+        }
+
+        console.log(`📊 有效数据区域: 行0-${maxDataRow}, 列0-${maxDataCol}`)
+
+        // 如果没有有效数据
+        if (maxDataRow === -1 || maxDataCol === -1) {
+          console.log('📭 没有发现有效数据')
+          ElMessage.info('表格中没有有效数据')
+          return false
+        }
+
+        let emptyCount = 0
+        // 只在有效数据区域内检查空单元格
+        for (let row = 0; row <= maxDataRow; row++) {
+          for (let col = 0; col <= maxDataCol; col++) {
+            // 确保行和列在数据范围内
+            if (row >= data.length || col >= (data[row]?.length || 0)) {
+              continue
+            }
+
+            const value = data[row][col]
+            const isEmpty = value === null ||
+                           value === undefined ||
+                           (typeof value === 'string' && value.trim() === '') ||
+                           (typeof value === 'number' && isNaN(value))
+
+            if (isEmpty) {
+              console.log(`📍 发现空单元格: [${row},${col}]`, { value, type: typeof value })
+              hot.setCellMeta(row, col, 'className', 'empty-cell-highlight')
+              emptyCount++
+            }
+          }
+        }
+
+        hot.render()
+        console.log(`✅ 高亮完成: ${emptyCount} 个空单元格 (有效区域: ${maxDataRow + 1}行 × ${maxDataCol + 1}列)`)
+
+        // 验证高亮是否应用成功
+        setTimeout(() => {
+          const highlightedCells = hot.rootElement.querySelectorAll('.empty-cell-highlight')
+          console.log(`🎯 DOM中高亮的单元格数量: ${highlightedCells.length}`)
+        }, 100)
+
+        if (emptyCount === 0) {
+          ElMessage.info('有效数据区域内未发现空白单元格')
+          return false
+        }
+
+        ElMessage.success(`高亮显示 ${emptyCount} 个空白单元格`)
+        return true
+      } catch (error) {
+        console.error('❌ 高亮空单元格失败:', error)
+        ElMessage.error('高亮失败')
+        return false
+      }
+    }
+
+  // 清除空白单元格高亮
+  const clearEmptyCellsHighlight = () => {
+      console.log('🟡 执行清除高亮')
+      const hot = getSafeHotInstance()
+      if (!hot) return
+
+      try {
+        const data = tableData.value
+        if (!data || data.length === 0) return
+
+        for (let row = 0; row < data.length; row++) {
+          for (let col = 0; col < (data[row]?.length || 0); col++) {
+            hot.setCellMeta(row, col, 'className', '')
+          }
+        }
+
+        hot.render()
+        console.log('✅ 高亮清除完成')
+      } catch (error) {
+        console.error('❌ 清除高亮失败:', error)
+      }
+    }
+
   // 空白单元格处理
   const toggleEmptyCellsHighlight = () => {
-    if (showEmptyCellsHighlight.value) {
-      clearEmptyCellsHighlight()
-      showEmptyCellsHighlight.value = false
-      ElMessage.info('已隐藏空白单元格高亮')
-    } else {
-      highlightEmptyCells()
+  console.log('🔘 点击高亮空格按钮', {
+    当前高亮状态: showEmptyCellsHighlight.value,
+    是否有空单元格: hasEmptyCells.value
+  })
+
+  if (showEmptyCellsHighlight.value) {
+    // 清除高亮
+    clearEmptyCellsHighlight()
+    showEmptyCellsHighlight.value = false
+    ElMessage.info('已隐藏空白单元格高亮')
+  } else {
+    // 应用高亮
+    const hasEmpties = highlightEmptyCells()
+    if (hasEmpties) {
       showEmptyCellsHighlight.value = true
       ElMessage.success('已高亮显示空白单元格')
+    } else {
+      // 如果没有空单元格，保持关闭状态
+      showEmptyCellsHighlight.value = false
     }
   }
+}
 
   const showEmptyCellsDetail = () => {
     if (emptyCellsStats.value) {

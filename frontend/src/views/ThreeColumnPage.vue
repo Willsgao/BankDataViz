@@ -60,22 +60,25 @@
                   {{ excelFile.total_sheets }} 个表
                 </el-tag>
               </div>
+
               <div class="sheet-items">
-                <div
-                  v-for="sheet in excelFile.sheets"
-                  :key="`${excelFile.excel_file}-${sheet.name}`"
-                  class="sheet-item"
-                  :class="{
-                    'active': selectedSheet &&
-                             selectedSheet.name === sheet.name &&
-                             selectedSheet.excel_file === excelFile.excel_file
-                  }"
-                  @click="selectSheet(sheet, excelFile.excel_file)"
-                >
-                  <el-icon><Grid /></el-icon>
-                  <span class="sheet-name">{{ sheet.name }}</span>
+                  <div
+                    v-for="sheet in excelFile.sheets"
+                    :key="`${excelFile.excel_file}-${sheet.name}`"
+                    class="sheet-item"
+                    :class="{
+                      'active': selectedSheet &&
+                               selectedSheet.name === sheet.name &&
+                               selectedSheet.excel_file === excelFile.excel_file,
+                      'current-page': getPageFromSheetName(sheet.name) === currentPage
+                    }"
+                    @click="selectSheet(sheet, excelFile.excel_file)"
+                  >
+                    <el-icon><Grid /></el-icon>
+                    <span class="sheet-name">{{ sheet.name }}</span>
+                  </div>
                 </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -1737,7 +1740,7 @@ const clearModificationStatesOnly = async () => {
 
 
 // useThreeColumnPage.js 中的 saveData 函数
-const saveData = async () => {
+const saveData1111 = async () => {
     console.log('💾💾💾💾 保存数据 - 同步缓存策略...');
 
     if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
@@ -1848,6 +1851,141 @@ const saveData = async () => {
         saving.value = false;
     }
 };
+
+
+const saveData = async () => {
+  console.log('💾💾💾💾💾💾💾💾 保存数据 - 区分表类型...');
+
+  if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
+    ElMessage.warning('请先选择表格');
+    return { success: false, error: '未选择表格' };
+  }
+
+  const currentTableType = showFlatMode.value ? 'flattened' : 'original';
+  saving.value = true;
+
+  try {
+    /* ===== 1. 获取当前表格数据（前端修改后的） ===== */
+    const hotInstance = getActiveHotInstance();
+    if (!hotInstance) {
+      throw new Error('无法获取表格实例');
+    }
+
+    const currentTableData = hotInstance.getSourceData();
+    console.log('📊📊📊📊 保存时的数据:', {
+      行数: currentTableData.length,
+      表类型: currentTableType,
+      来源: '前端缓存（修改后）'
+    });
+
+    /* ===== 2. 根据表类型选择不同的API ===== */
+    let apiUrl, savePayload;
+
+    if (currentTableType === 'original') {
+      // 原始数据保存
+      apiUrl = '/excel/save-final'; // 保存到原始Excel
+      savePayload = {
+        pdf_id: selectedPdf.value.id,
+        excel_file: selectedExcelFile.value,
+        sheet_name: selectedSheet.value.name,
+        table_type: 'original',
+        data: currentTableData,
+        timestamp: Date.now()
+      };
+      console.log('📤📤 保存原始数据到Excel文件');
+    } else {
+      // 扁平化数据保存
+      apiUrl = '/excel/save-flattened'; // 保存到扁平化数据表
+      savePayload = {
+        pdf_id: selectedPdf.value.id,
+        excel_file: selectedExcelFile.value,
+        sheet_name: selectedSheet.value.name,
+        table_type: 'flattened',
+        flattened_data: currentTableData, // 使用不同的字段名
+        original_data: excelData.value,    // 可选：保存原始数据用于对比
+        timestamp: Date.now()
+      };
+      console.log('📤📤 保存扁平化数据到专门存储');
+    }
+
+    const response = await fetch(getApiUrl(apiUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(savePayload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('📥📥📥📥 保存API返回:', result);
+
+    /* ===== 3. 保存成功后的处理 ===== */
+    if (result.success) {
+      console.log(`✅ ${currentTableType === 'original' ? '原始' : '扁平化'}数据保存成功`);
+
+      // 清除缓存并重新加载
+      if (excelDataCache.deleteOriginalData) {
+        excelDataCache.deleteOriginalData(
+          selectedPdf.value.id,
+          selectedExcelFile.value,
+          selectedSheet.value.name
+        );
+      }
+      if (excelDataCache.deleteFlattenedData) {
+        excelDataCache.deleteFlattenedData(
+          selectedPdf.value.id,
+          selectedExcelFile.value,
+          selectedSheet.value.name
+        );
+      }
+      console.log('🗑🗑️🗑🗑️ 缓存数据已清除');
+
+      // 设置后端数据标记
+      const cacheMarkKey = ExcelKey.getDraftKey ?
+        ExcelKey.getDraftKey(selectedPdf.value.id, selectedExcelFile.value, selectedSheet.value.name, currentTableType) :
+        `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`;
+
+      if (!window.cacheMetadata) window.cacheMetadata = {};
+      window.cacheMetadata[cacheMarkKey] = {
+        source: 'backend',
+        lastSaved: Date.now(),
+        tableType: currentTableType
+      };
+
+      console.log('🏷🏷️🏷🏷️ 设置后端数据标记:', { cacheMarkKey });
+
+      // 清除修改状态
+      await clearModificationStatesOnly();
+
+      // 重新从后端加载数据
+      const loadResult = await loadExcelData(selectedSheet.value.name, selectedExcelFile.value);
+
+      console.log('🔍🔍🔍🔍 保存后重新加载结果:', {
+        成功: loadResult.success,
+        来源: loadResult.fromCache ? '缓存' : 'API',
+        数据长度: loadResult.data?.length
+      });
+
+      if (loadResult.success) {
+        ElMessage.success(currentTableType === 'original' ? '原始数据保存成功' : '扁平化数据保存成功');
+      }
+
+      return { success: true, message: '保存成功' };
+    } else {
+      throw new Error(result.error || '后端保存失败');
+    }
+
+  } catch (error) {
+    console.error('❌❌❌❌❌❌❌❌ 保存失败:', error);
+    ElMessage.error(`保存失败: ${error.message}`);
+    return { success: false, error: error.message };
+  } finally {
+    saving.value = false;
+  }
+};
+
 
 
 // 修复后的清理缓存函数
@@ -3404,6 +3542,39 @@ const checkExcelContentProps = () => {
 }
 
 
+
+
+// ============ 新添加的监听器 ============
+
+// 1. 监听选中的sheet，联动PDF页码（新加）
+watch(() => selectedSheet.value, (newSheet, oldSheet) => {
+  if (newSheet?.name !== oldSheet?.name) {
+    console.log('📋📋 Sheet切换，联动PDF页码');
+
+    // 从sheet名称中提取页码
+    const pageNum = getPageFromSheetName(newSheet?.name);
+    if (pageNum && pageNum > 0) {
+      currentPage.value = pageNum;
+      console.log(`🔄🔄 根据sheet名称更新PDF页码: ${pageNum}`);
+    }
+
+    // 清空所有未保存状态
+    if (window.unsavedCells) {
+      window.unsavedCells.original?.clear();
+      window.unsavedCells.flattened?.clear();
+    }
+    forceUnsavedUpdate.value++;
+  }
+}, { immediate: true });
+
+// 2. 监听excelFiles变化，更新总页数（新加，但可能和现有的有重复）
+watch(excelFiles, (newFiles) => {
+  if (newFiles && newFiles.length > 0) {
+    const maxPage = getMaxPageFromSheets(newFiles);
+    totalPages.value = Math.max(maxPage, totalPages.value);
+    console.log(`📊📊 根据sheets计算总页数: ${totalPages.value}`);
+  }
+}, { immediate: true });
 
 
 onUnmounted(() => {

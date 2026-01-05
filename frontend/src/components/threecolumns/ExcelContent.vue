@@ -42,30 +42,6 @@
       </div>
     </div>
 
-    <!-- 第二行：统计 + 保存状态（24 px） -->
-    <div class="sub-bar">
-      <!-- 空白单元格 -->
-      <el-tag v-if="emptyCount" size="small" type="info">
-        空白 {{ emptyCount }}
-      </el-tag>
-
-      <!-- 选中区域统计 -->
-      <el-tag v-if="stats.rowCount" size="small">
-        选中 {{ stats.rowCount }} 单元格
-        <template v-if="stats.numericCount">
-          总和 {{ stats.sum }} 平均 {{ stats.average }}
-        </template>
-      </el-tag>
-
-      <!-- 保存状态（合并进来） -->
-      <SaveStatus
-        :selected-sheet="selectedSheet"
-        :status="saveStatus"
-        :modified-cells-count="modifiedCellsCount"
-        :last-save-time="lastSaveTime"
-      />
-    </div>
-
     <!-- 当前单元格信息（有值才显示） -->
     <template v-if="currentCell.position">
       <el-tag size="small">{{ currentCell.position }}</el-tag>

@@ -297,27 +297,47 @@ class DataManager {
   /**
    * 保存扁平化数据缓存
    */
-  async saveFlattenedData(flattenedData, sourceData = null) {
-    if (!flattenedData || flattenedData.length === 0) {
-      return null
+    async saveFlattenedData(flattenedData, sourceData = null) {
+      if (!flattenedData || flattenedData.length === 0) {
+        return null
+      }
+
+      try {
+        // 🔥 关键修复：简单有效的数据清理
+        const cleanData = (data) => {
+          if (!data) return data;
+          try {
+            // 使用 JSON 序列化来清理数据
+            return JSON.parse(JSON.stringify(data));
+          } catch (error) {
+            console.warn('数据清理失败，返回空数组:', error);
+            return [];
+          }
+        };
+
+        const serializableFlattenedData = cleanData(flattenedData);
+        const serializableSourceData = cleanData(sourceData);
+
+        console.log('🔧 保存清理后的数据到 IndexedDB');
+
+        const cacheKey = await indexedDBManager.saveFlattenedCache(
+          this.currentContext.pdfId,
+          this.currentContext.excelFile,
+          this.currentContext.sheetName,
+          serializableFlattenedData,
+          serializableSourceData
+        )
+
+        return cacheKey
+
+      } catch (error) {
+        console.error('保存扁平化缓存失败:', error)
+
+        // 简单降级：跳过缓存，但不阻塞主流程
+        console.log('⏸️ 缓存失败，跳过但不阻塞流程');
+        return 'cache_skipped';
+      }
     }
-
-    try {
-      const cacheKey = await indexedDBManager.saveFlattenedCache(
-        this.currentContext.pdfId,
-        this.currentContext.excelFile,
-        this.currentContext.sheetName,
-        flattenedData,
-        sourceData
-      )
-
-      return cacheKey
-
-    } catch (error) {
-      console.error('保存扁平化缓存失败:', error)
-      return null
-    }
-  }
 
   /**
    * 获取扁平化数据缓存
