@@ -1715,6 +1715,92 @@ class TableReconstructor:
 
         return all_final_tables, all_table_names
 
+    # 在 table_rebuilder.py 的 TableReconstructor 类中添加以下方法
+
+    def process_all_tables(self, ocr_result, llm_result, output_file, final_output_file=None, image_path=None,
+                           bank_name=""):
+        """
+        处理所有表格并保存到Excel文件
+
+        Args:
+            ocr_result: OCR识别结果
+            llm_result: LLM分析结果
+            output_file: 输出Excel文件路径
+            final_output_file: 最终输出文件路径（可选）
+            image_path: 图片路径（用于提取页码）
+            bank_name: 银行名称
+
+        Returns:
+            bool: 是否成功
+        """
+        print(f"\n📊 处理所有表格...")
+
+        try:
+            # 1. 处理表格到内存
+            tables_data, table_names = self.process_all_tables_to_memory(
+                ocr_result,
+                llm_result,
+                image_path=image_path,
+                bank_name=bank_name
+            )
+
+            if not tables_data:
+                print("❌ 没有表格数据生成")
+                return False
+
+            print(f"✅ 生成 {len(tables_data)} 个表格")
+
+            # 2. 清理表格名称
+            cleaned_table_names = []
+            for name in table_names:
+                cleaned_name = self._clean_sheet_name(name)
+                cleaned_table_names.append(cleaned_name)
+
+            # 3. 保存到Excel
+            success = self.step9_save_to_excel_optimized(
+                tables_data,
+                output_file,
+                cleaned_table_names
+            )
+
+            if success:
+                print(f"✅ 表格已保存到: {output_file}")
+
+                # 4. 如果有final_output_file，调用final_data_converter
+                if final_output_file:
+                    print(f"📋 生成最终数据文件: {final_output_file}")
+                    try:
+                        # 确保final_data_converter已初始化
+                        if not hasattr(self, 'final_data_converter'):
+                            self.final_data_converter = FinalDataConverter()
+
+                        # 调用final_data_converter处理
+                        final_success = self.final_data_converter.process_to_final_format(
+                            tables_data=tables_data,
+                            table_names=cleaned_table_names,
+                            bank_name=bank_name,
+                            output_path=final_output_file
+                        )
+
+                        if final_success:
+                            print(f"✅ 最终数据文件已生成: {final_output_file}")
+                        else:
+                            print(f"⚠️ 最终数据文件生成失败")
+                    except Exception as e:
+                        print(f"⚠️ 最终数据转换失败: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+                return True
+            else:
+                print("❌ 保存到Excel失败")
+                return False
+
+        except Exception as e:
+            print(f"❌ 处理所有表格失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
 # ====================================
 # 使用示例

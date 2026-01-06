@@ -327,7 +327,6 @@ def search_pdf():
 
 
 
-
 @file_bp.get('/file-by-id/<file_id>')
 def get_file_by_id(file_id):
     try:
@@ -345,15 +344,38 @@ def get_file_by_id(file_id):
 
         disk_name = file_info["disk_name"]
         PDF_DIR = Path(MAIN_ROOT) / UPLOAD_FOLDER
-        print(f"✅ 准备返回文件: {disk_name}")
 
-        return send_from_directory(PDF_DIR, disk_name)
+        # 🔥 调试：打印路径信息
+        print(f"🔍 查找文件路径: {PDF_DIR}")
+        print(f"🔍 文件名: {disk_name}")
+
+        # 检查文件是否存在
+        file_path = PDF_DIR / disk_name
+        print(f"🔍 完整文件路径: {file_path}")
+
+        if not file_path.exists():
+            print(f"❌ 物理文件不存在: {file_path}")
+
+            # 列出目录中的文件
+            if PDF_DIR.exists():
+                files_in_dir = list(PDF_DIR.glob("*.pdf"))
+                print(f"📂 目录中的PDF文件: {[f.name for f in files_in_dir[:5]]}")
+            else:
+                print(f"❌ 目录不存在: {PDF_DIR}")
+
+            return jsonify({"error": "物理文件不存在"}), 404
+
+        print(f"✅ 准备返回文件: {disk_name}")
+        return send_from_directory(str(PDF_DIR), disk_name)
 
     except Exception as e:
         print(f"❌❌ 文件下载失败: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": "文件下载失败"}), 500
+
+
+
 
 @file_bp.get('/excel-sheets/<file_id>')
 def get_excel_sheets(file_id):
