@@ -50,7 +50,8 @@ export function useThreeColumnPage() {
 
     try {
       // 获取PDF文件的URL
-      let fileId = pdf.id
+      //let fileId = pdf.id
+      let fileId = pdf.disk_name || pdf.id
       if (!fileId) {
         // 如果没有ID，尝试通过文件名查找
         console.log('PDF没有ID，尝试通过文件名查找:', pdf.name)
@@ -58,7 +59,8 @@ export function useThreeColumnPage() {
 
         if (fileResponse.ok) {
           const fileData = await fileResponse.json()
-          const matchedFile = fileData.files.find(f => f.name === pdf.name)
+          // const matchedFile = fileData.files.find(f => f.name === pdf.name)
+          const matchedFile = fileData.files.find(f => f.name === pdf.name || f.disk_name === pdf.disk_name)
           if (matchedFile && matchedFile.id) {
             fileId = matchedFile.id
             console.log('通过文件名找到ID:', fileId)
@@ -92,65 +94,67 @@ export function useThreeColumnPage() {
 
 
   // 在 useThreeColumnPage.js 中添加
-const loadFromAPI = async (fileId, excelFileName, sheetName) => {
-  try {
-    console.log('🌐🌐 调用API加载数据:', { fileId, excelFileName, sheetName });
+  const loadFromAPI = async (fileId, excelFileName, sheetName) => {
+      try {
+        console.log('🌐🌐 调用API加载数据:', { fileId, excelFileName, sheetName });
 
-    const encodedExcelFile = encodeURIComponent(excelFileName);
-    const encodedSheetName = encodeURIComponent(sheetName);
+        const encodedExcelFile = encodeURIComponent(excelFileName);
+        const encodedSheetName = encodeURIComponent(sheetName);
 
-    const response = await fetch(
-      `/api/excel-data/${fileId}/${encodedExcelFile}/${encodedSheetName}`
-    );
+        const response = await fetch(
+          `/api/excel-data/${fileId}/${encodedExcelFile}/${encodedSheetName}`
+        );
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
 
-    const result = await response.json();
+        const result = await response.json();
 
-    console.log('📊📊 API返回数据:', {
-      状态: result.success,
-      总行数: result.total_rows,
-      总列数: result.total_columns,
-      数据行数: result.rows?.length || 0
-    });
+        console.log('📊📊 API返回数据:', {
+          状态: result.success,
+          总行数: result.total_rows,
+          总列数: result.total_columns,
+          数据行数: result.rows?.length || 0
+        });
 
-    if (!result.rows || result.rows.length === 0) {
-      console.warn('⚠️ API返回空数据');
-      return {
-        success: false,
-        error: 'API返回空数据',
-        data: [],
-        totalRows: 0,
-        totalColumns: 0
-      };
-    }
+        if (!result.rows || result.rows.length === 0) {
+          console.warn('⚠️ API返回空数据');
+          return {
+            success: false,
+            error: 'API返回空数据',
+            data: [],
+            totalRows: 0,
+            totalColumns: 0
+          };
+        }
 
-    return {
-      success: true,
-      data: result.rows,
-      totalRows: result.total_rows,
-      totalColumns: result.total_columns
+        return {
+          success: true,
+          data: result.rows,
+          totalRows: result.total_rows,
+          totalColumns: result.total_columns
+        };
+
+      } catch (error) {
+        console.error('❌❌ 从API加载数据失败:', error);
+        return {
+          success: false,
+          error: error.message,
+          data: [],
+          totalRows: 0,
+          totalColumns: 0
+        };
+      }
     };
-
-  } catch (error) {
-    console.error('❌❌ 从API加载数据失败:', error);
-    return {
-      success: false,
-      error: error.message,
-      data: [],
-      totalRows: 0,
-      totalColumns: 0
-    };
-  }
-};
 
   /**
    * 加载Excel数据
    */
    const loadExcelData = async (sheetName, excelFileName) => {
-  const pdfId = selectedPdf.value?.id;
+
+   const currentPdf = selectedPdf.value;
+  const pdfId = currentPdf?.disk_name || currentPdf?.id;
   const tableType = showFlatMode.value ? 'flattened' : 'original';
 
   console.log('🔍🔍🔍🔍🔍🔍 开始加载Excel数据流程 🔍🔍🔍🔍🔍🔍');
@@ -331,13 +335,23 @@ const loadFromAPI = async (fileId, excelFileName, sheetName) => {
   /**
    * 获取sheet中的页码
    */
-  const getPageFromSheetName = (sheetName) => {
-    const pageMatch = sheetName.match(/P(\d+)_/)
-    if (pageMatch && pageMatch[1]) {
-      return parseInt(pageMatch[1])
+   const getPageFromSheetName = (sheetName) => {
+        // ✅ 添加空值检查
+        if (!sheetName || typeof sheetName !== 'string') {
+            console.log('⚠️ getPageFromSheetName: sheetName为空，返回null')
+            return null
+        }
+
+        const pageMatch = sheetName.match(/P(\d+)_/)
+        if (pageMatch && pageMatch[1]) {
+            const page = parseInt(pageMatch[1])
+            console.log(`🔢 从sheet名称提取页码: "${sheetName}" -> ${page}`)
+            return page
+        }
+
+        console.log(`🔢 未从sheet名称找到页码: "${sheetName}"`)
+        return null
     }
-    return null
-  }
 
   /**
    * 获取所有sheet中的最大页码

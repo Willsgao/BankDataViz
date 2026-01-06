@@ -81,7 +81,7 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { Search, ArrowDown } from '@element-plus/icons-vue'
-import { ref, computed, provide, onMounted, watch, reactive, toRefs } from 'vue'
+import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -125,8 +125,6 @@ const updateUserInfo = () => {
   userRole.value = localStorage.getItem('user_role') || ''
 }
 
-// 把更新函数提供给后代组件
-provide('reloadUserInfo', updateUserInfo)
 
 onMounted(() => {
   updateUserInfo()
@@ -192,9 +190,6 @@ const handleLogout = () => {
   })
 }
 
-// 提供搜索功能给子组件（保留原有功能）
-const searchResults = ref([])
-const isSearching = ref(false)
 
 
 // 修改 handleSearch 函数
@@ -256,10 +251,6 @@ const handleSearch = async () => {
 }
 
 
-// ✅ 只保留这一个 provide
-provide('searchResults', searchState.results)  // 🔥 改成 searchState.results
-provide('isSearching', searchState.isSearching)  // 🔥 改成 searchState.isSearching
-provide('handleSearch', handleSearch)
 
 // 在 provide 语句后添加：
 console.log('🔍 App.vue 提供给子组件的数据:')
@@ -290,8 +281,32 @@ const handleSearch111 = async () => {
 }
 
 const handleSearchClear = () => {
-  searchResults.value = []
+  searchState.results = []  // 使用 searchState.results
+  console.log('🔍🔍 清除搜索结果')
 }
+
+
+// 把更新函数提供给后代组件
+provide('reloadUserInfo', updateUserInfo)
+provide('searchState', searchState)
+provide('handleSearch', handleSearch)
+provide('handleSearchClear', handleSearchClear)
+
+provide('searchResults', toRef(searchState, 'results'))
+provide('isSearching', toRef(searchState, 'isSearching'))
+
+
+// 在 App.vue 的 provide 语句后添加
+console.log('🔍🔍 App.vue provide 的数据:', {
+  searchResults: searchState.results,
+  isSearching: searchState.isSearching,
+  resultsLength: searchState.results.length
+})
+
+
+onMounted(() => {
+  console.log('🚀 ThreeColumnPage 组件已挂载')
+})
 
 
 // 监听localStorage变化（用于跨标签页同步）

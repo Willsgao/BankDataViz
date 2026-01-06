@@ -22,15 +22,11 @@
 
     <!-- 只修改模板的middle-top部分 -->
     <template #middle-top>
-      <div style="display: none;">
-        {{ console.log('🔍🔍 传递给 PdfList 的数据:', { searchResults, isSearching }) }}
-      </div>
-
       <PdfList
-        :searchResults="searchResults"
-        :isSearching="isSearching"
-        :filteredPdfCount="filteredPdfCount"
-        :selectedPdf="selectedPdf"
+        :search-results="searchResults"
+        :is-searching="isSearching"
+        :filtered-pdf-count="filteredPdfCount"
+        :selected-pdf="selectedPdf"
         @toggle-middle="toggleMiddleCollapse"
         @select-pdf="selectPdf"
       />
@@ -681,6 +677,7 @@ const handleDataChanged = (dataInfo) => {
 
 
 // ============ 主要业务方法 ============
+// ============ 主要业务方法 ============
 const selectPdf = async (pdf) => {
   /* 0. 跨 PDF 草稿迁移：在旧 PDF 完全失效前把草稿迁走 */
   const oldPdfId = window.currentPdfId
@@ -704,12 +701,7 @@ const selectPdf = async (pdf) => {
   /* 1. 原有逻辑（半点不动） */
   const result = await selectPdfBase(pdf)
   if (result.success && result.fileId) {
-    // 使用 disk_name 而不是 file_id
-    const pdfId = pdf.disk_name || result.fileId
-    await loadExcelSheets(pdfId)
-    //await loadExcelSheets(result.fileId)
-
-
+    await loadExcelSheets(result.fileId)
   }
 }
 
@@ -1780,6 +1772,119 @@ const clearModificationStatesOnly = async () => {
 };
 
 
+// useThreeColumnPage.js 中的 saveData 函数
+const saveData1111 = async () => {
+    console.log('💾💾💾💾 保存数据 - 同步缓存策略...');
+
+    if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
+        ElMessage.warning('请先选择表格');
+        return { success: false, error: '未选择表格' };
+    }
+
+    const currentTableType = showFlatMode.value ? 'flattened' : 'original';
+    saving.value = true;
+
+    try {
+        /* ===== 1. 获取当前表格数据（前端修改后的） ===== */
+        const hotInstance = getActiveHotInstance();
+        if (!hotInstance) {
+            throw new Error('无法获取表格实例');
+        }
+
+        const currentTableData = hotInstance.getSourceData();
+        console.log('📊📊 保存时的数据:', {
+            行数: currentTableData.length,
+            来源: '前端缓存（修改后）'
+        });
+
+        /* ===== 2. 发送到后端 ===== */
+        const savePayload = {
+            pdf_id: selectedPdf.value.id,
+            excel_file: selectedExcelFile.value,
+            sheet_name: selectedSheet.value.name,
+            table_type: currentTableType,
+            data: currentTableData,
+            timestamp: Date.now()
+        };
+
+        const response = await fetch(getApiUrl('/excel/save-final'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(savePayload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('📥📥 保存API返回:', result);
+
+        /* ===== 3. 关键修改：保存成功后，清除缓存并重新加载 ===== */
+        if (result.success && result.excel_updated) {
+            console.log('✅ 后端保存成功，清除缓存并重新加载后端数据');
+
+            // 🔥🔥 修复：清除缓存数据
+            if (excelDataCache.deleteOriginalData) {
+                excelDataCache.deleteOriginalData(
+                    selectedPdf.value.id,
+                    selectedExcelFile.value,
+                    selectedSheet.value.name
+                );
+            }
+            if (excelDataCache.deleteFlattenedData) {
+                excelDataCache.deleteFlattenedData(
+                    selectedPdf.value.id,
+                    selectedExcelFile.value,
+                    selectedSheet.value.name
+                );
+            }
+            console.log('🗑️🗑️ 缓存数据已清除');
+
+            // 🔥🔥 修复：设置后端数据标记
+            const cacheMarkKey = ExcelKey.getDraftKey ?
+                ExcelKey.getDraftKey(selectedPdf.value.id, selectedExcelFile.value, selectedSheet.value.name, currentTableType) :
+                `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`;
+
+            if (!window.cacheMetadata) window.cacheMetadata = {};
+            window.cacheMetadata[cacheMarkKey] = {
+                source: 'backend',
+                lastSaved: Date.now(),
+                tableType: currentTableType
+            };
+
+            console.log('🏷️🏷️ 设置后端数据标记:', { cacheMarkKey });
+
+            // 清除修改状态
+            await clearModificationStatesOnly();
+
+            // 重新从后端加载数据
+            const loadResult = await loadExcelData(selectedSheet.value.name, selectedExcelFile.value);
+
+            console.log('🔍🔍 保存后重新加载结果:', {
+                成功: loadResult.success,
+                来源: loadResult.fromCache ? '缓存' : 'API',
+                数据长度: loadResult.data?.length
+            });
+
+            if (loadResult.success) {
+                ElMessage.success('保存成功');
+            }
+
+            return { success: true, message: '保存成功' };
+        } else {
+            throw new Error(result.error || '后端保存失败');
+        }
+
+    } catch (error) {
+        console.error('❌❌❌❌ 保存失败:', error);
+        ElMessage.error(`保存失败: ${error.message}`);
+        return { success: false, error: error.message };
+    } finally {
+        saving.value = false;
+    }
+};
+
 
 const saveData = async () => {
   console.log('💾💾💾💾💾💾💾💾 保存数据 - 区分表类型...');
@@ -1800,29 +1905,20 @@ const saveData = async () => {
     }
 
     const currentTableData = hotInstance.getSourceData();
-
-    // 🔥🔥🔥 关键修复：使用UUID而不是数字ID
-    const pdfId = selectedPdf.value.disk_name || selectedPdf.value.id;
-    console.log('🔍🔍 保存使用的PDF ID:', {
-      数字ID: selectedPdf.value.id,
-      UUID: selectedPdf.value.disk_name,
-      最终使用的pdfId: pdfId
-    });
-
     console.log('📊📊📊📊 保存时的数据:', {
       行数: currentTableData.length,
       表类型: currentTableType,
-      来源: '前端缓存（修改后）',
-      使用的PDF_ID: pdfId
+      来源: '前端缓存（修改后）'
     });
 
     /* ===== 2. 根据表类型选择不同的API ===== */
     let apiUrl, savePayload;
 
     if (currentTableType === 'original') {
-      apiUrl = '/excel/save-final';
+      // 原始数据保存
+      apiUrl = '/excel/save-final'; // 保存到原始Excel
       savePayload = {
-        pdf_id: pdfId,  // ✅ 使用UUID
+        pdf_id: selectedPdf.value.id,
         excel_file: selectedExcelFile.value,
         sheet_name: selectedSheet.value.name,
         table_type: 'original',
@@ -1831,14 +1927,15 @@ const saveData = async () => {
       };
       console.log('📤📤 保存原始数据到Excel文件');
     } else {
-      apiUrl = '/excel/save-flattened';
+      // 扁平化数据保存
+      apiUrl = '/excel/save-flattened'; // 保存到扁平化数据表
       savePayload = {
-        pdf_id: pdfId,  // ✅ 使用UUID
+        pdf_id: selectedPdf.value.id,
         excel_file: selectedExcelFile.value,
         sheet_name: selectedSheet.value.name,
         table_type: 'flattened',
-        flattened_data: currentTableData,
-        original_data: excelData.value,
+        flattened_data: currentTableData, // 使用不同的字段名
+        original_data: excelData.value,    // 可选：保存原始数据用于对比
         timestamp: Date.now()
       };
       console.log('📤📤 保存扁平化数据到专门存储');
@@ -1863,17 +1960,25 @@ const saveData = async () => {
 
       // 清除缓存并重新加载
       if (excelDataCache.deleteOriginalData) {
-        excelDataCache.deleteOriginalData(pdfId, selectedExcelFile.value, selectedSheet.value.name);
+        excelDataCache.deleteOriginalData(
+          selectedPdf.value.id,
+          selectedExcelFile.value,
+          selectedSheet.value.name
+        );
       }
       if (excelDataCache.deleteFlattenedData) {
-        excelDataCache.deleteFlattenedData(pdfId, selectedExcelFile.value, selectedSheet.value.name);
+        excelDataCache.deleteFlattenedData(
+          selectedPdf.value.id,
+          selectedExcelFile.value,
+          selectedSheet.value.name
+        );
       }
       console.log('🗑🗑️🗑🗑️ 缓存数据已清除');
 
       // 设置后端数据标记
       const cacheMarkKey = ExcelKey.getDraftKey ?
-        ExcelKey.getDraftKey(pdfId, selectedExcelFile.value, selectedSheet.value.name, currentTableType) :
-        `excel_draft_${pdfId}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`;
+        ExcelKey.getDraftKey(selectedPdf.value.id, selectedExcelFile.value, selectedSheet.value.name, currentTableType) :
+        `excel_draft_${selectedPdf.value.id}_${selectedExcelFile.value}_${selectedSheet.value.name}_${currentTableType}`;
 
       if (!window.cacheMetadata) window.cacheMetadata = {};
       window.cacheMetadata[cacheMarkKey] = {
@@ -1913,6 +2018,7 @@ const saveData = async () => {
     saving.value = false;
   }
 };
+
 
 
 // 修复后的清理缓存函数
@@ -3293,32 +3399,17 @@ const emit = defineEmits([
 
 
 // 修改为：
+const searchResults = inject('searchResults', ref([]))
+const isSearching = inject('isSearching', ref(false))
 const handleSearch = inject('handleSearch', null)
-const searchResults = inject('searchResults', [])
-const isSearching = inject('isSearching', false)
-
-// 在 inject 后添加
-console.log('🔍🔍 ThreeColumnPage inject 的数据:', {
-  searchResults,
-  isSearching
-})
-
-
-watch(searchResults, (newVal) => {
-  console.log('🔍🔍 ThreeColumnPage searchResults 变化:', newVal)
-  console.log('🔍🔍 数据长度:', newVal?.length)
-}, { immediate: true, deep: true })
-
-watch(isSearching, (newVal) => {
-  console.log('🔍🔍 ThreeColumnPage isSearching 变化:', newVal)
-}, { immediate: true })
 
 // 安全访问
 console.log('🔍 ThreeColumnPage 接收的搜索结果:', {
-  结果数量: searchResults?.length || 0,    // ✅ 去掉 .value
-  搜索中: isSearching,                    // ✅ 去掉 .value
+  结果数量: searchResults?.value?.length || 0,    // ✅ 安全访问
+  搜索中: isSearching.value,
   有搜索函数: !!handleSearch
 })
+
 
 
 // 4. 检查计算属性

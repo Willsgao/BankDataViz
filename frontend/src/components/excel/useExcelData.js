@@ -197,14 +197,182 @@ export default function useExcelData(props) {
 
 
   // ============ 其他计算属性 ============
+    /**
+     * 智能判断表格类型
+     * @param {Array} tableData - 表格数据（二维数组）
+     * @returns {Object} 判断结果
+     */
+    const detectTableType = (data) => {
+        if (!data || data.length === 0) {
+            return {
+                type: 'unknown',
+                confidence: 0,
+                reason: '空数据'
+            };
+        }
+
+        console.log('🔍🔍 开始智能判断表格类型...');
+
+        // 1. 检查行标记（A列）
+        const hasRowMarkers = checkRowMarkers(data);
+        console.log('   - 行标记检测:', hasRowMarkers);
+
+        // 2. 检查列标记（首行）
+        const hasColumnMarkers = checkColumnMarkers(data);
+        console.log('   - 列标记检测:', hasColumnMarkers);
+
+        // 3. 检查交叉结构
+        const hasCrossStructure = checkCrossStructure(data);
+        console.log('   - 交叉结构检测:', hasCrossStructure);
+
+        // 判断逻辑
+        let result;
+        if (hasRowMarkers && hasColumnMarkers && hasCrossStructure) {
+            result = {
+                type: 'flattened',
+                confidence: 0.95,
+                reason: '同时存在行标记和列标记，且具有交叉结构'
+            };
+        } else if (hasRowMarkers && hasColumnMarkers) {
+            result = {
+                type: 'flattened',
+                confidence: 0.85,
+                reason: '存在行标记和列标记'
+            };
+        } else if (hasRowMarkers) {
+            result = {
+                type: 'flattened',
+                confidence: 0.75,
+                reason: '存在行标记'
+            };
+        } else if (hasColumnMarkers) {
+            result = {
+                type: 'flattened',
+                confidence: 0.70,
+                reason: '存在列标记'
+            };
+        } else {
+            result = {
+                type: 'original',
+                confidence: 0.90,
+                reason: '无明显的行列标记，可能是原始表格'
+            };
+        }
+
+        console.log('✅ 智能判断完成:', result);
+        return result;
+    };
+
+    /**
+     * 检查行标记（A列）
+     */
+    const checkRowMarkers = (data) => {
+        if (!data || data.length < 2) return false;
+
+        const firstColumn = data.map(row => row[0]).filter(val => val !== undefined && val !== '');
+        if (firstColumn.length < 2) return false;
+
+        // 行标记特征模式
+        const rowMarkerPatterns = [
+            /^\d+$/,           // 纯数字：1, 2, 3
+            /^[A-Za-z]$/,      // 单个字母：A, B, C
+            /^[A-Za-z]\d+$/,   // 字母+数字：A1, B2
+            /^行\d+$/,         // 行1, 行2
+            /^记录\d+$/,       // 记录1, 记录2
+            /^#\d+$/,          // #1, #2
+        ];
+
+        let markerCount = 0;
+        for (let i = 1; i < Math.min(firstColumn.length, 10); i++) {
+            const value = String(firstColumn[i] || '').trim();
+            if (rowMarkerPatterns.some(pattern => pattern.test(value))) {
+                markerCount++;
+            }
+        }
+
+        return markerCount >= 3; // 至少有3个行标记
+    };
+
+    /**
+     * 检查列标记（首行）
+     */
+    const checkColumnMarkers = (data) => {
+        if (!data || data.length === 0) return false;
+
+        const firstRow = data[0];
+        if (!firstRow || firstRow.length < 2) return false;
+
+        // 列标记特征模式
+        const columnMarkerPatterns = [
+            /^[A-Za-z]$/,      // 单个字母
+            /^[A-Za-z]\d+$/,   // 字母+数字
+            /^列\d+$/,         // 列1, 列2
+            /^字段\d+$/,       // 字段1, 字段2
+            /^H_\d+$/,         // H_1, H_2
+        ];
+
+        let markerCount = 0;
+        for (let j = 1; j < Math.min(firstRow.length, 10); j++) {
+            const value = String(firstRow[j] || '').trim();
+            if (columnMarkerPatterns.some(pattern => pattern.test(value))) {
+                markerCount++;
+            }
+        }
+
+        return markerCount >= 3; // 至少有3个列标记
+    };
+
+    /**
+     * 检查交叉结构
+     */
+    const checkCrossStructure = (data) => {
+        if (!data || data.length < 3) return false;
+
+        let dataCellCount = 0;
+        const sampleRows = Math.min(data.length, 10);
+        const sampleCols = Math.min(data[0].length, 10);
+
+        for (let i = 1; i < sampleRows; i++) {
+            for (let j = 1; j < sampleCols; j++) {
+                if (data[i] && data[i][j] &&
+                    String(data[i][j]).trim() !== '') {
+                    dataCellCount++;
+                }
+            }
+        }
+
+        return dataCellCount >= 5; // 至少有5个数据交叉点
+    };
+
+    // 计算属性：当前表格类型
+    const tableType = computed(() => {
+        return detectTableType(tableData.value);
+    });
+
+    // 计算属性：是否应该显示扁平化模式
+    const shouldShowFlatMode = computed(() => {
+        return tableType.value.confidence >= 0.7 && tableType.value.type === 'flattened';
+    });
+
+    // 计算属性：智能提示信息
+    const smartTip = computed(() => {
+        const detection = tableType.value;
+        if (detection.confidence >= 0.7) {
+            return {
+                title: `检测到${detection.type === 'flattened' ? '扁平化' : '原始'}表格结构`,
+                description: detection.reason,
+                type: detection.type,
+                confidence: detection.confidence
+            };
+        }
+        return null;
+    });
+
 
   // 双表头检测
   const hasDualHeaders = computed(() => {
     return props.excelData?.[0]?.__metadata?.has_dual_headers || false
   })
-
-
-  // 在 useExcelData.js 的 return 前添加以下函数
 
   // 检测空白单元格
   const detectEmptyCells = computed(() => {
@@ -219,12 +387,6 @@ export default function useExcelData(props) {
       const dataAreaRows = tableData.value.length - 6 // 减去我们添加的6行空白
       const dataAreaCols = tableData.value[0]?.length - 2 || 0 // 减去我们添加的2列空白
 
-      console.log('📊 数据区域大小:', {
-        数据行数: dataAreaRows,
-        数据列数: dataAreaCols,
-        总行数: tableData.value.length,
-        总列数: tableData.value[0]?.length || 0
-      })
 
       // 定义空值检测函数
       const isEmptyValue = (value) => {
@@ -304,32 +466,32 @@ export default function useExcelData(props) {
 
   // 获取空白单元格统计
   const emptyCellsStats = computed(() => {
-  const emptyCells = detectEmptyCells.value
-  if (emptyCells.size === 0) return null
+      const emptyCells = detectEmptyCells.value
+      if (emptyCells.size === 0) return null
 
-  let minRow = Infinity
-  let maxRow = -Infinity
-  let minCol = Infinity
-  let maxCol = -Infinity
+      let minRow = Infinity
+      let maxRow = -Infinity
+      let minCol = Infinity
+      let maxCol = -Infinity
 
-  emptyCells.forEach(cellKey => {
-    const [row, col] = cellKey.split(',').map(Number)
-    minRow = Math.min(minRow, row)
-    maxRow = Math.max(maxRow, row)
-    minCol = Math.min(minCol, col)
-    maxCol = Math.max(maxCol, col)
-  })
+      emptyCells.forEach(cellKey => {
+        const [row, col] = cellKey.split(',').map(Number)
+        minRow = Math.min(minRow, row)
+        maxRow = Math.max(maxRow, row)
+        minCol = Math.min(minCol, col)
+        maxCol = Math.max(maxCol, col)
+      })
 
-  return {
-    total: emptyCells.size,
-    minRow,
-    maxRow,
-    minCol,
-    maxCol,
-    rowsWithEmptyCells: new Set(Array.from(emptyCells).map(key => key.split(',')[0])).size,
-    colsWithEmptyCells: new Set(Array.from(emptyCells).map(key => key.split(',')[1])).size
-  }
-})
+      return {
+        total: emptyCells.size,
+        minRow,
+        maxRow,
+        minCol,
+        maxCol,
+        rowsWithEmptyCells: new Set(Array.from(emptyCells).map(key => key.split(',')[0])).size,
+        colsWithEmptyCells: new Set(Array.from(emptyCells).map(key => key.split(',')[1])).size
+      }
+    })
 
   // 表格信息
   const tableInfo = computed(() => {
@@ -382,7 +544,6 @@ export default function useExcelData(props) {
       ]
     })
 
-  // ============ 方法 ============
 
   // 验证表格结构
   const verifyTableStructure = () => {
@@ -453,6 +614,15 @@ export default function useExcelData(props) {
 
     // methods
     verifyTableStructure,
-    exportData
+    exportData,
+
+    // 新增智能判断相关导出
+    detectTableType,
+    tableType,
+    shouldShowFlatMode,
+    smartTip,
+    checkRowMarkers,
+    checkColumnMarkers,
+    checkCrossStructure
   }
 }

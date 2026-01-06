@@ -41,8 +41,15 @@
 
 
 <script setup>
-import { defineProps, onMounted, watch } from 'vue'
+import { defineProps, onMounted, watch, inject  } from 'vue'
 import { Close, Loading, Document } from '@element-plus/icons-vue'
+
+
+// 调试代码 - 检查 inject 接收的数据
+const searchResultsFromInject = inject('searchResults')
+console.log('🔍🔍 PdfList 通过 inject 接收的 searchResults:', searchResultsFromInject)
+console.log('🔍🔍 PdfList 通过 inject 接收的 searchResults 长度:', searchResultsFromInject?.length)
+
 
 // 🔥 正确：先定义 props
 const props = defineProps({
@@ -59,6 +66,12 @@ const props = defineProps({
     default: 0
   },
   selectedPdf: Object
+})
+
+// 在 props 定义后添加
+console.log('🔍🔍 PdfList 接收的 props:', {
+  searchResults: props.searchResults,
+  isSearching: props.isSearching
 })
 
 defineEmits(['toggle-middle', 'select-pdf'])

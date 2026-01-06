@@ -17,7 +17,15 @@
               type="primary"
               size="default"
               :disabled="!props.selectedSheet || excelData.length === 0"
-              @click="$emit('toggle-flat-mode')"
+              @click="handleSmartToggle(
+                props.selectedSheet,
+                props.selectedPdf,
+                props.selectedExcelFile,
+                showFlatMode,
+                excelData,
+                flatData,
+                () => $emit('toggle-flat-mode')
+              )"
               :loading="loadingFlat"
               :key="`flat-button-${showFlatMode}`"
             >
@@ -117,6 +125,7 @@
 
 <script setup>
 import SaveStatus from './SaveStatus.vue'
+
 import * as ExcelKey from '@/utils/excelKeyUtils.js'
 import sheetStateManager from '@/utils/SheetStateManager.js'
 
@@ -126,7 +135,13 @@ import {
 } from '@element-plus/icons-vue'
 import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted   } from 'vue'
 
+
 import { ElMessage } from 'element-plus'
+
+import { useSheetOperations, checkIfFlattenedData  } from './useSheetOperations.js'
+const sheetOperations = useSheetOperations()  // 可能需要参数
+const { handleSmartToggle  } = sheetOperations
+
 
 /* ===== 给模板用的空壳变量（先让渲染不报错） ===== */
 const emptyCount = ref(0)          // 空白单元格数量
@@ -174,6 +189,7 @@ const enableFinalButton = computed(() => {
   console.log('  ✅ 是否有未保存修改:', hasUnsaved)
   return hasUnsaved
 })
+
 
 
 /* ===== 后续你可以把真实数据接进来 ===== */
@@ -237,6 +253,19 @@ const localUnsavedChanges = ref(0)
 
 const savingDraft = ref(false)
 const savingFinal = ref(false)
+
+
+const handleSmartToggleWrapper = () => {
+  handleSmartToggle(
+    props.selectedSheet,
+    props.selectedPdf,
+    props.selectedExcelFile,
+    showFlatMode,
+    excelData,
+    flatData,
+    () => $emit('toggle-flat-mode')
+  )
+}
 
 /* 存后台可点条件：有未保存且不在保存中 */
 const canSaveFinal = computed(() =>
@@ -566,7 +595,6 @@ const localHasUnsaved = computed(() => {
 
 
 
-
 /* 统一的条件：有选中 sheet 且有未保存修改 */
 // 🔥 替换 enableSaveButtons 计算属性
 const enableSaveButtons = computed(() => {
@@ -659,6 +687,24 @@ watch(() => props.selectedSheet, (newSheet) => {  // ✅ 使用 props.selectedSh
 }, { deep: true })
 
 
+
+// 🔥 只在数据加载时自动设置一次
+watch(() => props.excelData, (newData) => {
+  if (newData && newData.length > 0) {
+    const isFlattenedData = checkIfFlattenedData(newData)
+
+    console.log('🎯 初始化模式判断:', {
+      数据特征: isFlattenedData ? '扁平化' : '原始',
+      建议模式: isFlattenedData ? '扁平化' : '原始'
+    })
+
+    // 🔥 只在初始化时自动设置一次
+    if (isFlattenedData !== props.showFlatMode) {
+      console.log('🔄 初始化设置显示模式')
+      emit('toggle-flat-mode')
+    }
+  }
+}, { immediate: true })  // 🔥 只在第一次加载时执行
 
 /* ===== 最小全局源：只告诉按钮“有没有” ===== */
 const hasMod = computed(() => props.hasUnsavedChanges)   // 父组件给的 props
