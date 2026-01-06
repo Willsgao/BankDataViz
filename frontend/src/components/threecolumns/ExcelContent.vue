@@ -138,9 +138,9 @@ import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted   }
 
 import { ElMessage } from 'element-plus'
 
-import { useSheetOperations, checkIfFlattenedData  } from './useSheetOperations.js'
+import { useSheetOperations  } from './useSheetOperations.js'
 const sheetOperations = useSheetOperations()  // 可能需要参数
-const { handleSmartToggle  } = sheetOperations
+const { handleSmartToggle, checkIfFlattenedData  } = sheetOperations
 
 
 /* ===== 给模板用的空壳变量（先让渲染不报错） ===== */
