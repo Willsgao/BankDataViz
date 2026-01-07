@@ -522,36 +522,6 @@ class FinalDataConverter:
         # 3. 返回默认单位
         return default_unit
 
-    def _format_numeric_value(self, value, row_header: str = "", col_header: str = "",
-                              default_unit: str = "") -> str:
-        """
-        格式化数值并确定单位
-
-        Args:
-            value: 单元格值
-            row_header: 行表头
-            col_header: 列表头
-            default_unit: LLM默认单位
-
-        Returns:
-            str: 格式化后的数值
-        """
-        if value is None:
-            return ""
-
-        value_str = str(value).strip()
-
-        # 处理括号表示法（表示负数）
-        if value_str.startswith('(') and value_str.endswith(')'):
-            value_str = '-' + value_str[1:-1]
-
-        # 去掉千分位逗号
-        value_str = value_str.replace(',', '')
-
-        # 去掉空格
-        value_str = value_str.replace(' ', '')
-
-        return value_str
 
     def batch_convert_tables(self, all_tables_data: List[List[List]],
                              all_llm_tables: List[Dict[str, Any]],
@@ -720,7 +690,7 @@ class FinalDataConverter:
             return 4
 
 
-    def _extract_report_period_from_paths(self, horizontal_path: str, vertical_path: str,
+    def _extract_report_period_from_paths00(self, horizontal_path: str, vertical_path: str,
                                           table_metadata: Dict):
         """
         从路径中提取报告期 - 针对混合格式优化
@@ -765,7 +735,7 @@ class FinalDataConverter:
         # 最后从表格元数据中获取
         return table_metadata.get('default_report_period', '')
 
-    def _determine_unit_by_paths(self, vertical_path: str, horizontal_path: str,
+    def _determine_unit_by_paths00(self, vertical_path: str, horizontal_path: str,
                                  default_unit: str) -> str:
         """
         根据路径信息确定单位 - 针对混合格式优化
@@ -808,60 +778,7 @@ class FinalDataConverter:
 
         return default_unit
 
-    def _extract_date_from_text(self, text: str) -> str:
-        """
-        从文本中提取日期
-        """
-        if not text:
-            return ""
 
-        import re
-
-        patterns = [
-            r'(\d{4}年\d{1,2}月\d{1,2}日)',
-            r'(\d{4}年\d{1,2}月)',
-            r'(\d{4}年)',
-            r'(\d{4}-\d{1,2}-\d{1,2})',
-            r'(\d{4}/\d{1,2}/\d{1,2})',
-            r'(\d{8})'  # 20241231格式
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, str(text))
-            if match:
-                return match.group(1)
-
-        return ""
-
-    def _find_header_row_index(self, table_data: List[List], mark_row_index: int = -1) -> int:
-        """
-        智能识别表头行索引，跳过标记行
-        """
-        if not table_data or len(table_data) < 2:
-            return 0
-
-        # 策略1：查找包含>>的行
-        for i, row in enumerate(table_data):
-            # 跳过标记行
-            if i == mark_row_index:
-                continue
-
-            if not row:
-                continue
-
-            for cell in row:
-                if cell and '>>' in str(cell):
-                    return i
-
-        # 策略2：使用第一行非标记行
-        for i, row in enumerate(table_data):
-            if i == mark_row_index:
-                continue
-
-            if row and any(cell for cell in row if cell):
-                return i
-
-        return 0
 
     def _extract_vertical_path(self, row_data: List, row_idx: int, header_row_index: int,
                                mark_column_index: int) -> str:
@@ -881,24 +798,9 @@ class FinalDataConverter:
 
         return ""
 
-    def _calculate_row_marker(self, formatted_value: str, data_type: str) -> int:
-        """
-        计算行标记
-        """
-        state = 0
-        if formatted_value:
-            # 如果是数值类型
-            try:
-                float(formatted_value)
-                state = 1
-            except:
-                state = 2
-
-        return state
 
 
-
-    def _convert_regular_table(self, table_data: List[List],
+    def _convert_regular_table00(self, table_data: List[List],
                                table_metadata: Dict[str, Any],
                                marks_info: Dict[str, Any],
                                bank_name: str = "",
@@ -908,6 +810,8 @@ class FinalDataConverter:
         """
 
         print("🔧 处理常规表格格式...")
+        print("MMMMMMMMMMMtable_metadataMMMMMMMMMMMMMMM")
+        print(table_metadata)
 
         if not table_data or len(table_data) < 2:
             print("❌ 表格数据为空或不足2行")
@@ -959,6 +863,9 @@ class FinalDataConverter:
         page_num = 0
         if table_name.startswith('P'):
             page_num = int(table_name.split('_')[0][1:].strip())
+
+        print("&&&&&&&&&table_metadata&&&&&&&&&&&&")
+        print("table_metadata:", table_metadata)
         default_unit = table_metadata.get('default_unit', '')
         default_currency = table_metadata.get('default_currency', '人民币')
         default_report_period = table_metadata.get('default_report_period', '')
@@ -1151,6 +1058,8 @@ class FinalDataConverter:
         处理混合格式表格，包含标记行列过滤和单位/报告期提取
         """
         print("🔧 处理混合格式表格...")
+        print("MMMMMMMMMMMtable_metadataMMMMMMMMMMMMMMM")
+        print(table_metadata)
 
         # 获取标记信息
         row_marks = marks_info.get("row_marks", [])
@@ -1172,7 +1081,7 @@ class FinalDataConverter:
         if metadata_row_idx < 0 or not metadata:
             print("❌ 未找到元数据")
             return self._convert_regular_table(table_data, table_metadata, marks_info,
-                                               bank_name, page_num, entity)
+                                               bank_name, entity)
 
         print(f"✅ 找到元数据，在行{metadata_row_idx}")
 
@@ -1402,6 +1311,447 @@ class FinalDataConverter:
         print(f"✅ 混合格式转换完成，生成 {len(long_format_data)} 条记录")
         return long_format_data
 
+    def _convert_regular_table(self, table_data: List[List],
+                               table_metadata: Dict[str, Any],
+                               marks_info: Dict[str, Any],
+                               bank_name: str = "",
+                               entity: str = "") -> List[Dict]:
+        """
+        处理常规格式的表格数据转换为长格式 - 修复版
+        """
+        print("🔧🔧 处理常规表格格式（修复版）...")
+
+        if not table_data or len(table_data) < 2:
+            print("❌❌ 表格数据为空或不足2行")
+            return []
+
+        print(f"📊📊 原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
+
+        # 🔥🔥🔥 关键修复：正确获取配置参数
+        # 获取默认值 - 确保使用传入的参数
+        table_name = table_metadata.get('name', '')
+        page_num = 0
+        if table_name.startswith('P'):
+            try:
+                page_num = int(table_name.split('_')[0][1:].strip())
+            except:
+                page_num = 0
+
+        # 银行名优先级：传入的bank_name > table_metadata中的bank_name > 默认值
+        final_bank_name = bank_name or table_metadata.get('bank_name', '未知银行')
+        final_entity = entity or table_metadata.get('entity', '本集团')
+        final_currency = table_metadata.get('default_currency', '人民币')
+        final_unit = table_metadata.get('default_unit', '')
+        final_report_period = table_metadata.get('default_report_period', '')
+
+        print(f"🎯 使用的配置:")
+        print(f"  - 银行名: {final_bank_name}")
+        print(f"  - 主体: {final_entity}")
+        print(f"  - 币种: {final_currency}")
+        print(f"  - 单位: {final_unit}")
+        print(f"  - 报告期: {final_report_period}")
+
+        # 🔥🔥 关键1：找到"行标记"列
+        mark_column_index = -1
+        for i, row in enumerate(table_data):
+            for j, cell in enumerate(row):
+                if str(cell).strip() == "行标记":
+                    mark_column_index = j
+                    print(f"🔍🔍 找到'行标记'列: 第{mark_column_index}列")
+                    break
+            if mark_column_index != -1:
+                break
+
+        # 🔥🔥 关键2：找到"列标记"行
+        mark_row_index = -1
+        for i, row in enumerate(table_data):
+            for j, cell in enumerate(row):
+                if str(cell).strip() == "列标记":
+                    mark_row_index = i
+                    print(f"🔍🔍 找到'列标记'行: 第{mark_row_index}行")
+                    break
+            if mark_row_index != -1:
+                break
+
+        # 1. 智能识别表头行
+        header_row_index = self._find_header_row_index(table_data, mark_row_index)
+        print(f"🔍🔍 识别到的表头行索引: {header_row_index}")
+
+        if header_row_index < 0 or header_row_index >= len(table_data):
+            print("❌❌ 无法识别有效的表头行")
+            return []
+
+        # 2. 智能识别数据行
+        data_start_index = header_row_index + 1
+
+        # 3. 构建长格式数据
+        long_format_data = []
+
+        for row_idx in range(data_start_index, len(table_data)):
+            # 🔥🔥 关键3：跳过"列标记"行
+            if row_idx == mark_row_index:
+                print(f"⏭⏭⏭️ 跳过'列标记'行: 行{row_idx}")
+                continue
+
+            row_data = table_data[row_idx]
+
+            if not row_data:
+                print(f"⏭⏭⏭️ 跳过空行 {row_idx}")
+                continue
+
+            # 🔥🔥 关键4：获取当前行标记
+            current_row_mark = 1
+            if mark_column_index != -1 and mark_column_index < len(row_data):
+                mark_value = row_data[mark_column_index]
+                try:
+                    current_row_mark = int(mark_value) if mark_value not in [None, ''] else 1
+                except:
+                    current_row_mark = 1
+
+            # 🔥🔥 关键5：过滤行标记为0的行
+            if current_row_mark == 0:
+                print(f"⏭⏭⏭️ 过滤行标记为0的行 {row_idx}")
+                continue
+
+            # 提取纵向层级路径
+            vertical_path = ""
+            # 尝试从第0列开始（跳过标记列）
+            for i, cell in enumerate(row_data):
+                if i == mark_column_index:
+                    continue
+                if cell and str(cell).strip():
+                    vertical_path = str(cell).strip()
+                    break
+
+            if not vertical_path:
+                print(f"⏭⏭⏭️ 跳过行{row_idx}: 纵向路径为空")
+                continue
+
+            print(f"✅ 处理有效行{row_idx}: 纵向路径='{vertical_path}'")
+
+            # 🔥🔥 关键6：第一遍遍历 - 收集当前行所有列标记为0的单元格值
+            remark_features = []
+
+            for col_idx in range(1, len(row_data)):
+                # 🔥🔥 关键7：跳过"行标记"列
+                if col_idx == mark_column_index:
+                    continue
+
+                if col_idx >= len(table_data[header_row_index]):
+                    break
+
+                cell_value = row_data[col_idx]
+                if cell_value is None or cell_value == "":
+                    continue
+
+                # 获取列标记
+                current_col_mark = 1
+                if mark_row_index != -1 and col_idx < len(table_data[mark_row_index]):
+                    mark_value = table_data[mark_row_index][col_idx]
+                    try:
+                        current_col_mark = int(mark_value) if mark_value not in [None, ''] else 1
+                    except:
+                        current_col_mark = 1
+
+                # 🔥🔥 关键8：如果列标记为0，收集该单元格的值
+                if current_col_mark == 0:
+                    remark_text = str(cell_value).strip()
+                    if remark_text:
+                        remark_features.append(remark_text)
+                        print(f"📝📝 收集行{row_idx}列{col_idx}的备注特征: {remark_text}")
+
+            # 🔥🔥 关键9：第二遍遍历 - 只处理列标记不为0的列
+            for col_idx in range(1, len(row_data)):
+                # 🔥🔥 关键10：跳过"行标记"列
+                if col_idx == mark_column_index:
+                    continue
+
+                if col_idx >= len(table_data[header_row_index]):
+                    break
+
+                cell_value = row_data[col_idx]
+                if cell_value is None or cell_value == "":
+                    continue
+
+                # 获取列标记
+                current_col_mark = 1
+                if mark_row_index != -1 and col_idx < len(table_data[mark_row_index]):
+                    mark_value = table_data[mark_row_index][col_idx]
+                    try:
+                        current_col_mark = int(mark_value) if mark_value not in [None, ''] else 1
+                    except:
+                        current_col_mark = 1
+
+                print(f"🔍🔍 处理行{row_idx}列{col_idx}: 列标记={current_col_mark}")
+
+                # 🔥🔥 关键11：过滤列标记为0的列
+                if current_col_mark == 0:
+                    print(f"⏭⏭⏭️ 过滤列标记为0的列 {col_idx}")
+                    continue
+
+                # 获取横向层级路径
+                header_row = table_data[header_row_index]
+                horizontal_path = ""
+                if col_idx < len(header_row):
+                    header_cell = header_row[col_idx]
+                    horizontal_path = str(header_cell).strip() if header_cell is not None else f"列{col_idx}"
+
+                # 🔥🔥 关键12：提取报告期
+                report_period = self._extract_report_period_from_paths(horizontal_path, vertical_path, table_metadata)
+
+                if not report_period and final_report_period:
+                    report_period = final_report_period
+                    print(f"📅📅 使用默认报告期: {report_period}")
+
+                # 🔥🔥 关键13：判断数据类型
+                data_type = self.data_type_detector.get_data_type(
+                    row_header=vertical_path,
+                    col_header=horizontal_path,
+                    cell_value=cell_value,
+                    table_context=table_name
+                )
+
+                # 🔥🔥 关键14：确定单位
+                unit = self._determine_unit_by_paths(vertical_path, horizontal_path, final_unit)
+
+                if not unit and final_unit:
+                    unit = final_unit
+                    print(f"📏📏 使用默认单位: {unit}")
+
+                # 格式化数值
+                formatted_value = self._format_numeric_value(cell_value)
+
+                # 获取行标记
+                row_marker = self._calculate_row_marker(formatted_value, data_type)
+
+                # 🔥🔥 关键15：将收集的备注特征组合成字符串
+                remark_features_str = "@@".join(remark_features) if remark_features else ""
+
+                # 🔥🔥🔥 关键修复：构建记录时使用正确的配置参数
+                record = {
+                    '银行名': final_bank_name,  # 🔥 使用修复后的银行名
+                    '表名': table_name,
+                    '页号': page_num,
+                    '主体': final_entity,  # 🔥 使用修复后的主体
+                    '纵向层级路径': vertical_path,
+                    '横向层级路径': horizontal_path,
+                    '数据类型': data_type,
+                    '币种': final_currency,  # 🔥 使用修复后的币种
+                    '单位': unit,
+                    '报告期': report_period,
+                    '数值': formatted_value,
+                    '行标记': row_marker,
+                    '备注特征': remark_features_str
+                }
+
+                long_format_data.append(record)
+
+                if len(long_format_data) <= 3:  # 只打印前3条记录的详细日志
+                    print(f"  📝📝 添加记录{len(long_format_data)}:")
+                    print(f"     银行名: {final_bank_name}")
+                    print(f"     主体: {final_entity}")
+                    print(f"     币种: {final_currency}")
+                    print(f"     纵向: {vertical_path}")
+                    print(f"     横向: {horizontal_path}")
+                    print(f"     数值: {formatted_value}")
+                    print(f"     报告期: {report_period}")
+                    print(f"     单位: {unit}")
+                    if remark_features_str:
+                        print(f"     备注特征: {remark_features_str}")
+
+        print(f"✅ 表格转换完成，共生成 {len(long_format_data)} 条记录")
+        return long_format_data
+
+    def _extract_report_period_from_paths(self, horizontal_path: str, vertical_path: str, table_metadata: Dict) -> str:
+        """
+        从路径中提取报告期
+        """
+        import re
+
+        # 优先从横向路径提取
+        if horizontal_path:
+            # 混合格式中通常是 a>>2024年12月31日 的格式
+            if '>>' in horizontal_path:
+                # 尝试提取日期部分
+                parts = horizontal_path.split('>>')
+                for part in parts:
+                    report_period = self._extract_date_from_text(part)
+                    if report_period:
+                        return report_period
+            else:
+                report_period = self._extract_date_from_text(horizontal_path)
+                if report_period:
+                    return report_period
+
+        # 然后从纵向路径提取
+        if vertical_path:
+            if '>>' in vertical_path:
+                parts = vertical_path.split('>>')
+                for part in parts:
+                    report_period = self._extract_date_from_text(part)
+                    if report_period:
+                        return report_period
+            else:
+                report_period = self._extract_date_from_text(vertical_path)
+                if report_period:
+                    return report_period
+
+        # 从表格名称中尝试提取
+        table_name = table_metadata.get('name', '')
+        if table_name:
+            report_period = self._extract_date_from_text(table_name)
+            if report_period:
+                return report_period
+
+        # 最后从表格元数据中获取
+        return table_metadata.get('default_report_period', '')
+
+    def _determine_unit_by_paths00(self, vertical_path: str, horizontal_path: str, default_unit: str) -> str:
+        """
+        根据路径信息确定单位
+        """
+        combined_text = f"{vertical_path} {horizontal_path}"
+
+        # 混合格式中通常有明确的单位指示
+        if '(' in combined_text and ')' in combined_text:
+            # 提取括号内的内容
+            import re
+            matches = re.findall(r'\(([^)]+)\)', combined_text)
+            for match in matches:
+                if any(keyword in match for keyword in ['%', '百分比']):
+                    return '%'
+                elif '百万' in match:
+                    return '百万元'
+                elif '万' in match:
+                    return '万元'
+                elif '亿' in match:
+                    return '亿元'
+                elif '元' in match:
+                    return '元'
+                elif '人民币' in match:
+                    return '元'
+
+        # 通用单位检测
+        if any(keyword in combined_text for keyword in ['%', '百分比', '比率', '比例', '充足率']):
+            return '%'
+
+        # 金额单位检测
+        if '数额' in combined_text or '金额' in combined_text or '资本' in combined_text or '资产' in combined_text:
+            if '百万' in combined_text:
+                return '百万元'
+            elif '万' in combined_text:
+                return '万元'
+            elif '亿' in combined_text:
+                return '亿元'
+            else:
+                return '元'
+
+        return default_unit
+
+    def _determine_unit_by_paths(self, vertical_path: str, horizontal_path: str, default_unit: str) -> str:
+        """
+        根据路径信息确定单位 - 强制使用默认单位
+        """
+        # 🔥🔥🔥 紧急修复：直接使用默认单位
+        combined_text = f"{vertical_path} {horizontal_path}".lower()
+
+        # 只有明确是百分比数据才用%，其他都用默认单位
+        if any(keyword in combined_text for keyword in ['%', '率', '比例', '百分比']):
+            return '%'
+        else:
+            return default_unit
+
+    def _format_numeric_value(self, value) -> str:
+        """
+        格式化数值
+        """
+        if value is None:
+            return ""
+
+        value_str = str(value).strip()
+
+        # 处理括号表示法（表示负数）
+        if value_str.startswith('(') and value_str.endswith(')'):
+            value_str = '-' + value_str[1:-1]
+
+        # 去掉千分位逗号
+        value_str = value_str.replace(',', '')
+
+        # 去掉空格
+        value_str = value_str.replace(' ', '')
+
+        return value_str
+
+    def _calculate_row_marker(self, formatted_value: str, data_type: str) -> int:
+        """
+        计算行标记
+        """
+        state = 0
+        if formatted_value:
+            # 如果是数值类型
+            try:
+                float(formatted_value)
+                state = 1
+            except:
+                state = 2
+
+        return state
+
+    def _find_header_row_index(self, table_data: List[List], mark_row_index: int = -1) -> int:
+        """
+        智能识别表头行索引，跳过标记行
+        """
+        if not table_data or len(table_data) < 2:
+            return 0
+
+        # 策略1：查找包含>>的行
+        for i, row in enumerate(table_data):
+            # 跳过标记行
+            if i == mark_row_index:
+                continue
+
+            if not row:
+                continue
+
+            for cell in row:
+                if cell and '>>' in str(cell):
+                    return i
+
+        # 策略2：使用第一行非标记行
+        for i, row in enumerate(table_data):
+            if i == mark_row_index:
+                continue
+
+            if row and any(cell for cell in row if cell):
+                return i
+
+        return 0
+
+    def _extract_date_from_text(self, text: str) -> str:
+        """
+        从文本中提取日期
+        """
+        if not text:
+            return ""
+
+        import re
+
+        patterns = [
+            r'(\d{4}年\d{1,2}月\d{1,2}日)',
+            r'(\d{4}年\d{1,2}月)',
+            r'(\d{4}年)',
+            r'(\d{4}-\d{1,2}-\d{1,2})',
+            r'(\d{4}/\d{1,2}/\d{1,2})',
+            r'(\d{8})'  # 20241231格式
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, str(text))
+            if match:
+                return match.group(1)
+
+        return ""
+
 
     def convert_table_to_long_format(self, table_data: List[List],
                                      table_metadata: Dict[str, Any],
@@ -1415,8 +1765,6 @@ class FinalDataConverter:
         print("=" * 50)
         print("📥 进入 convert_table_to_long_format")
         print("=" * 50)
-
-        print("table_metadatatable_metadatatable_metadata", table_metadata)
 
         print("📄 表格名称:", table_metadata.get('name', '未知'))
 

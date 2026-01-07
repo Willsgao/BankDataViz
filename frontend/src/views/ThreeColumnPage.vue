@@ -726,7 +726,7 @@ const loadExcelSheets = async (pdfId) => {
 }
 
 // 🔥 创建包装函数
-const selectSheet = async (sheet, excelFileName) => {
+const selectSheet11 = async (sheet, excelFileName) => {
   if (!selectedPdf.value) {
     ElMessage.error('请先选择PDF文件')
     return { success: false }
@@ -762,6 +762,93 @@ const selectSheet = async (sheet, excelFileName) => {
         console.log('✅ 最终纠正：激活扁平化模式')
       }
     }, 500)
+
+    return result
+
+  } catch (error) {
+    console.error('❌ selectSheet 失败:', error)
+    ElMessage.error(`选择表格失败: ${error.message}`)
+    return { success: false, error: error.message }
+  }
+}
+
+
+
+const selectSheet = async (sheet, excelFileName) => {
+  try {
+    console.log('🎯🎯🎯 选择Sheet（带智能检测）:', {
+      sheet名称: sheet.name,
+      excel文件: excelFileName,
+      当前PDF: selectedPdf.value?.id
+    })
+
+    if (!selectedPdf.value) {
+      ElMessage.error('请先选择PDF文件')
+      return { success: false }
+    }
+
+    // 1. 调用基础选择逻辑
+    console.log('🔄 调用基础Sheet选择逻辑...')
+    const result = await selectSheetOperation(
+      sheet,
+      excelFileName,
+      selectedPdf.value,
+      selectedSheet,
+      selectedExcelFile,
+      sheetStateManager,
+      excelData,
+      tableColumns,
+      flatData,
+      showFlatMode,
+      currentTableMode,
+      loadExcelData,
+      loadAllClassData
+    )
+
+    console.log('📊 基础选择结果:', {
+      成功: result.success,
+      数据行数: excelData.value?.length || 0,
+      扁平化数据行数: flatData.value?.length || 0
+    })
+
+    // 2. 智能检测显示模式
+    if (result.success) {
+      console.log('🎯 开始智能检测显示模式...')
+
+      // 延迟执行，确保数据已加载
+      setTimeout(() => {
+        // 🔥🔥🔥 关键修复：检查数据特征
+        const hasFlattenedData = flatData.value && flatData.value.length > 0
+        const hasOriginalData = excelData.value && excelData.value.length > 0
+
+        console.log('🔍 数据特征检测:', {
+          有扁平化数据: hasFlattenedData,
+          有原始数据: hasOriginalData,
+          当前显示模式: showFlatMode.value ? '扁平化' : '原始',
+          应该显示: hasFlattenedData ? '扁平化' : '原始'
+        })
+
+        // 🔥🔥🔥 智能纠正显示模式
+        if (hasFlattenedData && !showFlatMode.value) {
+          console.log('🔄 检测到扁平化数据，自动切换到扁平化模式')
+          showFlatMode.value = true
+          currentTableMode.value = 'flattened'
+        }
+        else if (!hasFlattenedData && hasOriginalData && showFlatMode.value) {
+          console.log('🔄 只有原始数据，切换到原始模式')
+          showFlatMode.value = false
+          currentTableMode.value = 'original'
+        }
+        else {
+          console.log('✅ 显示模式正确，无需调整')
+        }
+
+        console.log('🎯 智能检测完成，最终状态:', {
+          显示模式: showFlatMode.value ? '扁平化' : '原始',
+          表格模式: currentTableMode.value
+        })
+      }, 300)
+    }
 
     return result
 

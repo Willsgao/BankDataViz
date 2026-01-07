@@ -5,7 +5,6 @@ from flask import Blueprint, request, jsonify, send_from_directory, make_respons
 from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
-import datetime
 
 # 新增导入
 from backend.models.safe_unified_db import SafeDatabaseManager  # 使用安全的数据库管理器
@@ -239,7 +238,6 @@ def get_file_info(filename):
 
 
 
-
 # ---------- 3. 软删除（增强版：物理文件不存在时直接删除） ----------
 @file_bp.delete('/file/<path:filename>')
 def delete_file(filename):
@@ -297,7 +295,6 @@ def delete_file(filename):
             conn.rollback()
             conn.close()
         return jsonify({"error": "删除文件失败"}), 500
-
 
 
 
@@ -380,46 +377,44 @@ def get_file_by_id(file_id):
 @file_bp.get('/excel-sheets/<file_id>')
 def get_excel_sheets(file_id):
     """
-    根据PDF文件ID获取对应的Excel sheet列表（支持数字ID和UUID）
-    Excel文件存储在 backend/static/excel_data/<file_id>/ 目录中
+    根据PDF文件ID获取对应的Excel sheet列表 - 修复路径问题
     """
     try:
         print(f"🔍🔍 获取Excel sheets请求 file_id: {file_id}")
 
-        # 如果file_id是数字，需要先查询数据库获取真实的UUID
-        if file_id.isdigit():
-            print(f"🔍🔍 检测到数字ID，查询数据库: {file_id}")
-            # 通过数字ID查询真实文件信息
-            conn = db.connect()
-            c = conn.cursor()
-            c.execute("SELECT filename FROM files WHERE id = ? AND deleted = 0", (file_id,))
-            row = c.fetchone()
-            conn.close()
+        # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
+        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
 
-            if row:
-                real_file_id = row["filename"]  # 获取真实的UUID
-                print(f"✅ 找到对应文件 UUID: {real_file_id}")
-            else:
-                print(f"❌ 数据库中没有找到ID为 {file_id} 的文件")
-                return jsonify({"error": "PDF文件不存在"}), 404
-        else:
-            real_file_id = file_id
-            print(f"🔍🔍 直接使用UUID: {real_file_id}")
-
-        # 1. 验证PDF文件是否存在
-        file_info = file_mapping_service.get_file_info(real_file_id)
-        print("file_info:", file_info)
-        if not file_info:
-            print(f"❌ 文件映射服务中没有找到UUID: {real_file_id}")
-            return jsonify({"error": "PDF文件不存在"}), 404
-
-        # 2. 构建Excel文件目录路径 - 修正：统一使用Path对象
-        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / real_file_id
-        print(f"🔍🔍 Excel目录路径: {excel_dir}")
+        # 2. 构建Excel文件目录路径
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id  # 🔥 使用清理后的ID
+        print(f"📁 Excel目录路径: {excel_dir}")
 
         if not excel_dir.exists():
             print(f"⚠️ Excel目录不存在: {excel_dir}")
-            return jsonify({"excel_files": []})
+
+            # 🔥🔥🔥 备选方案1：尝试使用原始file_id（不带.pdf）
+            alt_excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
+            print(f"🔍🔍 尝试备选Excel目录1: {alt_excel_dir}")
+
+            if alt_excel_dir.exists():
+                excel_dir = alt_excel_dir
+                print(f"✅ 使用备选目录1: {excel_dir}")
+            else:
+                # 🔥🔥🔥 备选方案2：尝试使用UUID部分
+                if '_' in file_id:
+                    uuid_part = file_id.split('_')[0]
+                    alt_excel_dir2 = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / uuid_part
+                    print(f"🔍🔍 尝试备选Excel目录2: {alt_excel_dir2}")
+
+                    if alt_excel_dir2.exists():
+                        excel_dir = alt_excel_dir2
+                        print(f"✅ 使用备选目录2: {excel_dir}")
+                    else:
+                        return jsonify({"excel_files": []})
+                else:
+                    return jsonify({"excel_files": []})
+
+        print(f"✅ Excel目录存在: {excel_dir}")
 
         # 3. 查找目录中的所有Excel文件
         excel_files = []
@@ -482,237 +477,270 @@ def get_excel_sheets(file_id):
         print(f"✅ 返回结果: {len(result)} 个Excel文件信息")
         return jsonify({
             "excel_files": result,
-            "pdf_id": real_file_id,
-            "pdf_name": file_info["original_name"],
+            "pdf_id": clean_file_id,  # 🔥 返回清理后的ID
+            "pdf_name": file_id,  # 保持原始file_id用于显示
             "total_excel_files": len(result)
         })
 
     except Exception as e:
-        print(f"❌❌ 获取Excel sheet列表失败: {e}")
+        print(f"❌❌ 获取Excel sheets失败: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({"error": "获取表格列表失败"}), 500
 
 
-
-@file_bp.get('/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
+@file_bp.get('/file/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
 def get_excel_data(file_id, excel_file_name, sheet_name):
     """
-    根据文件ID、Excel文件名和sheet名称获取Excel数据
+    读取Excel文件中特定sheet的数据
     """
     try:
-        print("🎯 直接读取Excel文件数据（跳过快照）")
-        print(f"📋 请求参数: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
+        print(f"🔍🔍 获取Excel数据请求: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
 
-        # 🔥🔥🔥 新增：如果file_id是数字，转换为真实UUID
-        if file_id.isdigit():
-            print(f"🔍 检测到数字ID，查询真实UUID: {file_id}")
-
-            # 1. 先尝试从 table_processing_records 查询
-            conn = db.connect()
-            c = conn.cursor()
-
-            # 🔥 先检查表结构
-            c.execute("PRAGMA table_info(table_processing_records)")
-            columns = c.fetchall()
-            column_names = [col[1] for col in columns]
-            print(f"🔍 table_processing_records 表结构: {column_names}")
-
-            # 根据实际表结构构建查询
-            if 'pdf_folder' in column_names:
-                # 如果有 pdf_folder 列
-                c.execute("""
-                    SELECT pdf_folder 
-                    FROM table_processing_records 
-                    WHERE id = ? OR CAST(id AS TEXT) = ?
-                """, (file_id, file_id))
-                row = c.fetchone()
-
-                if row:
-                    real_file_id = row["pdf_folder"]
-                    print(f"✅ 从 table_processing_records 找到UUID: {real_file_id}")
-                else:
-                    # 如果没有找到，尝试查询 files 表
-                    c.execute("""
-                        SELECT filename 
-                        FROM files 
-                        WHERE id = ? AND deleted = 0
-                    """, (file_id,))
-                    row = c.fetchone()
-
-                    if row:
-                        real_file_id = row["filename"]
-                        print(f"✅ 从 files 表找到UUID: {real_file_id}")
-                    else:
-                        print(f"❌ 未找到ID为 {file_id} 的记录")
-                        conn.close()
-                        return jsonify({"error": "文件不存在"}), 404
-            else:
-                # 如果没有 pdf_folder 列，直接查询 files 表
-                c.execute("""
-                    SELECT filename 
-                    FROM files 
-                    WHERE id = ? AND deleted = 0
-                """, (file_id,))
-                row = c.fetchone()
-
-                if row:
-                    real_file_id = row["filename"]
-                    print(f"✅ 从 files 表找到UUID: {real_file_id}")
-                else:
-                    print(f"❌ 未找到ID为 {file_id} 的记录")
-                    conn.close()
-                    return jsonify({"error": "文件不存在"}), 404
-
-            conn.close()
-
-            if 'real_file_id' in locals():
-                file_id = real_file_id  # 替换为真实的UUID
-            else:
-                print(f"❌ 未找到ID为 {file_id} 的记录")
-                return jsonify({"error": "文件不存在"}), 404
-        else:
-            print(f"🔍 已经是UUID格式: {file_id}")
+        # 🔥🔥 关键修复：清理file_id，移除.pdf扩展名
+        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
 
         # 1. 构建Excel文件路径
-        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+        print(f"📁 Excel文件路径excel_dir: {excel_dir}")
         excel_path = excel_dir / excel_file_name
 
-        print("📁 Excel文件路径:", excel_path)
+        print(f"📁 Excel文件路径: {excel_path}")
 
         if not excel_path.exists():
-            print("❌ Excel文件不存在")
-            return jsonify({"error": "Excel文件不存在"}), 404
+            print(f"❌ Excel文件不存在: {excel_path}")
 
-        # 2. 读取指定sheet，不把任何行当作表头
-        import pandas as pd
-        df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None)
-        df = df.fillna('')
+            # 🔥🔥 尝试备选路径：如果清理后找不到，尝试使用原始file_id
+            if clean_file_id != file_id:
+                alt_excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
+                alt_excel_path = alt_excel_dir / excel_file_name
+                print(f"🔍🔍 尝试备选路径: {alt_excel_path}")
 
-        print("✅ Excel文件读取成功")
-        print("📊 Excel原始数据形状:", df.shape)
-        print("🔢 列数:", df.shape[1], "行数:", df.shape[0])
+                if alt_excel_path.exists():
+                    excel_dir = alt_excel_dir
+                    excel_path = alt_excel_path
+                    print(f"✅ 使用备选路径: {excel_path}")
+                else:
+                    return jsonify({"error": "Excel文件不存在"}), 404
+            else:
+                return jsonify({"error": "Excel文件不存在"}), 404
 
-        # 获取表头
-        horizontal_headers = []
-        vertical_headers = []
-        data_rows = []
-        top_left_cell = ""
+        print(f"✅ Excel文件存在: {excel_path}")
 
-        # 提取横向表头（第一行，从第二列开始）
-        if df.shape[0] > 0:
-            # 第一列第一行可能是左上角单元格
-            top_left_cell = str(df.iloc[0, 0]) if df.iloc[0, 0] != '' else ""
+        # 2. 读取Excel文件
+        try:
+            import pandas as pd
+            print("🎯 直接读取Excel文件数据（跳过快照）")
 
-            # 横向表头（第一行，从第二列开始）
-            for col in range(1, df.shape[1]):
-                header = str(df.iloc[0, col]) if df.iloc[0, col] != '' else f""
-                horizontal_headers.append(header)
+            # 读取指定的sheet
+            df = pd.read_excel(
+                excel_path,
+                sheet_name=sheet_name,
+                header=None,  # 不自动识别表头
+                dtype=str  # 全部读取为字符串
+            )
 
-        # 提取纵向表头（第一列，从第二行开始）
-        if df.shape[1] > 0:
-            for row in range(1, df.shape[0]):
-                header = str(df.iloc[row, 0]) if df.iloc[row, 0] != '' else f""
-                vertical_headers.append(header)
+            # 将NaN替换为空字符串
+            df = df.fillna('')
 
-        # 提取数据（从第二行第二列开始）
-        for row in range(1, df.shape[0]):
-            data_row = []
-            for col in range(1, df.shape[1]):
-                value = df.iloc[row, col]
-                # 尝试保持数值类型
-                try:
-                    if isinstance(value, (int, float)):
-                        data_row.append(value)
-                    elif str(value).replace(',', '').replace('.', '').isdigit():
-                        clean_value = str(value).replace(',', '')
-                        if '.' in str(value):
-                            data_row.append(float(clean_value))
-                        else:
-                            data_row.append(int(clean_value))
-                    else:
-                        data_row.append(str(value) if value != '' else "")
-                except:
-                    data_row.append(str(value) if value != '' else "")
-            data_rows.append(data_row)
+            # 转换为二维列表
+            data = df.values.tolist()
 
-        print("📈 数据结构分析:")
-        print(f"   - 左上角单元格: '{top_left_cell}'")
-        print(f"   - 横向表头数: {len(horizontal_headers)}")
-        print(f"   - 纵向表头数: {len(vertical_headers)}")
-        print(f"   - 数据行数: {len(data_rows)}")
-        print(f"   - 数据列数: {len(data_rows[0]) if data_rows else 0}")
-        print(f"   - 横向表头样本: {horizontal_headers[:3]}")
-        print(f"   - 纵向表头样本: {vertical_headers[:3]}")
-        print(f"   - 数据样本: {data_rows[0][:3] if data_rows else '无'}")
+            print(f"✅ 成功读取sheet '{sheet_name}'，数据形状: {len(data)}行 x {len(data[0]) if data else 0}列")
 
-        # 4. 构建前端友好的数据结构
-        frontend_data = []
+            # 检查是否有元数据行
+            metadata_row_index = -1
+            for i, row in enumerate(data):
+                if row and isinstance(row[0], str) and row[0].startswith('#METADATA_START#'):
+                    metadata_row_index = i
+                    print(f"🔍 找到元数据起始行: 第{i}行")
+                    break
 
-        # 添加元数据行
-        metadata_row = {
-            "__metadata": {
-                "has_dual_headers": True,
-                "top_left_cell": top_left_cell,
-                "horizontal_headers": horizontal_headers,
-                "vertical_headers": vertical_headers
-            }
-        }
-        frontend_data.append(metadata_row)
+            # 如果有元数据，提取它
+            metadata = {}
+            if metadata_row_index >= 0:
+                for i in range(metadata_row_index, min(metadata_row_index + 10, len(data))):
+                    if i < len(data) and data[i]:
+                        cell_value = str(data[i][0])
+                        if cell_value.startswith('#METADATA_END#'):
+                            break
+                        elif ':' in cell_value and not cell_value.startswith('#'):
+                            key, value = cell_value.split(':', 1)
+                            metadata[key.strip()] = value.strip()
+                            print(f"📄 提取元数据: {key} = {value}")
 
-        # 添加表头数据行（第一行：左上角 + 横向表头）
-        header_row = {
-            "__is_first_row": True,
-            "__top_left_cell": top_left_cell
-        }
-        for i, header in enumerate(horizontal_headers, 1):
-            header_row[f"H_{i}"] = header
+            # 如果找到元数据，在数据中移除元数据行
+            if metadata_row_index >= 0:
+                data = data[:metadata_row_index]
+                print(f"✂️ 移除元数据行，保留 {len(data)} 行数据")
 
-        frontend_data.append(header_row)
+            return jsonify({
+                "success": True,
+                "data": data,
+                "metadata": metadata,
+                "rows": len(data),
+                "cols": len(data[0]) if data else 0
+            })
 
-        # 添加数据行（纵向表头 + 数据）
-        for i in range(len(data_rows)):
-            row_data = data_rows[i]
-            vertical_header = vertical_headers[i] if i < len(vertical_headers) else f""
-
-            row_obj = {
-                "__is_data_row": True,
-                "__vertical_header": vertical_header
-            }
-
-            for j, value in enumerate(row_data, 1):
-                row_obj[f"H_{j}"] = value
-
-            frontend_data.append(row_obj)
-
-        print("✅ 前端数据构建完成:")
-        print(f"   - 总行数: {len(frontend_data)}")
-        print(f"   - 总列数: {len(horizontal_headers)}")
-        print(f"   - 数据样本: {frontend_data[:2]}")
-
-        result = {
-            "rows": frontend_data,
-            "total_rows": len(frontend_data),
-            "total_columns": len(horizontal_headers),
-            "sheet_name": sheet_name,
-            "excel_file": excel_file_name,
-            "pdf_id": file_id,
-            "has_dual_headers": True,
-            "source": "excel_file"  # 标记数据来源为Excel文件
-        }
-
-        print("++++++++++++++++result+++++++++++++++++++")
-        print(result)
-
-        # 5. 返回给前端
-        return jsonify(result)
+        except Exception as e:
+            print(f"❌ 读取Excel文件失败: {e}")
+            return jsonify({"error": f"读取Excel文件失败: {str(e)}"}), 500
 
     except Exception as e:
-        print(f"❌ 处理Excel数据请求失败: {e}")
+        print(f"❌❌ 获取Excel数据失败: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": f"处理请求失败: {str(e)}"}), 500
+        return jsonify({"error": "获取Excel数据失败"}), 500
 
+
+
+
+@file_bp.get('/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
+def get_excel_data_api(file_id, excel_file_name, sheet_name):
+    """
+    提供Excel数据API接口 - 修复路径问题
+    """
+    try:
+        print(f"🎯🎯🎯 收到Excel数据API请求: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
+
+        # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
+        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
+
+        # 1. 构建Excel文件路径
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+        excel_path = excel_dir / excel_file_name
+
+        print(f"📁 Excel文件路径: {excel_path}")
+
+        if not excel_path.exists():
+            print(f"❌ Excel文件不存在: {excel_path}")
+
+            # 🔥🔥🔥 备选方案1：尝试使用原始file_id
+            if clean_file_id != file_id:
+                alt_excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
+                alt_excel_path = alt_excel_dir / excel_file_name
+                print(f"🔍🔍 尝试备选路径1: {alt_excel_path}")
+
+                if alt_excel_path.exists():
+                    excel_dir = alt_excel_dir
+                    excel_path = alt_excel_path
+                    clean_file_id = file_id
+                    print(f"✅ 使用备选路径1: {excel_path}")
+                else:
+                    # 🔥🔥🔥 备选方案2：如果是数字ID，查询数据库获取UUID
+                    if clean_file_id.isdigit():
+                        print(f"🔍🔍 尝试备选方案2: 数字ID查询数据库 {clean_file_id}")
+                        conn = db.connect()
+                        if conn:
+                            c = conn.cursor()
+                            c.execute("SELECT filename FROM files WHERE id = ? AND deleted = 0", (clean_file_id,))
+                            row = c.fetchone()
+                            conn.close()
+
+                            if row:
+                                real_uuid = row["filename"].split('.')[0] if '.' in row["filename"] else row["filename"]
+                                print(f"✅ 找到数据库对应UUID: {real_uuid}")
+
+                                alt_excel_dir2 = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / real_uuid
+                                alt_excel_path2 = alt_excel_dir2 / excel_file_name
+                                print(f"🔍🔍 尝试数据库路径: {alt_excel_path2}")
+
+                                if alt_excel_path2.exists():
+                                    excel_dir = alt_excel_dir2
+                                    excel_path = alt_excel_path2
+                                    clean_file_id = real_uuid
+                                    print(f"✅ 使用数据库路径: {excel_path}")
+                                else:
+                                    return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+                            else:
+                                return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+                        else:
+                            return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+                    else:
+                        return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+            else:
+                return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+
+        print(f"✅ Excel文件存在: {excel_path}")
+
+        # 2. 读取Excel文件
+        try:
+            import pandas as pd
+            print("🎯 直接读取Excel文件数据")
+
+            # 读取指定的sheet
+            df = pd.read_excel(
+                excel_path,
+                sheet_name=sheet_name,
+                header=None,  # 不自动识别表头
+                dtype=str  # 全部读取为字符串
+            )
+
+            # 将NaN替换为空字符串
+            df = df.fillna('')
+
+            # 🔥🔥🔥 转换为二维列表
+            data = df.values.tolist()
+
+            print(f"✅ 成功读取sheet '{sheet_name}'，数据形状: {len(data)}行 x {len(data[0]) if data else 0}列")
+
+            # 🔥🔥🔥 提取元数据
+            metadata = {}
+            clean_data = []
+
+            for row in data:
+                if not row or not row[0]:
+                    clean_data.append(row)
+                    continue
+
+                first_cell = str(row[0]).strip()
+
+                # 查找包含冒号的行作为元数据
+                if ":" in first_cell:
+                    try:
+                        key, value = first_cell.split(":", 1)
+                        key = key.strip().lower()
+                        value = value.strip()
+
+                        # 只收集已知的元数据字段
+                        valid_keys = ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id"]
+                        if key in valid_keys:
+                            metadata[key] = value
+                            print(f"✅ 找到元数据: {key} = {value}")
+                        clean_data.append(row)
+                    except:
+                        clean_data.append(row)
+                else:
+                    clean_data.append(row)
+
+            print(f"📋 提取的元数据: {metadata}")
+
+            result = {
+                "success": True,
+                "data": clean_data,  # 返回清理后的数据
+                "rows": len(clean_data),
+                "cols": len(clean_data[0]) if clean_data else 0,
+                "sheet_name": sheet_name,
+                "excel_file": excel_file_name,
+                "metadata": metadata,  # 🔥 返回提取的元数据
+                "has_custom_metadata": bool(metadata),  # 🔥 标记是否有元数据
+                "file_path": str(excel_path)
+            }
+
+            # 🔥🔥🔥 返回前端期望的格式
+            return jsonify(result)
+
+        except Exception as e:
+            print(f"❌ 读取Excel文件失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"success": False, "error": f"读取Excel文件失败: {str(e)}"}), 500
+
+    except Exception as e:
+        print(f"❌❌❌ 获取Excel数据API失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": "获取Excel数据失败"}), 500
 
 
 @file_bp.route('/excel/save-final', methods=['POST'])
@@ -843,8 +871,6 @@ def save_flattened_data():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
-
-
 
 
 
@@ -1114,68 +1140,8 @@ def debug_search_complete():
 
 
 
-@file_bp.route('/search-pdf-compatible1')
-def search_pdf_compatible1():
-    """搜索PDF文件 - 带完整调试信息"""
-    import traceback
-
-    print("\n" + "=" * 60)
-    print("🔥🔥🔥 /api/search-pdf-compatible 被调用")
-    print("=" * 60)
-
-    try:
-        keyword = request.args.get('keyword', '').strip()
-        limit = request.args.get('limit', 100, type=int)
-
-        print(f"🔍 参数: keyword='{keyword}', limit={limit}")
-        print(f"🔍 完整URL: {request.url}")
-
-        # 🔥 1. 先硬编码返回测试数据
-        print("🧪 阶段1: 硬编码测试数据")
-        test_data = {
-            "files": [
-                {
-                    "id": "hardcoded-test-1",
-                    "file_id": "hardcoded-1",
-                    "disk_name": "hardcoded.pdf",
-                    "file_type": "pdf",
-                    "filename": "硬编码测试文件.pdf",
-                    "name": "硬编码测试文件.pdf",
-                    "matchType": "硬编码测试"
-                }
-            ],
-            "count": 1
-        }
-
-        print("✅ 硬编码数据:", test_data)
-        return jsonify(test_data)
-
-    except Exception as e:
-        print(f"❌❌❌ 严重错误: {e}")
-        traceback.print_exc()
-        return jsonify({
-            "files": [],
-            "count": 0,
-            "error": str(e)
-        })
-
-print("🔥🔥🔥🔥🔥 file.py 文件被加载了！")
-
-
-
-@file_bp.route('/search-pdf-compatible-test')
-def search_pdf_compatible_test():
-    """测试函数 - 验证路由是否工作"""
-    print("🔥🔥🔥🔥🔥 search_pdf_compatible_test 函数被调用了！")
-
-    return jsonify({
-        "message": "测试函数正常工作",
-        "count": 1
-    })
-
-
-@file_bp.route('/search-pdf-compatible')
-def search_pdf_compatible():
+@file_bp.route('/search-pdf-compatible11')
+def search_pdf_compatible11():
     """搜索PDF文件 - 实际搜索数据库版本"""
     print("🔥🔥🔥🔥🔥 search_pdf_compatible 函数被调用了！")
 
@@ -1239,5 +1205,116 @@ def search_pdf_compatible():
             "files": [],
             "count": 0
         })
+
+
+@file_bp.route('/search-pdf-compatible')
+def search_pdf_compatible():
+    """搜索PDF文件 - 修复版本（搜索files表）"""
+    print("🔥🔥🔥🔥🔥 search_pdf_compatible 函数被调用了！")
+
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        limit = request.args.get('limit', 100, type=int)
+
+        print(f"🔍 搜索关键词: '{keyword}'")
+
+        if not keyword:
+            return jsonify({
+                "files": [],
+                "count": 0
+            })
+
+        # 🔥🔥 关键修复：直接连接数据库，搜索files表
+        conn = db.connect()
+        if not conn:
+            return jsonify({"error": "数据库连接失败"}), 500
+
+        c = conn.cursor()
+
+        # 🔥🔥 修复SQL：搜索files表而不是table_processing_records
+        query = """
+            SELECT id, filename, raw_filename, file_type, created_at 
+            FROM files 
+            WHERE deleted = 0 
+            AND file_type = 'pdf'
+            AND (raw_filename LIKE ? OR filename LIKE ?)
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """
+
+        search_pattern = f'%{keyword}%'
+        params = (search_pattern, search_pattern, limit)
+
+        print(f"🔍🔍 执行查询: {query}")
+        print(f"🔍🔍 参数: {params}")
+
+        c.execute(query, params)
+        rows = c.fetchall()
+
+        print(f"📊 数据库返回 {len(rows)} 条结果")
+
+        # 转换为前端需要的格式
+        files = []
+        for row in rows:
+            # 🔥🔥 修复字段映射：使用files表的字段
+            file_info = {
+                "id": row["id"],
+                "file_id": row["filename"].split('.')[0] if '.' in row["filename"] else row["filename"],  # 使用UUID
+                "disk_name": row["filename"],  # 磁盘文件名
+                "file_type": row["file_type"],
+                "filename": row["raw_filename"] or row["filename"],  # 显示中文名
+                "name": row["raw_filename"] or row["filename"],  # 兼容字段
+                "matchType": "文件名匹配",
+                "status": "active",
+                "created_at": row["created_at"],
+                "raw_filename": row["raw_filename"]  # 原始文件名
+            }
+            files.append(file_info)
+            print(f"✅ 找到文件: {file_info['filename']}")
+
+        conn.close()
+
+        print(f"✅ 转换完成，返回 {len(files)} 个文件")
+
+        return jsonify({
+            "files": files,
+            "count": len(files)
+        })
+
+    except Exception as e:
+        print(f"❌❌ 搜索失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            "files": [],
+            "count": 0,
+            "error": str(e)
+        })
+
+
+# 临时添加测试数据的接口
+@file_bp.route('/add-test-pdf')
+def add_test_pdf():
+    """添加测试PDF记录"""
+    try:
+        conn = db.connect()
+        c = conn.cursor()
+
+        c.execute("""
+            INSERT INTO files (filename, raw_filename, file_type, created_at) 
+            VALUES (?, ?, ?, datetime('now'))
+        """, ("test-uuid-1.pdf", "建设银行年度报告.pdf", "pdf"))
+
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+
+
 
 

@@ -6,8 +6,6 @@ from pathlib import Path
 import json
 import time
 from typing import Dict, Any, List, Tuple
-from flask import jsonify
-import traceback
 
 
 class ExcelDataHandler:
@@ -27,6 +25,10 @@ class ExcelDataHandler:
     def get_correct_pdf_id(self, pdf_id: str, db) -> str:
         """获取正确的PDF ID（UUID格式）"""
         # 如果已经是UUID格式，直接返回
+
+        if pdf_id.endswith('.pdf'):
+            pdf_id = pdf_id[:-4]
+
         if not pdf_id.isdigit():
             return pdf_id
 
@@ -47,6 +49,8 @@ class ExcelDataHandler:
             if row:
                 uuid = row["filename"]
                 print(f"✅ 数字ID {pdf_id} 对应的UUID: {uuid}")
+                if uuid.endswith('.pdf'):
+                    uuid = uuid[:-4]
                 return uuid
             else:
                 print(f"⚠️ 未找到数字ID {pdf_id} 对应的UUID，使用原ID")

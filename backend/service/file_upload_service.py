@@ -12,6 +12,7 @@ from datetime import datetime
 from backend.utils.constants import UPLOAD_FOLDER, DATABASE, MAIN_ROOT, ALLOWED_EXTENSIONS
 from backend.service.file_mapping_service import file_mapping_service
 
+from backend.src.services.table_processor.get_bank_name import SimpleBankNameExtractor
 
 class FileUploadService:
     """文件上传服务"""
@@ -29,6 +30,16 @@ class FileUploadService:
         """计算文件的MD5哈希值"""
         return hashlib.md5(file_content).hexdigest()
 
+    def extract_bank_name(self, filename):
+        """从文件名中提取银行名称"""
+        try:
+            extractor = SimpleBankNameExtractor()
+            bank_name = extractor.extract_bank_name(filename)
+            return bank_name if bank_name else ""
+        except Exception as e:
+            print(f"⚠️ 银行名称提取失败: {e}")
+            return ""
+
     def check_table_columns(self):
         """确保数据库表有必要的列"""
         conn = None
@@ -41,12 +52,13 @@ class FileUploadService:
             columns = c.fetchall()
             existing_cols = {col[1] for col in columns}
 
-            # 需要添加的列
+            # 需要添加的列（添加 bank_name 字段）
             new_columns = {
                 'file_hash': 'TEXT',
                 'file_size': 'INTEGER',
                 'upload_count': 'INTEGER DEFAULT 1',
-                'last_uploaded': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+                'last_uploaded': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+                'bank_name': 'TEXT'  # 新增银行名称字段
             }
 
             for col_name, col_type in new_columns.items():
@@ -89,7 +101,7 @@ class FileUploadService:
             if conn:
                 conn.close()
 
-    def increment_upload_count(self, file_id):
+    def increment_upload_count00(self, file_id):
         """增加文件的上传次数"""
         conn = None
         try:
@@ -114,7 +126,43 @@ class FileUploadService:
             if conn:
                 conn.close()
 
-    def save_new_file(self, file_content, raw_filename, file_hash):
+    def increment_upload_count(self, file_id, bank_name=""):
+        """增加文件的上传次数，可选更新银行名称"""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+
+            if bank_name:
+                # 如果提供了银行名称，同时更新银行名称
+                c.execute("""
+                    UPDATE files 
+                    SET upload_count = upload_count + 1, 
+                        last_uploaded = CURRENT_TIMESTAMP,
+                        bank_name = ?
+                    WHERE id = ?
+                """, (bank_name, file_id))
+                print(f"🏦 更新银行名称: {bank_name}")
+            else:
+                c.execute("""
+                    UPDATE files 
+                    SET upload_count = upload_count + 1, 
+                        last_uploaded = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (file_id,))
+
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ 更新上传次数失败: {e}")
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def save_new_file00(self, file_content, raw_filename, file_hash):
         """保存新文件到磁盘和数据库"""
         import uuid
 
@@ -180,6 +228,74 @@ class FileUploadService:
             if conn:
                 conn.close()
 
+    def save_new_file(self, file_content, raw_filename, file_hash, bank_name=""):
+        """保存新文件到磁盘和数据库"""
+        import uuid
+
+        # 生成文件ID和存储路径
+        ext = os.path.splitext(raw_filename)[1].lower()
+        file_id = str(uuid.uuid4())
+        disk_filename = f"{file_id}{ext}"
+        file_path = self.upload_dir / disk_filename
+
+        # 确保上传目录存在
+        if not self.upload_dir.exists():
+            print(f"📁 创建上传目录: {self.upload_dir}")
+            self.upload_dir.mkdir(parents=True, exist_ok=True)
+
+        # 保存文件到磁盘
+        print(f"💾 保存新文件到: {file_path}")
+        try:
+            file_path.write_bytes(file_content)
+        except Exception as e:
+            print(f"❌ 文件保存失败: {e}")
+            return None
+
+        # 保存到数据库
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            c = conn.cursor()
+
+            file_type = ext[1:] if ext.startswith('.') else ext
+            file_size = len(file_content)
+
+            c.execute("""
+                INSERT INTO files 
+                (filename, file_type, raw_filename, deleted, file_hash, file_size, upload_count, bank_name) 
+                VALUES (?, ?, ?, 0, ?, ?, 1, ?)
+            """, (disk_filename, file_type, raw_filename, file_hash, file_size, bank_name))
+
+            new_id = c.lastrowid
+            conn.commit()
+
+            print(f"✅ 数据库插入成功 - 新记录ID: {new_id}")
+            print(f"🏦 银行名称已保存: {bank_name}")
+
+            return {
+                "id": new_id,
+                "file_id": file_id,
+                "disk_filename": disk_filename,
+                "file_type": file_type,
+                "file_size": file_size,
+                "file_hash": file_hash,
+                "bank_name": bank_name
+            }
+
+        except Exception as e:
+            print(f"❌ 数据库插入失败: {e}")
+            if conn:
+                conn.rollback()
+
+            # 删除已保存的文件
+            if file_path.exists():
+                file_path.unlink()
+
+            return None
+        finally:
+            if conn:
+                conn.close()
+
     def process_upload(self, file, raw_filename):
         """处理文件上传的主方法"""
         print("=" * 50)
@@ -211,20 +327,24 @@ class FileUploadService:
         print(f"📄 文件大小: {file_size} bytes")
         print(f"🔢 文件哈希: {file_hash}")
 
-        # 3. 确保数据库表结构完整
+        # 3. 提取银行名称
+        bank_name = self.extract_bank_name(raw_filename)
+        print(f"🏦 识别到的银行名称: {bank_name if bank_name else '无'}")
+
+        # 4. 确保数据库表结构完整
         self.check_table_columns()
 
-        # 4. 检查重复
+        # 5. 检查重复
         existing_file = self.get_existing_file(file_hash)
 
         if existing_file:
             # 处理重复文件
-            return self._handle_duplicate(existing_file, raw_filename, file_size, file_hash)
+            return self._handle_duplicate(existing_file, raw_filename, file_size, file_hash, bank_name)
         else:
             # 处理新文件
-            return self._handle_new_file(file_content, raw_filename, file_hash)
+            return self._handle_new_file(file_content, raw_filename, file_hash, bank_name)
 
-    def _handle_duplicate(self, existing_file, raw_filename, file_size, file_hash):
+    def _handle_duplicate00(self, existing_file, raw_filename, file_size, file_hash):
         """处理重复文件"""
         print("🔄 发现重复文件")
 
@@ -276,7 +396,60 @@ class FileUploadService:
 
         return response
 
-    def _handle_new_file(self, file_content, raw_filename, file_hash):
+    def _handle_duplicate(self, existing_file, raw_filename, file_size, file_hash, bank_name=""):
+        """处理重复文件"""
+        print("🔄 发现重复文件")
+
+        file_id = existing_file[0]
+        disk_filename = existing_file[1]
+        existing_raw_name = existing_file[2]
+        upload_count = existing_file[3] + 1
+        created_at = existing_file[4]
+        existing_file_size = existing_file[5]
+
+        # 提取file_id（去掉扩展名）
+        existing_file_id = disk_filename.split('.')[0] if '.' in disk_filename else disk_filename
+
+        print(f"   数据库ID: {file_id}")
+        print(f"   文件ID: {existing_file_id}")
+        print(f"   磁盘文件名: {disk_filename}")
+        print(f"   已有上传次数: {upload_count - 1}")
+
+        # 更新上传次数
+        if not self.increment_upload_count(file_id, bank_name):
+            print("⚠️ 更新上传次数失败，但继续处理...")
+
+        # 添加文件映射
+        ext = os.path.splitext(raw_filename)[1].lower()
+        try:
+            file_mapping_service.add_mapping(existing_file_id, raw_filename, ext[1:].lower())
+            print(f"✅ 重复文件映射添加成功")
+        except Exception as e:
+            print(f"⚠️ 文件映射添加失败: {e}")
+
+        # 构建响应
+        response = {
+            "success": True,
+            "id": file_id,
+            "filename": raw_filename,
+            "file_type": ext[1:] if ext.startswith('.') else ext,
+            "disk_name": disk_filename,
+            "file_id": existing_file_id,
+            "file_hash": file_hash[:12],
+            "file_size": file_size,
+            "upload_count": upload_count,
+            "bank_name": bank_name,  # 添加银行名称到响应
+            "created_at": created_at,
+            "message": "文件已存在（内容相同），直接使用现有文件",
+            "duplicate": True
+        }
+
+        print(f"✅ 重复文件处理完成")
+        print("=" * 50)
+
+        return response
+
+    def _handle_new_file00(self, file_content, raw_filename, file_hash):
         """处理新文件"""
         print("🆕 处理新文件")
 
@@ -318,6 +491,48 @@ class FileUploadService:
 
         return response
 
+    def _handle_new_file(self, file_content, raw_filename, file_hash, bank_name=""):
+        """处理新文件"""
+        print("🆕 处理新文件")
+
+        # 保存文件
+        result = self.save_new_file(file_content, raw_filename, file_hash, bank_name)
+
+        if not result:
+            return {
+                "success": False,
+                "error": "文件保存失败",
+                "status_code": 500
+            }
+
+        # 添加文件映射
+        ext = os.path.splitext(raw_filename)[1].lower()
+        try:
+            file_mapping_service.add_mapping(result["file_id"], raw_filename, ext[1:].lower())
+            print(f"✅ 新文件映射添加成功")
+        except Exception as e:
+            print(f"⚠️ 文件映射添加失败: {e}")
+
+        # 构建响应
+        response = {
+            "success": True,
+            "id": result["id"],
+            "filename": raw_filename,
+            "file_type": result["file_type"],
+            "disk_name": result["disk_filename"],
+            "file_id": result["file_id"],
+            "file_hash": file_hash[:12],
+            "file_size": result["file_size"],
+            "upload_count": 1,
+            "bank_name": bank_name,  # 添加银行名称到响应
+            "message": "新文件上传成功",
+            "duplicate": False
+        }
+
+        print(f"✅ 新文件上传完成")
+        print("=" * 50)
+
+        return response
 
 # 创建全局实例
 file_upload_service = FileUploadService()

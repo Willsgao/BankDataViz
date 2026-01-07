@@ -1,7 +1,6 @@
 """
 PDF → PNG 转图蓝图（主接口文件）
 """
-from flask import Blueprint, request
 
 # 导入拆分后的模块
 from backend.api.convert import (
@@ -26,6 +25,7 @@ import tempfile
 import time
 import shutil
 from flask import Blueprint, request, jsonify, send_file  # 确保有 send_file
+
 
 # 初始化输出目录
 PNG_OUTPUT_DIR = Path(MAIN_ROOT) / PNG_OUTPUT_ROOT
@@ -817,7 +817,7 @@ def api_get_classified_images(pdf_folder: str):
                 "output_dir": str(output_dir)
             }
         }
-        print("response_data:", response_data)
+
         result = jsonify(response_data)
         print("Content-Type:", result.headers.get('Content-Type'))
 
