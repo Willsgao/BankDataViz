@@ -34,11 +34,6 @@ from backend.utils.constants import DATABASE as DB_PATH
 print(f"📊 统一数据库路径: {DB_PATH}")
 print(f"📊 数据库文件存在: {os.path.exists(DB_PATH)}")
 
-# # 如果需要迁移
-# from backend.utils.migrate_db import migrate_if_needed
-# if not os.path.exists(DB_PATH):
-#     migrate_if_needed()
-
 # ----------- 安全初始化数据库 -----------
 db_mgr = SafeDatabaseManager()
 
