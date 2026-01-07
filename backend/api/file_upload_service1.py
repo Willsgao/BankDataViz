@@ -6,7 +6,7 @@ from backend.utils.constants import MAIN_ROOT, UPLOAD_FOLDER
 
 # file_upload_service.py - 增强版本
 def process_upload(file_obj, raw_filename):
-    """幂等上传：同内容文件只存一份，相同内容生成相同UUID"""
+    """幂等上传：同内容文件只存一份"""
     try:
         # 1. 计算哈希
         file_obj.seek(0)
@@ -16,12 +16,7 @@ def process_upload(file_obj, raw_filename):
         file_hash = h.hexdigest()
         file_obj.seek(0)
 
-        # 2. 基于文件哈希生成固定UUID（使用UUID版本5）
-        # 使用自定义的文件内容命名空间（更符合业务场景）
-        file_namespace_uuid = uuid.UUID('a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d')
-        file_id = str(uuid.uuid5(file_namespace_uuid, file_hash))
-
-        # 3. 用哈希查是否已存在（包括已删除的）
+        # 2. 用哈希查是否已存在（包括已删除的）
         exist = file_mapping_service.get_by_hash(file_hash, include_deleted=True)
 
         if exist:
@@ -31,7 +26,7 @@ def process_upload(file_obj, raw_filename):
                 file_mapping_service.restore_file(exist['file_id'])
                 return {
                     'success': True,
-                    'file_id': file_id,
+                    'file_id': exist['file_id'],
                     'disk_name': exist['disk_name'],
                     'raw_filename': exist['raw_filename'],
                     'message': '文件已恢复（之前被删除）',
@@ -42,7 +37,7 @@ def process_upload(file_obj, raw_filename):
                 # 文件已存在且未删除
                 return {
                     'success': True,
-                    'file_id': file_id,
+                    'file_id': exist['file_id'],
                     'disk_name': exist['disk_name'],
                     'raw_filename': exist['raw_filename'],
                     'message': '文件已存在，使用已有记录',
@@ -50,8 +45,9 @@ def process_upload(file_obj, raw_filename):
                     'was_deleted': False
                 }
 
-        # 4. 全新文件
+        # 3. 全新文件
         ext = Path(raw_filename).suffix.lower()
+        file_id = str(uuid.uuid4())
         disk_name = file_id + ext
         upload_path = Path(MAIN_ROOT) / UPLOAD_FOLDER / disk_name
 
@@ -87,3 +83,4 @@ def process_upload(file_obj, raw_filename):
             'error': str(e),
             'status_code': 500
         }
+
