@@ -203,117 +203,8 @@ export function useThreeColumnPage() {
   /**
    * 加载Excel数据
    */
-   const loadExcelData111 = async (sheetName, excelFileName) => {
 
-   const currentPdf = selectedPdf.value;
-  const pdfId = currentPdf?.disk_name || currentPdf?.id;
-  const tableType = showFlatMode.value ? 'flattened' : 'original';
-
-  console.log('🔍🔍🔍🔍🔍🔍 开始加载Excel数据流程 🔍🔍🔍🔍🔍🔍');
-  console.log('📋 输入参数:', { pdfId, sheetName, excelFileName, tableType });
-
-  try {
-    // 🎯 阶段1: 检查缓存
-    console.log('🔄 阶段1: 检查缓存');
-    let cachedData = null;
-    if (tableType === 'original') {
-      cachedData = excelDataCache.getOriginalData(pdfId, excelFileName, sheetName);
-      console.log('📦 检查原始数据缓存:', {
-        是否存在: !!cachedData,
-        数据长度: cachedData?.length || 0
-      });
-    } else {
-      cachedData = excelDataCache.getFlattenedData(pdfId, excelFileName, sheetName);
-      console.log('📦 检查扁平化数据缓存:', {
-        是否存在: !!cachedData,
-        数据长度: cachedData?.length || 0
-      });
-    }
-
-    // 🎯 阶段2: 如果有缓存，使用缓存
-    if (cachedData && cachedData.length > 0) {
-      console.log('✅ 使用缓存数据');
-      console.log('📊 缓存数据样本:', cachedData.slice(0, 2));
-
-      if (showFlatMode.value) {
-        flatData.value = [...cachedData];
-        console.log('📥 设置 flatData:', flatData.value.length);
-      } else {
-        excelData.value = [...cachedData];
-        console.log('📥 设置 excelData:', excelData.value.length);
-      }
-
-      // 生成表格列
-      if (Array.isArray(cachedData) && cachedData.length > 0) {
-        generateTableColumns(cachedData);
-        console.log('✅ 生成表格列完成');
-      }
-
-      console.log('🎯 加载完成: 使用缓存数据');
-      return { success: true, fromCache: true, data: cachedData };
-    }
-
-    console.log('📭 缓存为空，进入API加载流程');
-
-    // 🎯 阶段3: 从API加载
-    console.log('🔄 阶段2: 调用 loadFromAPI');
-    const result = await loadFromAPI(pdfId, excelFileName, sheetName);
-
-    console.log('📡 loadFromAPI 返回结果:', {
-      成功: result.success,
-      是否有数据: !!result.data,
-      数据长度: result.data?.length || 0,
-      数据类型: typeof result.data,
-      是否为数组: Array.isArray(result.data),
-      数据样本: result.data ? result.data.slice(0, 2) : '无数据'
-    });
-
-    if (!result.success) {
-      console.error('❌ loadFromAPI 返回失败:', result.error);
-      throw new Error(result.error || 'API调用失败');
-    }
-
-    if (!result.data || !Array.isArray(result.data)) {
-      console.error('❌ API返回数据格式错误:', result.data);
-      throw new Error('API返回数据格式不正确');
-    }
-
-    console.log('✅ API数据接收成功，长度:', result.data.length);
-
-    // 🎯 阶段4: 处理API返回的数据
-    console.log('🔄 阶段3: 处理数据');
-    if (showFlatMode.value) {
-      flatData.value = Array.isArray(result.data) ? [...result.data] : [];
-      console.log('📥 设置 flatData:', flatData.value.length);
-    } else {
-      excelData.value = Array.isArray(result.data) ? [...result.data] : [];
-      console.log('📥 设置 excelData:', excelData.value.length);
-    }
-
-    // 🎯 阶段5: 生成表格列
-    console.log('🔄 阶段4: 生成表格列');
-    if (Array.isArray(result.data) && result.data.length > 0) {
-      generateTableColumns(result.data);
-      console.log('✅ 表格列生成完成');
-    } else {
-      console.warn('⚠️ 数据为空，跳过生成表格列');
-    }
-
-    console.log('🎯 加载完成: 使用API数据');
-    return { success: true, fromCache: false, data: result.data };
-
-  } catch (error) {
-    console.error('💥💥💥 整个加载流程失败:', error);
-    console.error('📋 错误详情:', {
-      消息: error.message,
-      堆栈: error.stack
-    });
-    return { success: false, error: error.message };
-  }
-};
-
-
-   const loadExcelData = async (sheetName, excelFileName) => {
+   const loadExcelData00 = async (sheetName, excelFileName) => {
       try {
         console.log('🔍🔍🔍🔍🔍🔍 开始加载Excel数据流程 🔍🔍🔍🔍🔍🔍')
         console.log('📋 输入参数:', { pdfId: selectedPdf.value?.id, sheetName, excelFileName, tableType: 'original' })
@@ -395,6 +286,104 @@ export function useThreeColumnPage() {
         return { success: false, error: error.message, data: [] }
       }
     }
+
+
+// ✅ 正确的声明
+// useThreeColumnPage.js
+const loadExcelData = async (sheetName, excelFileName, forceRefresh = false) => {
+  try {
+    console.log('🔍🔍🔍🔍🔍🔍 开始加载Excel数据流程 🔍🔍🔍🔍🔍🔍')
+    console.log('📋 输入参数:', {
+      pdfId: selectedPdf.value?.id,
+      sheetName,
+      excelFileName,
+      tableType: 'original',
+      forceRefresh
+    })
+
+    // 🔥🔥 关键修改：切换Sheet时，强制从后台读取，不使用缓存
+    if (forceRefresh || window.forceLoadFromBackend) {
+      console.log('🎯 强制从后台加载数据，不使用缓存')
+
+      // 清除相关缓存
+      if (excelDataCache && excelDataCache.deleteOriginalData) {
+        excelDataCache.deleteOriginalData(selectedPdf.value?.id, excelFileName, sheetName)
+        console.log('✅ 清除原始数据缓存')
+      }
+
+      // 清除内存缓存
+      const cacheKey = `${selectedPdf.value?.id}_${excelFileName}_${sheetName}`
+      if (window.sheetDataCache) {
+        delete window.sheetDataCache[cacheKey]
+        console.log('✅ 清除内存缓存')
+      }
+    }
+
+    console.log('📭 进入API加载流程')
+
+    // 阶段3: 调用API
+    console.log('🔄 阶段2: 调用 loadFromAPI')
+    const result = await loadFromAPI(selectedPdf.value?.id, excelFileName, sheetName)
+
+    console.log('📊📊 API返回数据:', {
+      状态: result.success,
+      总行数: result.data?.length,
+      数据类型: typeof result.data,
+      data是数组: Array.isArray(result.data)
+    })
+
+    if (!result.success) {
+      console.log('❌ API调用失败')
+      throw new Error(result.error || 'API调用失败')
+    }
+
+    // 🔥🔥🔥 关键修复：确保 data 是数组
+    let tableData = []
+
+    if (Array.isArray(result.data)) {
+      // 情况1: data是数组（正确的格式）
+      tableData = result.data
+      console.log('✅ 数据格式正确: 二维数组')
+    }
+    else if (result.data && typeof result.data === 'object') {
+      // 情况2: data是对象，尝试提取
+      console.log('🔄 数据是对象格式，尝试提取数组')
+
+      // 检查常见的数组字段
+      const possibleArrayKeys = ['rows', 'data', 'tableData', 'values', 'sheetData']
+      for (const key of possibleArrayKeys) {
+        if (Array.isArray(result.data[key])) {
+          tableData = result.data[key]
+          console.log(`✅ 从对象中提取数组: ${key}，长度: ${tableData.length}`)
+          break
+        }
+      }
+    }
+
+    // 如果还是空数组，使用空数组
+    if (tableData.length === 0) {
+      console.warn('⚠️ 无法提取表格数据，使用空数组')
+      tableData = []
+    }
+
+    console.log(`✅ 最终表格数据: ${tableData.length}行 x ${tableData[0]?.length || 0}列`)
+
+    // 缓存数据
+    excelDataCache.setOriginalData(selectedPdf.value?.id, excelFileName, sheetName, tableData)
+    excelData.value = tableData
+
+    console.log('✅ 数据加载完成')
+    return { success: true, fromCache: false, data: tableData }
+
+  } catch (error) {
+    console.error('💥💥💥 整个加载流程失败:', error)
+    console.error('📋 错误详情:', { 消息: error.message, 堆栈: error.stack })
+
+    // 设置空数据避免界面崩溃
+    excelData.value = []
+    return { success: false, error: error.message, data: [] }
+  }
+}
 
 
   /**

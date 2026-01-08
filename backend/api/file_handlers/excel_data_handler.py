@@ -495,7 +495,7 @@ class ExcelDataHandler:
             print(f"❌ 完整数据保存失败: {e}")
             return {'success': False, 'error': f'完整数据保存失败: {str(e)}'}
 
-    def convert_frontend_to_backend_format(self, frontend_data: List) -> List[List]:
+    def convert_frontend_to_backend_format000(self, frontend_data: List) -> List[List]:
         """🔥 精确转换前端数据格式为二维数组"""
         if not frontend_data:
             print("⚠️ 前端数据为空")
@@ -569,6 +569,88 @@ class ExcelDataHandler:
                 print(f"    行{i}样本: {sample}")
 
         return backend_data
+
+    def convert_frontend_to_backend_format(self, frontend_data: List) -> List[List]:
+        """🔥 精确转换前端数据格式为二维数组 - 增强调试版本"""
+        if not frontend_data:
+            print("⚠️ 前端数据为空")
+            return []
+
+        print("🔄🔄 转换前端数据格式...")
+        print(f"📊📊 原始数据: {len(frontend_data)}行")
+        print(f"🔍🔍 第一行数据类型: {type(frontend_data[0])}")
+        print(f"🔍🔍 第一行数据内容: {frontend_data[0] if len(frontend_data) > 0 else '空'}")
+
+        backend_data = []
+
+        for i, row in enumerate(frontend_data):
+            # 🔥🔥 增强调试信息
+            if i < 3:  # 只打印前3行样本
+                print(f"  🔍🔍 处理第{i}行: 类型={type(row)}, 内容={row}")
+
+            # 🔥🔥 处理前端可能的多种格式
+            if isinstance(row, list):
+                # 已经是数组格式，直接使用
+                backend_data.append(row)
+                if i < 2:
+                    print(f"  ✅ 行{i}: 数组格式 ({len(row)}列)")
+
+            elif isinstance(row, dict):
+                # 🔥🔥 处理对象格式：{ H_1: '值1', H_2: '值2', ... }
+                if any(key.startswith('H_') for key in row.keys()):
+                    # 提取 H_1, H_2, H_3, ... 字段
+                    row_values = []
+                    col_idx = 1
+
+                    while f'H_{col_idx}' in row:
+                        value = row[f'H_{col_idx}']
+                        row_values.append(value)
+                        col_idx += 1
+
+                    if row_values:
+                        backend_data.append(row_values)
+                        if i < 2:
+                            print(f"  ✅ 行{i}: H_*对象格式 ({len(row_values)}列)")
+                    else:
+                        print(f"  ⚠️ 行{i}: H_*对象但无有效值")
+
+                # 🔥🔥 跳过元数据行
+                elif row.get('__metadata') or row.get('__is_first_row') or row.get('__is_data_row'):
+                    if i < 2:
+                        print(f"  ⏭️ 行{i}: 跳过元数据行")
+                    continue
+
+                else:
+                    # 其他对象格式，尝试提取所有值（跳过内部字段）
+                    row_values = []
+                    for key, value in row.items():
+                        if not key.startswith('__'):  # 跳过内部字段
+                            row_values.append(value)
+
+                    if row_values:
+                        backend_data.append(row_values)
+                        if i < 2:
+                            print(f"  ✅ 行{i}: 普通对象格式 ({len(row_values)}列)")
+                    else:
+                        print(f"  ⚠️ 行{i}: 无法处理的对象格式")
+
+            else:
+                # 其他格式（字符串、数字等），包装成数组
+                backend_data.append([row])
+                if i < 2:
+                    print(f"  ✅ 行{i}: 简单值转数组")
+
+        print(f"📈📈 转换完成: {len(backend_data)}行有效数据")
+
+        if backend_data and len(backend_data) > 0:
+            print(f"📏📏 数据维度: {len(backend_data)}行 × {len(backend_data[0])}列")
+            # 显示样本数据
+            for i, row in enumerate(backend_data[:2]):
+                sample = row[:3] if len(row) > 3 else row
+                print(f"    行{i}样本: {sample}")
+
+        return backend_data
+
 
     def fix_column_mismatch(self, data: List[List], expected_columns: int) -> List[List]:
         """修复列数不匹配"""
@@ -702,3 +784,98 @@ class ExcelDataHandler:
 
         original_path = Path(original_excel_file)
         return f"flattened_{original_path.name}"
+
+    def save_flattened_data_as_is(self, pdf_id: str, original_excel_file: str, flattened_excel_file: str,
+                                  sheet_name: str, flattened_data, table_type: str, db) -> Dict[str, Any]:
+        """
+        直接保存扁平化数据，完全保持前端格式
+        """
+        print("🔥🔥 直接保存扁平化数据（保持原样）...")
+
+        try:
+            # 🔥🔥 验证输入数据
+            if not flattened_data or not isinstance(flattened_data, list):
+                return {'success': False, 'error': '扁平化数据为空或格式错误'}
+
+            print(f"📊📊 接收的扁平化数据:")
+            print(f"  数据类型: {type(flattened_data)}")
+            print(f"  数据行数: {len(flattened_data)}")
+
+            if len(flattened_data) > 0:
+                print(f"  第一行: {flattened_data[0]}")
+                print(f"  列数: {len(flattened_data[0]) if flattened_data[0] else 0}")
+
+            # 🔥🔥 获取文件路径
+            pdf_id = self.get_correct_pdf_id(pdf_id, db)
+            excel_dir = Path(self.MAIN_ROOT) / self.EXCEL_OUTPUT_ROOT / pdf_id
+            excel_dir.mkdir(parents=True, exist_ok=True)
+
+            flattened_excel_path = excel_dir / flattened_excel_file
+            print(f"📁 扁平化文件路径: {flattened_excel_path}")
+
+            from openpyxl import Workbook, load_workbook
+
+            file_exists = flattened_excel_path.exists()
+            file_created = not file_exists
+
+            if file_exists:
+                workbook = load_workbook(flattened_excel_path)
+                existing_sheets = workbook.sheetnames.copy()
+                print(f"📄 加载现有文件，包含 {len(existing_sheets)} 个Sheet")
+            else:
+                workbook = Workbook()
+                default_sheet = workbook.active
+                workbook.remove(default_sheet)
+                print("📄 创建新文件")
+
+            # 处理目标Sheet
+            if sheet_name in workbook.sheetnames:
+                del workbook[sheet_name]
+                sheet_created = False
+            else:
+                sheet_created = True
+
+            worksheet = workbook.create_sheet(sheet_name)
+            print(f"✅ 创建Sheet: {sheet_name}")
+
+            # 🔥🔥 直接写入数据，不做任何处理
+            print(
+                f"📝 写入数据: {len(flattened_data)}行 × {len(flattened_data[0]) if flattened_data and len(flattened_data) > 0 else 0}列")
+
+            for row_idx, row_data in enumerate(flattened_data, 1):
+                for col_idx, cell_value in enumerate(row_data, 1):
+                    # 🔥🔥 完全保持原样，不做任何转换
+                    worksheet.cell(row=row_idx, column=col_idx, value=cell_value)
+
+            # 🔥🔥 保存文件
+            workbook.save(flattened_excel_path)
+            workbook.close()
+
+            print("✅ 扁平化数据保存成功")
+
+            return {
+                'success': True,
+                'file_created': file_created,
+                'sheet_created': sheet_created,
+                'saved_rows': len(flattened_data),
+                'saved_columns': len(flattened_data[0]) if flattened_data and len(flattened_data) > 0 else 0,
+                'data_dimensions': f'{len(flattened_data)}行 × {len(flattened_data[0]) if flattened_data and len(flattened_data) > 0 else 0}列'
+            }
+
+        except Exception as e:
+            print(f"❌ 保存失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': f'保存失败: {str(e)}'}
+
+
+
+
+
+
+
+
+
+
+
+

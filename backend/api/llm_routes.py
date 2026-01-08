@@ -3,7 +3,7 @@
 LLM 表格识别 API 路由 - 重构后主文件
 """
 
-import time
+
 import uuid
 import asyncio
 import logging
@@ -54,7 +54,7 @@ from backend.llm_services.task_management_service import (
 from backend.utils.constants import EXCEL_DATA_DIR
 
 # 路由定义部分保持不变，只是函数实现移到服务模块
-@llm_bp.route('/llm/test-connection', methods=['POST'])
+@llm_bp.route('/api/llm/test-connection', methods=['POST'])
 def test_connection():
     """测试LLM连接"""
     try:
@@ -70,48 +70,48 @@ def test_connection():
 
 
 # 连接相关路由
-@llm_bp.route('/llm/available-models', methods=['GET'])
+@llm_bp.route('/api/llm/available-models', methods=['GET'])
 def get_available_models_route():
     """获取可用的模型列表"""
     result = get_available_models()
     return jsonify(result)
 
-@llm_bp.route('/llm/health', methods=['GET'])
+@llm_bp.route('/api/llm/health', methods=['GET'])
 def health_check():
     """健康检查端点"""
     result = health_check_internal()
     return jsonify(result)
 
 # 配置相关路由
-@llm_bp.route('/llm/configure', methods=['POST'])
+@llm_bp.route('/api/llm/configure', methods=['POST'])
 def configure_llm_route():
     """配置LLM参数"""
     data = request.get_json()
     result = configure_llm(data)
     return jsonify(result)
 
-@llm_bp.route('/llm/status', methods=['GET'])
+@llm_bp.route('/api/llm/status', methods=['GET'])
 def get_processor_status_route():
     """获取处理器状态"""
     result = get_processor_status()
     return jsonify(result)
 
 # 表格处理路由
-@llm_bp.route('/llm/recognize-table', methods=['POST'])
+@llm_bp.route('/api/llm/recognize-table', methods=['POST'])
 def recognize_table():
     """识别表格并保存到指定路径"""
     return recognize_table_internal()
 
 
 # Excel相关路由
-@llm_bp.route('/llm/check-excel', methods=['GET'])
+@llm_bp.route('/api/llm/check-excel', methods=['GET'])
 def check_excel():
     """检查Excel文件是否存在"""
     file_path = request.args.get('path')
     result = check_excel_internal(file_path)
     return jsonify(result)
 
-@llm_bp.route('/llm/get-excel-data', methods=['GET'])
+@llm_bp.route('/api/llm/get-excel-data', methods=['GET'])
 def get_excel_data():
     """读取Excel文件内容并返回给前端"""
     excel_url = request.args.get('url')
@@ -120,7 +120,7 @@ def get_excel_data():
 
 
 
-@llm_bp.route('/llm/get-excel-content', methods=['GET'])
+@llm_bp.route('/api/llm/get-excel-content', methods=['GET'])
 def get_excel_content():
     """读取Excel文件内容并返回结构化数据"""
     excel_url = request.args.get('excel_url')
@@ -128,19 +128,19 @@ def get_excel_content():
     return jsonify(result)
 
 # 任务管理路由
-@llm_bp.route('/llm/processing-status/<task_id>', methods=['GET'])
+@llm_bp.route('/api/llm/processing-status/<task_id>', methods=['GET'])
 def get_processing_status_route(task_id):
     """获取处理状态"""
     result = get_processing_status(task_id)
     return jsonify(result)
 
-@llm_bp.route('/llm/cleanup-tasks', methods=['POST'])
+@llm_bp.route('/api/llm/cleanup-tasks', methods=['POST'])
 def cleanup_tasks_route():
     """清理过期任务"""
     result = cleanup_tasks()
     return jsonify(result)
 
-@llm_bp.route('/llm/task-result/<task_id>', methods=['GET'])
+@llm_bp.route('/api/llm/task-result/<task_id>', methods=['GET'])
 def get_task_result_route(task_id):
     """查询任务结果"""
     result = get_task_result(task_id)
@@ -148,7 +148,7 @@ def get_task_result_route(task_id):
 
 
 # 配置检查路由
-@llm_bp.route('/llm/check-config', methods=['GET'])
+@llm_bp.route('/api/llm/check-config', methods=['GET'])
 def check_llm_config_route():
     """检查LLM配置状态"""
     result = check_llm_config()
@@ -159,7 +159,7 @@ def check_llm_config_route():
 
 # 批量处理路由
 import threading
-@llm_bp.route('/llm/batch-process', methods=['POST'])
+@llm_bp.route('/api/llm/batch-process', methods=['POST'])
 def batch_process_financial():
     data = request.get_json()
     if not data:
@@ -173,7 +173,7 @@ def batch_process_financial():
     return jsonify({"task_id": task_id}), 200
 
 
-@llm_bp.route('/llm/batch-process-non-financial', methods=['POST'])
+@llm_bp.route('/api/llm/batch-process-non-financial', methods=['POST'])
 def batch_process_non_financial():
     data = request.get_json()
     if not data:
@@ -203,10 +203,9 @@ def batch_process_non_financial():
 
 
 # 修改单张图片处理函数
-@llm_bp.route('/llm/process-image', methods=['POST'])
+@llm_bp.route('/api/llm/process-image', methods=['POST'])
 def process_table_image():
     """处理单张表格图片 - 添加Excel存在性检查"""
-    print("处理金融表格1212123")
     try:
         data = request.get_json()
         if not data:
@@ -259,7 +258,7 @@ def process_table_image():
 
 
 # 修改普通表格处理函数
-@llm_bp.route('/llm/process-non-financial-table', methods=['POST', 'OPTIONS'])
+@llm_bp.route('/api/llm/process-non-financial-table', methods=['POST', 'OPTIONS'])
 def process_non_financial_table():
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200
@@ -314,7 +313,7 @@ def process_non_financial_table():
         }), 500
 
 
-@llm_bp.route('/excel-data/<path:excel_path>')
+@llm_bp.route('/api/excel-data/<path:excel_path>')
 def serve_excel_data_route(excel_path):
     """提供Excel文件数据访问"""
     # ⭐⭐⭐ 修复：使用常量路径 ⭐⭐⭐

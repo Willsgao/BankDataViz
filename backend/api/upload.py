@@ -37,7 +37,7 @@ def calculate_file_hash(file_content):
 
 from backend.service.file_upload_service import file_upload_service
 
-@upload_bp.route('/upload', methods=['POST'])
+@upload_bp.route('/api/upload', methods=['POST'])
 def upload_file():
     """文件上传接口 - 使用服务类"""
 
@@ -72,7 +72,7 @@ from backend.service.file_management_service import file_management_service
 
 
 
-@upload_bp.route('/files', methods=['GET'])
+@upload_bp.route('/api/files', methods=['GET'])
 def get_all_files():
     """获取所有文件列表 - 简化版本"""
     print("🔍 upload_bp - 获取文件列表")
@@ -122,7 +122,7 @@ def get_all_files():
         return jsonify({"error": str(e)}), 500
 
 # 在现有路由后面添加以下路由
-@upload_bp.route('/files/stats', methods=['GET'])
+@upload_bp.route('/api/files/stats', methods=['GET'])
 def get_file_stats():
     """获取文件统计信息"""
     try:
@@ -144,7 +144,7 @@ def get_file_stats():
         }), 500
 
 
-@upload_bp.route('/files/duplicates', methods=['GET'])
+@upload_bp.route('/api/files/duplicates', methods=['GET'])
 def list_duplicates():
     """列出重复文件"""
     try:
@@ -166,7 +166,7 @@ def list_duplicates():
         }), 500
 
 
-@upload_bp.route('/files/<file_id>', methods=['GET'])
+@upload_bp.route('/api/files/<file_id>', methods=['GET'])
 def get_file_details(file_id):
     """获取文件详细信息"""
     try:
@@ -188,7 +188,7 @@ def get_file_details(file_id):
         }), 500
 
 
-@upload_bp.route('/files/orphaned', methods=['GET'])
+@upload_bp.route('/api/files/orphaned', methods=['GET'])
 def list_orphaned_files():
     """列出孤立文件"""
     try:
@@ -206,7 +206,7 @@ def list_orphaned_files():
         }), 500
 
 
-@upload_bp.route('/files/cleanup/<int:file_id>', methods=['DELETE'])
+@upload_bp.route('/api/files/cleanup/<int:file_id>', methods=['DELETE'])
 def cleanup_file(file_id):
     """清理文件"""
     try:
@@ -224,7 +224,7 @@ def cleanup_file(file_id):
         }), 500
 
 
-@upload_bp.route('/files/search', methods=['GET'])
+@upload_bp.route('/api/files/search', methods=['GET'])
 def search_files():
     """搜索文件"""
     try:
@@ -274,7 +274,7 @@ def search_files():
         }), 500
 
 
-@upload_bp.route('/files/recent', methods=['GET'])
+@upload_bp.route('/api/files/recent', methods=['GET'])
 def get_recent_files():
     """获取最近上传的文件"""
     try:

@@ -15,7 +15,12 @@ module.exports = defineConfig({
         target: API_BASE,
         changeOrigin: true,
         secure: false,
-        pathRewrite: { '^/api': '' },  // ✅ 正确：移除 /api 前缀
+        logLevel: 'debug'
+      },
+      '/filtered-tables-image': {
+        target: API_BASE,
+        changeOrigin: true,
+        secure: false,
         logLevel: 'debug'
       },
       '/file': {

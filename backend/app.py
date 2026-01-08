@@ -64,10 +64,20 @@ _table_processor_instance = None
 _non_financial_table_service = None
 
 # ----------- 注册蓝图 -----------
-app.register_blueprint(llm_bp, url_prefix='/api')
-app.register_blueprint(upload_bp, url_prefix='/api')
-app.register_blueprint(file_bp, url_prefix='/api')
-app.register_blueprint(convert_bp, url_prefix='/api')
+# app.register_blueprint(llm_bp, url_prefix='/api')
+# app.register_blueprint(upload_bp, url_prefix='/api')
+# app.register_blueprint(file_bp, url_prefix='/api')
+# app.register_blueprint(convert_bp, url_prefix='/api')
+
+app.register_blueprint(llm_bp)
+app.register_blueprint(upload_bp)
+app.register_blueprint(file_bp)
+app.register_blueprint(convert_bp)
+
+# app.register_blueprint(llm_bp)
+# app.register_blueprint(upload_bp)
+# app.register_blueprint(file_bp)
+# app.register_blueprint(convert_bp)
 app.register_blueprint(text_bp)
 app.register_blueprint(visualization_bp)
 app.register_blueprint(baidu_ocr_bp)

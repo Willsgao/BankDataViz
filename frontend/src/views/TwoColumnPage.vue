@@ -77,8 +77,6 @@
       </div>
     </el-dialog>
 
-
-
 </template>
 
 <script setup>
@@ -181,8 +179,12 @@ const emit = defineEmits([
 // ---------------- 生命周期 ----------------
 onMounted(async () => {
   await loadFiles()
-  // 检查百度OCR服务状态
-  await checkBaiduOCRHealth()
+
+  // 添加调试代码
+  console.log('🔍 检查Excel相关变量:')
+  console.log('currentExcelData:', currentExcelData?.value)
+  console.log('excelData:', excelData?.value)
+  console.log('sheets:', sheets?.value)
 })
 
 // ---------------- 百度OCR相关函数 ----------------
@@ -274,7 +276,7 @@ const handleScreenImages = async (pdfDiskName) => {
 
     // 2. 调用后端API进行图片筛选
     const response = await axios.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
-      png_names: pngNames,
+      png_names: pngList,
       filter_only: false
     })
 
@@ -446,59 +448,42 @@ watch(screeningVisible, async (newVal) => {
   }
 })
 
-// 简化 getImageUrl 函数，确保它始终返回字符串
+
+
 const getImageUrl = (imageData, pdfFolder) => {
   try {
-    if (!imageData) return ''
+    console.log('🖼️ 生成图片URL - 输入:', { imageData, pdfFolder })
 
-    // 优先使用已有的URL
+    // 优先使用后端返回的URL
     if (imageData.url && typeof imageData.url === 'string') {
-      return imageData.url
-    }
+      console.log('📌 使用后端URL:', imageData.url)
 
-    // 如果有path，优先处理path
-    if (imageData.path && typeof imageData.path === 'string') {
-      // 处理路径
-      if (imageData.path.startsWith('http')) return imageData.path
-      if (imageData.path.startsWith('/')) return imageData.path
-
-      // 构建完整URL
       const baseUrl = window.location.origin
+      let finalUrl = imageData.url
 
-      // 尝试不同的路径模式
-      if (imageData.path.includes('filtered_tables')) {
-        return `${baseUrl}/api/${imageData.path}`
-      } else if (imageData.path.includes('png_output')) {
-        return `${baseUrl}/api/${imageData.path}`
-      } else {
-        // 如果path不是标准格式，尝试提取文件名
-        const fileName = imageData.path.split('/').pop()
-        if (fileName) {
-          return `${baseUrl}/api/png/${pdfFolder}/${fileName}`
-        }
+      // 确保URL是完整的
+      if (imageData.url.startsWith('/')) {
+        finalUrl = baseUrl + imageData.url
+      } else if (!imageData.url.startsWith('http')) {
+        finalUrl = baseUrl + '/api' + (imageData.url.startsWith('/') ? imageData.url : '/' + imageData.url)
       }
+
+      console.log('🔗 最终图片URL:', finalUrl)
+      return finalUrl
     }
 
-    // 如果有name但没有path
-    if (imageData.name && typeof imageData.name === 'string') {
-      const baseUrl = window.location.origin
-      const type = imageData.type || 'tables'
+    // 备用方案
+    const baseUrl = window.location.origin
+    const type = imageData.type || 'tables'
+    const imageName = imageData.name || imageData.filename || ''
 
-      // 根据图片类型构建URL
-      if (type === 'tables' || type === 'no_tables' || type === 'uncertain') {
-        // 分类图片
-        return `${baseUrl}/api/filtered-tables-image/${pdfFolder}/${type}/${imageData.name}`
-      } else {
-        // 普通PNG图片
-        return `${baseUrl}/api/png/${pdfFolder}/${imageData.name}`
-      }
-    }
+    const finalUrl = `${baseUrl}/filtered-tables-image/${pdfFolder}/${type}/${imageName}`
+    console.log('🔧 构建的图片URL:', finalUrl)
 
-    // 最后的回退方案
-    console.warn('⚠️ 无法生成图片URL:', { imageData, pdfFolder })
-    return ''
+    return finalUrl
+
   } catch (error) {
-    console.error('❌ 生成图片URL时出错:', error)
+    console.error('❌❌ 生成图片URL时出错:', error)
     return ''
   }
 }

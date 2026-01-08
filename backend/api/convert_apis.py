@@ -38,7 +38,7 @@ db_manager = database_handler.NewDatabaseManager(DATABASE_PATH)
 progress_tracker = progress_manager.ProgressManager()
 
 # ---------------- 1. 提交异步转图 ----------------
-@convert_bp.post('/convert-pdf-async/<path:pdf_name>')
+@convert_bp.post('/api/convert-pdf-async/<path:pdf_name>')
 def api_convert_pdf_async(pdf_name: str):
     """接收中文或 UUID 文件名 → 返回 jobId"""
     return pdf_converter.convert_pdf_async(
@@ -50,24 +50,24 @@ def api_convert_pdf_async(pdf_name: str):
     )
 
 # ---------------- 2. 轮询进度 ----------------
-@convert_bp.get('/progress/<job_id>')
+@convert_bp.get('/api/progress/<job_id>')
 def api_progress(job_id: str):
     return progress_tracker.get_progress(job_id)
 
 # ---------------- 3. 列出某 PDF 的所有 PNG ----------------
-@convert_bp.get('/png-list/<pdf_folder>')
+@convert_bp.get('/api/png-list/<pdf_folder>')
 def api_png_list(pdf_folder: str):
     print("pdf_folder, PNG_OUTPUT_DIR:::")
     print(pdf_folder, PNG_OUTPUT_DIR)
     return image_operations.get_png_list(pdf_folder, PNG_OUTPUT_DIR)
 
 # ---------------- 4. 单张 PNG 访问 ----------------
-@convert_bp.get('/png/<pdf_folder>/<png_name>')
+@convert_bp.get('/api/png/<pdf_folder>/<png_name>')
 def api_serve_png(pdf_folder: str, png_name: str):
     return image_operations.serve_png(pdf_folder, png_name, PNG_OUTPUT_DIR)
 
 # ---------------- 5. 旋转并保存 ----------------
-@convert_bp.post('/png/rotate/<pdf_folder>/<png_name>')
+@convert_bp.post('/api/png/rotate/<pdf_folder>/<png_name>')
 def rotate_png(pdf_folder: str, png_name: str):
     return image_operations.rotate_and_save(
         pdf_folder,
@@ -77,7 +77,7 @@ def rotate_png(pdf_folder: str, png_name: str):
     )
 
 # ---------------- 6. 保存前端裁剪子图 ----------------
-@convert_bp.post('/save-rotated-sub/<folder>/<png_name>')
+@convert_bp.post('/api/save-rotated-sub/<folder>/<png_name>')
 def save_rotated_sub(folder: str, png_name: str):
     return image_operations.save_rotated_subimage(
         folder,
@@ -87,7 +87,7 @@ def save_rotated_sub(folder: str, png_name: str):
     )
 
 # ---------------- 7. 单张 PNG 版面分区 ----------------
-@convert_bp.get('/layout/<pdf_folder>/<png_name>')
+@convert_bp.get('/api/layout/<pdf_folder>/<png_name>')
 def api_layout(pdf_folder: str, png_name: str):
     return image_operations.detect_layout(
         pdf_folder,
@@ -96,7 +96,7 @@ def api_layout(pdf_folder: str, png_name: str):
     )
 
 # ---------------- 8. 批量切割图表 ----------------
-@convert_bp.route('/batch-cut-table/<task_id>', methods=['POST', 'OPTIONS'])
+@convert_bp.route('/api/batch-cut-table/<task_id>', methods=['POST', 'OPTIONS'])
 def batch_cut_table(task_id):
     return image_operations.batch_cut_tables_handler(
         task_id,
@@ -105,17 +105,17 @@ def batch_cut_table(task_id):
     )
 
 # ---------------- 9. 文件夹图片列表 ----------------
-@convert_bp.get('/api/folder-images/<path:folder_path>')
+@convert_bp.get('/api/api/folder-images/<path:folder_path>')
 def api_folder_images(folder_path: str):
     return image_operations.get_folder_images(folder_path, STATIC_DIR)
 
 # ---------------- 10. 静态文件服务 ----------------
-@convert_bp.route('/JOINED_TABLES_DIR/<path:filename>')
+@convert_bp.route('/api/JOINED_TABLES_DIR/<path:filename>')
 def serve_static_png(filename):
     return image_operations.serve_static_image(filename, JOINED_TABLES_DIR)
 
 # ---------------- 11. 分步执行表格处理 ----------------
-@convert_bp.route('/step-process/<step_name>', methods=['POST', 'OPTIONS'])
+@convert_bp.route('/api/step-process/<step_name>', methods=['POST', 'OPTIONS'])
 def api_step_process(step_name: str):
     return table_processor.execute_single_step_handler(
         step_name,
@@ -124,12 +124,12 @@ def api_step_process(step_name: str):
     )
 
 # ---------------- 12. 获取可用步骤列表 ----------------
-@convert_bp.get('/available-steps')
+@convert_bp.get('/api/available-steps')
 def api_available_steps():
     return table_processor.get_available_steps()
 
 # ---------------- 13. 提交表格处理任务 ----------------
-@convert_bp.route('/process-tables/<pdf_folder>', methods=['POST', 'OPTIONS'])
+@convert_bp.route('/api/process-tables/<pdf_folder>', methods=['POST', 'OPTIONS'])
 def api_process_tables(pdf_folder: str):
     # INPUT_TABLES_ROOT = FILTERED_TABLES_DIR / "tables"
     return table_processor.submit_table_processing_task(
@@ -140,12 +140,12 @@ def api_process_tables(pdf_folder: str):
     )
 
 # ---------------- 14. 查询表格处理任务状态 ----------------
-@convert_bp.get('/table-progress/<job_id>')
+@convert_bp.get('/api/table-progress/<job_id>')
 def api_table_progress(job_id: str):
     return progress_tracker.get_table_progress(job_id)
 
 # ---------------- 15. 查询表格处理结果列表 ----------------
-@convert_bp.get('/table-results/<pdf_folder>')
+@convert_bp.get('/api/table-results/<pdf_folder>')
 def api_table_results(pdf_folder: str):
     return table_processor.get_table_results(
         pdf_folder,
@@ -153,22 +153,22 @@ def api_table_results(pdf_folder: str):
     )
 
 # ---------------- 16. 下载表格处理结果Excel文件 ----------------
-@convert_bp.route('/download-table/<pdf_folder>/<filename>', methods=['GET'])
+@convert_bp.route('/api/download-table/<pdf_folder>/<filename>', methods=['GET'])
 def api_download_table(pdf_folder: str, filename: str):
     return table_processor.download_excel_file(pdf_folder, filename)
 
 # ---------------- 17. 清理表格处理任务 ----------------
-@convert_bp.delete('/cleanup-table-jobs')
+@convert_bp.delete('/api/cleanup-table-jobs')
 def api_cleanup_table_jobs():
     return progress_tracker.cleanup_old_jobs()
 
 # ---------------- 18. 查询所有表格处理历史记录 ----------------
-@convert_bp.get('/table-history')
+@convert_bp.get('/api/table-history')
 def api_table_history():
     return database_handler.load_processing_history()
 
 # ---------------- 19. 查询单个任务详情 ----------------
-@convert_bp.get('/table-task/<job_id>')
+@convert_bp.get('/api/table-task/<job_id>')
 def api_table_task_detail(job_id: str):
     return database_handler.get_task_detail(job_id, progress_tracker)
 
@@ -179,7 +179,7 @@ def _map_to_disk(filename: str) -> str | None:
 
 
 # ---------------- 20. 表格图片预筛选 API ----------------
-@convert_bp.route('/screen-table-images/<pdf_folder>', methods=['POST', 'OPTIONS'])
+@convert_bp.route('/api/screen-table-images/<pdf_folder>', methods=['POST', 'OPTIONS'])
 def api_screen_table_images(pdf_folder: str):
     """
     API: 表格图片预筛选
@@ -440,7 +440,7 @@ def api_screen_table_images(pdf_folder: str):
 
 
 # ---------------- 21. 获取筛选结果详情 API ----------------
-@convert_bp.get('/screen-results/<pdf_folder>')
+@convert_bp.get('/api/screen-results/<pdf_folder>')
 def api_get_screen_results(pdf_folder: str):
     """
     API: 获取上次筛选结果
@@ -487,7 +487,7 @@ def api_get_screen_results(pdf_folder: str):
 
 
 # ---------------- 22. 批量筛选多个文件夹 API ----------------
-@convert_bp.route('/batch-screen-folders', methods=['POST', 'OPTIONS'])
+@convert_bp.route('/api/batch-screen-folders', methods=['POST', 'OPTIONS'])
 def api_batch_screen_folders():
     """
     API: 批量筛选多个PDF文件夹
@@ -656,7 +656,7 @@ def api_batch_screen_folders():
 
 
 # ---------------- 23. 清理筛选临时文件 API ----------------
-@convert_bp.delete('/cleanup-screening-temp')
+@convert_bp.delete('/api/cleanup-screening-temp')
 def api_cleanup_screening_temp():
     """
     API: 清理筛选临时文件
@@ -727,7 +727,7 @@ def api_cleanup_screening_temp():
 
 # ---------------- 24. 图片分类 API ----------------
 # convert_apis.py - 修改 api_get_classified_images 函数
-@convert_bp.route('/classified-images/<pdf_folder>', methods=['GET'])
+@convert_bp.route('/api/classified-images/<pdf_folder>', methods=['GET'])
 def api_get_classified_images(pdf_folder: str):
     """
     API: 获取已分类的图片列表
@@ -779,7 +779,7 @@ def api_get_classified_images(pdf_folder: str):
                     "name": img_file.name,
                     "path": str(img_file),
                     "relative_path": f"filtered_tables/{pdf_folder}/tables/{img_file.name}",
-                    "url": f"/api/filtered-tables-image/{pdf_folder}/tables/{img_file.name}",
+                    "url": f"/filtered-tables-image/{pdf_folder}/tables/{img_file.name}",
                     "type": "tables",
                     "size": img_file.stat().st_size,
                     "modified_at": img_file.stat().st_mtime
@@ -792,7 +792,7 @@ def api_get_classified_images(pdf_folder: str):
                     "name": img_file.name,
                     "path": str(img_file),
                     "relative_path": f"filtered_tables/{pdf_folder}/no_tables/{img_file.name}",
-                    "url": f"/api/filtered-tables-image/{pdf_folder}/no_tables/{img_file.name}",
+                    "url": f"/filtered-tables-image/{pdf_folder}/no_tables/{img_file.name}",
                     "type": "no_tables",
                     "size": img_file.stat().st_size,
                     "modified_at": img_file.stat().st_mtime
@@ -820,6 +820,8 @@ def api_get_classified_images(pdf_folder: str):
 
         result = jsonify(response_data)
         print("Content-Type:", result.headers.get('Content-Type'))
+        print("resultresult")
+        print(result.get_json())
 
         # 关键修复：返回标准格式
         return result
@@ -835,7 +837,7 @@ def api_get_classified_images(pdf_folder: str):
 
 
 # ---------------- 25. 移动单张图片 API ----------------
-@convert_bp.route('/move-screened-image/<pdf_folder>', methods=['POST'])
+@convert_bp.route('/api/move-screened-image/<pdf_folder>', methods=['POST'])
 def api_move_screened_image(pdf_folder: str):
     """
     API: 移动单张图片到不同分类
@@ -989,7 +991,7 @@ def api_move_screened_image(pdf_folder: str):
         }), 500
 
 # ---------------- 26. 批量移动图片 API ----------------
-@convert_bp.route('/batch-move-images/<pdf_folder>', methods=['POST'])
+@convert_bp.route('/api/batch-move-images/<pdf_folder>', methods=['POST'])
 def api_batch_move_images(pdf_folder: str):
     """
     API: 批量移动图片
@@ -1154,7 +1156,7 @@ def api_batch_move_images(pdf_folder: str):
 
 #
 # ---------------- 27. 重新检测图片 API ----------------
-@convert_bp.route('/re-screen-image/<pdf_folder>', methods=['POST'])
+@convert_bp.route('/api/re-screen-image/<pdf_folder>', methods=['POST'])
 def api_re_screen_image(pdf_folder: str):
     """
     API: 重新检测单张图片
@@ -1279,7 +1281,7 @@ def api_re_screen_image(pdf_folder: str):
         }), 500
 
 # ---------------- 28. 获取统计信息 ------ API ----------------
-@convert_bp.route('/screening-statistics/<pdf_folder>', methods=['GET'])
+@convert_bp.route('/api/screening-statistics/<pdf_folder>', methods=['GET'])
 def api_get_screening_statistics(pdf_folder: str):
     """
     API: 获取筛选统计信息
@@ -1372,6 +1374,8 @@ def api_filtered_tables_image(pdf_folder: str, category: str, filename: str):
     功能: 返回筛选后的分类图片文件（tables/no_tables）
     """
     try:
+        print(f"🔍 请求图片: pdf_folder={pdf_folder}, category={category}, filename={filename}")
+
         # 验证分类
         if category not in ['tables', 'no_tables', 'uncertain']:
             return jsonify({
@@ -1383,15 +1387,23 @@ def api_filtered_tables_image(pdf_folder: str, category: str, filename: str):
         output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
         image_path = output_dir / category / filename
 
-        print(f"📤 提供筛选图片: {image_path}")
+        print(f"📤 提供筛选图片路径: {image_path}")
+        print(f"📤 路径是否存在: {image_path.exists()}")
 
         if not image_path.exists():
+            # 列出目录内容帮助调试
+            if output_dir.exists():
+                print(f"📁 目录内容: {list(output_dir.glob('*'))}")
+            if (output_dir / category).exists():
+                print(f"📁 {category}目录内容: {list((output_dir / category).glob('*'))}")
+
             return jsonify({
                 "success": False,
-                "error": f"筛选图片不存在: {filename}"
+                "error": f"筛选图片不存在: {filename}, 路径: {image_path}"
             }), 404
 
         # 返回图片文件
+        print(f"✅ 成功找到图片，准备发送: {image_path}")
         return send_file(str(image_path), mimetype='image/png')
 
     except Exception as e:
@@ -1402,8 +1414,6 @@ def api_filtered_tables_image(pdf_folder: str, category: str, filename: str):
             "success": False,
             "error": f"提供筛选图片失败: {str(e)}"
         }), 500
-
-
 
 
 

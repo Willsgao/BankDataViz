@@ -81,7 +81,7 @@ class Config:
             "api": {
                 "prefix": "/api",
                 "staticPrefix": "/static",
-                "uploadPrefix": "/upload"
+                "uploadPrefix": "/api/upload"
             },
             "paths": {
                 "uploadFolder": "static/uploads",

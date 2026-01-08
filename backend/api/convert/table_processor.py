@@ -2,6 +2,8 @@
 表格处理模块 - 业务逻辑层
 职责：封装表格处理业务逻辑，不包含API响应
 """
+
+import sqlite3
 from flask import jsonify
 import threading
 import time
@@ -10,7 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from backend.utils.constants import DATABASE_PATH, FILTERED_TABLES_DIR, EXCEL_DATA_DIR
+from backend.utils.constants import DATABASE_PATH, FILTERED_TABLES_DIR, EXCEL_DATA_DIR, DATABASE
 from backend.models.unified_db import NewDatabaseManager
 from backend.src.services.table_processor.table_rebuilder import TableReconstructor
 from backend.src.services.table_processor.ocr_gateway import TableOCRService
@@ -52,51 +54,6 @@ class PDFDataAggregator:
         self.created_at = datetime.now()
         self.last_updated = self.created_at
 
-    def add_table00(self, image_name, table_data, sheet_name=None, image_path=None):
-        """
-        添加一个表格数据到聚合器
-
-        Args:
-            image_name: 图片文件名
-            table_data: 表格数据（二维列表）
-            sheet_name: 可选的Sheet名称
-            image_path: 图片完整路径（可选）
-        """
-        with self.lock:
-            if not table_data:
-                print(f"⚠️ 空表格数据，跳过: {image_name}")
-                return False
-
-            # 验证表格数据
-            if not isinstance(table_data, list) or len(table_data) == 0:
-                print(f"⚠️ 无效表格数据格式: {image_name}")
-                return False
-
-            # 生成Sheet名称
-            if not sheet_name:
-                sheet_name = self._generate_sheet_name(image_name, len(self.tables_data))
-
-            # 清理Sheet名称
-            from backend.src.services.table_processor.table_rebuilder import TableReconstructor
-            reconstructor = TableReconstructor()
-            cleaned_sheet_name = reconstructor._clean_sheet_name(sheet_name)
-
-            # 存储数据
-            self.tables_data.append(table_data)
-            self.table_names.append(cleaned_sheet_name)
-            self.image_refs.append({
-                'image_name': image_name,
-                'image_path': image_path,
-                'added_at': datetime.now().isoformat(),
-                'table_shape': f"{len(table_data)}行×{len(table_data[0]) if table_data else 0}列"
-            })
-
-            self.last_updated = datetime.now()
-
-            print(f"📊 聚合表格: {image_name} -> Sheet: '{cleaned_sheet_name}' "
-                  f"({len(table_data)}行×{len(table_data[0]) if table_data else 0}列)")
-
-            return True
 
     # 在 PDFDataAggregator 类的 add_table 方法中修复
     def add_table(self, image_name, table_data, sheet_name=None, image_path=None, metadata=None):
@@ -246,52 +203,6 @@ class PDFDataAggregator:
                 'last_updated': self.last_updated.isoformat(),
                 'image_refs': self.image_refs.copy()
             }
-
-    def save_to_excel00(self, output_path):
-        """
-        将所有表格数据一次性写入Excel
-
-        Args:
-            output_path: 输出Excel文件路径
-
-        Returns:
-            bool: 是否成功
-        """
-        with self.lock:
-            if not self.tables_data:
-                print(f"⚠️ 聚合器中没有表格数据: {self.pdf_folder}")
-                return False
-
-            print(f"🔄 开始写入Excel: {self.pdf_folder}")
-            print(f"  表格数量: {len(self.tables_data)}")
-            print(f"  输出路径: {output_path}")
-
-            try:
-                # 导入并调用TableReconstructor的保存方法
-                from backend.src.services.table_processor.table_rebuilder import TableReconstructor
-                reconstructor = TableReconstructor()
-
-                success = reconstructor.step9_save_to_excel_optimized(
-                    tables_data=self.tables_data,
-                    output_file=output_path,
-                    table_names=self.table_names
-                )
-
-                if success:
-                    print(f"✅ Excel写入成功: {output_path}")
-                    stats = self.get_statistics()
-                    print(f"📊 统计: {stats['total_tables']}个表格, "
-                          f"{stats['total_rows']}行, {stats['total_cells']}个单元格")
-                else:
-                    print(f"❌ Excel写入失败: {output_path}")
-
-                return success
-
-            except Exception as e:
-                print(f"❌ 保存Excel异常: {e}")
-                import traceback
-                traceback.print_exc()
-                return False
 
     def save_to_excel(self, output_path, metadata_list=None):
         """
@@ -570,86 +481,6 @@ class PDFAggregatorManager:
             for pdf_folder in self._processing_status:
                 result[pdf_folder] = self.get_processing_status(pdf_folder)
             return result
-
-    def finalize_pdf00(self, pdf_folder, output_dir=None, force=False):
-        """
-        最终化PDF处理，生成Excel文件
-
-        Args:
-            pdf_folder: PDF文件夹名称
-            output_dir: 输出目录（可选，默认使用tableconfig.output_dir）
-            force: 是否强制最终化（即使图片未全部完成）
-
-        Returns:
-            tuple: (是否成功, Excel文件路径, 错误信息)
-        """
-        with self._lock:
-            if pdf_folder not in self._aggregators:
-                return False, None, f"PDF聚合器不存在: {pdf_folder}"
-
-            aggregator = self._aggregators[pdf_folder]
-            status = self._processing_status.get(pdf_folder, {})
-
-            # 检查是否可以合并
-            if not force:
-                total_images = status.get('total_images', 0)
-                processed_images = status.get('processed_images', 0)
-
-                if total_images > 0 and processed_images < total_images:
-                    return False, None, f"图片未全部完成 ({processed_images}/{total_images})"
-
-            # 生成输出路径
-            try:
-                if output_dir is None:
-                    from backend.configs.config import tableconfig
-                    output_dir = Path(tableconfig.output_dir) / pdf_folder
-                else:
-                    output_dir = Path(output_dir) / pdf_folder
-
-                output_dir.mkdir(parents=True, exist_ok=True)
-
-                # 生成文件名
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                if aggregator.bank_name:
-                    filename = f"{aggregator.bank_name}_{pdf_folder}_{timestamp}.xlsx"
-                else:
-                    filename = f"{pdf_folder}_合并_{timestamp}.xlsx"
-
-                output_path = output_dir / filename
-
-                # 更新状态为合并中
-                self.update_processing_status(pdf_folder, status='merging')
-
-                print(f"🔄 开始最终化PDF: {pdf_folder}")
-                print(f"  输出文件: {output_path}")
-                print(f"  表格数量: {len(aggregator)}")
-
-                # 保存Excel
-                success = aggregator.save_to_excel(str(output_path))
-
-                if success:
-                    # 更新状态为完成
-                    self.update_processing_status(pdf_folder, status='completed')
-                    status['final_excel'] = str(output_path)
-                    status['finalized_at'] = datetime.now().isoformat()
-
-                    # 可选：清理聚合器数据（释放内存）
-                    # aggregator.clear()
-
-                    print(f"✅ PDF最终化完成: {pdf_folder} -> {output_path}")
-                    return True, str(output_path), None
-                else:
-                    self.update_processing_status(pdf_folder, status='failed')
-                    return False, None, "Excel保存失败"
-
-            except Exception as e:
-                import traceback
-                error_msg = f"最终化失败: {str(e)}"
-                print(f"❌ {error_msg}")
-                traceback.print_exc()
-
-                self.update_processing_status(pdf_folder, status='failed')
-                return False, None, error_msg
 
     def finalize_pdf(self, pdf_folder, output_dir=None, force=False, metadata_list=None):
         """
@@ -1104,29 +935,6 @@ class TableProcessingService:
             return [], []
 
 
-    def _run_ocr_llm_memory_pipeline00(self, image_path: str, bank_name: str = ""):
-        """
-        纯算法流水线：OCR → LLM → 内存表格数据
-        返回 (tables_data, sheet_names)
-        """
-        from backend.src.services.table_processor.ocr_gateway import TableOCRService
-        from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
-
-        ocr_result = TableOCRService().recognize_table(image_path)
-        if not ocr_result.get('tables_result'):
-            return [], []
-
-        llm_result = EnhancedFinancialTableAnalyzer().analyze_image(image_path, ocr_result)
-        if not llm_result.get('tables_structure', {}).get('tables'):
-            return [], []
-
-        return self._reconstructor.process_all_tables_to_memory(
-            ocr_result=ocr_result,
-            llm_result=llm_result,
-            image_path=image_path,
-            bank_name=bank_name
-        )
-
     def _process_single_image_to_memory(self, image_path, pdf_folder, bank_name=""):
         """代理到统一流水线，保持对外签名不变"""
         return self._run_ocr_llm_memory_pipeline(image_path, bank_name)[0]  # 只要数据，不要 sheet_names
@@ -1226,152 +1034,27 @@ table_processing_service = TableProcessingService()
 
 
 # ========== 4. API 接口函数 ==========
-def submit_table_processing_task00(pdf_folder, filtered_tables_dir, request, progress_tracker):
-    """提交表格处理任务"""
-    try:
-        print(f"📥 提交表格处理任务: pdf_folder={pdf_folder}")
-
-        # 获取请求数据
-        data = request.get_json() or {}
-        table_type = data.get('table_type', 'financial')
-        use_ocr = data.get('use_ocr', True)
-        bank_name = data.get('bank_name', '')
-
-        # 可选的png_names参数，如果未提供则从目录获取
-        png_names = data.get('png_names', [])
-
-        print(f"  配置参数: table_type={table_type}, use_ocr={use_ocr}, bank_name={bank_name}")
-        print(f"  可选png_names: {len(png_names)}个")
-
-        # 如果未提供png_names，自动从筛选目录获取
-        tables_dir = Path(filtered_tables_dir) / pdf_folder / "tables"
-        if not png_names:
-            if tables_dir.exists():
-                png_names = [f.name for f in tables_dir.glob("*.png")]
-                print(f"  自动从目录获取 {len(png_names)} 张表格图片")
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": f"表格目录不存在: {tables_dir}",
-                    "suggestion": "请先完成图片筛选"
-                }), 400
-
-        if not png_names:
-            return jsonify({
-                "success": False,
-                "error": "没有找到表格图片",
-                "suggestion": "筛选后没有发现包含表格的图片"
-            }), 400
-
-        # 生成作业ID
-        job_id = f"table_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-
-        # 构建完整的图片路径列表
-        image_paths = []
-        for png_name in png_names:
-            img_path = tables_dir / png_name
-            if img_path.exists():
-                image_paths.append(str(img_path))
-            else:
-                print(f"⚠️ 图片不存在: {img_path}")
-
-        if not image_paths:
-            return jsonify({
-                "success": False,
-                "error": "没有找到有效的图片文件",
-                "suggestion": "请检查筛选后的图片文件是否存在"
-            }), 400
-
-        print(f"📸 找到 {len(image_paths)} 张有效图片")
-
-        # 创建进度记录
-        progress_tracker.init_table_job(
-            job_id=job_id,
-            job_info={
-                "pdf_folder": pdf_folder,
-                "table_type": table_type,
-                "bank_name": bank_name,
-                "total_images": len(image_paths),
-                "image_paths": image_paths,
-                "status": "pending",
-                "stage": "pending",
-                "progress": 0,
-                "start_time": datetime.now().isoformat(),
-                "processed_images": 0,
-                "results": [],
-                "error": None
-            }
-        )
-
-        print(f"✅ 创建作业成功: job_id={job_id}")
-
-        def async_process_table():
-            """异步处理表格的线程函数"""
-            try:
-                print(f"🚀 开始异步处理表格任务: {job_id}")
-
-                # 更新状态为处理中
-                progress_tracker.update_table_job(job_id, {
-                    "status": "processing",
-                    "stage": "starting",
-                    "progress": 5,
-                    "message": "开始处理表格图片..."
-                })
-
-                # 执行真实的表格处理
-                process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_name, progress_tracker)
-
-                print(f"🎉 表格处理任务完成: {job_id}")
-
-            except Exception as e:
-                print(f"❌ 异步处理异常: {e}")
-                import traceback
-                traceback.print_exc()
-
-                progress_tracker.update_table_job(job_id, {
-                    "status": "failed",
-                    "stage": "failed",
-                    "progress": 0,
-                    "error": str(e),
-                    "end_time": datetime.now().isoformat(),
-                    "message": f"处理失败: {str(e)}"
-                })
-
-        # 启动异步线程
-        thread = threading.Thread(target=async_process_table, daemon=True)
-        thread.start()
-
-        print(f"🎯 异步处理线程已启动")
-
-        return jsonify({
-            "success": True,
-            "job_id": job_id,
-            "message": "表格解析任务已提交",
-            "pdf_folder": pdf_folder,
-            "table_type": table_type,
-            "bank_name": bank_name,
-            "total_images": len(image_paths),
-            "auto_detected_images": data.get('png_names') is None
-        })
-
-    except Exception as e:
-        print(f"💥 提交表格处理任务失败: {e}")
-        import traceback
-        traceback.print_exc()
-
-        return jsonify({
-            "success": False,
-            "error": f"提交任务失败: {str(e)}"
-        }), 500
-
-
 def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务"""
     try:
         print(f"📥 提交表格处理任务: pdf_folder={pdf_folder}")
 
         # 获取请求数据
-        data = request.get_json() or {}
+        # 修复：先检查Content-Type，再解析JSON
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json() or {}
+        else:
+            # 如果不是JSON内容类型，尝试其他方式解析
+            data = request.form.to_dict() or {}
+            # 如果是表单数据，尝试解析可能的JSON字段
+            if not data and request.data:
+                try:
+                    import json
+                    data = json.loads(request.data.decode('utf-8'))
+                except:
+                    data = {}
+
+
         table_type = data.get('table_type', 'financial')
         use_ocr = data.get('use_ocr', True)
 
@@ -2364,7 +2047,6 @@ def execute_single_step_handler(step_name, output_dir, request):
         elif step_name == "reconstruct":
             result = execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir)
         elif step_name == "export":
-            print("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY")
             result = execute_export_step(pdf_folder, png_names, previous_context, output_dir)
         else:
             return jsonify({
