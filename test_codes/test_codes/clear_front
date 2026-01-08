@@ -1,0 +1,120 @@
+// 在浏览器控制台执行这个完整的一键清理脚本
+(function() {
+  console.log("🧹🧹🧹 开始清理所有前端缓存 🧹🧹🧹");
+  console.log("=" .repeat(50));
+
+  // 清理统计
+  let cleanedCount = 0;
+
+  // 1. 清理 LocalStorage
+  console.log("1️⃣ 清理 LocalStorage...");
+  const localStorageKeys = Object.keys(localStorage);
+  console.log(`  当前有 ${localStorageKeys.length} 个键`);
+
+  // 清理所有与文件相关的键
+  const keysToRemove = localStorageKeys.filter(key =>
+    key.includes('pdf') ||
+    key.includes('file') ||
+    key.includes('upload') ||
+    key.includes('current') ||
+    key.includes('operation') ||
+    key.includes('history')
+  );
+
+  keysToRemove.forEach(key => {
+    console.log(`  🗑️ 删除: ${key}`);
+    localStorage.removeItem(key);
+    cleanedCount++;
+  });
+
+  // 2. 清理 SessionStorage
+  console.log("2️⃣ 清理 SessionStorage...");
+  const sessionKeys = Object.keys(sessionStorage);
+  console.log(`  当前有 ${sessionKeys.length} 个键`);
+
+  sessionKeys.forEach(key => {
+    console.log(`  🗑️ 删除: ${key}`);
+    sessionStorage.removeItem(key);
+    cleanedCount++;
+  });
+
+  // 3. 清理 Cookies
+  console.log("3️⃣ 清理 Cookies...");
+  const cookies = document.cookie.split(';');
+  console.log(`  当前有 ${cookies.length} 个Cookie`);
+
+  cookies.forEach(cookie => {
+    const cookieName = cookie.split('=')[0].trim();
+    // 设置过期时间为过去
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    console.log(`  🍪 清理: ${cookieName}`);
+    cleanedCount++;
+  });
+
+  // 4. 清理 IndexedDB
+  console.log("4️⃣ 清理 IndexedDB...");
+  if (indexedDB && indexedDB.databases) {
+    indexedDB.databases().then(databases => {
+      console.log(`  当前有 ${databases.length} 个IndexedDB`);
+
+      databases.forEach(db => {
+        indexedDB.deleteDatabase(db.name);
+        console.log(`  🗃️ 删除数据库: ${db.name}`);
+        cleanedCount++;
+      });
+    }).catch(() => {
+      console.log("  ⚠️ IndexedDB清理需要较新浏览器支持");
+    });
+  }
+
+  // 5. 清理 Service Worker 缓存
+  console.log("5️⃣ 清理 Service Worker 缓存...");
+  if ('caches' in window) {
+    caches.keys().then(cacheNames => {
+      console.log(`  当前有 ${cacheNames.length} 个Service Worker缓存`);
+
+      cacheNames.forEach(cacheName => {
+        caches.delete(cacheName);
+        console.log(`  🗂️ 删除缓存: ${cacheName}`);
+        cleanedCount++;
+      });
+    });
+  }
+
+  // 6. 清理 Application Cache
+  console.log("6️⃣ 清理 Application Cache...");
+  if (window.applicationCache) {
+    try {
+      window.applicationCache.update();
+      window.applicationCache.swapCache();
+      console.log("  🔄 Application Cache 已更新");
+    } catch (e) {
+      console.log("  ⚠️ Application Cache 清理失败:", e.message);
+    }
+  }
+
+  // 7. 清理内存缓存（强制重新加载）
+  console.log("7️⃣ 清理内存缓存...");
+  console.log("  💾 清除Vue/React组件状态缓存");
+
+  // 8. 输出清理结果
+  console.log("=" .repeat(50));
+  console.log(`✅ 清理完成！共清理了 ${cleanedCount} 个项目`);
+  console.log("");
+  console.log("🔧 建议的下一步操作：");
+  console.log("1. 强制刷新页面（Ctrl+F5 或 Cmd+Shift+R）");
+  console.log("2. 重新上传文件");
+  console.log("3. 检查后端文件是否真的存在");
+  console.log("");
+  console.log("🔄 3秒后自动刷新页面...");
+
+  setTimeout(() => {
+    window.location.reload(true); // true表示强制从服务器重新加载
+  }, 3000);
+
+})();
+
+
+
+
+#########################

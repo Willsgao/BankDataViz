@@ -15,7 +15,7 @@ module.exports = defineConfig({
         target: API_BASE,
         changeOrigin: true,
         secure: false,
-        pathRewrite: { '^/api': '/api' },
+        pathRewrite: { '^/api': '' },  // ✅ 正确：移除 /api 前缀
         logLevel: 'debug'
       },
       '/file': {

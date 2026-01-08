@@ -32,8 +32,9 @@ CREATE TABLE IF NOT EXISTS table_processing_records (
 class NewDatabaseManager:
     """数据库管理器"""
 
-    def __init__(self, db_path):
-        self.db_path = db_path
+    def __init__(self, db_path=None):
+        from backend.configs.config import config
+        self.db_path = db_path or config.DATABASE_PATH
 
     def connect(self):
         """连接数据库"""

@@ -109,7 +109,7 @@ import { useBatchTableCrop } from '@/composables/useBatchTableCrop'
 import { baiduOcrApi } from '@/api/baiduOcr'
 
 // 工具函数导入
-import { getBackendUrl, getStaticUrl } from '@/utils/config'
+import { getBackendUrl, getStaticUrl, getSmartUrl  } from '@/utils/config'
 
 
 // ---------------- 数据声明（从App.vue迁移过来） ----------------
@@ -273,8 +273,8 @@ const handleScreenImages = async (pdfDiskName) => {
     }
 
     // 2. 调用后端API进行图片筛选
-    const response = await axios.post(`/api/screen-table-images/${cacheKey}`, {
-      png_names: pngList.map(img => img.name || img),
+    const response = await axios.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
+      png_names: pngNames,
       filter_only: false
     })
 
@@ -560,9 +560,93 @@ const otherPdfs = computed(() => {
 
 
 // ---------------- 修改现有的操作函数 ----------------
+async function loadFiles() {
+  try {
+    console.log('🔍 第一步：检查 loadFiles() 执行')
+    console.log('📡 准备调用 getFiles() API...')
+
+    // 清空现有状态
+    files.value = []
+    currentPdfDiskName.value = ''
+    console.log('🔄 清空后的 files.value:', files.value)
+
+    // 调用 API
+    const apiResult = await getFiles()
+    console.log('✅ getFiles() 返回结果:', apiResult)
+    console.log('📊 返回结果长度:', apiResult.length)
+
+    files.value = apiResult
+    console.log('📁 赋值后的文件列表:', files.value)
+
+    // 如果没有文件，直接返回
+    if (files.value.length === 0) {
+      console.log('📭 没有PDF文件，清空当前PDF')
+      return
+    }
+
+    // 4. 设置当前PDF（核心逻辑）
+    let defaultPdf = null
+
+    // 优先使用最近操作的文件
+    if (Object.keys(lastOperationTime.value).length > 0) {
+      const sorted = Object.entries(lastOperationTime.value)
+        .sort((a, b) => b[1] - a[1])
+      const latestPdfDiskName = sorted[0][0]
+      defaultPdf = files.value.find(f => f.disk_name === latestPdfDiskName)
+      console.log('🔍 查找最近操作的PDF:', { latestPdfDiskName, found: !!defaultPdf })
+    }
+
+    // 如果没有最近操作记录，使用第一个文件
+    if (!defaultPdf) {
+      defaultPdf = files.value[0]
+      console.log('📌 使用第一个文件作为默认PDF:', defaultPdf.filename)
+    }
+
+    // 更新当前PDF状态
+    updateCurrentPdf(defaultPdf.disk_name)
+    console.log('✅ 已设置当前PDF:', defaultPdf.filename)
+
+    // 5. 状态摘要（在所有设置完成后）
+    console.log('📊 文件加载完成，状态摘要:', {
+      totalFiles: files.value.length,
+      currentPdfDiskName: currentPdfDiskName.value,
+      otherPdfsCount: files.value.filter(f => f.disk_name !== currentPdfDiskName.value).length
+    })
+
+    // 6. 文件访问测试（可选，在最后进行）
+    await testFileAccess(defaultPdf)
+
+  } catch (error) {
+    console.error('加载文件失败:', error)
+    ElMessage.error('加载文件失败: ' + (error.message || '未知错误'))
+    files.value = []
+    currentPdfDiskName.value = ''
+  }
+}
+
+// 提取测试函数
+async function testFileAccess(file) {
+  try {
+    const baseUrl = window.location.origin
+    const testUrl = `${baseUrl}/api/file-info/${file.disk_name}`
+    console.log('🔗 测试URL:', testUrl)
+
+    const testResponse = await fetch(testUrl)
+    console.log('✅ 文件访问测试:', testResponse.ok)
+
+    if (!testResponse.ok) {
+      console.warn('⚠️ 文件访问测试失败，状态码:', testResponse.status)
+    }
+  } catch (error) {
+    console.error('❌ 文件访问测试失败:', error)
+  }
+}
+
+
+
 // 1. 修改 loadFiles 函数，设置默认当前PDF
 // 修改 loadFiles 函数中访问 currentPdf 的部分
-async function loadFiles() {
+async function loadFiles000() {
   try {
     files.value = await getFiles()
     console.log('📁 加载的文件列表:', files.value)
@@ -767,7 +851,9 @@ async function convertAndPreview(pdfDiskName) {
     // 使用相对路径，让代理处理
     console.log('🔗 调用转图API:', `/api/convert-pdf-async/${pdfDiskName}`)
 
-    const { data } = await axios.post(`/api/convert-pdf-async/${pdfDiskName}`)
+    // const { data } = await axios.post(`/api/convert-pdf-async/${pdfDiskName}`)
+    // 2. 转图API
+    const { data } = await axios.post(getSmartUrl(`/api/convert-pdf-async/${pdfDiskName}`))
 
     // API缓存命中
     if (data.hitCache) {
@@ -1022,11 +1108,10 @@ const handleParseTables = async (pdfDiskName) => {
     console.log('📤 发送表格解析请求（简化版）...')
 
     // 简化请求：后端会自动获取png_names
-    const response = await axios.post(`/api/process-tables/${pdfFolder}`, {
+    const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
       table_type: tableType.value,
       use_ocr: true,
       force_refresh: false
-      // 不再需要手动传 png_names
     }, {
       headers: {
         'Content-Type': 'application/json'
@@ -1124,7 +1209,9 @@ async function pollTableProgress(jobId, pdfDiskName) {
   return new Promise((resolve) => {
     const timer = setInterval(async () => {
       try {
-        const { data } = await axios.get(`/api/table-progress/${jobId}`)
+        // const { data } = await axios.get(`/api/table-progress/${jobId}`)
+        // 5. 表格进度查询
+        const { data } = await axios.get(getSmartUrl(`/api/table-progress/${jobId}`))
 
         console.log('📊 表格解析进度:', data)
 
@@ -1483,7 +1570,9 @@ async function pollProgress(jobId) {
   return new Promise((resolve) => {
     const timer = setInterval(async () => {
       try {
-        const { data } = await axios.get(getBackendUrl(`/api/progress/${jobId}`))
+        // const { data } = await axios.get(getBackendUrl(`/api/progress/${jobId}`))
+        // 3. 进度查询API
+        const { data } = await axios.get(getSmartUrl(`/api/progress/${jobId}`))
 
         progressPercent.value = data.percent
         if (data.percent === 100) {

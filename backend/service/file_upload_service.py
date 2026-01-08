@@ -7,6 +7,7 @@
 import os
 import sqlite3
 import hashlib
+import uuid  # 🆕 添加uuid导入
 from pathlib import Path
 from datetime import datetime
 from backend.utils.constants import UPLOAD_FOLDER, DATABASE, MAIN_ROOT, ALLOWED_EXTENSIONS
@@ -29,6 +30,14 @@ class FileUploadService:
     def calculate_file_hash(self, file_content):
         """计算文件的MD5哈希值"""
         return hashlib.md5(file_content).hexdigest()
+
+    # 🆕 新增：基于文件内容生成确定性UUID
+    def generate_deterministic_uuid(self, file_content):
+        """基于文件内容生成确定性UUID"""
+        # 使用SHA256计算文件哈希
+        file_hash = hashlib.sha256(file_content).hexdigest()
+        # 转换为UUID格式
+        return uuid.UUID(hex=file_hash[:32])
 
     def extract_bank_name(self, filename):
         """从文件名中提取银行名称"""
@@ -63,7 +72,7 @@ class FileUploadService:
 
             for col_name, col_type in new_columns.items():
                 if col_name not in existing_cols:
-                    print(f"🔧 添加缺失列: {col_name} {col_type}")
+                    print(f"🔧🔧 添加缺失列: {col_name} {col_type}")
                     try:
                         c.execute(f"ALTER TABLE files ADD COLUMN {col_name} {col_type}")
                         conn.commit()
@@ -72,22 +81,37 @@ class FileUploadService:
                         print(f"⚠️ 添加列 {col_name} 失败: {e}")
 
         except Exception as e:
-            print(f"❌ 检查表结构失败: {e}")
+            print(f"❌❌ 检查表结构失败: {e}")
             if conn:
                 conn.rollback()
         finally:
             if conn:
                 conn.close()
 
-    def get_existing_file(self, file_hash):
-        """根据哈希值检查文件是否已存在"""
+    def get_existing_file(self, file_hash, raw_filename=None):
+        """根据哈希值和文件名检查文件是否已存在"""
         conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
 
+            # 优先检查完全匹配（文件名和内容都相同）
+            if raw_filename:
+                c.execute("""
+                    SELECT id, filename, raw_filename, upload_count, created_at, file_size, bank_name
+                    FROM files 
+                    WHERE file_hash = ? AND raw_filename = ? AND deleted = 0 AND file_hash IS NOT NULL
+                    LIMIT 1
+                """, (file_hash, raw_filename))
+
+                exact_match = c.fetchone()
+                if exact_match:
+                    print(f"✅✅ 找到完全匹配文件: {raw_filename}")
+                    return exact_match
+
+            # 如果没有完全匹配，检查内容相同的文件
             c.execute("""
-                SELECT id, filename, raw_filename, upload_count, created_at, file_size
+                SELECT id, filename, raw_filename, upload_count, created_at, file_size, bank_name
                 FROM files 
                 WHERE file_hash = ? AND deleted = 0 AND file_hash IS NOT NULL
                 LIMIT 1
@@ -95,33 +119,8 @@ class FileUploadService:
 
             return c.fetchone()
         except Exception as e:
-            print(f"❌ 查询重复文件失败: {e}")
+            print(f"❌❌❌❌ 查询重复文件失败: {e}")
             return None
-        finally:
-            if conn:
-                conn.close()
-
-    def increment_upload_count00(self, file_id):
-        """增加文件的上传次数"""
-        conn = None
-        try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-
-            c.execute("""
-                UPDATE files 
-                SET upload_count = upload_count + 1, 
-                    last_uploaded = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (file_id,))
-            conn.commit()
-
-            return True
-        except Exception as e:
-            print(f"❌ 更新上传次数失败: {e}")
-            if conn:
-                conn.rollback()
-            return False
         finally:
             if conn:
                 conn.close()
@@ -142,7 +141,7 @@ class FileUploadService:
                         bank_name = ?
                     WHERE id = ?
                 """, (bank_name, file_id))
-                print(f"🏦 更新银行名称: {bank_name}")
+                print(f"🏦🏦 更新银行名称: {bank_name}")
             else:
                 c.execute("""
                     UPDATE files 
@@ -154,7 +153,7 @@ class FileUploadService:
             conn.commit()
             return True
         except Exception as e:
-            print(f"❌ 更新上传次数失败: {e}")
+            print(f"❌❌ 更新上传次数失败: {e}")
             if conn:
                 conn.rollback()
             return False
@@ -162,93 +161,26 @@ class FileUploadService:
             if conn:
                 conn.close()
 
-    def save_new_file00(self, file_content, raw_filename, file_hash):
-        """保存新文件到磁盘和数据库"""
-        import uuid
-
-        # 生成文件ID和存储路径
-        ext = os.path.splitext(raw_filename)[1].lower()
-        file_id = str(uuid.uuid4())
-        disk_filename = f"{file_id}{ext}"
-        file_path = self.upload_dir / disk_filename
-
-        # 确保上传目录存在
-        if not self.upload_dir.exists():
-            print(f"📁 创建上传目录: {self.upload_dir}")
-            self.upload_dir.mkdir(parents=True, exist_ok=True)
-
-        # 保存文件到磁盘
-        print(f"💾 保存新文件到: {file_path}")
-        try:
-            file_path.write_bytes(file_content)
-        except Exception as e:
-            print(f"❌ 文件保存失败: {e}")
-            return None
-
-        # 保存到数据库
-        conn = None
-        try:
-            conn = sqlite3.connect(self.db_path)
-            c = conn.cursor()
-
-            file_type = ext[1:] if ext.startswith('.') else ext
-            file_size = len(file_content)
-
-            c.execute("""
-                INSERT INTO files 
-                (filename, file_type, raw_filename, deleted, file_hash, file_size, upload_count) 
-                VALUES (?, ?, ?, 0, ?, ?, 1)
-            """, (disk_filename, file_type, raw_filename, file_hash, file_size))
-
-            new_id = c.lastrowid
-            conn.commit()
-
-            print(f"✅ 数据库插入成功 - 新记录ID: {new_id}")
-
-            return {
-                "id": new_id,
-                "file_id": file_id,
-                "disk_filename": disk_filename,
-                "file_type": file_type,
-                "file_size": file_size,
-                "file_hash": file_hash
-            }
-
-        except Exception as e:
-            print(f"❌ 数据库插入失败: {e}")
-            if conn:
-                conn.rollback()
-
-            # 删除已保存的文件
-            if file_path.exists():
-                file_path.unlink()
-
-            return None
-        finally:
-            if conn:
-                conn.close()
-
     def save_new_file(self, file_content, raw_filename, file_hash, bank_name=""):
         """保存新文件到磁盘和数据库"""
-        import uuid
-
-        # 生成文件ID和存储路径
+        # 🆕 修改点：使用确定性UUID代替随机UUID
+        # 生成确定性文件ID
+        file_id = self.generate_deterministic_uuid(file_content)
         ext = os.path.splitext(raw_filename)[1].lower()
-        file_id = str(uuid.uuid4())
         disk_filename = f"{file_id}{ext}"
         file_path = self.upload_dir / disk_filename
 
         # 确保上传目录存在
         if not self.upload_dir.exists():
-            print(f"📁 创建上传目录: {self.upload_dir}")
+            print(f"📁📁 创建上传目录: {self.upload_dir}")
             self.upload_dir.mkdir(parents=True, exist_ok=True)
 
         # 保存文件到磁盘
-        print(f"💾 保存新文件到: {file_path}")
+        print(f"💾💾 保存新文件到: {file_path}")
         try:
             file_path.write_bytes(file_content)
         except Exception as e:
-            print(f"❌ 文件保存失败: {e}")
+            print(f"❌❌ 文件保存失败: {e}")
             return None
 
         # 保存到数据库
@@ -270,11 +202,12 @@ class FileUploadService:
             conn.commit()
 
             print(f"✅ 数据库插入成功 - 新记录ID: {new_id}")
-            print(f"🏦 银行名称已保存: {bank_name}")
+            print(f"🏦🏦 银行名称已保存: {bank_name}")
+            print(f"🆔🆔 确定性UUID: {file_id}")  # 🆕 添加UUID日志
 
             return {
                 "id": new_id,
-                "file_id": file_id,
+                "file_id": str(file_id),  # 🆕 返回字符串格式的UUID
                 "disk_filename": disk_filename,
                 "file_type": file_type,
                 "file_size": file_size,
@@ -283,7 +216,7 @@ class FileUploadService:
             }
 
         except Exception as e:
-            print(f"❌ 数据库插入失败: {e}")
+            print(f"❌❌ 数据库插入失败: {e}")
             if conn:
                 conn.rollback()
 
@@ -299,8 +232,8 @@ class FileUploadService:
     def process_upload(self, file, raw_filename):
         """处理文件上传的主方法"""
         print("=" * 50)
-        print("🔄 开始处理文件上传...")
-        print(f"📄 原始文件名: {raw_filename}")
+        print("🔄🔄🔄🔄 开始处理文件上传...")
+        print(f"📄📄📄📄 原始文件名: {raw_filename}")
 
         # 1. 基础验证
         if not self.allowed_file(raw_filename):
@@ -324,18 +257,18 @@ class FileUploadService:
         file_size = len(file_content)
         file_hash = self.calculate_file_hash(file_content)
 
-        print(f"📄 文件大小: {file_size} bytes")
-        print(f"🔢 文件哈希: {file_hash}")
+        print(f"📄📄📄📄 文件大小: {file_size} bytes")
+        print(f"🔢🔢🔢🔢 文件哈希: {file_hash}")
 
         # 3. 提取银行名称
         bank_name = self.extract_bank_name(raw_filename)
-        print(f"🏦 识别到的银行名称: {bank_name if bank_name else '无'}")
+        print(f"🏦🏦🏦🏦 识别到的银行名称: {bank_name if bank_name else '无'}")
 
         # 4. 确保数据库表结构完整
         self.check_table_columns()
 
-        # 5. 检查重复
-        existing_file = self.get_existing_file(file_hash)
+        # 5. 检查重复（新增文件名参数）
+        existing_file = self.get_existing_file(file_hash, raw_filename)
 
         if existing_file:
             # 处理重复文件
@@ -344,61 +277,9 @@ class FileUploadService:
             # 处理新文件
             return self._handle_new_file(file_content, raw_filename, file_hash, bank_name)
 
-    def _handle_duplicate00(self, existing_file, raw_filename, file_size, file_hash):
-        """处理重复文件"""
-        print("🔄 发现重复文件")
-
-        file_id = existing_file[0]
-        disk_filename = existing_file[1]
-        existing_raw_name = existing_file[2]
-        upload_count = existing_file[3] + 1
-        created_at = existing_file[4]
-        existing_file_size = existing_file[5]
-
-        # 提取file_id（去掉扩展名）
-        existing_file_id = disk_filename.split('.')[0] if '.' in disk_filename else disk_filename
-
-        print(f"   数据库ID: {file_id}")
-        print(f"   文件ID: {existing_file_id}")
-        print(f"   磁盘文件名: {disk_filename}")
-        print(f"   已有上传次数: {upload_count - 1}")
-
-        # 更新上传次数
-        if not self.increment_upload_count(file_id):
-            print("⚠️ 更新上传次数失败，但继续处理...")
-
-        # 添加文件映射
-        ext = os.path.splitext(raw_filename)[1].lower()
-        try:
-            file_mapping_service.add_mapping(existing_file_id, raw_filename, ext[1:].lower())
-            print(f"✅ 重复文件映射添加成功")
-        except Exception as e:
-            print(f"⚠️ 文件映射添加失败: {e}")
-
-        # 构建响应
-        response = {
-            "success": True,
-            "id": file_id,
-            "filename": raw_filename,
-            "file_type": ext[1:] if ext.startswith('.') else ext,
-            "disk_name": disk_filename,
-            "file_id": existing_file_id,
-            "file_hash": file_hash[:12],
-            "file_size": file_size,
-            "upload_count": upload_count,
-            "created_at": created_at,
-            "message": "文件已存在（内容相同），直接使用现有文件",
-            "duplicate": True
-        }
-
-        print(f"✅ 重复文件处理完成")
-        print("=" * 50)
-
-        return response
-
     def _handle_duplicate(self, existing_file, raw_filename, file_size, file_hash, bank_name=""):
         """处理重复文件"""
-        print("🔄 发现重复文件")
+        print("🔄🔄🔄🔄 发现重复文件")
 
         file_id = existing_file[0]
         disk_filename = existing_file[1]
@@ -406,6 +287,7 @@ class FileUploadService:
         upload_count = existing_file[3] + 1
         created_at = existing_file[4]
         existing_file_size = existing_file[5]
+        existing_bank_name = existing_file[6]  # 新增的银行名称字段
 
         # 提取file_id（去掉扩展名）
         existing_file_id = disk_filename.split('.')[0] if '.' in disk_filename else disk_filename
@@ -414,86 +296,50 @@ class FileUploadService:
         print(f"   文件ID: {existing_file_id}")
         print(f"   磁盘文件名: {disk_filename}")
         print(f"   已有上传次数: {upload_count - 1}")
+        print(f"   匹配类型: {'完全匹配（名称+内容）' if existing_raw_name == raw_filename else '内容匹配'}")
 
-        # 更新上传次数
-        if not self.increment_upload_count(file_id, bank_name):
+        # 更新上传次数（如果银行名称有更新，也一并更新）
+        update_bank_name = bank_name if bank_name and bank_name != existing_bank_name else ""
+        if not self.increment_upload_count(file_id, update_bank_name):
             print("⚠️ 更新上传次数失败，但继续处理...")
 
-        # 添加文件映射
-        ext = os.path.splitext(raw_filename)[1].lower()
-        try:
-            file_mapping_service.add_mapping(existing_file_id, raw_filename, ext[1:].lower())
-            print(f"✅ 重复文件映射添加成功")
-        except Exception as e:
-            print(f"⚠️ 文件映射添加失败: {e}")
+        # 添加文件映射（只有在不是完全匹配时才需要添加新映射）
+        if existing_raw_name != raw_filename:
+            ext = os.path.splitext(raw_filename)[1].lower()
+            try:
+                file_mapping_service.add_mapping(existing_file_id, raw_filename, ext[1:].lower())
+                print(f"✅ 新文件名映射添加成功")
+            except Exception as e:
+                print(f"⚠️ 文件映射添加失败: {e}")
+        else:
+            print(f"✅ 完全匹配，无需添加新映射")
 
         # 构建响应
         response = {
             "success": True,
             "id": file_id,
             "filename": raw_filename,
-            "file_type": ext[1:] if ext.startswith('.') else ext,
+            "file_type": os.path.splitext(raw_filename)[1][1:].lower(),
             "disk_name": disk_filename,
             "file_id": existing_file_id,
             "file_hash": file_hash[:12],
             "file_size": file_size,
             "upload_count": upload_count,
-            "bank_name": bank_name,  # 添加银行名称到响应
+            "bank_name": bank_name or existing_bank_name,
             "created_at": created_at,
             "message": "文件已存在（内容相同），直接使用现有文件",
-            "duplicate": True
+            "duplicate": True,
+            "exact_match": existing_raw_name == raw_filename  # 标识是否完全匹配
         }
 
         print(f"✅ 重复文件处理完成")
-        print("=" * 50)
-
-        return response
-
-    def _handle_new_file00(self, file_content, raw_filename, file_hash):
-        """处理新文件"""
-        print("🆕 处理新文件")
-
-        # 保存文件
-        result = self.save_new_file(file_content, raw_filename, file_hash)
-
-        if not result:
-            return {
-                "success": False,
-                "error": "文件保存失败",
-                "status_code": 500
-            }
-
-        # 添加文件映射
-        ext = os.path.splitext(raw_filename)[1].lower()
-        try:
-            file_mapping_service.add_mapping(result["file_id"], raw_filename, ext[1:].lower())
-            print(f"✅ 新文件映射添加成功")
-        except Exception as e:
-            print(f"⚠️ 文件映射添加失败: {e}")
-
-        # 构建响应
-        response = {
-            "success": True,
-            "id": result["id"],
-            "filename": raw_filename,
-            "file_type": result["file_type"],
-            "disk_name": result["disk_filename"],
-            "file_id": result["file_id"],
-            "file_hash": file_hash[:12],
-            "file_size": result["file_size"],
-            "upload_count": 1,
-            "message": "新文件上传成功",
-            "duplicate": False
-        }
-
-        print(f"✅ 新文件上传完成")
         print("=" * 50)
 
         return response
 
     def _handle_new_file(self, file_content, raw_filename, file_hash, bank_name=""):
         """处理新文件"""
-        print("🆕 处理新文件")
+        print("🆕🆕🆕 处理新文件")
 
         # 保存文件
         result = self.save_new_file(file_content, raw_filename, file_hash, bank_name)

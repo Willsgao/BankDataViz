@@ -24,7 +24,7 @@
           :screened-images-map="hasScreenedImages"
           :screening-result-map="screeningResultMap"
           @switch-pdf="$emit('switch-pdf', $event)"
-          @delete="$emit('delete-file', $event)"
+          @delete="handleDeleteFile"
           @screen-images="$emit('handle-screen-images', $event)"
           @convert="$emit('convert-and-preview', $event)"
           @batch-crop="$emit('handle-batch-crop', $event)"
@@ -288,6 +288,19 @@ const toggleFileList = () => {
   fileListExpanded.value = !fileListExpanded.value
 }
 
+
+const handleDeleteFile = (file) => {
+  console.log('🔄 TwoColumnLayout 收到删除事件:', file)
+
+  // 直接调用从父组件传递的函数
+  if (props.onDeleteFile) {
+    props.onDeleteFile(file)
+  } else {
+    console.error('❌ onDeleteFile 函数未定义')
+  }
+}
+
+
 // 定义props
 const props = defineProps({
   files: Array,
@@ -341,7 +354,8 @@ const props = defineProps({
   tableType: {
     type: String,
     default: 'financial'
-  }
+  },
+  onDeleteFile: Function
 })
 
 // 定义emit事件
@@ -371,6 +385,7 @@ defineEmits([
   'parseTables',
   'tableTypeChange'
 ])
+
 
 // 工具函数：检查是否已转图
 const getHasConvertCache = computed(() => {
