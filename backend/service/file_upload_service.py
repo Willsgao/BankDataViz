@@ -37,12 +37,54 @@ class FileUploadService:
         md5_hash = hashlib.md5(file_content).hexdigest()
         print("哈希密码值:", md5_hash)
 
+        print("md5_hash:", md5_hash)
+
         try:
             # 直接基于MD5哈希构造UUID（最可靠）
             return uuid.UUID(hex=md5_hash)
         except ValueError:
             # 备用方案：如果MD5格式有问题，使用uuid3
             return uuid.uuid3(uuid.NAMESPACE_URL, md5_hash)
+
+    def generate_smart_uuid(self, file_content, raw_filename=None, file_size=None):
+        """智能UUID生成策略"""
+
+        # 参数处理
+        if file_size is None:
+            file_size = len(file_content)
+
+        if raw_filename is None:
+            # 如果没有文件名，回退到基于内容的UUID
+            md5_hash = hashlib.md5(file_content).hexdigest()
+            return uuid.UUID(hex=md5_hash)
+
+        # 1. 先检查是否银行标准命名
+        if self.is_standard_bank_filename(raw_filename):
+            # 银行文档：使用文件名+文件大小（更稳定）
+            combined = f"{raw_filename}_{file_size}".encode('utf-8')
+            print(f"🏦 银行文档模式: {raw_filename} (大小: {file_size} bytes)")
+        else:
+            # 非标准命名：使用完整内容（确保唯一性）
+            combined = file_content
+            print(f"📄 普通文档模式: 基于内容 (大小: {file_size} bytes)")
+
+        md5_hash = hashlib.md5(combined).hexdigest()
+        return uuid.UUID(hex=md5_hash)
+
+    def is_standard_bank_filename(self, filename):
+        """判断是否为标准银行文档文件名"""
+        patterns = [
+            r'\d{4}-\d{2}-\d{2}-\d{6}\.(SH|SZ)-',  # 股票代码格式
+            r'.*银行.*\d{4}.*报告',  # 银行年度报告
+            r'.*银行.*财务报表',  # 财务报表
+            r'.*银行.*报.*',  # 财务报表
+        ]
+
+        import re
+        for pattern in patterns:
+            if re.search(pattern, filename):
+                return True
+        return False
 
 
     def extract_bank_name(self, filename):
@@ -167,11 +209,17 @@ class FileUploadService:
             if conn:
                 conn.close()
 
-    def save_new_file(self, file_content, raw_filename, file_hash, bank_name=""):
+    def save_new_file(self, file_content, raw_filename, file_hash, bank_name="", file_size=None):
         """保存新文件到磁盘和数据库"""
-        # 🆕 修改点：使用确定性UUID代替随机UUID
         # 生成确定性文件ID
-        file_id = self.generate_deterministic_uuid(file_content)
+        # 如果未提供file_size，从file_content计算
+        if file_size is None:
+            file_size = len(file_content)
+
+        # 生成智能UUID
+        file_id = self.generate_smart_uuid(file_content, raw_filename, file_size)
+
+        #
         ext = os.path.splitext(raw_filename)[1].lower()
         disk_filename = f"{file_id}{ext}"
         file_path = self.upload_dir / disk_filename
@@ -347,8 +395,12 @@ class FileUploadService:
         """处理新文件"""
         print("🆕🆕🆕 处理新文件")
 
-        # 保存文件
-        result = self.save_new_file(file_content, raw_filename, file_hash, bank_name)
+        # # 保存文件
+        # result = self.save_new_file(file_content, raw_filename, file_hash, bank_name)
+
+        # 保存文件 - 需要传递file_size
+        file_size = len(file_content)  # 新增这行
+        result = self.save_new_file(file_content, raw_filename, file_hash, bank_name, file_size)  # 修改这行
 
         if not result:
             return {
