@@ -10,8 +10,9 @@ const API_BASE = process.env.VUE_APP_API_BASE || 'http://122.51.196.65:5000'
 module.exports = defineConfig({
   lintOnSave: false,
   devServer: {
-    host: 'localhost',
+    host: '0.0.0.0',
     port: 8080,
+    disableHostCheck: true, 
     proxy: {
       '/api': {
         target: API_BASE,
