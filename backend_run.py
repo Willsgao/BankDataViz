@@ -12,6 +12,7 @@ CORS(
                 "http://172.17.0.1:8080",
                 # "http://101.43.35.52:8080",
                 "http://122.51.196.65:8080",
+                "http://122.51.196.65:5000",
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             "allow_headers": ["Content-Type", "Authorization", "Accept"],
