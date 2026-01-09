@@ -9,7 +9,6 @@ import sqlite3
 import hashlib
 import uuid  # 🆕 添加uuid导入
 from pathlib import Path
-from datetime import datetime
 from backend.utils.constants import UPLOAD_FOLDER, DATABASE, MAIN_ROOT, ALLOWED_EXTENSIONS
 from backend.service.file_mapping_service import file_mapping_service
 
@@ -33,11 +32,17 @@ class FileUploadService:
 
     # 🆕 新增：基于文件内容生成确定性UUID
     def generate_deterministic_uuid(self, file_content):
-        """基于文件内容生成确定性UUID"""
-        # 使用SHA256计算文件哈希
-        file_hash = hashlib.sha256(file_content).hexdigest()
-        # 转换为UUID格式
-        return uuid.UUID(hex=file_hash[:32])
+        """确保跨服务一致性的UUID生成"""
+        # 使用MD5哈希（32字符，正好符合UUID格式）
+        md5_hash = hashlib.md5(file_content).hexdigest()
+
+        try:
+            # 直接基于MD5哈希构造UUID（最可靠）
+            return uuid.UUID(hex=md5_hash)
+        except ValueError:
+            # 备用方案：如果MD5格式有问题，使用uuid3
+            return uuid.uuid3(uuid.NAMESPACE_URL, md5_hash)
+
 
     def extract_bank_name(self, filename):
         """从文件名中提取银行名称"""
