@@ -197,14 +197,6 @@ class TableReconstructor:
         row_max_cols = {}
         for row, col_ends in row_col_counts.items():
             row_max_cols[row] = max(col_ends)
-            print(f"  第{row}行: 最大列索引={row_max_cols[row]}")
-
-        # 检查是否所有行的最大列索引一致
-        all_max_cols = list(row_max_cols.values())
-        if len(set(all_max_cols)) > 1:
-            print(f"警告: 不同行的列数不一致: {all_max_cols}")
-
-        print(f"表格: {num_rows}行 × {num_cols}列")
 
         # 创建表格
         table = []

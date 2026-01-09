@@ -342,11 +342,11 @@ def get_excel_sheets(file_id):
         supported_extensions = ['.xlsx', '.xls']
 
         for ext in supported_extensions:
-            print(f"🔍🔍 查找扩展名: {ext}")
+            # print(f"🔍🔍 查找扩展名: {ext}")
             for excel_file in excel_dir.glob(f"*{ext}"):
-                print(f"🔍🔍 找到Excel文件: {excel_file}")
+                # print(f"🔍🔍 找到Excel文件: {excel_file}")
                 if excel_file.is_file():
-                    print(f"✅ 添加Excel文件: {excel_file.name}")
+                    # print(f"✅ 添加Excel文件: {excel_file.name}")
                     excel_files.append({
                         "file_name": excel_file.name,
                         "file_path": str(excel_file),
@@ -712,77 +712,6 @@ def save_final_excel():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'保存失败: {str(e)}'}), 500
-
-
-
-@file_bp.route('/api/excel/save-flattened11', methods=['POST', 'OPTIONS'])
-def save_flattened_data11():
-    """保存扁平化数据到独立的Excel文件（通过文件名前缀映射）"""
-    if request.method == 'OPTIONS':
-        # CORS预检请求处理
-        response = make_response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        return response
-
-    data = request.json
-    print("******************** 保存扁平化数据到独立文件 ******************")
-
-    # 基础校验
-    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'flattened_data']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'缺少必要字段: {field}'}), 400
-
-    try:
-        pdf_id = data['pdf_id']
-        original_excel_file = data['excel_file']  # 原Excel文件名
-        sheet_name = data['sheet_name']
-        table_type = data['table_type']
-        table_data = data['flattened_data']
-
-        print(f"💾 保存扁平化数据: PDF={pdf_id}, 原文件={original_excel_file}, Sheet={sheet_name}")
-
-        # 通过固定前缀生成扁平化Excel文件名
-        flattened_excel_file = excel_data_handler.generate_flattened_filename(original_excel_file)
-        print(f"📁 扁平化文件名: {flattened_excel_file}")
-        print("&&&&&&&&&&&&扁平化文件名&&&&&&&&&&&&&")
-        print(pdf_id,
-            original_excel_file,
-            flattened_excel_file,
-            sheet_name,)
-
-        # 保存到独立文件
-        result = excel_data_handler.save_to_flattened_excel(
-            pdf_id,
-            original_excel_file,
-            flattened_excel_file,
-            sheet_name,
-            table_data,
-            db
-        )
-
-        if not result['success']:
-            return jsonify({'success': False, 'error': result['error']}), 500
-
-        return jsonify({
-            'success': True,
-            'message': '扁平化数据保存成功',
-            'flattened_file': flattened_excel_file,
-            'original_file': original_excel_file,
-            'file_created': result.get('file_created', False),
-            'sheet_created': result.get('sheet_created', False),
-            'saved_rows': result.get('saved_rows', 0),
-            'saved_columns': result.get('saved_columns', 0),
-            'data_dimensions': result.get('data_dimensions', '未知')
-        }), 200
-
-    except Exception as e:
-        print(f"❌ 扁平化数据保存失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
 
 
 

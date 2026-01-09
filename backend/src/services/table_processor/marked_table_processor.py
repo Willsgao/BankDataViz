@@ -227,12 +227,10 @@ class MarkedTableProcessor:
 
         # 4. 混合类型（包含文本和任何数值）
         if has_text and (has_std_num or has_minor_num or has_error_num):
-            print(f"  {label}: 标记4 - 混合类型 (文本+数值)")
             return 4
 
         # 3. 很可能错误的数值
         if has_error_num:
-            print(f"  {label}: 标记3 - 可能错误的数值")
             return 3
 
         # 现在只包含数值类型
@@ -464,9 +462,6 @@ class MarkedTableProcessor:
             zero_marked_columns = [c for c in data_column_indices if col_checks[c] == 0]
 
             if zero_marked_columns:
-                print(f"\n=== 第二轮：重新计算行标记（排除{len(zero_marked_columns)}个纯文本列） ===")
-                print(f"纯文本列索引: {zero_marked_columns}")
-
                 # 重新计算行标记，排除纯文本列
                 for r in range(first_data_row, num_rows):
                     # 如果已经是空行标记为0，跳过重新计算
