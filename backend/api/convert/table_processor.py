@@ -627,8 +627,12 @@ class PDFAggregatorManager:
             if pdf_folder not in self._aggregators:
                 return False, None, f"PDF聚合器不存在: {pdf_folder}"
 
+            print("111111111111111111111")
+
             aggregator = self._aggregators[pdf_folder]
             status = self._processing_status.get(pdf_folder, {})
+
+            print("22222222222222222222222222")
 
             # 检查是否可以合并
             if not force:
@@ -636,6 +640,8 @@ class PDFAggregatorManager:
                 processed_images = status.get('processed_images', 0)
                 if total_images > 0 and processed_images < total_images:
                     return False, None, f"图片未全部完成 ({processed_images}/{total_images})"
+
+            print("3333333333333333333333")
 
             # 生成输出路径
             try:
@@ -650,6 +656,8 @@ class PDFAggregatorManager:
                 # 检查是否已存在Excel文件（增量更新）
                 existing_excel_path = None
                 existing_files = list(output_dir.glob("*.xlsx"))
+
+                print("44444444444444444444444444444")
 
                 # 如果有现有文件且不是强制模式，使用增量更新
                 if existing_files and not force:
@@ -671,6 +679,9 @@ class PDFAggregatorManager:
                     output_path = output_dir / filename
                     print(f"🆕 使用全新创建模式，文件: {filename}")
 
+
+                print("5555555555555555555555555555")
+
                 # 更新状态为合并中
                 self.update_processing_status(pdf_folder, status='merging')
 
@@ -680,7 +691,9 @@ class PDFAggregatorManager:
                 print(f"  增量更新模式: {existing_excel_path is not None}")
 
                 # 保存Excel（TableReconstructor需要支持增量保存）
+                print("str(output_path)str(output_path):", str(output_path))
                 success = aggregator.save_to_excel(str(output_path), metadata_list)
+                print("str(output_path)str(output_path):", str(output_path), len(metadata_list))
 
                 if success:
                     # 更新状态为完成

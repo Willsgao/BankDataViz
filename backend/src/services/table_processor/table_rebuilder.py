@@ -214,7 +214,6 @@ class TableReconstructor:
         print("\n=== 检测可合并的表格结构 ===")
 
         if len(llm_tables) <= 1:
-            print("表格数量≤1，无需合并检测")
             return []
 
         # 检查每个表格的列结构
@@ -279,19 +278,6 @@ class TableReconstructor:
                 merge_groups.append(merge_group)
                 processed_indices.add(i)
 
-        # 输出检测结果
-        if merge_groups:
-            print("\n检测到可合并的表格组:")
-            for group_idx, group in enumerate(merge_groups):
-                print(f"  合并组{group_idx}: 表格索引 {group}")
-                print(f"    包含表格: ", end="")
-                for table_idx in group:
-                    table_info = table_col_structures[table_idx]
-                    print(f"表格{table_idx}({table_info['row_count']}行) ", end="")
-                print()
-        else:
-            print("未检测到需要合并的表格")
-
         return merge_groups
 
     def _check_columns_similarity(self, cols1, cols2):
@@ -347,8 +333,6 @@ class TableReconstructor:
 
     def _match_with_table_boundaries(self, table, row_headers, table_boundaries):
         """基于表格边界的匹配算法"""
-        print(f"表格: {len(table)}行 × {len(table[0])}列")
-        print(f"LLM行表头数: {len(row_headers)}")
 
         # 1. 为每个OCR表格建立搜索空间
         search_spaces = []
@@ -974,16 +958,12 @@ class TableReconstructor:
             if cleaned_headers_copy:
                 table[0][col] = cleaned_headers_copy.pop()
 
-        print("列标题填充完成")
-        print(f"第0行（列标题）: {table[0]}")
-
         return table
 
     def _validate_cleaned_headers(self, cleaned_headers):
         """
         验证清理后的列标题
         """
-        print(f"清理后的列标题: {cleaned_headers}")
 
         # 统计空列标题
         empty_count = sum(1 for h in cleaned_headers if not h)
@@ -1440,103 +1420,6 @@ class TableReconstructor:
             name = "未命名表格"
 
         return name
-
-    def step9_save_to_excel_optimized00(self, tables_data, output_file, table_names):
-        """
-        保存到 Excel（优化版）
-        强制使用外部传入的 table_names，不再自己拼名字
-        """
-        from openpyxl import Workbook
-        from pathlib import Path
-
-        wb = Workbook()
-        wb.remove(wb.active)  # 删默认 Sheet
-
-        for idx, (table, name) in enumerate(zip(tables_data, table_names)):
-            ws = wb.create_sheet(title=name)  # 直接用外部名字
-            for r, row in enumerate(table, 1):
-                for c, val in enumerate(row, 1):
-                    ws.cell(row=r, column=c, value=val)
-
-        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-        wb.save(output_file)
-        wb.close()
-        return True
-
-
-    def step9_save_to_excel_optimized11(self, tables_data, output_file, table_names, metadata_list=None):
-        """
-        保存到 Excel（优化版）- 增加元数据支持
-        强制使用外部传入的 table_names，不再自己拼名字
-
-        Args:
-            tables_data: 表格数据列表
-            output_file: 输出文件路径
-            table_names: 表格名称列表
-            metadata_list: 元数据列表（可选，新增参数）
-        """
-        from openpyxl import Workbook
-        from pathlib import Path
-
-        wb = Workbook()
-        wb.remove(wb.active)  # 删默认 Sheet
-
-        for idx, (table, name) in enumerate(zip(tables_data, table_names)):
-            ws = wb.create_sheet(title=name)  # 直接用外部名字
-
-            # 保存表格数据（原有逻辑保持不变）
-            for r, row in enumerate(table, 1):
-                for c, val in enumerate(row, 1):
-                    ws.cell(row=r, column=c, value=val)
-
-            # ========== 新增：保存元数据到表格末尾 ==========
-            if metadata_list and idx < len(metadata_list):
-                metadata = metadata_list[idx]
-
-                # 计算数据行数
-                data_row_count = len(table)
-
-                # 在数据之后空一行，然后添加元数据
-                metadata_start_row = data_row_count + 2
-
-                # 添加元数据标记和内容
-                if any(metadata.values()):  # 只有存在有效元数据时才保存
-                    ws.cell(row=metadata_start_row, column=1, value="")
-
-                    row_offset = 1
-                    if metadata.get('default_currency'):
-                        ws.cell(row=metadata_start_row + row_offset, column=1,
-                                value=f"currency:{metadata['default_currency']}")
-                        row_offset += 1
-
-                    if metadata.get('default_report_period'):
-                        ws.cell(row=metadata_start_row + row_offset, column=1,
-                                value=f"report_period:{metadata['default_report_period']}")
-                        row_offset += 1
-
-                    if metadata.get('default_unit'):
-                        ws.cell(row=metadata_start_row + row_offset, column=1,
-                                value=f"unit:{metadata['default_unit']}")
-                        row_offset += 1
-
-                    if metadata.get('original_table_name'):
-                        ws.cell(row=metadata_start_row + row_offset, column=1,
-                                value=f"table_name:{metadata['original_table_name']}")
-                        row_offset += 1
-
-                    if metadata.get('ocr_table_id') != -1:
-                        ws.cell(row=metadata_start_row + row_offset, column=1,
-                                value=f"ocr_table_id:{metadata['ocr_table_id']}")
-                        row_offset += 1
-
-                    ws.cell(row=metadata_start_row + row_offset, column=1, value="")
-
-                    print(f"表格'{name}': 元数据已保存到第{metadata_start_row}行之后")
-
-        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-        wb.save(output_file)
-        wb.close()
-        return True
 
     def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
         """
