@@ -1,10 +1,11 @@
-// frontend/vue.config.js
+// vue.config.js
 const { defineConfig } = require('@vue/cli-service')
 const path = require('path')
 
-// 使用环境变量或默认值
+// vue.config.js
 //const API_BASE = process.env.VUE_APP_API_BASE || 'http://localhost:5000'
 const API_BASE = process.env.VUE_APP_API_BASE || 'http://122.51.196.65:5000'
+
 
 module.exports = defineConfig({
   lintOnSave: false,
@@ -14,7 +15,7 @@ module.exports = defineConfig({
     allowedHosts: 'all',
     proxy: {
       '/api': {
-        target: API_BASE,  // 使用环境变量
+        target: API_BASE,
         changeOrigin: true,
         secure: false,
         logLevel: 'debug'
