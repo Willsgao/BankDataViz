@@ -119,3 +119,5 @@ export const setupErrorHandler = (app) => {
 
 // 启动应用
 initApp()
+
+console.log('API_BASE:', process.env.VUE_APP_API_BASE)
