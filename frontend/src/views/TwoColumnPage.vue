@@ -180,11 +180,6 @@ const emit = defineEmits([
 onMounted(async () => {
   await loadFiles()
 
-  // 添加调试代码
-  console.log('🔍 检查Excel相关变量:')
-  console.log('currentExcelData:', currentExcelData?.value)
-  console.log('excelData:', excelData?.value)
-  console.log('sheets:', sheets?.value)
 })
 
 // ---------------- 百度OCR相关函数 ----------------
