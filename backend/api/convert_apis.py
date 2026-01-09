@@ -774,7 +774,8 @@ def api_get_classified_images(pdf_folder: str):
 
         # 读取有表格图片
         if tables_dir.exists():
-            for img_file in tables_dir.glob("*.png"):
+            png_files = sorted(tables_dir.glob("*.png"), key=lambda x: x.name)
+            for img_file in png_files:
                 classified_data["tables"].append({
                     "name": img_file.name,
                     "path": str(img_file),
@@ -819,9 +820,6 @@ def api_get_classified_images(pdf_folder: str):
         }
 
         result = jsonify(response_data)
-        print("Content-Type:", result.headers.get('Content-Type'))
-        print("resultresult")
-        print(result.get_json())
 
         # 关键修复：返回标准格式
         return result
