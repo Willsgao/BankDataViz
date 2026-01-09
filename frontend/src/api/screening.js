@@ -8,8 +8,6 @@ const screeningApi = {
    * @param {string} pdfFolder - PDF文件夹名称（不含.pdf后缀）
    * @param {Object} params - 筛选参数
    */
-  // screening.js - 修复screenImages方法
-  // screening.js - 修复screenImages方法
   async screenImages(pdfFolder, params = {}) {
   try {
     console.log('🔍 调用screenImages，参数:', {

@@ -2076,8 +2076,6 @@ def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_
         # 存储所有表格的元数据
         all_metadata_list = []
 
-        print("skipped_imagesskipped_images:", skipped_images)
-
         # 更新进度信息（包含增量信息）
         progress_tracker.update_table_job(job_id, {
             "stage": "incremental_check",

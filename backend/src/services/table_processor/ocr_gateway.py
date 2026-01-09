@@ -36,7 +36,8 @@ REDIS_CACHE_TTL = getattr(settings, 'REDIS_CACHE_TTL', 86400)  # 默认24小时
 REDIS_CACHE_PREFIX = getattr(settings, 'REDIS_CACHE_PREFIX', 'ocr')
 
 # OCR基础配置
-DEFAULT_OCR_PROVIDER = getattr(settings, 'DEFAULT_OCR_PROVIDER', 'baidu')
+# DEFAULT_OCR_PROVIDER = getattr(settings, 'DEFAULT_OCR_PROVIDER', 'baidu')
+DEFAULT_OCR_PROVIDER = getattr(settings, 'DEFAULT_OCR_PROVIDER', 'tencent')
 OCR_PROVIDER = getattr(settings, 'ocr_provider', DEFAULT_OCR_PROVIDER)
 OCR_FORCE_REFRESH = getattr(settings, 'OCR_FORCE_REFRESH', False)
 OCR_REQUEST_TIMEOUT = getattr(settings, 'OCR_REQUEST_TIMEOUT', 60)

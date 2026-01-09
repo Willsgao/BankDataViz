@@ -407,12 +407,9 @@ class BaiduOCRProvider(BaseOCRProvider):
         # 调用独立逻辑
         raw_result = self._baidu_ocr_logic(image_path)
 
-
-
         # 适配器处理
         adapter = OCRAdapter()
-        print("baidu--------------->>>:")
-        print("raw_result:", raw_result)
+
         return adapter.adapt_baidu_response(raw_result)
 
 
