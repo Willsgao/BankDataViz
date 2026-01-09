@@ -10,13 +10,24 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from backend.configs.config import config
 
 # 添加项目根目录到Python路径
 current_dir = Path(__file__).parent
 backend_dir = current_dir.parent
 project_root = backend_dir.parent
 sys.path.insert(0, str(project_root))
+
+# 现在可以导入backend模块
+try:
+    from backend.configs.config import config
+except ImportError:
+    # 如果直接导入失败，尝试动态导入
+    import importlib.util
+    config_path = project_root / "backend" / "configs" / "config.py"
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    config = config_module.config
 
 
 class DatabaseCleaner:
