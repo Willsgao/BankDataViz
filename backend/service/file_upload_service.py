@@ -35,6 +35,7 @@ class FileUploadService:
         """确保跨服务一致性的UUID生成"""
         # 使用MD5哈希（32字符，正好符合UUID格式）
         md5_hash = hashlib.md5(file_content).hexdigest()
+        print("哈希密码值:", md5_hash)
 
         try:
             # 直接基于MD5哈希构造UUID（最可靠）
