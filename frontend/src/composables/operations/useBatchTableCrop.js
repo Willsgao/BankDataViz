@@ -75,7 +75,8 @@ export function useBatchTableCrop(joinedResults) {
 
       if (response.data.success) {
         // 关键修改：使用 absolute_path 构建图片URL
-        const baseURL = 'http://localhost:5000/'
+        // const baseURL = 'http://localhost:5000/'
+        const baseURL = '/api/'
         let imageUrls = []
 
         if (response.data.data && response.data.data.joined_tables_folder) {

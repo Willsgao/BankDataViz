@@ -1006,7 +1006,8 @@ const handleLLMProcess111 = async (params) => {
 
     const imagePaths = images.map(url => {
       // 去掉域名，只留 /static/joined_tables/...
-      return url.replace('http://localhost:5000', '');
+      // return url.replace('http://localhost:5000', '');
+      return url.replace(/^https?:\/\/[^/]+/, '');
     });
 
     const type = params.tableType || tableType.value;
