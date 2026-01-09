@@ -305,6 +305,28 @@ const handleScreenImages = async (pdfDiskName) => {
 }
 
 
+const processImages00 = (images, type) => {
+    return (images || []).map(img => {
+      const processedImg = {
+        ...img,
+        // 确保图片有正确的URL
+        url: img.url || getImageUrl(img, pdfFolder),
+        // 如果没有type，根据分类设置
+        type: img.type || type,
+        // 如果没有name但有path，从path中提取name
+        name: img.name || (img.path ? img.path.split('/').pop() : '')
+      }
+
+      // 确保URL是字符串
+      if (typeof processedImg.url !== 'string') {
+        console.warn('⚠️ 图片URL不是字符串:', processedImg.url)
+        processedImg.url = getImageUrl(processedImg, pdfFolder)
+      }
+
+      return processedImg
+    })
+  }
+
 
 // 修改：加载分类数据的函数 - 移除 ElMessage.info
 const loadClassificationData = async (pdfDiskName) => {
@@ -312,18 +334,16 @@ const loadClassificationData = async (pdfDiskName) => {
     console.log('🔄 加载分类数据:', pdfDiskName)
     const pdfFolder = pdfDiskName.replace('.pdf', '')
 
-    // 移除加载状态的 ElMessage.info，因为它可能会导致组件创建问题
-    // 如果需要显示加载状态，可以使用其他方式，比如设置一个 loading 变量
-
     // 调用真实的API获取分类数据
     const response = await screeningApi.getClassifiedImages(pdfFolder)
 
     if (response.success) {
       console.log('✅ API返回的分类数据:', response)
 
-      // 处理图片数据，使用原有的 getImageUrl 函数
-      const processImages = (images, type) => {
-        return (images || []).map(img => {
+    // 处理图片数据，使用原有的 getImageUrl 函数
+    const processImages = (images, type) => {
+      return (images || [])
+        .map(img => {
           const processedImg = {
             ...img,
             // 确保图片有正确的URL
@@ -342,7 +362,17 @@ const loadClassificationData = async (pdfDiskName) => {
 
           return processedImg
         })
-      }
+        .sort((a, b) => {
+          // 提取页码进行排序
+          const getPageNumber = (filename) => {
+            const match = (filename || '').match(/(\d+)\.(png|jpg|jpeg)$/i)
+            return match ? parseInt(match[1]) : 0
+          }
+          return getPageNumber(a.name) - getPageNumber(b.name)
+        })
+    }
+
+
 
       const processedData = {
         tables: processImages(response.data?.tables, 'tables'),
