@@ -48,4 +48,8 @@ def create_app() -> Flask:
     app.register_blueprint(file_bp, url_prefix='/api')
     app.register_blueprint(convert_bp, url_prefix='/api')
 
+    # app.register_blueprint(upload_bp)
+    # app.register_blueprint(file_bp)
+    # app.register_blueprint(convert_bp)
+
     return app

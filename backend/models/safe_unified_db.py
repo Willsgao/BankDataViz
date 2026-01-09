@@ -22,7 +22,6 @@ class SafeDatabaseManager:
         Args:
             db_path: 数据库文件路径，默认为配置中的路径
         """
-        # self.db_path = db_path or getattr(config, 'DATABASE_PATH', 'data/database.db')
         self.db_path = db_path or config.DATABASE_PATH  # ✅
 
         # 确保数据库目录存在

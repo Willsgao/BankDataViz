@@ -58,87 +58,9 @@ from .file_handlers.processors import (
 
 
 # ========== 原有的所有接口保持不变 ==========
-# 只添加新的Excel转PDF接口，其他所有接口保持原样
-@file_bp.get('/files')
-def list_files():
-    print("🔍 文件列表API被调用")
-    print(f"📁 FILES - 数据库路径: {DATABASE}")
-
-    conn = db.connect()
-    if not conn:
-        print("❌ 数据库连接失败")
-        return jsonify({"error": "数据库连接失败"}), 500
-
-    c = conn.cursor()
-
-    # 先查询所有文件（包括已删除的）
-    c.execute("SELECT COUNT(*) as total FROM files")
-    total_count = c.fetchone()[0]
-    print(f"📊 数据库中总文件数（包括已删除）: {total_count}")
-
-    c.execute("SELECT COUNT(*) as active FROM files WHERE deleted = 0")
-    active_count = c.fetchone()[0]
-    print(f"📊 未删除的文件数: {active_count}")
-
-    # 执行原始查询
-    c.execute(
-        "SELECT id, filename, raw_filename, file_type, created_at, deleted "
-        "FROM files WHERE deleted = 0 ORDER BY created_at DESC"
-    )
-    rows = c.fetchall()
-
-    print(f"📋 查询结果行数: {len(rows)}")
-
-    # 打印所有查询到的行（包括已删除的）
-    c.execute("SELECT id, filename, raw_filename, deleted FROM files")
-    all_rows = c.fetchall()
-    print(f"📋 数据库中所有文件记录: {all_rows}")
-
-    files_list = []
-    upload_dir = Path(MAIN_ROOT) / UPLOAD_FOLDER
-    missing_files = []  # 记录不存在的文件ID
-
-    for row in rows:
-        file_id = row[0]
-        disk_name = row[1]  # UUID文件名
-        raw_name = row[2]  # 原始中文名
-        file_type = row[3]
-
-        # 检查物理文件是否存在
-        file_path = upload_dir / disk_name
-        file_exists = file_path.exists()
-
-        if file_exists:
-            file_info = {
-                "id": file_id,
-                "filename": raw_name or disk_name,
-                "disk_name": disk_name,
-                "file_type": file_type,
-                "created_at": row[4],
-                "file_id": disk_name.split('.')[0] if '.' in disk_name else disk_name
-            }
-            files_list.append(file_info)
-            print(f"✅ 包含文件: {raw_name} (磁盘名: {disk_name})")
-        else:
-            print(f"❌ 文件不存在，跳过: {raw_name} (磁盘名: {disk_name})")
-            missing_files.append(file_id)
-
-    # 自动删除数据库中不存在的文件记录（可选）
-    if missing_files:
-        print(f"🗑️ 自动删除 {len(missing_files)} 个不存在的文件记录")
-        placeholders = ','.join('?' * len(missing_files))
-        c.execute(f"DELETE FROM files WHERE id IN ({placeholders})", missing_files)
-        conn.commit()
-
-    conn.close()
-
-    print(f"✅ 返回给前端的有效文件数: {len(files_list)}")
-    return jsonify(files_list)
-
-
 
 # ---------- 2. 下载/预览（不返回已软删） ----------
-@file_bp.get('/file/<path:filename>')
+@file_bp.get('/api/file/<path:filename>')
 def get_file(filename):
     """
     filename 可能是中文原始名，也可能是磁盘 UUID 名；
@@ -194,7 +116,7 @@ def get_file(filename):
 
 
 # ---------- 2.2 获取文件信息 ----------
-@file_bp.get('/file-info/<path:filename>')
+@file_bp.get('/api/file-info/<path:filename>')
 def get_file_info(filename):
     """获取文件详细信息"""
     print(f"🔍 获取文件信息: {filename}")
@@ -239,7 +161,7 @@ def get_file_info(filename):
 
 
 # ---------- 3. 软删除（增强版：物理文件不存在时直接删除） ----------
-@file_bp.delete('/file/<path:filename>')
+@file_bp.delete('/api/file/<path:filename>')
 def delete_file(filename):
     """
     删除文件逻辑：
@@ -299,7 +221,7 @@ def delete_file(filename):
 
 
 # ---------- 4. 搜索PDF文件（新增接口） ----------
-@file_bp.get('/search-pdf')
+@file_bp.get('/api/search-pdf')
 def search_pdf():
     """
     搜索PDF文件名称 - 基于文件映射服务
@@ -324,7 +246,7 @@ def search_pdf():
 
 
 
-@file_bp.get('/file-by-id/<file_id>')
+@file_bp.get('/api/file-by-id/<file_id>')
 def get_file_by_id(file_id):
     try:
         print(f"🔍🔍 文件下载请求 file_id: {file_id}")
@@ -373,8 +295,7 @@ def get_file_by_id(file_id):
 
 
 
-
-@file_bp.get('/excel-sheets/<file_id>')
+@file_bp.get('/api/excel-sheets/<file_id>')
 def get_excel_sheets(file_id):
     """
     根据PDF文件ID获取对应的Excel sheet列表 - 修复路径问题
@@ -421,11 +342,11 @@ def get_excel_sheets(file_id):
         supported_extensions = ['.xlsx', '.xls']
 
         for ext in supported_extensions:
-            print(f"🔍🔍 查找扩展名: {ext}")
+            # print(f"🔍🔍 查找扩展名: {ext}")
             for excel_file in excel_dir.glob(f"*{ext}"):
-                print(f"🔍🔍 找到Excel文件: {excel_file}")
+                # print(f"🔍🔍 找到Excel文件: {excel_file}")
                 if excel_file.is_file():
-                    print(f"✅ 添加Excel文件: {excel_file.name}")
+                    # print(f"✅ 添加Excel文件: {excel_file.name}")
                     excel_files.append({
                         "file_name": excel_file.name,
                         "file_path": str(excel_file),
@@ -489,7 +410,7 @@ def get_excel_sheets(file_id):
         return jsonify({"error": "获取表格列表失败"}), 500
 
 
-@file_bp.get('/file/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
+@file_bp.get('/api/file/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
 def get_excel_data(file_id, excel_file_name, sheet_name):
     """
     读取Excel文件中特定sheet的数据
@@ -594,8 +515,7 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
 
 
 
-
-@file_bp.get('/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
+@file_bp.get('/api/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
 def get_excel_data_api(file_id, excel_file_name, sheet_name):
     """
     提供Excel数据API接口 - 修复路径问题
@@ -743,7 +663,7 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
         return jsonify({"success": False, "error": "获取Excel数据失败"}), 500
 
 
-@file_bp.route('/excel/save-final', methods=['POST'])
+@file_bp.route('/api/excel/save-final', methods=['POST'])
 def save_final_excel():
     """统一保存整个表格数据 - 保护其他Sheet"""
     data = request.json
@@ -767,9 +687,9 @@ def save_final_excel():
 
         # 根据表类型选择保存方式
         if table_type == 'original':
-            result = excel_data_handler.save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type)
+            result = excel_data_handler.save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type, db)
         elif table_type == 'flattened':
-            result = excel_data_handler.save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_type)
+            result = excel_data_handler.save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data, table_type, db)
         else:
             return jsonify({'error': f'不支持的表类型: {table_type}'}), 400
 
@@ -796,85 +716,7 @@ def save_final_excel():
 
 
 
-
-
-
-
-
-
-
-
-@file_bp.route('/excel/save-flattened', methods=['POST', 'OPTIONS'])
-def save_flattened_data():
-    """保存扁平化数据到独立的Excel文件（通过文件名前缀映射）"""
-    if request.method == 'OPTIONS':
-        # CORS预检请求处理
-        response = make_response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        return response
-
-    data = request.json
-    print("******************** 保存扁平化数据到独立文件 ******************")
-
-    # 基础校验
-    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'flattened_data']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'缺少必要字段: {field}'}), 400
-
-    try:
-        pdf_id = data['pdf_id']
-        original_excel_file = data['excel_file']  # 原Excel文件名
-        sheet_name = data['sheet_name']
-        table_type = data['table_type']
-        table_data = data['flattened_data']
-
-        print(f"💾 保存扁平化数据: PDF={pdf_id}, 原文件={original_excel_file}, Sheet={sheet_name}")
-
-        # 通过固定前缀生成扁平化Excel文件名
-        flattened_excel_file = excel_data_handler.generate_flattened_filename(original_excel_file)
-        print(f"📁 扁平化文件名: {flattened_excel_file}")
-        print("&&&&&&&&&&&&扁平化文件名&&&&&&&&&&&&&")
-        print(pdf_id,
-            original_excel_file,
-            flattened_excel_file,
-            sheet_name,)
-
-        # 保存到独立文件
-        result = excel_data_handler.save_to_flattened_excel(
-            pdf_id,
-            original_excel_file,
-            flattened_excel_file,
-            sheet_name,
-            table_data
-        )
-
-        if not result['success']:
-            return jsonify({'success': False, 'error': result['error']}), 500
-
-        return jsonify({
-            'success': True,
-            'message': '扁平化数据保存成功',
-            'flattened_file': flattened_excel_file,
-            'original_file': original_excel_file,
-            'file_created': result.get('file_created', False),
-            'sheet_created': result.get('sheet_created', False),
-            'saved_rows': result.get('saved_rows', 0),
-            'saved_columns': result.get('saved_columns', 0),
-            'data_dimensions': result.get('data_dimensions', '未知')
-        }), 200
-
-    except Exception as e:
-        print(f"❌ 扁平化数据保存失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
-
-
-
-@file_bp.route('/excel-data/<path:filename>')
+@file_bp.route('/api/excel-data/<path:filename>')
 def serve_excel_file(filename):
     """提供 Excel 文件下载"""
     # 修正：统一使用Path对象构建路径
@@ -885,13 +727,62 @@ def serve_excel_file(filename):
     return send_from_directory(file_path.parent, file_path.name)
 
 
+@file_bp.route('/api/excel-data/<pdf_id>/<excel_file>/<sheet_name>', methods=['GET'])
+def get_flat_excel_data(pdf_id, excel_file, sheet_name):
+    """读取Excel数据（支持原始文件和扁平化文件）"""
+    print(f"📥 获取Excel数据: {pdf_id}, {excel_file}, {sheet_name}")
+
+    try:
+        # 构建文件路径
+        import os
+        file_path = os.path.join(EXCEL_OUTPUT_ROOT, pdf_id, excel_file)
+        print(f"🔍 文件路径: {file_path}")
+
+        if not os.path.exists(file_path):
+            return jsonify({
+                "success": False,
+                "error": f"文件不存在: {file_path}",
+                "data": []
+            }), 404
+
+        # 读取Excel文件
+        import pandas as pd
+        df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
+
+        # 转换为二维数组
+        data = df.values.tolist()
+
+        print(f"✅ 文件读取成功:")
+        print(f"   文件: {excel_file}")
+        print(f"   Sheet: {sheet_name}")
+        print(f"   数据: {len(data)}行 × {len(data[0]) if data else 0}列")
+
+        return jsonify({
+            "success": True,
+            "data": data,
+            "rows": len(data),
+            "cols": len(data[0]) if data else 0,
+            "file_type": "flattened" if "flattened" in excel_file.lower() else "original"
+        })
+
+    except Exception as e:
+        print(f"❌ 读取Excel文件失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"读取Excel文件失败: {str(e)}",
+            "data": []
+        }), 500
+
+
 # 新增导入Excel扁平化处理器
 from .file_handlers.excel_flatten_handler import ExcelFlattenHandler
 # 初始化Excel扁平化处理器
 excel_flatten_handler = ExcelFlattenHandler(CONVERTER_AVAILABLE, FinalDataConverter)
 
 # ---------- 7. Excel数据扁平化处理（支持Excel标准格式） ----------
-@file_bp.route('/excel-flatten', methods=['POST', 'OPTIONS'])
+@file_bp.route('/api/excel-flatten', methods=['POST', 'OPTIONS'])
 def excel_flatten_from_excel():
     """
     处理从Excel直接提取的标准格式数据
@@ -932,7 +823,7 @@ def excel_flatten_from_excel():
 
 # 后端API示例（Python Flask）
 # ========== 新增的Excel转PDF接口 ==========
-@file_bp.route('/convert/excel-to-pdf', methods=['POST'])
+@file_bp.route('/api/convert/excel-to-pdf', methods=['POST'])
 def convert_excel_to_pdf_api():
     """Excel转PDF接口 - 新增功能"""
     try:
@@ -974,7 +865,7 @@ def convert_excel_to_pdf_api():
 
 
 # 在 file.py 中添加一个通用的OPTIONS处理
-@file_bp.route('/save-excel-modifications', methods=['OPTIONS'])
+@file_bp.route('/api/save-excel-modifications', methods=['OPTIONS'])
 def handle_save_options():
     """处理CORS预检请求"""
     response = jsonify({'status': 'ok'})
@@ -984,7 +875,7 @@ def handle_save_options():
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
-@file_bp.route('/save-excel-modifications', methods=['POST'])
+@file_bp.route('/api/save-excel-modifications', methods=['POST'])
 def save_excel_modifications():
     """保存Excel修改"""
     # 添加CORS头
@@ -995,219 +886,8 @@ def save_excel_modifications():
 
 
 
-# 在Python中直接查看数据库内容
-@file_bp.route('/debug-files')
-def debug_files():
-    """调试接口：查看数据库中的实际文件名"""
-    conn = db.connect()
-    c = conn.cursor()
 
-    c.execute("""
-        SELECT id, filename, raw_filename, file_type
-        FROM files 
-        WHERE deleted = 0 AND file_type = 'pdf'
-        LIMIT 10
-    """)
-
-    rows = c.fetchall()
-    conn.close()
-
-    print("📋 数据库中的文件:")
-    for row in rows:
-        print(f"  ID: {row['id']}")
-        print(f"  文件名: {row['filename']}")
-        print(f"  原始名: {row['raw_filename']}")
-        print(f"  类型: {row['file_type']}")
-        print("  ---")
-
-    return jsonify({
-        "files": [dict(row) for row in rows]
-    })
-
-
-
-@file_bp.route('/debug-table-data')
-def debug_table_data():
-    """调试接口：查看表数据"""
-    try:
-        table_name = request.args.get('table', 'table_processing_records')
-        limit = request.args.get('limit', 10, type=int)
-
-        db_manager = SafeDatabaseManager()
-        db_manager._connect()
-
-        # 获取表数据
-        db_manager.cursor.execute(f"SELECT * FROM {table_name} LIMIT ?", (limit,))
-        rows = db_manager.cursor.fetchall()
-
-        # 获取表结构
-        db_manager.cursor.execute(f"PRAGMA table_info({table_name})")
-        columns = [dict(row) for row in db_manager.cursor.fetchall()]
-
-        db_manager._close()
-
-        return jsonify({
-            "table": table_name,
-            "columns": columns,
-            "data": [dict(row) for row in rows],
-            "count": len(rows)
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-
-@file_bp.route('/debug-search-query')
-def debug_search_query():
-    """调试搜索查询"""
-    try:
-        keyword = request.args.get('keyword', '建设银行')
-
-        db_manager = SafeDatabaseManager()
-        db_manager._connect()
-
-        # 执行搜索查询
-        query = """
-            SELECT * FROM table_processing_records 
-            WHERE bank_name LIKE ? OR pdf_folder LIKE ? 
-            ORDER BY created_at DESC LIMIT 10
-        """
-        params = (f'%{keyword}%', f'%{keyword}%')
-
-        print(f"🔍🔍 调试搜索查询:")
-        print(f"SQL: {query}")
-        print(f"参数: {params}")
-
-        db_manager.cursor.execute(query, params)
-        rows = db_manager.cursor.fetchall()
-
-        db_manager._close()
-
-        return jsonify({
-            "query": query,
-            "params": params,
-            "results": [dict(row) for row in rows],
-            "count": len(rows)
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-
-
-@file_bp.route('/debug-search-complete')
-def debug_search_complete():
-    """完整调试搜索流程"""
-    try:
-        keyword = request.args.get('keyword', '建设银行')
-
-        print(f"🔍🔍 完整调试搜索流程: 关键词='{keyword}'")
-
-        # 1. 直接执行SQL查询
-        db_manager = SafeDatabaseManager()
-        db_manager._connect()
-
-        query = "SELECT * FROM table_processing_records WHERE bank_name LIKE ? LIMIT 5"
-        params = (f'%{keyword}%',)
-
-        db_manager.cursor.execute(query, params)
-        rows = db_manager.cursor.fetchall()
-
-        print(f"  📊 直接SQL查询结果: {len(rows)} 条")
-
-        # 2. 转换为字典
-        dict_results = []
-        for i, row in enumerate(rows):
-            row_dict = dict(row)
-            dict_results.append(row_dict)
-            print(f"    第{i + 1}条: {row_dict.get('bank_name', '无银行名')}")
-
-        db_manager._close()
-
-        # 3. 测试SafeDatabaseManager方法
-        manager_results = db_manager.search_pdf_files(keyword, 5)
-        print(f"  📊 SafeDatabaseManager结果: {len(manager_results)} 条")
-
-        return jsonify({
-            "direct_sql_count": len(rows),
-            "direct_sql_results": dict_results,
-            "manager_results_count": len(manager_results),
-            "manager_results_sample": manager_results[:2] if manager_results else []
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-
-
-@file_bp.route('/search-pdf-compatible11')
-def search_pdf_compatible11():
-    """搜索PDF文件 - 实际搜索数据库版本"""
-    print("🔥🔥🔥🔥🔥 search_pdf_compatible 函数被调用了！")
-
-    try:
-        keyword = request.args.get('keyword', '').strip()
-        limit = request.args.get('limit', 100, type=int)
-
-        print(f"🔍 搜索关键词: '{keyword}'")
-
-        # 连接数据库
-        db_manager = SafeDatabaseManager()
-
-        # 使用 search_pdf_files 方法
-        results = db_manager.search_pdf_files(keyword, limit)
-
-        print(f"📊 数据库返回 {len(results)} 条结果")
-
-        if not results:
-            return jsonify({
-                "files": [],
-                "count": 0
-            })
-
-        # 转换为前端需要的格式
-        files = []
-        for row in results:
-            # 确保 row 是字典
-            if not isinstance(row, dict):
-                row = dict(row)
-
-            # 构建文件信息
-            file_info = {
-                "id": str(row.get("id", "")),
-                "file_id": str(row.get("pdf_folder", "")),  # 重复id字段确保兼容
-                "disk_name": row.get("pdf_folder", ""),
-                "file_type": "pdf",
-                "filename": row.get("bank_name", "未知银行"),
-                "name": row.get("bank_name", "未知银行"),
-                "matchType": "数据库匹配",
-                "status": row.get("status", ""),
-                "created_at": row.get("created_at", ""),
-                "raw_filename": row.get("bank_name", "未知银行"),
-            }
-
-            files.append(file_info)
-
-        print(f"✅ 转换完成，返回 {len(files)} 个文件")
-
-        return jsonify({
-            "files": files,
-            "count": len(files)
-        })
-
-    except Exception as e:
-        print(f"❌❌ 搜索失败: {e}")
-        import traceback
-        traceback.print_exc()
-
-        # 出错时返回空数组
-        return jsonify({
-            "files": [],
-            "count": 0
-        })
-
-
-@file_bp.route('/search-pdf-compatible')
+@file_bp.route('/api/search-pdf-compatible')
 def search_pdf_compatible():
     """搜索PDF文件 - 修复版本（搜索files表）"""
     print("🔥🔥🔥🔥🔥 search_pdf_compatible 函数被调用了！")
@@ -1293,28 +973,83 @@ def search_pdf_compatible():
         })
 
 
-# 临时添加测试数据的接口
-@file_bp.route('/add-test-pdf')
-def add_test_pdf():
-    """添加测试PDF记录"""
+# 直接调用excel_flatten_handler，避免重复代码
+@file_bp.route('/api/excel/save-flattened', methods=['POST', 'OPTIONS'])
+def save_flattened_data():
+    """保存扁平化数据到独立的Excel文件（完全保持前端数据格式）"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    data = request.json
+    print("******************** 保存扁平化数据到独立文件 ******************")
+    # print(data)
+    print(data['flattened_data'])
+
+
+
     try:
-        conn = db.connect()
-        c = conn.cursor()
+        # 🔥🔥 验证输入数据
+        required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'flattened_data']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'缺少必要字段: {field}'}), 400
 
-        c.execute("""
-            INSERT INTO files (filename, raw_filename, file_type, created_at) 
-            VALUES (?, ?, ?, datetime('now'))
-        """, ("test-uuid-1.pdf", "建设银行年度报告.pdf", "pdf"))
+        pdf_id = data['pdf_id']
+        original_excel_file = data['excel_file']
+        sheet_name = data['sheet_name']
+        table_type = data['table_type']
+        flattened_data = data['flattened_data']  # 🔥🔥 前端已经扁平化好的数据
 
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True})
+        print(f"💾 保存扁平化数据:")
+        print(f"  PDF ID: {pdf_id}")
+        print(f"  原文件: {original_excel_file}")
+        print(f"  Sheet: {sheet_name}")
+        print(f"  表格类型: {table_type}")
+        print(f"  扁平化数据类型: {type(flattened_data)}")
+        print(f"  扁平化数据行数: {len(flattened_data) if flattened_data else 0}")
+
+        # 🔥🔥 第一步：直接保存前端数据，不做任何处理
+        print("🔄🔄 直接保存前端数据，保持原样...")
+
+        data_handler = ExcelDataHandler(MAIN_ROOT, EXCEL_OUTPUT_ROOT)
+
+        # 生成扁平化文件名
+        flattened_excel_file = data_handler.generate_flattened_filename(original_excel_file)
+        print(f"📁 扁平化文件名: {flattened_excel_file}")
+
+        # 🔥🔥 直接保存前端数据，不调用任何转换逻辑
+        result = data_handler.save_flattened_data_as_is(
+            pdf_id=pdf_id,
+            original_excel_file=original_excel_file,
+            flattened_excel_file=flattened_excel_file,
+            sheet_name=sheet_name,
+            flattened_data=flattened_data,  # 🔥🔥 直接保存，不处理
+            table_type=table_type,
+            db=db
+        )
+
+        if not result['success']:
+            return jsonify({'success': False, 'error': result['error']}), 500
+
+        return jsonify({
+            'success': True,
+            'message': '扁平化数据保存成功',
+            'flattened_file': flattened_excel_file,
+            'original_file': original_excel_file,
+            'file_created': result.get('file_created', False),
+            'sheet_created': result.get('sheet_created', False),
+            'saved_rows': result.get('saved_rows', 0),
+            'saved_columns': result.get('saved_columns', 0),
+            'data_dimensions': result.get('data_dimensions', '未知')
+        }), 200
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-
-
-
-
+        print(f"❌ 扁平化数据保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
 

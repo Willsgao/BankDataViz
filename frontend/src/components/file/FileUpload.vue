@@ -32,7 +32,7 @@ const uploadActionUrl = ref('')
 
 onMounted(() => {
   console.log('🔥 FileUpload 已挂载')
-  uploadActionUrl.value = '/api/upload'
+  uploadActionUrl.value = getBackendUrl('/api/upload')
   console.log('📌 uploadActionUrl:', uploadActionUrl.value)
 })
 

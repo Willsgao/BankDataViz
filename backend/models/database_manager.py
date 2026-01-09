@@ -13,11 +13,13 @@ import sqlite3
 import os
 from datetime import datetime
 import sys
+from backend.configs.config import config
+
 
 
 class OldDatabaseManager:
     def __init__(self, db_path='data/database.db'):
-        self.db_path = db_path
+        self.db_path = db_path or config.DATABASE_PATH
         self.uploads_dir = '../static/uploads'
         print("self.uploads_dir>>>>>>>:", self.uploads_dir)
 

@@ -1762,19 +1762,6 @@ class FinalDataConverter:
         主函数：智能选择处理方式
         """
 
-        print("=" * 50)
-        print("📥 进入 convert_table_to_long_format")
-        print("=" * 50)
-
-        print("📄 表格名称:", table_metadata.get('name', '未知'))
-
-        print("📊 输入数据形状:", f"{len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
-        print("📄 表格元数据:", {
-            'default_unit': table_metadata.get('default_unit', ''),
-            'default_currency': table_metadata.get('default_currency', ''),
-            'default_report_period': table_metadata.get('default_report_period', '')
-        })
-
         if not table_data or len(table_data) < 2:
             print("❌ 表格数据为空或不足2行")
             return []
@@ -1789,10 +1776,8 @@ class FinalDataConverter:
                     break
 
         if is_mixed_format:
-            print("🔄 使用混合格式处理器")
             return self._convert_mixed_format_table(table_data, table_metadata, marks_info,
                                                     bank_name,  entity)
         else:
-            print("🔄 使用常规格式处理器")
             return self._convert_regular_table(table_data, table_metadata, marks_info,
                                                bank_name, entity)

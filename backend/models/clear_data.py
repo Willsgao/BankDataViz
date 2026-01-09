@@ -10,6 +10,7 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
+from backend.configs.config import config
 
 # 添加项目根目录到Python路径
 current_dir = Path(__file__).parent
@@ -33,7 +34,7 @@ class DatabaseCleaner:
         self.project_root = Path(__file__).parent.parent.parent
 
         # 设置默认路径
-        self.db_path = db_path or str(self.project_root / "data" / "database.db")
+        self.db_path = db_path or config.DATABASE_PATH
         self.uploads_dir = uploads_dir or str(self.project_root / "backend" / "static" / "uploads")
         self.backup_dir = str(self.project_root / "data" / "backups")
 

@@ -37,7 +37,7 @@ def calculate_file_hash(file_content):
 
 from backend.service.file_upload_service import file_upload_service
 
-@upload_bp.route('/upload', methods=['POST'])
+@upload_bp.route('/api/upload', methods=['POST'])
 def upload_file():
     """文件上传接口 - 使用服务类"""
 
@@ -69,6 +69,57 @@ def upload_file():
 
 # 在 upload.py 中添加以下导入
 from backend.service.file_management_service import file_management_service
+
+
+
+@upload_bp.route('/api/files', methods=['GET'])
+def get_all_files():
+    """获取所有文件列表 - 简化版本"""
+    print("🔍 upload_bp - 获取文件列表")
+    try:
+        conn = sqlite3.connect(DATABASE)
+        if not conn:
+            return jsonify({"error": "数据库连接失败"}), 500
+
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        # 先只查询基本字段，避免列不存在错误
+        c.execute("""
+            SELECT filename, raw_filename, file_type, created_at
+            FROM files 
+            WHERE deleted = 0 
+            ORDER BY created_at DESC
+        """)
+
+        rows = c.fetchall()
+        files_list = []
+
+        upload_dir = Path(MAIN_ROOT) / UPLOAD_FOLDER
+
+        for row in rows:
+            file_path = upload_dir / row['filename']
+
+            if file_path.exists():
+                file_info = {
+                    "filename": row['raw_filename'] or row['filename'],
+                    "disk_name": row['filename'],
+                    "file_id": row['filename'].split('.')[0],
+                    "file_type": row['file_type'],
+                    "created_at": row['created_at']
+                }
+                files_list.append(file_info)
+
+        conn.close()
+
+        print(f"📊 返回文件数量: {len(files_list)}")
+        return jsonify(files_list)
+
+    except Exception as e:
+        print(f"❌ 获取文件列表失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 # 在现有路由后面添加以下路由
 @upload_bp.route('/api/files/stats', methods=['GET'])

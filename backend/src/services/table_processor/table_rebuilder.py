@@ -664,28 +664,23 @@ class TableReconstructor:
 
         # 4. 混合类型（包含文本和任何数值）
         if has_text and (has_std_num or has_minor_num or has_error_num):
-            print(f"  {label}: 标记4 - 混合类型 (文本+数值)")
             return 4
 
         # 3. 很可能错误的数值
         if has_error_num:
-            print(f"  {label}: 标记3 - 可能错误的数值")
             return 3
 
         # 现在只包含数值类型
         # 2. 有小问题的数值（有minor_num，可能也有std_num）
         if has_minor_num:
-            print(f"  {label}: 标记2 - 格式问题数值")
             return 2
 
         # 1. 完全正确的数值（全是std_num）
         if has_std_num and not has_minor_num and not has_error_num:
-            print(f"  {label}: 标记1 - 标准数值")
             return 1
 
         # 0. 纯文本
         if not has_std_num and not has_minor_num and not has_error_num:
-            print(f"  {label}: 标记0 - 纯文本")
             return 0
 
         # 默认返回0
@@ -861,7 +856,6 @@ class TableReconstructor:
         num_cols = max_col
 
         # 检查每行的列数
-        print("检查每行列数:")
         row_col_counts = {}
         for cell in cells:
             row = cell['row_start']
@@ -875,14 +869,9 @@ class TableReconstructor:
         row_max_cols = {}
         for row, col_ends in row_col_counts.items():
             row_max_cols[row] = max(col_ends)
-            print(f"  第{row}行: 最大列索引={row_max_cols[row]}")
 
         # 检查是否所有行的最大列索引一致
         all_max_cols = list(row_max_cols.values())
-        if len(set(all_max_cols)) > 1:
-            print(f"警告: 不同行的列数不一致: {all_max_cols}")
-
-        print(f"表格: {num_rows}行 × {num_cols}列")
 
         # 创建表格
         table = []
@@ -1318,7 +1307,6 @@ class TableReconstructor:
 
         # 如果左侧连续空表头少于2个，不处理
         if empty_header_count < 2:
-            print(f"左侧连续空表头数: {empty_header_count}，少于2个，不处理")
             return table
 
         # 第一步：逐行处理，条件性合并
@@ -1331,7 +1319,6 @@ class TableReconstructor:
 
             # 如果第一列不为空，才进行合并
             if row[0] and str(row[0]).strip() != "":
-                print(f"行{i}: 第一列='{row[0]}'，进行合并")
 
                 # 构建合并后的内容
                 merged_parts = [str(row[0]).strip()]
@@ -1344,16 +1331,14 @@ class TableReconstructor:
                 # 如果有多部分内容，用>>连接
                 if len(merged_parts) > 1:
                     table[i][0] = ">>".join(merged_parts)
-                    print(f"  合并为: '{table[i][0]}'")
             else:
-                print(f"行{i}: 第一列为空，不合并")
+                pass
 
         # 第二步：无论如何都删除后面连续的空表头列（保留第一列）
         # 要删除的列索引：1 到 empty_header_count-1
         columns_to_remove = list(range(1, empty_header_count))
 
         if columns_to_remove:
-            print(f"删除列索引: {columns_to_remove}")
 
             # 对每一行，删除指定列
             for i in range(len(table)):
@@ -1571,15 +1556,9 @@ class TableReconstructor:
         wb.remove(wb.active)  # 删默认 Sheet
 
         print(f"📊📊 开始保存Excel到: {output_file}")
-        print(f"  表格数量: {len(tables_data)}")
-        print(f"  表格名称数量: {len(table_names)}")
-        print(f"  元数据数量: {len(metadata_list) if metadata_list else 0}")
 
         for idx, (table, name) in enumerate(zip(tables_data, table_names)):
             ws = wb.create_sheet(title=name)  # 直接用外部名字
-
-            print(f"  处理表格 {idx + 1}: '{name}'")
-            print(f"    表格尺寸: {len(table)}行 × {len(table[0]) if table else 0}列")
 
             # 保存表格数据（原有逻辑保持不变）
             for r, row in enumerate(table, 1):
@@ -1595,9 +1574,6 @@ class TableReconstructor:
 
                 # 在数据之后空一行，然后添加元数据
                 metadata_start_row = data_row_count + 2
-
-                print(f"    元数据开始行: {metadata_start_row}")
-                print(f"    元数据内容: {metadata}")
 
                 # 添加元数据标记和内容
                 if any(metadata.values()):  # 只有存在有效元数据时才保存

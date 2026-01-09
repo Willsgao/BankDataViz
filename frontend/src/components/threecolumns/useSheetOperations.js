@@ -55,7 +55,7 @@ export function useSheetOperations(generateTableColumns) {
             // 5. 如果状态不一致，自动纠正
             if (isFlattenedData !== showFlatModeRef.value) {
               console.log('🔄 状态不一致，自动纠正按钮状态')
-              toggleFlatModeFn() // 再次切换，纠正到正确状态
+              // toggleFlatModeFn() // 再次切换，纠正到正确状态
             } else {
               console.log('✅ 状态一致，保持当前按钮状态')
             }
@@ -87,8 +87,218 @@ export function useSheetOperations(generateTableColumns) {
     }
 
 
-
+    // useSheetOperations.js
     const selectSheet = async (
+      sheet,
+      excelFileName,
+      selectedPdf,
+      selectedSheetRef,
+      selectedExcelFileRef,
+      sheetStateManager,
+      excelDataRef,
+      tableColumnsRef,
+      flatDataRef,
+      showFlatModeRef,
+      currentTableModeRef,
+      loadExcelDataFn,        // 传入的 loadExcelData 函数
+      loadAllClassDataFn,
+      loadingExcelRef,       // loading 状态引用
+      excelDataCache,        // 缓存管理器
+      dataManager           // 数据管理器
+    ) => {
+      console.log('🔄🔄 选择sheet - 强制从后台读取数据:', {
+        sheet名称: sheet.name,
+        excel文件: excelFileName,
+        当前PDF: selectedPdf?.id
+      })
+
+      // 🔥🔥 安全检查
+      if (!selectedSheetRef || !selectedExcelFileRef || !sheetStateManager) {
+        console.error('❌❌❌❌❌❌ 关键参数缺失')
+        throw new Error('函数参数不完整，无法选择表格')
+      }
+
+      if (!selectedPdf) {
+        console.error('❌❌❌❌❌❌ selectedPdf  参数为 undefined 或 null')
+        ElMessage.error('PDF参数缺失，请先选择PDF文件')
+        return { success: false, error: 'PDF参数缺失' }
+      }
+
+      try {
+        /* ---------- 1. 重置状态 ---------- */
+        console.log('🔄🔄 开始重置状态...')
+
+        selectedSheetRef.value = { ...sheet, excel_file: excelFileName }
+        selectedExcelFileRef.value = excelFileName
+
+        // 设置初始模式
+        if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
+          currentTableModeRef.value = 'original'
+          console.log('✅ currentTableModeRef 设置为: original')
+        }
+
+        if (typeof window !== 'undefined') {
+          window.currentTableMode = 'original'
+          console.log('✅ window.currentTableMode 设置为: original')
+        }
+
+        console.log('✅ 状态重置完成')
+
+        /* ---------- 2. 状态管理器上下文 ---------- */
+        console.log('🔄🔄 设置状态管理器上下文...')
+        sheetStateManager.setActiveContext(
+          selectedPdf.id,
+          excelFileName,
+          sheet.name,
+          'original'
+        )
+        console.log('✅ 上下文设置完成')
+
+        /* ---------- 3. 🔥🔥 强制清除所有缓存 ---------- */
+        const pdfId = selectedPdf.id
+        console.log('🧹🧹 强制清除缓存，确保从后台读取最新数据')
+
+        // 清除 excelDataCache
+        if (excelDataCache && excelDataCache.deleteOriginalData) {
+          excelDataCache.deleteOriginalData(pdfId, excelFileName, sheet.name)
+          console.log('✅ 清除原始数据缓存')
+        }
+        if (excelDataCache && excelDataCache.deleteFlattenedData) {
+          excelDataCache.deleteFlattenedData(pdfId, excelFileName, sheet.name)
+          console.log('✅ 清除扁平化数据缓存')
+        }
+
+        // 清除内存缓存
+        const cacheKey = `${pdfId}_${excelFileName}_${sheet.name}`
+        if (window.sheetDataCache) {
+          delete window.sheetDataCache[cacheKey]
+          console.log('✅ 清除内存缓存')
+        }
+
+        // 清除 IndexedDB 缓存
+        if (dataManager && dataManager.indexedDBManager) {
+          try {
+            await dataManager.indexedDBManager.deleteOriginalCache(pdfId, excelFileName, sheet.name)
+            await dataManager.indexedDBManager.deleteFlattenedCache(pdfId, excelFileName, sheet.name)
+            console.log('✅ 清除 IndexedDB 缓存')
+          } catch (error) {
+            console.warn('⚠️ 清除IndexedDB缓存失败:', error)
+          }
+        }
+
+        /* ---------- 4. 🔥🔥 直接从后台加载数据 ---------- */
+        console.log('🎯🎯 直接从后台加载数据...')
+
+        // 设置 loading 状态
+        if (loadingExcelRef) {
+          loadingExcelRef.value = true
+        }
+
+        try {
+          if (sheet.name === '目录') {
+            console.log('📁📁 加载目录数据...')
+            await loadAllClassDataFn(excelFileName)
+          } else {
+            console.log('📊📊 加载普通表格数据...')
+
+            // 🔥🔥 关键修改：传递 forceRefresh = true
+            const loadResult = await loadExcelDataFn(sheet.name, excelFileName, true) // true = 强制刷新
+
+            if (!loadResult.success) {
+              throw new Error(loadResult.error || '加载数据失败')
+            }
+
+            console.log('✅ 后台数据加载完成:', {
+              数据行数: excelDataRef.value?.length || 0,
+              扁平化数据行数: flatDataRef.value?.length || 0,
+              来源: loadResult.fromCache ? '缓存' : 'API'
+            })
+          }
+
+          // 设置数据到状态管理器
+          sheetStateManager.setData('original', excelDataRef.value)
+
+        } finally {
+          // 清除 loading 状态
+          if (loadingExcelRef) {
+            loadingExcelRef.value = false
+          }
+        }
+
+        /* ---------- 5. 🔥🔥 智能判断显示模式 ---------- */
+        console.log('🔍🔍 智能判断显示模式...')
+
+        // 延迟执行，确保数据已加载
+        setTimeout(() => {
+            // 🔥🔥🔥 关键修复：首先检查文件类型
+            const isFlattenedFile = excelFileName.toLowerCase().includes('flattened_')
+            const hasFlattenedData = flatDataRef.value && flatDataRef.value.length > 0
+            const hasOriginalData = excelDataRef.value && excelDataRef.value.length > 0
+
+            console.log('📊📊 数据检查:', {
+                当前文件: excelFileName,
+                是扁平化文件: isFlattenedFile,
+                有原始数据: hasOriginalData,
+                有扁平化数据: hasFlattenedData,
+                原始数据行数: excelDataRef.value?.length || 0,
+                扁平化数据行数: flatDataRef.value?.length || 0
+            })
+
+            // 🔥🔥🔥 智能判断逻辑（优先级：文件类型 > 数据特征）
+            if (isFlattenedFile) {
+                // 🔥🔥 情况1：扁平化文件，直接显示扁平化模式
+                console.log('✅ 扁平化文件，直接显示扁平化数据')
+                showFlatModeRef.value = true
+                if (currentTableModeRef) {
+                    currentTableModeRef.value = 'flattened'
+                }
+            }
+            else if (hasFlattenedData) {
+                // 情况2：原始文件但有扁平化数据，显示扁平化模式
+                showFlatModeRef.value = true
+                if (currentTableModeRef) {
+                    currentTableModeRef.value = 'flattened'
+                }
+                console.log('✅ 设置为扁平化模式（检测到扁平化数据）')
+            }
+            else if (hasOriginalData) {
+                // 情况3：只有原始数据，显示原始模式
+                showFlatModeRef.value = false
+                if (currentTableModeRef) {
+                    currentTableModeRef.value = 'original'
+                }
+                console.log('✅ 设置为原始模式（只有原始数据）')
+            }
+            else {
+                // 情况4：无数据，保持原始模式
+                showFlatModeRef.value = false
+                console.log('⚠️ 无数据，保持原始模式')
+            }
+        }, 300)
+
+        console.log('✅✅✅ selectSheet 完成')
+        return { success: true, source: 'api' }
+
+      } catch (error) {
+        console.error('❌❌❌❌❌❌ selectSheet 执行失败:', error)
+        // 清理状态
+        excelDataRef.value = []
+        tableColumnsRef.value = []
+        flatDataRef.value = []
+        showFlatModeRef.value = false
+
+        // 清除 loading 状态
+        if (loadingExcelRef) {
+          loadingExcelRef.value = false
+        }
+
+        ElMessage.error(`选择表格失败: ${error.message}`)
+        return { success: false, error: error.message }
+      }
+    }
+
+
+    const selectSheet00 = async (
   sheet,
   excelFileName,
   selectedPdf,
@@ -825,7 +1035,7 @@ export function useSheetOperations(generateTableColumns) {
     currentPage,
     totalPages,
     // 方法
-    selectSheet: selectSheetWithSmartDetection,
+    selectSheet,  // : selectSheetWithSmartDetection
     toggleFlatMode,
     switchToOriginalMode,
     loadExcelSheets,
