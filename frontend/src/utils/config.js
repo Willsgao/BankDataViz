@@ -24,12 +24,14 @@ const getDefaultConfig = () => {
         host: "localhost",
         port: 5000,
         // 关键修改：生产环境使用当前域名，开发环境使用localhost
-        baseUrl: isProduction ? currentOrigin : "http://localhost:5000"
+        // baseUrl: isProduction ? currentOrigin : "http://localhost:5000"
+        baseUrl: process.env.VUE_APP_API_BASE || (isProduction ? currentOrigin : "http://localhost:5000")
       },
       frontend: {
         host: "localhost",
         port: 8080,
-        baseUrl: isProduction ? currentOrigin : "http://localhost:8080"
+        // baseUrl: isProduction ? currentOrigin : "http://localhost:8080"
+        baseUrl: process.env.VUE_APP_BASE_URL || (isProduction ? currentOrigin : "http://localhost:8080")
       }
     },
     api: {
