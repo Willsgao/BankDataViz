@@ -61,10 +61,6 @@ class TableReconstructionPipeline:
         # try:
         llm_result = self.llm_analyzer.analyze_image(image_path, ocr_result)
 
-        print("llm_resultllm_result:")
-        from pprint import pprint
-        pprint(llm_result)
-
         if not llm_result.get('success'):
             print(f"❌ LLM分析失败222: {llm_result.get('error', '未知错误')}")
             self.stats['failed'] += 1

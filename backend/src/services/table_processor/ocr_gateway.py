@@ -21,7 +21,7 @@ from backend.src.services.table_processor.ocr_response_unifier import OCRProvide
 
 # 导入缓存相关模块
 from .cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert
-from .object_store import put_object
+from .object_store import put_object, extract_pdf_uuid_from_image_path
 
 # ========== 从配置统一导入所有参数 ==========
 # Redis配置
@@ -268,7 +268,12 @@ class TableOCRService:
             hit = cache_get(md5, self.provider_type)
             if hit:
                 # 获取本地对象存储路径
-                file_path = Path(LOCAL_OBJECT_STORE) / hit["s3_key"]
+                pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
+                file_path = Path(LOCAL_OBJECT_STORE) / pdf_uuid / hit["s3_key"]
+                print("LOCAL_OBJECT_STORELOCAL_OBJECT_STORE")
+                print(LOCAL_OBJECT_STORE)
+                print("file_path:", file_path)
+
                 if file_path.exists():
                     try:
                         data = json.loads(gzip.decompress(file_path.read_bytes()))
@@ -289,6 +294,9 @@ class TableOCRService:
                         return data
                     except Exception as e:
                         print(f"缓存文件读取失败: {e}")
+
+                else:
+                    print("未命中！！！file_path", file_path)
 
         # ----- 2. 真调用 -----
         try:
@@ -338,7 +346,9 @@ class TableOCRService:
             # ----- 3. 成功落盘 + 写库 + 写 Redis（如果可用） -----
             compressed = gzip.compress(json.dumps(ocr_result).encode())
             s3_key = f"ocr/{md5}.json.gz"
-            put_object(s3_key, compressed)
+
+            pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
+            put_object(s3_key, compressed, pdf_uuid)
             cost_usd = 0.0  # 可按官方价计算
             cache_upsert(md5, self.provider_type, self.provider_type,
                          cost_usd, 0, 0, s3_key)
