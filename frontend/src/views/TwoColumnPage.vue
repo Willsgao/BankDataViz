@@ -1097,8 +1097,82 @@ const handleParseTablesCompleted = (data) => {
   })
 }
 
+
 // 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用
 const handleParseTables = async (pdfDiskName) => {
+  console.log('🔄 开始表格解析:', pdfDiskName)
+
+  updateCurrentPdf(pdfDiskName)
+  isParsing.value = true
+
+  try {
+    // 检查筛选状态
+    const hasScreened = hasScreenedImages.value[pdfDiskName]
+    if (!hasScreened) {
+      ElMessage.warning('请先完成图片筛选再进行表格解析')
+      isParsing.value = false
+      return
+    }
+
+    const pdfFolder = pdfDiskName.replace(/\.pdf$/i, '')
+
+    console.log('📤 发送表格解析请求（简化版）...')
+
+    // 简化请求：后端会自动获取png_names
+    const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
+      table_type: tableType.value,
+      use_ocr: true,
+      force_refresh: false
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    console.log('✅ 收到响应:', response.data)
+
+    if (response.data.success) {
+      const jobId = response.data.job_id
+      const totalImages = response.data.total_images || 0
+
+      // 🔴 添加参数校验
+      if (!jobId || jobId === 'undefined') {
+        console.error('❌ 后端返回的jobId无效:', jobId)
+        console.log('📊 完整响应数据:', response.data)
+
+        // 如果没有job_id，说明是即时完成的处理
+        ElMessage.success('表格处理已完成（即时处理）')
+        isParsing.value = false
+        return
+      }
+
+      ElMessage.success(`表格解析任务已提交，发现 ${totalImages} 张表格图片`)
+
+      // 轮询进度
+      await pollTableProgress(jobId, pdfDiskName)
+
+    } else {
+      ElMessage.error('提交表格解析任务失败: ' + response.data.error)
+      isParsing.value = false
+    }
+
+  } catch (error) {
+    console.error('❌ 表格解析失败:', error)
+
+    updateStepStatus(pdfDiskName, 'parse', 'failed')
+
+    if (error.response?.data?.error) {
+      ElMessage.error('表格解析失败: ' + error.response.data.error)
+    } else {
+      ElMessage.error('表格解析失败: ' + error.message)
+    }
+
+    isParsing.value = false
+  }
+}
+
+// 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用
+const handleParseTables000 = async (pdfDiskName) => {
   console.log('🔄 开始表格解析:', pdfDiskName)
 
   updateCurrentPdf(pdfDiskName)
@@ -1213,9 +1287,16 @@ const highlightExistingFile = (fileId) => {
 
 
 
-
 // 新增：轮询表格解析进度
 async function pollTableProgress(jobId, pdfDiskName) {
+  // 🔴 添加参数校验
+  if (!jobId || jobId === 'undefined') {
+    console.error('❌ 无效的jobId:', jobId)
+    ElMessage.error('任务ID无效，无法查询进度')
+    isParsing.value = false
+    return Promise.resolve() // 直接返回已解决的Promise
+  }
+
   return new Promise((resolve) => {
     const timer = setInterval(async () => {
       try {
@@ -1273,6 +1354,7 @@ async function pollTableProgress(jobId, pdfDiskName) {
     }, 1000) // 每秒轮询一次
   })
 }
+
 
 
 
