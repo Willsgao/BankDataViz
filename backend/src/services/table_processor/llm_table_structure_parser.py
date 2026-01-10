@@ -9,7 +9,7 @@ from openai import OpenAI
 
 from backend.configs.config import config, tableconfig
 from backend.src.services.table_processor.cache_gateway import get as cache_get, upsert as cache_upsert, delete as cache_delete
-from backend.src.services.table_processor.object_store import get_object, put_object
+from backend.src.services.table_processor.object_store import get_object, put_object, extract_pdf_uuid_from_image_path
 from backend.src.services.table_processor.image_utils import TableImageUtils
 
 # 全局常量
@@ -375,6 +375,7 @@ class EnhancedFinancialTableAnalyzer:
             "token_usage": token_usage
         }
 
+
     def analyze_image(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """分析单张图片中的所有表格"""
         base64_image = TableImageUtils.encode_image_to_base64(image_path)
@@ -386,7 +387,8 @@ class EnhancedFinancialTableAnalyzer:
             if hit:
                 print("LLM cache hit, skip cost")
                 try:
-                    llm_result = json.loads(gzip.decompress(get_object(hit["s3_key"])))
+                    pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
+                    llm_result = json.loads(gzip.decompress(get_object(hit["s3_key"], pdf_uuid)))
                     return {
                         "success": True,
                         "image_info": ocr_result.get("image_info", {}),
@@ -407,7 +409,6 @@ class EnhancedFinancialTableAnalyzer:
                     except:
                         pass
 
-        print("[LLM] 执行LLM分析（缓存跳过或强制刷新）")
         ocr_summary = self._prepare_ocr_summary(ocr_result)
         prompt = self._build_global_analysis_prompt(ocr_summary)
         print(f"[LLM] Prompt长度: {len(prompt)} 字符")
@@ -416,7 +417,8 @@ class EnhancedFinancialTableAnalyzer:
 
         compressed = gzip.compress(json.dumps(llm_result).encode())
         s3_key = f"llm/{md5}.json.gz"
-        put_object(s3_key, compressed)
+        pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
+        put_object(s3_key, compressed, pdf_uuid)
 
         cost_usd = 0.0
         prompt_tokens = llm_result.get("token_usage", {}).get("prompt_tokens", 0)

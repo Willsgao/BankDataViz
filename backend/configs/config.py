@@ -463,6 +463,51 @@ class TableConfig:
         """获取OCR最终数据目录的绝对路径"""
         return getattr(self, 'ocr_final_dir', '')
 
+    def get_ocr_raw_path(self, pdf_uuid, page_num, filename=None):
+        """获取OCR原始数据路径"""
+        return self.get_pdf_path(self.ocr_raw_dir, pdf_uuid,
+                                 filename or f"page_{page_num}_raw.json")
+
+    def get_ocr_final_path(self, pdf_uuid, page_num, filename=None):
+        """获取OCR最终数据路径"""
+        return self.get_pdf_path(self.ocr_final_dir, pdf_uuid,
+                                 filename or f"page_{page_num}_final.json")
+
+    def get_llm_cache_path(self, pdf_uuid, page_num, filename=None):
+        """获取LLM缓存路径"""
+        return self.get_pdf_path(self.llm_cache_dir, pdf_uuid,
+                                 filename or f"page_{page_num}_analysis.pkl")
+
+    def get_obj_cache_path(self, pdf_uuid, cache_type, page_num, filename=None):
+        """获取对象缓存路径"""
+        if cache_type == "ocr":
+            base_dir = Path(self.obj_cache_dir) / "ocr"
+        elif cache_type == "llm":
+            base_dir = Path(self.obj_cache_dir) / "llm"
+        else:
+            base_dir = Path(self.obj_cache_dir) / cache_type
+
+        return self.get_pdf_path(str(base_dir), pdf_uuid,
+                                 filename or f"page_{page_num}.pkl")
+
+    def get_output_path(self, pdf_uuid, filename=None):
+        """获取输出文件路径"""
+        return self.get_pdf_path(self.output_dir, pdf_uuid, filename)
+
+    def get_pdf_path(self, base_dir, pdf_uuid, filename=None):
+        """获取基于PDF UUID的完整路径"""
+        if not pdf_uuid:
+            raise ValueError("pdf_uuid is required")
+
+        # 确保base_dir是Path对象
+        base_dir_path = Path(base_dir)
+        pdf_dir = base_dir_path / pdf_uuid
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+
+        if filename:
+            return str(pdf_dir / filename)
+        return str(pdf_dir)
+
     # 属性访问器
     @property
     def OCR_RAW_DIR(self):
@@ -584,3 +629,25 @@ API_PATHS = {
 }
 
 __all__ = ['config', 'tableconfig', 'SERVER_CONFIG', 'FRONTEND_CONFIG', 'FILE_PATHS', 'API_PATHS']
+
+# 测试代码 - 在文件末尾添加测试代码（测试后可以删除）
+if __name__ == "__main__":
+    # 测试配置
+    config = Config()
+    table_config = tableconfig
+
+    # 测试路径生成
+    test_uuid = "test-uuid-123"
+    test_path = table_config.get_ocr_raw_path(test_uuid, 1)
+    print(f"OCR原始数据路径: {test_path}")
+
+    # 测试目录是否创建
+    import os
+
+    print(f"目录是否存在: {os.path.exists(os.path.dirname(test_path))}")
+
+    # 测试其他路径方法
+    print(f"OCR最终数据路径: {table_config.get_ocr_final_path(test_uuid, 1)}")
+    print(f"LLM缓存路径: {table_config.get_llm_cache_path(test_uuid, 1)}")
+    print(f"OCR对象缓存路径: {table_config.get_obj_cache_path(test_uuid, 'ocr', 1)}")
+    print(f"输出路径: {table_config.get_output_path(test_uuid, 'test.xlsx')}")

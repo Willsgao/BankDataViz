@@ -342,11 +342,8 @@ def get_excel_sheets(file_id):
         supported_extensions = ['.xlsx', '.xls']
 
         for ext in supported_extensions:
-            # print(f"🔍🔍 查找扩展名: {ext}")
             for excel_file in excel_dir.glob(f"*{ext}"):
-                # print(f"🔍🔍 找到Excel文件: {excel_file}")
                 if excel_file.is_file():
-                    # print(f"✅ 添加Excel文件: {excel_file.name}")
                     excel_files.append({
                         "file_name": excel_file.name,
                         "file_path": str(excel_file),
