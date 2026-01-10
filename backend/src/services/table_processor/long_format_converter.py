@@ -894,21 +894,15 @@ class FinalDataConverter:
                 except:
                     current_row_mark = 1
 
-            print(f"🔍 处理行{row_idx}: 行标记={current_row_mark}")
-
             # 🔥 关键5：过滤行标记为0的行
             if current_row_mark == 0:
-                print(f"⏭️ 过滤行标记为0的行 {row_idx}")
                 continue
 
             # 提取纵向层级路径
             vertical_path = self._extract_vertical_path(row_data, row_idx, header_row_index, mark_column_index)
 
             if not vertical_path:
-                print(f"⏭️ 跳过行{row_idx}: 纵向路径为空")
                 continue
-
-            print(f"✅ 处理有效行{row_idx}: 纵向路径='{vertical_path}'")
 
             # 🔥 关键6：第一遍遍历 - 收集当前行所有列标记为0的单元格值
             remark_features = []
@@ -939,7 +933,6 @@ class FinalDataConverter:
                     remark_text = str(cell_value).strip()
                     if remark_text:
                         remark_features.append(remark_text)
-                        print(f"📝 收集行{row_idx}列{col_idx}的备注特征: {remark_text}")
 
             # 🔥 关键9：第二遍遍历 - 只处理列标记不为0的列
             for col_idx in range(1, len(row_data)):
@@ -1344,13 +1337,6 @@ class FinalDataConverter:
         final_unit = table_metadata.get('default_unit', '')
         final_report_period = table_metadata.get('default_report_period', '')
 
-        print(f"🎯 使用的配置:")
-        print(f"  - 银行名: {final_bank_name}")
-        print(f"  - 主体: {final_entity}")
-        print(f"  - 币种: {final_currency}")
-        print(f"  - 单位: {final_unit}")
-        print(f"  - 报告期: {final_report_period}")
-
         # 🔥🔥 关键1：找到"行标记"列
         mark_column_index = -1
         for i, row in enumerate(table_data):
@@ -1368,7 +1354,6 @@ class FinalDataConverter:
             for j, cell in enumerate(row):
                 if str(cell).strip() == "列标记":
                     mark_row_index = i
-                    print(f"🔍🔍 找到'列标记'行: 第{mark_row_index}行")
                     break
             if mark_row_index != -1:
                 break
@@ -1390,13 +1375,11 @@ class FinalDataConverter:
         for row_idx in range(data_start_index, len(table_data)):
             # 🔥🔥 关键3：跳过"列标记"行
             if row_idx == mark_row_index:
-                print(f"⏭⏭⏭️ 跳过'列标记'行: 行{row_idx}")
                 continue
 
             row_data = table_data[row_idx]
 
             if not row_data:
-                print(f"⏭⏭⏭️ 跳过空行 {row_idx}")
                 continue
 
             # 🔥🔥 关键4：获取当前行标记

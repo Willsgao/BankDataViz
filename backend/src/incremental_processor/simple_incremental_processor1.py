@@ -11,20 +11,19 @@ from typing import List
 
 
 class SimpleIncrementalProcessor:
-    """极简增量处理器 - 使用统一的文件映射路径"""
+    """极简增量处理器 - 独立实现"""
 
     def __init__(self, record_file_path=None):
         """
         初始化
 
         Args:
-            record_file_path: 记录文件路径，默认使用统一的映射文件路径
+            record_file_path: 记录文件路径，默认在data/backend/processing_records.json
         """
         # 计算根目录路径
         self.project_root = Path(__file__).parent.parent.parent.parent  # 根据实际结构调整
 
         if record_file_path is None:
-            # 使用统一的映射文件路径：data/backend/processing_records.json
             self.record_file = self.project_root / "data" / "backend" / "processing_records.json"
         else:
             self.record_file = Path(record_file_path)
@@ -39,13 +38,13 @@ class SimpleIncrementalProcessor:
     def _load_records(self) -> dict:
         """加载处理记录 - 极简实现"""
         if not self.record_file.exists():
-            print(f"📝📝 记录文件不存在，创建新文件: {self.record_file}")
+            print(f"📝 记录文件不存在，创建新文件: {self.record_file}")
             return {}
 
         try:
             with open(self.record_file, 'r', encoding='utf-8') as f:
                 records = json.load(f)
-                print(f"📂📂 加载处理记录: {len(records)} 个PDF文件夹")
+                print(f"📂 加载处理记录: {len(records)} 个PDF文件夹")
                 return records
         except Exception as e:
             print(f"⚠️ 加载记录文件失败，使用空记录: {e}")
@@ -72,12 +71,12 @@ class SimpleIncrementalProcessor:
         Returns:
             List[str]: 需要处理的图片名称列表
         """
-        print(f"🔍🔍🔍🔍 开始增量检查: {pdf_folder}")
-        print(f"📸📸📸📸 总图片数: {len(image_names)}")
+        print(f"🔍🔍 开始增量检查: {pdf_folder}")
+        print(f"📸📸 总图片数: {len(image_names)}")
 
         # 获取已处理的图片
         processed_images = set(self.records.get(pdf_folder, []))
-        print(f"📊📊📊📊 已处理图片数: {len(processed_images)}")
+        print(f"📊📊 已处理图片数: {len(processed_images)}")
 
         # 过滤出需要处理的图片
         images_to_process = []
@@ -89,7 +88,7 @@ class SimpleIncrementalProcessor:
             else:
                 images_to_process.append(image_name)
 
-        print(f"📊📊📊📊 过滤结果:")
+        print(f"📊📊 过滤结果:")
         print(f"  - 需要处理: {len(images_to_process)} 张")
         print(f"  - 跳过已处理: {len(skipped_images)} 张")
 
@@ -125,9 +124,9 @@ class SimpleIncrementalProcessor:
         # 保存记录
         if new_images and self._save_records():
             print(f"✅✅ 标记 {len(new_images)} 张图片为已处理: {pdf_folder}")
-            print(f"📝📝📝📝 新增图片: {new_images[:3]}...")  # 只显示前3个
+            print(f"📝📝 新增图片: {new_images[:3]}...")  # 只显示前3个
         else:
-            print(f"ℹℹ️ℹℹ️ 没有新图片需要标记: {pdf_folder}")
+            print(f"ℹ️ℹ️ 没有新图片需要标记: {pdf_folder}")
 
     def get_processing_stats(self, pdf_folder: str, all_images: List[str]) -> dict:
         """
@@ -164,13 +163,13 @@ class SimpleIncrementalProcessor:
         if pdf_folder in self.records:
             del self.records[pdf_folder]
             self._save_records()
-            print(f"🧹🧹🧹🧹 清空处理记录: {pdf_folder}")
+            print(f"🧹🧹 清空处理记录: {pdf_folder}")
 
     def clear_all_records(self):
         """清空所有处理记录"""
         self.records.clear()
         self._save_records()
-        print("🧹🧹🧹🧹 清空所有处理记录")
+        print("🧹🧹 清空所有处理记录")
 
     def get_all_pdf_folders(self) -> List[str]:
         """获取所有有记录的PDF文件夹"""

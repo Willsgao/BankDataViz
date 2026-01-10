@@ -2,13 +2,13 @@
 import os
 import json
 from pathlib import Path
-from backend.utils.constants import UPLOAD_FOLDER
+from backend.utils.constants import SAVE_PATH
 
 
 class FileMappingService:
     def __init__(self):
-        self.upload_folder = Path(UPLOAD_FOLDER)
-        self.mapping_file = self.upload_folder / "file_mapping.json"
+        self.mapping_folder = Path(SAVE_PATH)
+        self.mapping_file = self.mapping_folder / "file_mapping.json"
         self.mapping = self._load_mapping()
 
     def _load_mapping(self):

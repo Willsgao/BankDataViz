@@ -10,6 +10,7 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
+import json
 
 # 添加项目根目录到Python路径
 current_dir = Path(__file__).parent
@@ -44,15 +45,22 @@ class DatabaseCleaner:
         # 计算根目录路径
         self.project_root = Path(__file__).parent.parent.parent
 
+        print("self.project_root:", self.project_root)
+
         # 设置默认路径
         self.db_path = db_path or config.DATABASE_PATH
-        self.uploads_dir = uploads_dir or str(self.project_root / "backend" / "static" / "uploads")
+        self.uploads_dir = uploads_dir or str(self.project_root / "data" /  "backend" / "static")
         self.backup_dir = str(self.project_root / "data" / "backups")
+
+        # 修改：缓存路径下所有的JSON文件
+        self.mapping_files_path = Path(self.project_root) / "data" / "backend"  # 修改这一行
+        print("self.mapping_files_path:", self.mapping_files_path)
 
         print(f"🔍🔍 项目根目录: {self.project_root}")
         print(f"🗃🗃️ 数据库路径: {self.db_path}")
         print(f"📁📁 上传目录: {self.uploads_dir}")
         print(f"💾💾 备份目录: {self.backup_dir}")
+        print(f"🗂🗂🗂🗂 映射文件: {self.mapping_files_path}")  # 新增这一行
 
         # 确保备份目录存在
         Path(self.backup_dir).mkdir(parents=True, exist_ok=True)
@@ -92,6 +100,221 @@ class DatabaseCleaner:
         except Exception as e:
             print(f"❌❌❌❌ 备份失败: {e}")
             return ""
+
+    def _get_mapping_files(self):
+        """
+        获取缓存路径下所有的JSON文件（不包含子文件夹）
+
+        Returns:
+            list: JSON文件路径列表
+        """
+        if not self.mapping_files_path.exists():
+            return []
+
+        json_files = []
+        for file_path in self.mapping_files_path.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() == '.json':
+                json_files.append(file_path)
+
+        return sorted(json_files)
+
+    def clear_file_mapping_cache(self, confirm: bool = False) -> bool:
+        """
+        清空文件映射缓存（删除所有JSON文件）
+
+        Args:
+            confirm: 是否需要确认
+
+        Returns:
+            bool: 是否成功
+        """
+        json_files = self._get_mapping_files()
+
+        if not json_files:
+            print(f"ℹℹℹℹ️ 缓存路径中没有JSON文件: {self.mapping_files_path}")
+            return True
+
+        if not confirm:
+            print(f"⚠️⚠️⚠️ 警告：这将删除缓存路径中的所有JSON文件！")
+            print(f"⚠️⚠️⚠️ 路径: {self.mapping_files_path}")
+            print(f"⚠️⚠️⚠️ 将删除以下 {len(json_files)} 个文件:")
+            for file_path in json_files:
+                print(f"  - {file_path.name}")
+            response = input("请输入 'DELETE_MAPPING' 确认操作: ")
+            if response != "DELETE_MAPPING":
+                print("操作已取消")
+                return False
+
+        try:
+            deleted_count = 0
+            error_count = 0
+
+            for file_path in json_files:
+                try:
+                    # 备份文件
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_file = Path(self.backup_dir) / f"{file_path.stem}_backup_{timestamp}.json"
+                    import shutil
+                    shutil.copy2(file_path, backup_file)
+                    print(f"💾 已备份: {file_path.name} -> {backup_file.name}")
+
+                    # 删除文件
+                    file_path.unlink()
+                    deleted_count += 1
+                    print(f"🗑🗑🗑🗑️ 已删除: {file_path.name}")
+                except Exception as e:
+                    print(f"❌❌❌❌ 删除文件失败 {file_path.name}: {e}")
+                    error_count += 1
+
+            print(f"✅ 文件映射缓存清理完成！删除了 {deleted_count} 个文件，{error_count} 个失败")
+            return error_count == 0
+
+        except Exception as e:
+            print(f"❌❌❌❌❌❌❌❌ 清空文件映射缓存失败: {e}")
+            return False
+
+    def reset_file_mapping_cache(self, confirm: bool = False) -> bool:
+        """
+        重置文件映射缓存（清空所有JSON文件内容但保留文件）
+
+        Args:
+            confirm: 是否需要确认
+
+        Returns:
+            bool: 是否成功
+        """
+        json_files = self._get_mapping_files()
+
+        if not json_files:
+            print(f"ℹℹℹℹ️ 缓存路径中没有JSON文件: {self.mapping_files_path}")
+            return True
+
+        if not confirm:
+            print(f"⚠️⚠️⚠️ 警告：这将重置缓存路径中的所有JSON文件内容！")
+            print(f"⚠️⚠️⚠️ 路径: {self.mapping_files_path}")
+            print(f"⚠️⚠️⚠️ 将重置以下 {len(json_files)} 个文件:")
+            for file_path in json_files:
+                print(f"  - {file_path.name}")
+            response = input("请输入 'RESET_MAPPING' 确认操作: ")
+            if response != "RESET_MAPPING":
+                print("操作已取消")
+                return False
+
+        try:
+            reset_count = 0
+            error_count = 0
+            total_records = 0
+
+            for file_path in json_files:
+                try:
+                    # 备份文件
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_file = Path(self.backup_dir) / f"{file_path.stem}_backup_{timestamp}.json"
+                    import shutil
+                    shutil.copy2(file_path, backup_file)
+                    print(f"💾 已备份: {file_path.name} -> {backup_file.name}")
+
+                    # 读取现有内容以获取记录数
+                    if file_path.exists():
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            try:
+                                mapping_data = json.load(f)
+                                if isinstance(mapping_data, dict):
+                                    file_records = len(mapping_data)
+                                else:
+                                    file_records = 1  # 如果不是字典，至少有一条记录
+                            except:
+                                file_records = 0
+                    else:
+                        file_records = 0
+
+                    total_records += file_records
+
+                    # 重置为空内容
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json.dump({}, f, ensure_ascii=False, indent=2)
+
+                    reset_count += 1
+                    print(f"🔄 已重置: {file_path.name} (原 {file_records} 条记录)")
+
+                except Exception as e:
+                    print(f"❌❌❌❌ 重置文件失败 {file_path.name}: {e}")
+                    error_count += 1
+
+            print(
+                f"✅ 文件映射缓存重置完成！重置了 {reset_count} 个文件，清空了 {total_records} 条记录，{error_count} 个失败")
+            return error_count == 0
+
+        except Exception as e:
+            print(f"❌❌❌❌❌❌❌❌ 重置文件映射缓存失败: {e}")
+            return False
+
+    def get_file_mapping_stats(self) -> dict:
+        """
+        获取文件映射缓存统计信息
+
+        Returns:
+            dict: 映射文件统计信息
+        """
+        json_files = self._get_mapping_files()
+
+        if not json_files:
+            return {
+                "exists": False,
+                "file_path": str(self.mapping_files_path),
+                "file_count": 0,
+                "total_records": 0,
+                "total_size": 0,
+                "files": []
+            }
+
+        try:
+            files_info = []
+            total_records = 0
+            total_size = 0
+
+            for file_path in json_files:
+                file_info = {
+                    "name": file_path.name,
+                    "size": os.path.getsize(file_path),
+                    "records": 0,
+                    "error": None
+                }
+
+                total_size += file_info["size"]
+
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        mapping_data = json.load(f)
+                        if isinstance(mapping_data, dict):
+                            file_info["records"] = len(mapping_data)
+                        else:
+                            file_info["records"] = 1
+                    total_records += file_info["records"]
+                except Exception as e:
+                    file_info["error"] = str(e)
+                    file_info["records"] = 0
+
+                files_info.append(file_info)
+
+            return {
+                "exists": True,
+                "file_path": str(self.mapping_files_path),
+                "file_count": len(json_files),
+                "total_records": total_records,
+                "total_size": total_size,
+                "files": files_info
+            }
+
+        except Exception as e:
+            return {
+                "exists": True,
+                "file_path": str(self.mapping_files_path),
+                "error": f"读取失败: {e}",
+                "file_count": len(json_files),
+                "total_size": sum(os.path.getsize(f) for f in json_files)
+            }
+
 
     def get_database_stats(self) -> dict:
         """
@@ -442,7 +665,9 @@ class DatabaseCleaner:
                 print("操作已取消")
                 return False
 
+
         try:
+            print("self.uploads_dir:", self.uploads_dir)
             # 获取文件列表
             files = []
             for root, dirs, filenames in os.walk(self.uploads_dir):
@@ -451,9 +676,13 @@ class DatabaseCleaner:
                     if os.path.isfile(file_path):
                         files.append(file_path)
 
+
+            print("filesfiles:", files)
+
             if not files:
                 print("ℹℹ️ 上传目录已经是空的")
                 return True
+
 
             print(f"🔍🔍 找到 {len(files)} 个文件")
 
@@ -545,10 +774,75 @@ class DatabaseCleaner:
         finally:
             conn.close()
 
+    def clear_data_comprehensive(self, confirm: bool = False) -> bool:
+        """
+        一键完成综合清理：清空所有表 + 清空上传文件 + 重置文件映射缓存
+
+        Args:
+            confirm: 是否需要确认
+
+        Returns:
+            bool: 是否成功
+        """
+        if not confirm:
+            print("⚠️⚠️⚠️ 警告：这将执行综合清理操作！")
+            print("⚠️⚠️⚠️ 包含以下三个步骤：")
+            print("  1. 清空所有数据库表（危险操作！）")
+            print("  3. 清空上传文件")
+            print("  5. 重置文件映射缓存（清空所有JSON文件内容）")
+            print("⚠️⚠️⚠️ 此操作不可逆！")
+
+            response = input("请输入 'CLEAR_ALL' 确认执行综合清理: ")
+            if response != "CLEAR_ALL":
+                print("操作已取消")
+                return False
+
+        print("🚀🚀🚀🚀 开始执行综合清理...")
+
+        # 步骤1：创建备份
+        print("\n📋 步骤1: 创建数据库备份")
+        backup_file = self.create_backup()
+        if not backup_file:
+            print("❌ 备份失败，操作中止")
+            return False
+
+        # 步骤2：清空所有表
+        print("\n📋 步骤2: 清空所有数据库表")
+        table_result = self.clear_all_tables(confirm=True)  # 直接调用现有的方法
+
+        if not table_result:
+            return False
+
+        # 步骤3：清空上传文件 - 使用您原有的清理逻辑
+        print("\n📋 步骤3: 清空上传文件")
+        upload_result = self.clear_uploaded_files(confirm=True)  # 直接调用现有的方法
+
+        # 步骤4：重置文件映射缓存
+        print("\n📋 步骤4: 重置文件映射缓存")
+        mapping_result = self.reset_file_mapping_cache(confirm=True)  # 直接调用现有的方法
+
+        # 汇总结果
+        print("\n" + "=" * 60)
+        print("📊 综合清理完成汇总:")
+        print("=" * 60)
+        print(f"✅ 数据库备份: {backup_file}")
+        print(f"✅ 清空数据库表: {'成功' if table_result else '失败'}")
+        print(f"✅ 清空上传文件: {'成功' if upload_result else '失败'}")
+        print(f"✅ 重置文件映射缓存: {'成功' if mapping_result else '失败'}")
+
+        overall_success = table_result and upload_result and mapping_result
+        if overall_success:
+            print("🎉 综合清理完成！所有步骤均成功执行")
+        else:
+            print("⚠️ 综合清理完成，但部分步骤失败")
+
+        return overall_success
+
+
 
 def main():
     """主函数 - 交互式清理工具"""
-    print("🧹🧹 数据库清理工具 - 根目录数据库版本")
+    print("🧹🧹🧹🧹 数据库清理工具 - 根目录数据库版本")
     print("=" * 60)
 
     # 自动检测路径
@@ -556,35 +850,38 @@ def main():
 
     while True:
         print("\n" + "=" * 50)
-        print("🧹🧹 数据库清理工具")
+        print("🧹🧹🧹🧹 数据库清理工具")
         print("=" * 50)
 
-        # 显示数据库状态
-        stats = cleaner.get_database_stats()
+        # 显示文件映射缓存状态
+        mapping_stats = cleaner.get_file_mapping_stats()
+        print(f"\n🗂🗂🗂🗂🗂🗂🗂🗂 文件映射缓存:")
+        print(f"  路径: {mapping_stats['file_path']}")
 
-        if "error" in stats:
-            print(f"❌❌ {stats['error']}")
-        else:
-            print(f"📊📊 数据库: {os.path.basename(stats['database_path'])}")
-            print(f"📏📏 大小: {stats['database_size'] / 1024:.1f} KB")
-            print(f"📋📋 表数量: {len(stats['tables'])}")
-            print(f"📊📊 总记录数: {stats['total_records']}")
+        if mapping_stats["exists"]:
+            if "error" in mapping_stats:
+                print(f"  ❌❌ {mapping_stats['error']}")
+            else:
+                print(f"  📊📊 文件数量: {mapping_stats['file_count']} 个")
+                print(f"  📊📊 总记录数: {mapping_stats['total_records']} 条")
+                print(f"  📏📏 总大小: {mapping_stats['total_size']} 字节")
 
-            for table, count in stats['tables'].items():
-                print(f"  - {table}: {count} 条记录")
-
-        print("\n🛠🛠🛠️ 操作选项:")
+        # 菜单选项
+        print("\n🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠️ 操作选项:")
         print("1. 清空所有表（危险！）")
         print("2. 清空指定表")
         print("3. 清空上传文件")
-        print("4. 优化数据库")
-        print("5. 显示表结构")
-        print("6. 查看所有数据")
-        print("7. 查看指定表数据")
-        print("8. 创建备份")
-        print("9. 退出")
+        print("4. 清空文件映射缓存（删除所有JSON文件）")
+        print("5. 重置文件映射缓存（清空所有JSON文件内容）")
+        print("6. 🚀 一键综合清理（1+3+5步骤）")  # 新增选项
+        print("7. 优化数据库")
+        print("8. 显示表结构")
+        print("9. 查看所有数据")
+        print("10. 查看指定表数据")
+        print("11. 创建备份")
+        print("12. 退出")
 
-        choice = input("\n请选择操作 (1-9): ").strip()
+        choice = input("\n请选择操作 (1-12): ").strip()
 
         if choice == "1":
             cleaner.clear_all_tables()
@@ -595,29 +892,34 @@ def main():
         elif choice == "3":
             cleaner.clear_uploaded_files()
         elif choice == "4":
-            cleaner.vacuum_database()
+            cleaner.clear_file_mapping_cache()
         elif choice == "5":
-            cleaner.show_database_structure()
-        elif choice == "6":
-            cleaner.view_all_data()
+            cleaner.reset_file_mapping_cache()
+        elif choice == "6":  # 新增的一键综合清理
+            cleaner.clear_data_comprehensive()
         elif choice == "7":
+            cleaner.vacuum_database()
+        elif choice == "8":
+            cleaner.show_database_structure()
+        elif choice == "9":
+            cleaner.view_all_data()
+        elif choice == "10":
             table_name = input("请输入要查看的表名: ").strip()
             if table_name:
                 row_limit = input("请输入显示行数限制 (默认100): ").strip()
                 row_limit = int(row_limit) if row_limit.isdigit() else 100
                 cleaner.view_table_data(table_name, row_limit)
-        elif choice == "8":
+        elif choice == "11":
             cleaner.create_backup()
-        elif choice == "9":
-            print("👋👋 再见！")
+        elif choice == "12":
+            print("👋👋👋👋👋👋👋👋 再见！")
             break
         else:
-            print("❌❌ 无效选择")
+            print("❌❌❌❌❌❌❌❌ 无效选择")
 
         input("\n按回车键继续...")
 
 
-# 集成到现有代码的便捷方法
 def quick_clean():
     """快速清理方法（用于集成到其他代码）"""
     cleaner = DatabaseCleaner()
@@ -625,17 +927,21 @@ def quick_clean():
     # 显示当前状态
     stats = cleaner.get_database_stats()
     if "error" in stats:
-        print(f"❌❌ {stats['error']}")
+        print(f"❌❌❌❌❌❌❌❌ {stats['error']}")
         return
 
-    print(f"📊📊 当前数据库状态: {stats['total_records']} 条记录")
+    # 显示文件映射缓存状态
+    mapping_stats = cleaner.get_file_mapping_stats()
+    print(f"📊📊📊📊📊📊📊📊 当前数据库状态: {stats['total_records']} 条记录")
+    if mapping_stats["exists"] and not "error" in mapping_stats:
+        print(f"🗂🗂🗂🗂🗂🗂🗂🗂 文件映射缓存: {mapping_stats['file_count']} 个文件, {mapping_stats['total_records']} 条记录")
 
     # 确认清理
-    confirm = input("是否执行清理？(y/N): ").strip().lower()
+    confirm = input("是否执行一键综合清理？(y/N): ").strip().lower()
     if confirm == 'y':
-        cleaner.clear_all_tables(confirm=True)
-        cleaner.clear_uploaded_files(confirm=True)
-        print("✅ 清理完成！")
+        # 使用新的综合清理方法
+        cleaner.clear_data_comprehensive(confirm=True)
+        print("✅ 一键综合清理完成！")
 
 
 if __name__ == "__main__":

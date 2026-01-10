@@ -58,6 +58,7 @@ REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:30417/layout"
 
 
 # 静态文件路径配置
+SAVE_PATH = r'data/backend'
 UPLOAD_FOLDER = r'data/backend/static/uploads'
 PNG_OUTPUT_ROOT = r'data/backend/static/pdf2pngs'
 EXCEL_OUTPUT_ROOT = r'data/backend/static/excel_data'
