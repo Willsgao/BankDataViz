@@ -2,17 +2,14 @@
 搜索和保存服务模块 - 处理搜索和保存相关操作
 """
 
-# from backend.models.unified_db import DatabaseManager as OldDatabaseManager
-# db = OldDatabaseManager(DATABASE)
-
 from pathlib import Path
+from backend.models.safe_unified_db import SafeDatabaseManager
+from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.utils.constants import MAIN_ROOT, EXCEL_OUTPUT_ROOT, DATABASE
 from backend.service.file_mapping_service import file_mapping_service
 
-from backend.database.export import OldDatabaseManagerAdapter
-db = OldDatabaseManagerAdapter(DATABASE)
 
-from backend.models.safe_unified_db import SafeDatabaseManager
+db = OldDatabaseManager(DATABASE)
 safe_db = SafeDatabaseManager()
 
 

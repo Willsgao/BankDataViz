@@ -1,11 +1,9 @@
 # -*- coding:utf-8 -*-
 # backend/api/baidu_ocr_routes.py
+
 import os
-import json
 import uuid
 from flask import Blueprint, request, jsonify, current_app
-from werkzeug.utils import secure_filename
-
 from backend.excel_service.baidu_table_ocr_llm import TableOCRService
 from backend.excel_service.baidu_table_processor import BaiduTableProcessor
 from backend.utils.constants import MAIN_ROOT

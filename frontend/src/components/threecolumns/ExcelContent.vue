@@ -88,6 +88,7 @@
             @cell-change="handleSheetCellChange"
             @instance-ready="handleInstanceReady"
             @edit-status-changed="handleEditStatusChanged"
+            @global-flatten-complete="handleGlobalFlattenComplete"
           />
         </div>
 
@@ -104,6 +105,7 @@
             @cell-change="handleSheetCellChange"
             @instance-ready="handleInstanceReady"
             @edit-status-changed="handleEditStatusChanged"
+            @global-flatten-complete="handleGlobalFlattenComplete"
           />
         </div>
 
@@ -417,6 +419,62 @@ const checkButtonDOMState = () => {
 
     })
   }, 100)
+}
+
+// 监听整体扁平化完成事件
+const handleGlobalFlattenComplete = (eventData) => {
+  console.log('📥 ExcelContent: 接收整体扁平化数据', eventData)
+
+  // 处理返回的扁平化数据
+  handleGlobalFlattenedData(eventData.flattenedData)
+}
+
+// 处理整体扁平化数据
+const handleGlobalFlattenedData = (flattenedData) => {
+  try {
+    console.log('🔄 处理整体扁平化数据', {
+      数据行数: flattenedData.length,
+      第一行样本: flattenedData[0]
+    })
+
+    // 1. 更新扁平化数据
+    if (Array.isArray(flattenedData) && flattenedData.length > 0) {
+      // 清空现有数据
+      props.flatData.length = 0
+
+      // 添加新数据（确保响应式更新）
+      flattenedData.forEach(row => {
+        props.flatData.push(row)
+      })
+
+      console.log('✅ 扁平化数据已更新', {
+        新数据行数: props.flatData.length
+      })
+    }
+
+    // 2. 自动切换到扁平化模式（如果当前不是的话）
+    if (!props.showFlatMode) {
+      console.log('🔄 自动切换到扁平化模式')
+      // 触发父组件切换模式
+      emit('toggle-flat-mode')
+    }
+
+    // 3. 更新表格显示
+    nextTick(() => {
+      // 强制刷新表格显示
+      if (flatViewer.value) {
+        const hotInstance = flatViewer.value.getSafeHotInstance?.()
+        if (hotInstance && !hotInstance.isDestroyed) {
+          hotInstance.render()
+          console.log('✅ 表格已刷新显示')
+        }
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ 处理整体扁平化数据失败:', error)
+    ElMessage.error('处理扁平化数据失败')
+  }
 }
 
 // 在 mounted 和每次 props 变化时检查
