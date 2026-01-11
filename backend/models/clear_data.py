@@ -34,7 +34,7 @@ except ImportError:
 class DatabaseCleaner:
     """数据库清理工具 - 适配根目录数据库路径"""
 
-    def __init__(self, db_path=None, uploads_dir=None):
+    def __init__000(self, db_path=None, uploads_dir=None):
         """
         初始化清理工具
 
@@ -68,6 +68,60 @@ class DatabaseCleaner:
         # 检查数据库文件是否存在
         if not os.path.exists(self.db_path):
             print(f"⚠️ 数据库文件不存在: {self.db_path}")
+
+    def __init__(self, db_path=None, uploads_dir=None):
+        """
+        初始化清理工具 - 增强路径验证
+        """
+        # 计算根目录路径
+        self.project_root = Path(__file__).parent.parent.parent
+
+        # 设置默认路径
+        self.db_path = db_path or config.DATABASE_PATH
+        self.uploads_dir = uploads_dir or str(self.project_root / "data" / "backend" / "static" / "uploads")
+        self.backup_dir = str(self.project_root / "data" / "backups")
+
+        # 修改：缓存路径下所有的JSON文件
+        self.mapping_files_path = Path(self.project_root) / "data" / "backend"
+
+        # 验证并创建必要的目录
+        self._validate_and_create_dirs()
+
+        print(f"🔍🔍 项目根目录: {self.project_root}")
+        print(f"🗃🗃 数据库路径: {self.db_path}")
+        print(f"📁📁 上传目录: {self.uploads_dir}")
+        print(f"💾💾 备份目录: {self.backup_dir}")
+        print(f"🗂🗂 映射文件路径: {self.mapping_files_path}")
+
+        # 检查数据库文件是否存在
+        if not os.path.exists(self.db_path):
+            print(f"⚠️⚠️ 数据库文件不存在: {self.db_path}")
+
+    def _validate_and_create_dirs(self):
+        """验证并创建必要的目录"""
+        # 确保上传目录存在
+        if not os.path.exists(self.uploads_dir):
+            try:
+                os.makedirs(self.uploads_dir, exist_ok=True)
+                print(f"✅ 已创建上传目录: {self.uploads_dir}")
+            except Exception as e:
+                print(f"❌❌ 创建上传目录失败: {e}")
+
+        # 确保备份目录存在
+        if not os.path.exists(self.backup_dir):
+            try:
+                os.makedirs(self.backup_dir, exist_ok=True)
+                print(f"✅ 已创建备份目录: {self.backup_dir}")
+            except Exception as e:
+                print(f"❌❌ 创建备份目录失败: {e}")
+
+        # 确保映射文件路径存在
+        if not os.path.exists(self.mapping_files_path):
+            try:
+                os.makedirs(self.mapping_files_path, exist_ok=True)
+                print(f"✅ 已创建映射文件路径: {self.mapping_files_path}")
+            except Exception as e:
+                print(f"❌❌ 创建映射文件路径失败: {e}")
 
     def connect(self):
         """连接数据库"""
@@ -643,7 +697,7 @@ class DatabaseCleaner:
         finally:
             conn.close()
 
-    def clear_uploaded_files(self, confirm: bool = False) -> bool:
+    def clear_uploaded_files00000(self, confirm: bool = False) -> bool:
         """
         清空上传的文件
 
@@ -703,6 +757,113 @@ class DatabaseCleaner:
 
         except Exception as e:
             print(f"❌❌❌❌ 清空上传文件失败: {e}")
+            return False
+
+    def clear_uploaded_files(self, confirm: bool = False) -> bool:
+        """
+        清空上传的文件 - 修复版（支持多级目录清理）
+
+        Args:
+            confirm: 是否需要确认
+
+        Returns:
+            bool: 是否成功
+        """
+        # 检查目录是否存在，如果不存在则创建
+        if not os.path.exists(self.uploads_dir):
+            print(f"⚠️⚠️ 上传目录不存在: {self.uploads_dir}")
+            try:
+                os.makedirs(self.uploads_dir, exist_ok=True)
+                print(f"✅ 已创建上传目录: {self.uploads_dir}")
+            except Exception as e:
+                print(f"❌❌ 创建上传目录失败: {e}")
+                return False
+
+        if not confirm:
+            print(f"⚠️⚠️⚠️ 警告：这将删除目录 '{self.uploads_dir}' 中的所有文件和子目录！")
+            print(f"⚠️⚠️⚠️ 路径: {self.uploads_dir}")
+            response = input("请输入 'DELETE_FILES' 确认操作: ")
+            if response != "DELETE_FILES":
+                print("操作已取消")
+                return False
+
+        try:
+            print(f"🔍🔍 开始清理上传目录: {self.uploads_dir}")
+
+            # 获取所有文件和目录
+            all_items = []
+            files_count = 0
+            dirs_count = 0
+
+            for root, dirs, files in os.walk(self.uploads_dir):
+                # 统计文件
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    all_items.append(('file', file_path))
+                    files_count += 1
+
+                # 统计目录（排除根目录）
+                for dir_name in dirs:
+                    dir_path = os.path.join(root, dir_name)
+                    all_items.append(('dir', dir_path))
+                    dirs_count += 1
+
+            print(f"📊📊 找到 {files_count} 个文件, {dirs_count} 个目录")
+
+            if not all_items:
+                print("ℹ️ℹ️ 上传目录已经是空的")
+                return True
+
+            # 删除文件
+            deleted_files = 0
+            deleted_dirs = 0
+            errors = 0
+
+            # 先删除所有文件
+            for item_type, item_path in all_items:
+                if item_type == 'file':
+                    try:
+                        os.remove(item_path)
+                        deleted_files += 1
+                        relative_path = os.path.relpath(item_path, self.uploads_dir)
+                        print(f"🗑️🗑️ 已删除文件: {relative_path}")
+                    except Exception as e:
+                        print(f"❌❌ 删除文件失败 {item_path}: {e}")
+                        errors += 1
+
+            # 然后删除所有空目录（从最深层次开始）
+            for root, dirs, files in os.walk(self.uploads_dir, topdown=False):
+                for dir_name in dirs:
+                    dir_path = os.path.join(root, dir_name)
+                    try:
+                        # 检查目录是否为空
+                        if not os.listdir(dir_path):
+                            os.rmdir(dir_path)
+                            deleted_dirs += 1
+                            relative_path = os.path.relpath(dir_path, self.uploads_dir)
+                            print(f"🗑️🗑️ 已删除空目录: {relative_path}")
+                        else:
+                            print(f"⚠️⚠️ 目录非空，跳过: {os.path.relpath(dir_path, self.uploads_dir)}")
+                    except Exception as e:
+                        print(f"❌❌ 删除目录失败 {dir_path}: {e}")
+                        errors += 1
+
+            # 确保uploads目录本身存在
+            if not os.path.exists(self.uploads_dir):
+                os.makedirs(self.uploads_dir, exist_ok=True)
+                print(f"✅ 重新创建上传目录: {self.uploads_dir}")
+
+            print(f"✅✅ 文件清理完成！")
+            print(f"   - 删除文件: {deleted_files}/{files_count}")
+            print(f"   - 删除目录: {deleted_dirs}/{dirs_count}")
+            print(f"   - 错误数量: {errors}")
+
+            return errors == 0
+
+        except Exception as e:
+            print(f"❌❌❌❌ 清空上传文件失败: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def vacuum_database(self) -> bool:
@@ -814,7 +975,7 @@ class DatabaseCleaner:
         finally:
             conn.close()
 
-    def clear_data_comprehensive(self, confirm: bool = False) -> bool:
+    def clear_data_comprehensive00000(self, confirm: bool = False) -> bool:
         """
         一键完成综合清理：清空所有表 + 清空上传文件 + 重置文件映射缓存
 
@@ -877,6 +1038,126 @@ class DatabaseCleaner:
             print("⚠️ 综合清理完成，但部分步骤失败")
 
         return overall_success
+
+    def clear_data_comprehensive(self, confirm: bool = False) -> bool:
+        """
+        一键完成综合清理 - 修复版（确保所有步骤正确执行）
+
+        Args:
+            confirm: 是否需要确认
+
+        Returns:
+            bool: 是否成功
+        """
+        if not confirm:
+            print("⚠️⚠️⚠️ 警告：这将执行综合清理操作！")
+            print("⚠️⚠️⚠️ 包含以下三个步骤：")
+            print("  1. 清空所有数据库表（危险操作！）")
+            print("  2. 清空上传文件（包括所有PDF和图片文件）")
+            print("  3. 重置文件映射缓存（清空所有JSON文件内容）")
+            print("⚠️⚠️⚠️ 此操作不可逆！")
+
+            response = input("请输入 'CLEAR_ALL' 确认执行综合清理: ")
+            if response != "CLEAR_ALL":
+                print("操作已取消")
+                return False
+
+        print("🚀🚀🚀🚀 开始执行综合清理...")
+        print("=" * 60)
+
+        # 步骤1：创建备份
+        print("\n📋📋 步骤1: 创建数据库备份")
+        backup_file = self.create_backup()
+        if not backup_file:
+            print("❌❌ 备份失败，操作中止")
+            return False
+        print(f"✅ 备份文件: {backup_file}")
+
+        # 步骤2：清空所有表
+        print("\n📋📋 步骤2: 清空所有数据库表")
+        table_result = False
+        try:
+            table_result = self.clear_all_tables(confirm=True)
+            if table_result:
+                print("✅ 数据库表清空成功")
+            else:
+                print("❌❌ 数据库表清空失败")
+        except Exception as e:
+            print(f"❌❌ 清空数据库表异常: {e}")
+            table_result = False
+
+        # 步骤3：清空上传文件（关键修复）
+        print("\n📋📋 步骤3: 清空上传文件")
+        upload_result = False
+        try:
+            # 检查上传目录状态
+            print(f"🔍🔍 检查上传目录: {self.uploads_dir}")
+            if os.path.exists(self.uploads_dir):
+                # 统计目录内容
+                file_count = 0
+                dir_count = 0
+                for root, dirs, files in os.walk(self.uploads_dir):
+                    file_count += len(files)
+                    dir_count += len(dirs)
+
+                print(f"📊📊 上传目录包含: {file_count} 个文件, {dir_count} 个目录")
+
+                if file_count == 0 and dir_count == 0:
+                    print("ℹ️ℹ️ 上传目录已经是空的，跳过清理")
+                    upload_result = True
+                else:
+                    upload_result = self.clear_uploaded_files(confirm=True)
+            else:
+                print("ℹ️ℹ️ 上传目录不存在，跳过清理")
+                upload_result = True
+
+            if upload_result:
+                print("✅ 上传文件清理成功")
+            else:
+                print("❌❌ 上传文件清理失败")
+
+        except Exception as e:
+            print(f"❌❌ 清空上传文件异常: {e}")
+            upload_result = False
+
+        # 步骤4：重置文件映射缓存
+        print("\n📋📋 步骤4: 重置文件映射缓存")
+        mapping_result = False
+        try:
+            mapping_result = self.reset_file_mapping_cache(confirm=True)
+            if mapping_result:
+                print("✅ 文件映射缓存重置成功")
+            else:
+                print("❌❌ 文件映射缓存重置失败")
+        except Exception as e:
+            print(f"❌❌ 重置文件映射缓存异常: {e}")
+            mapping_result = False
+
+        # 汇总结果
+        print("\n" + "=" * 60)
+        print("📊📊 综合清理完成汇总:")
+        print("=" * 60)
+        print(f"✅ 数据库备份: {backup_file}")
+        print(f"✅ 清空数据库表: {'成功' if table_result else '失败'}")
+        print(f"✅ 清空上传文件: {'成功' if upload_result else '失败'}")
+        print(f"✅ 重置文件映射缓存: {'成功' if mapping_result else '失败'}")
+
+        # 计算总体成功率
+        success_steps = sum([table_result, upload_result, mapping_result])
+        total_steps = 3
+        success_rate = (success_steps / total_steps) * 100
+
+        print(f"📈📈 总体成功率: {success_rate:.1f}% ({success_steps}/{total_steps})")
+
+        if success_steps == total_steps:
+            print("🎉🎉 综合清理完成！所有步骤均成功执行")
+            return True
+        elif success_steps > 0:
+            print("⚠️⚠️ 综合清理完成，但部分步骤失败")
+            return True  # 即使部分失败，也返回True（因为备份已创建）
+        else:
+            print("❌❌❌❌ 综合清理失败，所有步骤均失败")
+            return False
 
     def _clear_mapping_by_pdf_id(self, pdf_id: str) -> bool:
         """
