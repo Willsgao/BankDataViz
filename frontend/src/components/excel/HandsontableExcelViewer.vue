@@ -24,6 +24,9 @@
         >
           <el-icon><Edit /></el-icon>{{ isEditMode ? '退出' : '编辑' }}
         </el-button>
+
+
+
       </div>
 
       <div class="toolbar-section center-section" v-if="tableData.length > 0">
@@ -49,6 +52,20 @@
       </div>
 
       <div class="toolbar-section right-section">
+        <!-- 将整体扁平化按钮移动到这里 -->
+        <el-button
+          type="primary"
+          size="small"
+          :disabled="!globalFlattenEnabled"
+          @click="handleGlobalFlatten"
+          :loading="globalFlattenLoading"
+          class="global-flatten-btn"
+        >
+          <el-icon><DataBoard /></el-icon>
+          整体扁平化
+        </el-button>
+
+
         <el-tooltip
           v-if="isEditMode"
           :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
@@ -154,8 +171,10 @@ import { HotTable } from '@handsontable/vue3'
 import 'handsontable/dist/handsontable.full.min.css'  // 使用最新样式
 import {
   Download, Edit, View, Grid, Menu, DataAnalysis,
-  Close, Position
+  Close, Position, DataBoard
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+
 
 // 导入组合式函数
 import useExcelTable from './useExcelTable.js'
@@ -172,6 +191,82 @@ try {
 } catch (error) {
   console.warn('⚠️ 注册中文语言包失败，使用英文:', error.message)
 }
+
+// 在现有的响应式变量后添加新变量
+const globalFlattenLoading = ref(false)
+
+// 添加计算属性：判断是否启用整体扁平化按钮
+const globalFlattenEnabled = computed(() => {
+  return props.pdfId && props.excelFileName && props.sheetName && tableData.value.length > 0
+})
+
+
+// 前端调用时，需要将pdf_id放在URL路径中
+const handleGlobalFlatten = async () => {
+  if (!props.pdfId) {
+    ElMessage.warning('请先选择PDF文件')
+    return
+  }
+
+  globalFlattenLoading.value = true
+
+  try {
+    console.log('🔄 开始整体扁平化处理', {
+      pdfId: props.pdfId,
+      excelFileName: props.excelFileName,
+      sheetName: props.sheetName
+    })
+
+    // 构建请求数据（注意：pdf_id现在放在URL路径中）
+    const requestData = {
+      excel_file: props.excelFileName,
+      sheet_name: props.sheetName,
+      request_timestamp: Date.now()
+    }
+
+    // 🔥 修正：pdf_id放在URL路径中
+    const response = await fetch(`/api/excel/global-flatten/${props.pdfId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const result = await response.json()
+    console.log('📥 整体扁平化API返回:', result)
+
+    if (result.success && result.data) {
+      // 发射事件给父组件处理数据
+      emit('global-flatten-complete', {
+        flattenedData: result.data,
+        pdfId: result.pdf_id,  // 使用返回的pdf_id确认
+        excelFile: props.excelFileName,
+        sheetName: props.sheetName,
+        fileInfo: result.file_info,
+        processingInfo: {
+          originalRows: result.original_rows,
+          flattenedRows: result.flattened_rows
+        }
+      })
+
+      ElMessage.success(`整体扁平化完成，生成 ${result.data.length} 行数据`)
+    } else {
+      throw new Error(result.error || '整体扁平化处理失败')
+    }
+
+  } catch (error) {
+    console.error('❌ 整体扁平化失败:', error)
+    ElMessage.error(`整体扁平化失败: ${error.message}`)
+  } finally {
+    globalFlattenLoading.value = false
+  }
+}
+
 
 // ============ 核心：Handsontable 实例控制器 ============
 class HotInstanceController {
@@ -284,7 +379,8 @@ const emit = defineEmits([
   'data-changed',
   'edit-status-changed',
   'cell-change',
-  'instance-ready'
+  'instance-ready',
+  'global-flatten-complete'
 ])
 
 const props = defineProps({
@@ -1662,6 +1758,199 @@ onUnmounted(() => {
 :deep(.handsontable td.history-modified-cell) {
   background-color: #ffe7e6 !important;
   border: 1px solid #ffb7b3 !important;
+}
+
+/* 修改操作按钮组的样式 - 靠右对齐 */
+.operation-buttons-group.right-aligned {
+  margin-left: auto; /* 关键：靠右对齐 */
+  border-left: 3px solid #1890ff; /* 蓝色边框 */
+  padding: 6px 12px;
+}
+
+.operation-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap; /* 防止换行 */
+}
+
+/* 整体扁平化按钮特殊样式 */
+.global-flatten-btn {
+  background-color: #1890ff;
+  border-color: #1890ff;
+  color: white;
+  font-weight: 600;
+}
+
+.global-flatten-btn:hover {
+  background-color: #40a9ff;
+  border-color: #40a9ff;
+}
+
+.global-flatten-btn:disabled {
+  background-color: #a0d0ff;
+  border-color: #a0d0ff;
+  color: #e6f7ff;
+}
+
+/* 确保操作按钮组在右侧 */
+.action-toolbar.compact-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 左侧统计信息自适应 */
+.selection-stats-group {
+  flex: 1;
+  min-width: 0; /* 防止溢出 */
+}
+
+/* 中间单元格信息自适应 */
+.current-cell-inline {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* 右侧操作按钮组固定宽度 */
+.operation-buttons-group {
+  flex-shrink: 0; /* 防止收缩 */
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .operation-buttons {
+    gap: 6px;
+  }
+
+  .operation-buttons .el-button {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .action-toolbar.compact-line {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .operation-buttons-group.right-aligned {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .operation-buttons {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 768px) {
+  .action-toolbar.compact-line {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .operation-buttons-group.right-aligned {
+    width: 100%;
+    border-left: none;
+    border-top: 3px solid #1890ff;
+    padding: 8px 0;
+  }
+
+  .operation-buttons {
+    justify-content: space-around;
+    flex-wrap: wrap;
+  }
+
+  .operation-buttons .el-button {
+    flex: 1;
+    min-width: 120px;
+    margin: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .operation-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .operation-buttons .el-button {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+/* 确保按钮排列合理 */
+.main-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.left-section {
+  justify-content: flex-start;
+  flex: 1;
+}
+
+.center-section {
+  justify-content: center;
+  flex: 1;
+}
+
+.right-section {
+  justify-content: flex-end;
+  flex: 1;
+}
+
+/* 整体扁平化按钮样式 */
+.global-flatten-btn {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border-color: #1890ff;
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(24, 144, 255, 0.3);
+}
+
+.global-flatten-btn:hover {
+  background: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+  border-color: #40a9ff;
+}
+
+.global-flatten-btn:disabled {
+  background: #d9d9d9;
+  border-color: #d9d9d9;
+  color: #8c8c8c;
+  box-shadow: none;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .main-toolbar {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .toolbar-section {
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 </style>

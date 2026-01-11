@@ -1447,15 +1447,6 @@ const handleSingleLLMProcess = async (params) => {
       finalExcelUrl = finalExcelUrl.replace('/static/excel_data/', '/api/excel-data/')
     }
 
-    console.log('🔧 转换后的Excel URL:', finalExcelUrl)
-
-    console.log('📤 发送excel-data-received事件，数据:', {
-      excelUrl: finalExcelUrl,
-      tableName: `表格${index + 1}`,
-      fromCache: true,
-      tableType: tableType.value
-    })
-
     // 直接发射到App.vue
     emit('excel-data-received', {
       excelUrl: finalExcelUrl,

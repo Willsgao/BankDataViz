@@ -88,11 +88,6 @@ def create_app() -> Flask:
     _non_financial_table_service = None
 
     # ----------- 注册蓝图（完全按照app.py的顺序和方式） -----------
-    # 注释掉的版本（保持注释状态）
-    # app.register_blueprint(llm_bp, url_prefix='/api')
-    # app.register_blueprint(upload_bp, url_prefix='/api')
-    # app.register_blueprint(file_bp, url_prefix='/api')
-    # app.register_blueprint(convert_bp, url_prefix='/api')
 
     # 实际使用的版本（无前缀）
     app.register_blueprint(llm_bp)

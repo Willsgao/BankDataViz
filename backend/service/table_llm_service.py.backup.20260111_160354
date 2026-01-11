@@ -1,5 +1,4 @@
 # backend/services/table_llm_service.py
-
 import logging
 from typing import Tuple
 import pandas as pd
@@ -16,12 +15,10 @@ from backend.schemas.table_schemas import AssessmentResult, ProcessingResult, Ex
 from backend.service.excel_storage_service import ExcelStorageService
 from backend.utils.data_processor import DataProcessor
 from backend.utils.image_utils import ImageUtils
-
-# from backend.models.unified_db import DatabaseManager as OldDatabaseManager
+# from backend.models.database_manager import OldDatabaseManager
+from backend.models.unified_db import DatabaseManager as OldDatabaseManager
 from backend.configs.llm_config import ARK_API_KEY, ARK_BASE_URL, DEFAULT_MODEL_ID
 from backend.utils.prompts import ASSESSMENT_PROMPT, STANDARD_PROMPT, COMPLEX_PROMPT
-
-from backend.database.export import OldDatabaseManagerAdapter
 
 # 提示词定义（这里省略具体内容）
 
@@ -65,8 +62,7 @@ class TableLLMService:
         # 数据库日志记录
         self.enable_db_logging = enable_db_logging
         if enable_db_logging:
-            # self.db_manager = OldDatabaseManager()
-            self.db_manager = OldDatabaseManagerAdapter()
+            self.db_manager = OldDatabaseManager()
 
     async def assess_complexity(self, image_data: bytes) -> AssessmentResult:  # 确保方法名正确
         """评估表格复杂度"""

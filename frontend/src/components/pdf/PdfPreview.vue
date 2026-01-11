@@ -32,7 +32,7 @@
       <div class="pdf-preview-section" v-if="currentPDF">
         <PdfViewer
           :file="currentPDF"
-          :key="currentPDF.id"
+          :key="currentPDF?.disk_name"
           @close="$emit('close-pdf')"
         />
 
