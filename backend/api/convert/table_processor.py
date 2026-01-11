@@ -2202,7 +2202,7 @@ def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_
         table_service = TableProcessingService()
 
         # 限制处理图片数量（测试用）
-        image_paths = image_paths[:4]
+        image_paths = image_paths[:15]
 
         total_images = len(image_paths)
         total_original_images = total_images + (len(skipped_images) if skipped_images else 0)
