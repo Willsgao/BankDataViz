@@ -806,7 +806,7 @@ class TableScreeningPipeline:
                     print(f"   LLM结果: 无表格 (置信度: {1 - llm_confidence:.2f})")
 
             except Exception as e:
-                print(f"   ❌ LLM调用失败: {e}")
+                print(f" 第二个  ❌ LLM调用失败: {e}")
                 # LLM失败时保守处理：认为有表格（确保不漏）
                 screening_result = ScreeningResult.HAS_TABLE
                 confidence = 0.6

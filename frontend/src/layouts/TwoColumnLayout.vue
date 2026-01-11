@@ -275,7 +275,7 @@
 
 <script setup>
 // 导入组件
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import FileUpload from '@/components/file/FileUpload.vue'
 import PdfPreview from '@/components/pdf/PdfPreview.vue'
 import CurrentPdfStatus from '@/components/pdf/CurrentPdfStatus.vue'
@@ -289,7 +289,7 @@ const toggleFileList = () => {
 }
 
 
-const handleDeleteFile = (file) => {
+const handleDeleteFile0 = (file) => {
   console.log('🔄 TwoColumnLayout 收到删除事件:', file)
 
   // 直接调用从父组件传递的函数
@@ -300,6 +300,13 @@ const handleDeleteFile = (file) => {
   }
 }
 
+
+// 第 190 行左右，修改 handleDeleteFile 函数
+const handleDeleteFile = (file) => {
+  console.log('🗑️ TwoColumnLayout 处理删除:', file)
+  // 修改：使用 emit 而不是 props.onDeleteFile
+  emit('delete-file', file)
+}
 
 // 定义props
 const props = defineProps({
@@ -361,7 +368,7 @@ const props = defineProps({
 // 定义emit事件
 defineEmits([
   'load-files',
-  'deleteFile',
+  'delete-file',
   'cutTable',
   'convertAndPreview',
   'handleBatchCrop',
@@ -380,7 +387,7 @@ defineEmits([
   'handleScreenImagesCompleted',
   'handleOpenClassification',
   'handleUpdateScreeningStatus',
-  'switchPdf',
+  'switch-pdf',
   'clearCache',
   'parseTables',
   'tableTypeChange'
@@ -496,6 +503,20 @@ const pendingCount = computed(() => {
 const handleCloseCurrentPdf = () => {
   console.log('关闭当前PDF预览')
 }
+
+
+// 添加watch监听
+watch(() => props.currentPdf, (newPdf, oldPdf) => {
+  if (newPdf && newPdf.disk_name !== oldPdf?.disk_name) {
+    console.log('📄📄 TwoColumnLayout: PDF发生变化', {
+      from: oldPdf?.filename,
+      to: newPdf.filename
+    })
+  }
+}, { immediate: true })
+
+
+
 </script>
 
 <style scoped>

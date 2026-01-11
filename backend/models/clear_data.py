@@ -315,7 +315,6 @@ class DatabaseCleaner:
                 "total_size": sum(os.path.getsize(f) for f in json_files)
             }
 
-
     def get_database_stats(self) -> dict:
         """
         获取数据库统计信息
@@ -774,6 +773,47 @@ class DatabaseCleaner:
         finally:
             conn.close()
 
+    def list_pdf_ids(self, limit=50, offset=0, search_filter=None):
+        """查询PDF ID列表"""
+        print(f"📄 查询PDF ID列表 (限制: {limit}, 偏移: {offset})...")
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        try:
+            # 构建查询条件
+            query = "SELECT pdf_id, file_name, created_at, file_size FROM pdf_files WHERE 1=1"
+            params = []
+
+            if search_filter:
+                query += " AND (pdf_id LIKE ? OR file_name LIKE ?)"
+                params.extend([f"%{search_filter}%", f"%{search_filter}%"])
+
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            cursor.execute(query, params)
+            pdf_files = cursor.fetchall()
+
+            # 获取总数
+            count_query = "SELECT COUNT(*) FROM pdf_files"
+            if search_filter:
+                count_query += " WHERE pdf_id LIKE ? OR file_name LIKE ?"
+                count_params = [f"%{search_filter}%", f"%{search_filter}%"]
+                cursor.execute(count_query, count_params)
+            else:
+                cursor.execute(count_query)
+
+            total_count = cursor.fetchone()[0]
+
+            return pdf_files, total_count
+
+        except Exception as e:
+            print(f"❌ 查询PDF ID列表失败: {e}")
+            return [], 0
+        finally:
+            conn.close()
+
     def clear_data_comprehensive(self, confirm: bool = False) -> bool:
         """
         一键完成综合清理：清空所有表 + 清空上传文件 + 重置文件映射缓存
@@ -838,11 +878,633 @@ class DatabaseCleaner:
 
         return overall_success
 
+    def _clear_mapping_by_pdf_id(self, pdf_id: str) -> bool:
+        """
+        清理JSON文件中与pdf_id相关的映射内容（参考reset_file_mapping_cache但只清理特定内容）
+
+        Args:
+            pdf_id: PDF标识符
+
+        Returns:
+            bool: 是否成功
+        """
+        json_files = self._get_mapping_files()
+
+        if not json_files:
+            print(f"ℹ️ℹ️ℹ️ℹ️ 缓存路径中没有JSON文件: {self.mapping_files_path}")
+            return True
+
+        try:
+            cleared_count = 0
+            error_count = 0
+            total_cleared_records = 0
+
+            for file_path in json_files:
+                try:
+                    # 备份文件
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_file = Path(self.backup_dir) / f"{file_path.stem}_backup_{timestamp}.json"
+                    import shutil
+                    shutil.copy2(file_path, backup_file)
+
+                    # 读取现有内容
+                    if file_path.exists():
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            try:
+                                mapping_data = json.load(f)
+                                if isinstance(mapping_data, dict):
+                                    # 删除与pdf_id相关的键
+                                    keys_to_remove = []
+                                    for key in mapping_data.keys():
+                                        if pdf_id in key:  # 键中包含pdf_id
+                                            keys_to_remove.append(key)
+
+                                    for key in keys_to_remove:
+                                        del mapping_data[key]
+
+                                    cleared_records = len(keys_to_remove)
+                                    total_cleared_records += cleared_records
+
+                                    # 写回文件
+                                    with open(file_path, 'w', encoding='utf-8') as f_out:
+                                        json.dump(mapping_data, f_out, ensure_ascii=False, indent=2)
+
+                                    cleared_count += 1
+                                    print(
+                                        f"✅ 已清理文件 {file_path.name}: 删除了 {cleared_records} 条与pdf_id '{pdf_id}' 相关的记录")
+                                else:
+                                    print(f"ℹ️ℹ️ 文件 {file_path.name} 格式不是字典，跳过")
+                            except json.JSONDecodeError:
+                                print(f"❌❌ 文件 {file_path.name} JSON格式错误，跳过")
+                    else:
+                        print(f"ℹ️ℹ️ 文件不存在: {file_path.name}")
+
+                except Exception as e:
+                    print(f"❌❌ 清理文件失败 {file_path.name}: {e}")
+                    error_count += 1
+
+            print(
+                f"✅ 映射缓存清理完成！清理了 {cleared_count} 个文件，删除了 {total_cleared_records} 条记录，{error_count} 个失败")
+            return error_count == 0
+
+        except Exception as e:
+            print(f"❌❌❌❌ 清理映射缓存失败: {e}")
+            return False
+
+    def _clear_uploaded_files_by_pdf_id(self, pdf_id: str) -> bool:
+        """
+        清理static目录下以pdf_id为名的文件夹和对应的PDF文件
+
+        Args:
+            pdf_id: PDF标识符
+
+        Returns:
+            bool: 是否成功
+        """
+        if not os.path.exists(self.uploads_dir):
+            print(f"❌❌❌❌❌❌❌❌ 上传目录不存在: {self.uploads_dir}")
+            return False
+
+        try:
+            deleted_count = 0
+            error_count = 0
+
+            # 1. 删除以pdf_id命名的文件夹
+            target_dir = os.path.join(self.uploads_dir, pdf_id)
+            if os.path.exists(target_dir):
+                try:
+                    import shutil
+                    shutil.rmtree(target_dir)
+                    deleted_count += 1
+                    print(f"✅ 已删除目录: {target_dir}")
+                except Exception as e:
+                    print(f"❌❌❌❌ 删除目录失败 {target_dir}: {e}")
+                    error_count += 1
+            else:
+                print(f"ℹ️ℹ️ℹ️ℹ️ 目录不存在，无需删除: {target_dir}")
+
+            # 2. 删除对应的PDF文件（在uploads_dir根目录下）
+            pdf_patterns = [
+                f"{pdf_id}.pdf",
+                f"{pdf_id}.PDF",
+                f"{pdf_id}.*"  # 匹配任何扩展名
+            ]
+
+            for pattern in pdf_patterns:
+                pdf_files = list(Path(self.uploads_dir).glob(pattern))
+                for pdf_file in pdf_files:
+                    if pdf_file.is_file():
+                        try:
+                            pdf_file.unlink()
+                            deleted_count += 1
+                            print(f"✅ 已删除PDF文件: {pdf_file.name}")
+                        except Exception as e:
+                            print(f"❌❌❌❌ 删除PDF文件失败 {pdf_file}: {e}")
+                            error_count += 1
+
+            # 3. 递归搜索并删除所有包含pdf_id的文件
+            print(f"🔍🔍 搜索包含 '{pdf_id}' 的文件...")
+            for root, dirs, files in os.walk(self.uploads_dir):
+                for file in files:
+                    if pdf_id in file:
+                        file_path = os.path.join(root, file)
+                        try:
+                            os.remove(file_path)
+                            deleted_count += 1
+                            print(f"✅ 已删除相关文件: {file}")
+                        except Exception as e:
+                            print(f"❌❌❌❌ 删除相关文件失败 {file}: {e}")
+                            error_count += 1
+
+            # 4. 检查数据库中的文件路径并删除
+            conn = self.connect()
+            cursor = conn.cursor()
+            try:
+                # 获取文件在数据库中的路径信息
+                cursor.execute("SELECT filename, raw_filename FROM files WHERE filename = ?", (pdf_id,))
+                file_record = cursor.fetchone()
+
+                if file_record:
+                    filename, raw_filename = file_record
+                    # 如果raw_filename存在，尝试删除原始文件
+                    if raw_filename:
+                        raw_file_path = os.path.join(self.uploads_dir, raw_filename)
+                        if os.path.exists(raw_file_path):
+                            try:
+                                os.remove(raw_file_path)
+                                deleted_count += 1
+                                print(f"✅ 已删除原始文件: {raw_filename}")
+                            except Exception as e:
+                                print(f"❌❌❌❌ 删除原始文件失败 {raw_filename}: {e}")
+                                error_count += 1
+            except Exception as e:
+                print(f"❌❌❌❌ 查询数据库文件路径失败: {e}")
+            finally:
+                conn.close()
+
+            print(f"✅ 文件清理完成！总共删除了 {deleted_count} 个文件/目录，{error_count} 个失败")
+            return error_count == 0
+
+        except Exception as e:
+            print(f"❌❌❌❌❌❌❌❌ 清理上传文件失败: {e}")
+            return False
+
+    def get_pdf_id_list(self, limit: int = 100, offset: int = 0, search_filter: str = None) -> tuple:
+        """
+        查询PDF ID列表（修正版，使用files表）
+
+        Args:
+            limit: 返回记录数限制
+            offset: 偏移量
+            search_filter: 搜索过滤条件
+
+        Returns:
+            tuple: (PDF列表, 总记录数)
+        """
+        print(f"📄📄 查询PDF ID列表 (限制: {limit}, 偏移: {offset})...")
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        try:
+            # 构建查询条件 - 使用files表
+            query = "SELECT id, filename, created_at, file_size, file_type FROM files WHERE 1=1"
+            params = []
+
+            if search_filter:
+                query += " AND (filename LIKE ? OR file_type LIKE ?)"
+                params.extend([f"%{search_filter}%", f"%{search_filter}%"])
+
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
+            cursor.execute(query, params)
+            pdf_files = cursor.fetchall()
+
+            # 获取总数
+            count_query = "SELECT COUNT(*) FROM files"
+            if search_filter:
+                count_query += " WHERE filename LIKE ? OR file_type LIKE ?"
+                count_params = [f"%{search_filter}%", f"%{search_filter}%"]
+                cursor.execute(count_query, count_params)
+            else:
+                cursor.execute(count_query)
+
+            total_count = cursor.fetchone()[0]
+
+            return pdf_files, total_count
+
+        except Exception as e:
+            print(f"❌❌ 查询PDF ID列表失败: {e}")
+            return [], 0
+        finally:
+            conn.close()
+
+    def get_pdf_details(self, file_id: str) -> tuple:
+        """
+        获取特定PDF的详细信息（修正版，使用files表）
+
+        Args:
+            file_id: 文件ID或文件名
+
+        Returns:
+            tuple: (PDF基本信息, 相关文件信息)
+        """
+        print(f"🔍🔍 查询PDF详情: {file_id}")
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        try:
+            # 获取PDF基本信息 - 使用files表
+            cursor.execute("""
+                SELECT id, filename, file_type, raw_filename, created_at, 
+                       file_size, page_count, processed, file_hash, bank_name
+                FROM files WHERE filename = ? OR id = ?
+            """, (file_id, file_id))
+            file_info = cursor.fetchone()
+
+            if not file_info:
+                print(f"❌❌ 未找到文件: {file_id}")
+                return None, []
+
+            # 获取相关文件映射信息
+            cursor.execute("""
+                SELECT file_id, display_name, file_type, created_at 
+                FROM file_mappings WHERE file_id = ?
+            """, (file_info[0],))
+            mappings = cursor.fetchall()
+
+            return file_info, mappings
+
+        except Exception as e:
+            print(f"❌❌ 查询PDF详情失败: {e}")
+            return None, []
+        finally:
+            conn.close()
+
+    def _clear_database_by_pdf_id(self, pdf_id: str) -> bool:
+        """
+        清理数据库中与指定pdf_id相关的记录（修正版，适应实际表结构）
+
+        Args:
+            pdf_id: PDF标识符
+
+        Returns:
+            bool: 是否成功
+        """
+        if not os.path.exists(self.db_path):
+            print("❌❌❌❌❌❌❌❌ 数据库文件不存在")
+            return False
+
+        conn = self.connect()
+        try:
+            cursor = conn.cursor()
+
+            # 首先检查pdf_id是否存在
+            cursor.execute("SELECT id FROM files WHERE filename = ?", (pdf_id,))
+            file_record = cursor.fetchone()
+
+            if not file_record:
+                print(f"ℹℹ️ℹℹ️ℹℹ️ℹℹ️ 数据库中不存在pdf_id为 '{pdf_id}' 的记录")
+                return True
+
+            file_id = file_record[0]
+            print(f"🔍🔍🔍🔍 找到pdf_id '{pdf_id}'，对应文件ID: {file_id}")
+
+            total_deleted = 0
+            deleted_per_table = {}
+
+            # 根据您的实际表结构进行清理
+            # 1. 先清理关联表的数据
+            tables_to_clear = [
+                "texts",  # 如果有文本内容表
+                "file_mappings",  # 文件映射表
+                "table_processing_records"  # 处理记录表
+            ]
+
+            for table in tables_to_clear:
+                try:
+                    # 检查表是否存在
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,))
+                    if not cursor.fetchone():
+                        print(f"ℹℹ️ℹℹ️ 表 {table} 不存在，跳过")
+                        continue
+
+                    # 尝试不同的关联字段进行删除
+                    delete_queries = [
+                        f"DELETE FROM {table} WHERE file_id = ?",
+                        f"DELETE FROM {table} WHERE filename = ?",
+                        f"DELETE FROM {table} WHERE pdf_id = ?"
+                    ]
+
+                    deleted_count = 0
+                    for query in delete_queries:
+                        try:
+                            cursor.execute(query, (file_id,))
+                            deleted_count += cursor.rowcount
+                        except:
+                            try:
+                                cursor.execute(query, (pdf_id,))
+                                deleted_count += cursor.rowcount
+                            except:
+                                continue  # 如果查询失败，继续尝试下一个
+
+                    if deleted_count > 0:
+                        deleted_per_table[table] = deleted_count
+                        total_deleted += deleted_count
+                        print(f"✅ 清理表 {table}: 删除了 {deleted_count} 条记录")
+
+                except Exception as e:
+                    print(f"❌❌❌❌ 清理表 {table} 失败: {e}")
+                    continue
+
+            # 2. 最后删除files表中的记录
+            try:
+                cursor.execute("DELETE FROM files WHERE filename = ?", (pdf_id,))
+                files_deleted = cursor.rowcount
+                if files_deleted > 0:
+                    deleted_per_table["files"] = files_deleted
+                    total_deleted += files_deleted
+                    print(f"✅ 清理表 files: 删除了 {files_deleted} 条记录")
+            except Exception as e:
+                print(f"❌❌❌❌ 清理表 files 失败: {e}")
+
+            conn.commit()
+            print(f"✅ 数据库清理完成！总共删除了 {total_deleted} 条与pdf_id '{pdf_id}' 相关的记录")
+
+            # 显示各表删除统计
+            for table, count in deleted_per_table.items():
+                print(f"   - {table}: {count} 条")
+
+            return True
+
+        except Exception as e:
+            conn.rollback()
+            print(f"❌❌❌❌❌❌❌❌ 清理数据库失败: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def clear_data_by_pdf_id(self, pdf_id: str, confirm: bool = False) -> bool:
+        """
+        根据pdf_id精确清理数据（参考1+3+5步骤，但只清理指定pdf_id的内容）
+
+        Args:
+            pdf_id: 要清理的PDF标识符（对应files表中的filename字段）
+            confirm: 是否需要确认
+
+        Returns:
+            bool: 是否成功
+        """
+        if not pdf_id or not pdf_id.strip():
+            print("❌❌❌❌❌❌❌❌ pdf_id不能为空")
+            return False
+
+        pdf_id = pdf_id.strip()
+
+        if not confirm:
+            print(f"⚠️⚠️⚠️ 警告：这将清理与pdf_id '{pdf_id}' 相关的所有数据！")
+            print("⚠️⚠️⚠️ 包含以下三个步骤：")
+            print(f"  1. 删除数据库中与 '{pdf_id}' 相关的记录")
+            print(f"  2. 删除static目录下以 '{pdf_id}' 为名的文件夹")
+            print(f"  3. 删除JSON文件中与 '{pdf_id}' 相关的映射内容")
+            print("⚠️⚠️⚠️ 此操作不可逆！")
+
+            response = input("请输入 'DELETE_PDF_ID' 确认操作: ")
+            if response != "DELETE_PDF_ID":
+                print("操作已取消")
+                return False
+
+        print(f"🚀🚀🚀🚀🚀🚀🚀🚀 开始根据pdf_id '{pdf_id}' 精确清理数据...")
+
+        # 创建备份
+        print("\n📋📋📋📋 步骤1: 创建数据库备份")
+        backup_file = self.create_backup()
+        if not backup_file:
+            print("❌❌❌❌ 备份失败，操作中止")
+            return False
+
+        overall_success = True
+
+        # 步骤1: 清理数据库表中与pdf_id相关的记录（参考步骤1）
+        print(f"\n📋📋📋📋 步骤2: 清理数据库中与 '{pdf_id}' 相关的记录")
+        db_result = self._clear_database_by_pdf_id(pdf_id)
+        overall_success = overall_success and db_result
+
+        # 步骤2: 清理上传文件中与pdf_id相关的文件夹（参考步骤3）
+        print(f"\n📋📋📋📋 步骤3: 清理static目录下以 '{pdf_id}' 为名的文件夹")
+        file_result = self._clear_uploaded_files_by_pdf_id(pdf_id)  # 修正方法名
+        overall_success = overall_success and file_result
+
+        # 步骤3: 清理JSON文件中与pdf_id相关的映射内容（参考步骤5）
+        print(f"\n📋📋📋📋 步骤4: 清理JSON文件中与 '{pdf_id}' 相关的映射内容")
+        mapping_result = self._clear_mapping_by_pdf_id(pdf_id)
+        overall_success = overall_success and mapping_result
+
+        # 汇总结果
+        print("\n" + "=" * 60)
+        print(f"📊📊📊📊 根据pdf_id '{pdf_id}' 清理完成汇总:")
+        print("=" * 60)
+        print(f"✅ 数据库备份: {backup_file}")
+        print(f"✅ 清理数据库记录: {'成功' if db_result else '失败'}")
+        print(f"✅ 清理上传文件: {'成功' if file_result else '失败'}")
+        print(f"✅ 清理映射缓存: {'成功' if mapping_result else '失败'}")
+
+        if overall_success:
+            print(f"🎉🎉🎉🎉 根据pdf_id '{pdf_id}' 的精确清理完成！")
+        else:
+            print("⚠️ 精确清理完成，但部分步骤失败")
+
+        return overall_success
+
+
+def view_pdf_details(cleaner):
+    """查看PDF详细信息"""
+    pdf_id = input("请输入要查看的PDF ID: ").strip()
+    if not pdf_id:
+        print("❌ PDF ID不能为空")
+        return
+
+    pdf_info, chunks = cleaner.get_pdf_details(pdf_id)
+
+    if pdf_info:
+        pdf_id, file_name, created_at, file_size, file_path, status = pdf_info
+
+        print(f"\n📋 PDF详细信息")
+        print("=" * 50)
+        print(f"PDF ID: {pdf_id}")
+        print(f"文件名: {file_name}")
+        print(f"创建时间: {created_at}")
+        print(f"文件大小: {file_size / 1024 / 1024:.1f}MB" if file_size else "N/A")
+        print(f"文件路径: {file_path}")
+        print(f"状态: {status}")
+        print(f"文本块数量: {len(chunks)}")
+        print("-" * 50)
+
+        if chunks:
+            print("文本块预览:")
+            for i, (chunk_id, page_num, chunk_idx, content_preview) in enumerate(chunks[:5]):  # 只显示前5个
+                preview = content_preview[:100] + "..." if len(content_preview) > 100 else content_preview
+                print(f"  {i + 1}. 页面{page_num}-块{chunk_idx}: {preview}")
+
+            if len(chunks) > 5:
+                print(f"  ... 还有{len(chunks) - 5}个文本块")
+
+        # 提供删除选项
+        delete_choice = input("\n是否删除此PDF? (y/N): ").strip().lower()
+        if delete_choice == 'y':
+            # 这里可以调用现有的删除功能
+            print("⚠️  删除功能需要调用现有的清理方法")
+    else:
+        print(f"❌ 未找到PDF: {pdf_id}")
+
+
+def list_pdf_ids_interactive(cleaner):
+    """交互式PDF ID列表查询"""
+    while True:
+        print("\n" + "=" * 60)
+        print("📄📄 PDF ID 列表查询")
+        print("=" * 60)
+        print("1. 查看PDF列表")
+        print("2. 搜索PDF文件")
+        print("3. 查看PDF详情")
+        print("4. 返回主菜单")
+
+        choice = input("请选择操作 (1-4): ").strip()
+
+        if choice == '1':
+            show_pdf_list(cleaner)
+        elif choice == '2':
+            search_pdf_files(cleaner)
+        elif choice == '3':
+            view_pdf_details(cleaner)
+        elif choice == '4':
+            break
+        else:
+            print("❌❌ 无效选择，请重新输入")
+
+
+def search_pdf_files(cleaner):
+    """搜索PDF文件"""
+    search_term = input("请输入搜索关键词 (PDF ID或文件名): ").strip()
+    if not search_term:
+        print("❌❌ 搜索关键词不能为空")
+        return
+
+    pdf_files, total_count = cleaner.get_pdf_id_list(
+        limit=100,  # 搜索结果显示更多
+        search_filter=search_term
+    )
+
+    print(f"\n🔍🔍 搜索结果: '{search_term}' (找到{total_count}个文件)")
+    print("-" * 80)
+
+    if pdf_files:
+        for pdf_id, file_name, created_at, file_size in pdf_files:
+            size_str = f"{file_size / 1024 / 1024:.1f}MB" if file_size else "N/A"
+            print(f"PDF ID: {pdf_id}")
+            print(f"文件名: {file_name}")
+            print(f"创建时间: {created_at}")
+            print(f"文件大小: {size_str}")
+            print("-" * 40)
+    else:
+        print("❌❌ 未找到匹配的PDF文件")
+
+
+def show_pdf_list(cleaner, page_size=20):
+    """显示PDF列表（修正版）"""
+    page = 0
+    while True:
+        pdf_files, total_count = cleaner.get_pdf_id_list(
+            limit=page_size,
+            offset=page * page_size
+        )
+
+        print(f"\n📋📋 文件列表 (第{page + 1}页，共{total_count}个文件)")
+        print("-" * 100)
+        print(f"{'ID':<5} {'文件名'} {'文件类型':<15} {'创建时间':<20} {'大小':<10} {'页数':<5}")
+        print("-" * 100)
+
+        for i, (file_id, filename, created_at, file_size, file_type) in enumerate(pdf_files):
+            size_str = f"{file_size / 1024 / 1024:.1f}MB" if file_size else "N/A"
+            # 获取页数信息
+            cursor = cleaner.connect().cursor()
+            cursor.execute("SELECT page_count FROM files WHERE id = ?", (file_id,))
+            page_count_result = cursor.fetchone()
+            page_count = page_count_result[0] if page_count_result and page_count_result[0] else "N/A"
+            cursor.close()
+
+            print(
+                f"{file_id:<5} {filename} {file_type:<15} {created_at[:19]:<20} {size_str:<10} {page_count:<5}")
+
+        print(f"\n第 {page + 1}/{(total_count + page_size - 1) // page_size} 页")
+        print(f"显示 {len(pdf_files)} 个文件，总共 {total_count} 个文件")
+
+        if total_count > page_size:
+            action = input("\n操作: (n)下一页, (p)上一页, (q)返回: ").strip().lower()
+            if action == 'n' and (page + 1) * page_size < total_count:
+                page += 1
+            elif action == 'p' and page > 0:
+                page -= 1
+            elif action == 'q':
+                break
+        else:
+            input("\n按回车键返回...")
+            break
+
+
+def view_pdf_details_interactive(cleaner):
+    """查看PDF详细信息（修正版）"""
+    file_id = input("请输入要查看的文件ID或文件名: ").strip()
+    if not file_id:
+        print("❌❌ 文件ID或文件名不能为空")
+        return
+
+    file_info, mappings = cleaner.get_pdf_details(file_id)
+
+    if file_info:
+        (file_id, filename, file_type, raw_filename, created_at,
+         file_size, page_count, processed, file_hash, bank_name) = file_info
+
+        print(f"\n📋📋 文件详细信息")
+        print("=" * 60)
+        print(f"文件ID: {file_id}")
+        print(f"文件名: {filename}")
+        print(f"原始文件名: {raw_filename or 'N/A'}")
+        print(f"文件类型: {file_type}")
+        print(f"银行名称: {bank_name or 'N/A'}")
+        print(f"创建时间: {created_at}")
+        print(f"文件大小: {file_size / 1024 / 1024:.1f}MB" if file_size else "N/A")
+        print(f"页数: {page_count or 'N/A'}")
+        print(f"处理状态: {'已处理' if processed else '未处理'}")
+        print(f"文件哈希: {file_hash or 'N/A'}")
+        print("-" * 60)
+
+        if mappings:
+            print("文件映射信息:")
+            for mapping in mappings:
+                file_id, display_name, file_type, created_at = mapping
+                print(f"  - 映射ID: {file_id}, 显示名: {display_name}, 类型: {file_type}, 时间: {created_at}")
+        else:
+            print("无文件映射信息")
+
+        # 提供删除选项
+        delete_choice = input("\n是否删除此文件? (y/N): ").strip().lower()
+        if delete_choice == 'y':
+            confirm = input(f"确认删除文件 '{filename}'? 输入 'DELETE_FILE' 确认: ").strip()
+            if confirm == 'DELETE_FILE':
+                # 调用清理方法
+                cleaner.clear_data_by_pdf_id(filename, confirm=True)
+            else:
+                print("操作已取消")
+    else:
+        print(f"❌❌ 未找到文件: {file_id}")
 
 
 def main():
     """主函数 - 交互式清理工具"""
-    print("🧹🧹🧹🧹 数据库清理工具 - 根目录数据库版本")
+    print("🧹🧹🧹🧹🧹🧹🧹🧹 数据库清理工具 - 根目录数据库版本")
     print("=" * 60)
 
     # 自动检测路径
@@ -850,38 +1512,56 @@ def main():
 
     while True:
         print("\n" + "=" * 50)
-        print("🧹🧹🧹🧹 数据库清理工具")
+        print("🧹🧹🧹🧹🧹🧹🧹🧹 数据库清理工具")
         print("=" * 50)
 
         # 显示文件映射缓存状态
         mapping_stats = cleaner.get_file_mapping_stats()
-        print(f"\n🗂🗂🗂🗂🗂🗂🗂🗂 文件映射缓存:")
+        print(f"\n🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂🗂 文件映射缓存:")
         print(f"  路径: {mapping_stats['file_path']}")
 
         if mapping_stats["exists"]:
             if "error" in mapping_stats:
-                print(f"  ❌❌ {mapping_stats['error']}")
+                print(f"  ❌❌❌❌ {mapping_stats['error']}")
             else:
-                print(f"  📊📊 文件数量: {mapping_stats['file_count']} 个")
-                print(f"  📊📊 总记录数: {mapping_stats['total_records']} 条")
-                print(f"  📏📏 总大小: {mapping_stats['total_size']} 字节")
+                print(f"  📊📊📊📊 文件数量: {mapping_stats['file_count']} 个")
+                print(f"  📊📊📊📊 总记录数: {mapping_stats['total_records']} 条")
+                print(f"  📏📏📏📏 总大小: {mapping_stats['total_size']} 字节")
+
+        # 显示数据库状态
+        db_stats = cleaner.get_database_stats()
+        print(f"\n🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃🗃 数据库状态:")
+        if "error" in db_stats:
+            print(f"  ❌❌❌❌ {db_stats['error']}")
+        else:
+            print(f"  📊📊📊📊 总记录数: {db_stats['total_records']} 条")
+            print(f"  📁📁📁📁 表数量: {len(db_stats['tables'])} 个")
+            for table, count in db_stats['tables'].items():
+                print(f"    - {table}: {count} 条记录")
 
         # 菜单选项
-        print("\n🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠️ 操作选项:")
+        print("\n🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠🛠️ 操作选项:")
         print("1. 清空所有表（危险！）")
         print("2. 清空指定表")
         print("3. 清空上传文件")
         print("4. 清空文件映射缓存（删除所有JSON文件）")
         print("5. 重置文件映射缓存（清空所有JSON文件内容）")
-        print("6. 🚀 一键综合清理（1+3+5步骤）")  # 新增选项
-        print("7. 优化数据库")
-        print("8. 显示表结构")
-        print("9. 查看所有数据")
-        print("10. 查看指定表数据")
-        print("11. 创建备份")
-        print("12. 退出")
+        print("6. 🚀🚀🚀 一键综合清理（1+3+5步骤）")
+        print("7. 🔍🔍🔍 根据pdf_id精确清理（新增功能）")
+        print("8. 优化数据库")
+        print("9. 显示表结构")
+        print("10. 查看所有数据")
+        print("11. 查看指定表数据")
+        print("12. 创建备份")
+        print("13. 退出")
+        # 在现有菜单选项后添加
+        print("14. 查询PDF ID列表")
+        print("15. 查看PDF详情")
 
-        choice = input("\n请选择操作 (1-12): ").strip()
+        # 在处理用户选择的部分添加对应的处理逻辑
+
+
+        choice = input("\n请选择操作 (1-13): ").strip()
 
         if choice == "1":
             cleaner.clear_all_tables()
@@ -895,27 +1575,37 @@ def main():
             cleaner.clear_file_mapping_cache()
         elif choice == "5":
             cleaner.reset_file_mapping_cache()
-        elif choice == "6":  # 新增的一键综合清理
+        elif choice == "6":
             cleaner.clear_data_comprehensive()
         elif choice == "7":
-            cleaner.vacuum_database()
+            pdf_id = input("请输入要清理的pdf_id: ").strip()
+            if pdf_id:
+                cleaner.clear_data_by_pdf_id(pdf_id)
+            else:
+                print("❌❌❌❌ pdf_id不能为空")
         elif choice == "8":
-            cleaner.show_database_structure()
+            cleaner.vacuum_database()
         elif choice == "9":
-            cleaner.view_all_data()
+            cleaner.show_database_structure()
         elif choice == "10":
+            cleaner.view_all_data()
+        elif choice == "11":
             table_name = input("请输入要查看的表名: ").strip()
             if table_name:
                 row_limit = input("请输入显示行数限制 (默认100): ").strip()
                 row_limit = int(row_limit) if row_limit.isdigit() else 100
                 cleaner.view_table_data(table_name, row_limit)
-        elif choice == "11":
-            cleaner.create_backup()
         elif choice == "12":
-            print("👋👋👋👋👋👋👋👋 再见！")
+            cleaner.create_backup()
+        elif choice == "13":
+            print("👋👋👋👋👋👋👋👋👋👋👋👋👋👋👋👋 再见！")
             break
+        elif choice == "14":
+            list_pdf_ids_interactive(cleaner)
+        elif choice == "15":
+            view_pdf_details_interactive(cleaner)
         else:
-            print("❌❌❌❌❌❌❌❌ 无效选择")
+            print("❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌ 无效选择")
 
         input("\n按回车键继续...")
 
@@ -949,3 +1639,10 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\n\n👋👋 程序被用户中断")
+
+
+    #
+# 2     087dfa50-edcb-af39-867f-7568   pdf             2026-01-11 01:50:29  14.9MB     N/A
+# 1     731b28f5-2bd0-141b-129f-c2ee   pdf             2026-01-11 01:49:26  0.7MB      N/A
+# 2     087dfa50-edcb-af39-867f-7568   pdf             2026-01-11 01:50:29  14.9MB     N/A
+# 1     731b28f5-2bd0-141b-129f-c2ee   pdf             2026-01-11 01:49:26  0.7MB      N/A
