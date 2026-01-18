@@ -53,9 +53,24 @@
 
     <!-- 当前单元格信息（有值才显示） -->
     <template v-if="currentCell.position">
-      <el-tag size="small">{{ currentCell.position }}</el-tag>
-      <el-tag size="small" type="info">{{ currentCell.type }}</el-tag>
-      <span class="cell-txt">{{ currentCell.content }}</span>
+      <div class="cell-info-container">
+        <el-tag size="small">{{ currentCell.position }}</el-tag>
+        <el-tag size="small" :type="currentCell.isRange ? 'warning' : 'info'">
+          {{ currentCell.isRange ? '选区' : currentCell.type }}
+        </el-tag>
+
+        <template v-if="currentCell.isRange">
+          <span class="cell-txt">
+            {{ currentCell.content }}
+            <span v-if="currentCell.rangeInfo" class="range-details">
+              ({{ currentCell.rangeInfo.rowCount }}行 × {{ currentCell.rangeInfo.colCount }}列)
+            </span>
+          </span>
+        </template>
+        <template v-else>
+          <span class="cell-txt">{{ currentCell.content }}</span>
+        </template>
+      </div>
     </template>
 
     <!-- 表格区域：自动撑满剩余高度 -->
@@ -165,8 +180,43 @@ const currentCell = ref({
 })
 
 // 监听子组件的选中事件
-const handleCellSelected = (cell) => {
+const handleCellSelected000 = (cell) => {
   currentCell.value = cell
+}
+
+
+// 监听子组件的选中事件
+// 监听子组件的选中事件
+const handleCellSelected = (cell) => {
+  console.log('🔍🔍 收到选择事件:', cell)
+
+  // 检查是否是选区（多个单元格）
+  if (cell.isRange && cell.range) {
+    // 多个单元格选区
+    currentCell.value = {
+      position: `R${cell.range.start.row + 1}C${cell.range.start.col + 1}:R${cell.range.end.row + 1}C${cell.range.end.col + 1}`,
+      content: `选中 ${cell.totalCells || 0} 个单元格`,
+      type: '选区',
+      isNumeric: false,
+      isRange: true,
+      rangeInfo: {
+        rowCount: cell.range.end.row - cell.range.start.row + 1,
+        colCount: cell.range.end.col - cell.range.start.col + 1,
+        totalCells: cell.totalCells || 0
+      }
+    }
+  } else {
+    // 单个单元格
+    currentCell.value = {
+      position: cell.position || '',
+      content: cell.content || '',
+      type: cell.type || '文本',
+      isNumeric: cell.isNumeric || false,
+      isRange: false
+    }
+  }
+
+  console.log('✅ 更新后的currentCell:', currentCell.value)
 }
 
 
@@ -1062,6 +1112,27 @@ defineExpose({
 
 .save-buttons {
   margin-left: auto;                /* 保存组靠右 */
+}
+
+.cell-info-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 16px; /* 添加一些内边距 */
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.range-details {
+  font-size: 12px;
+  color: #666;
+  margin-left: 4px;
+}
+
+.cell-txt {
+  font-size: 13px;
+  color: #606266;
 }
 
 </style>

@@ -24,6 +24,81 @@
       </div>
 
       <div class="toolbar-right">
+        <!-- 多选状态显示 -->
+        <div v-if="isMultiSelectMode && selectedCount > 0" class="selection-info">
+          <el-tag type="primary" size="small">
+            <i class="el-icon-check"></i>
+            已选择 {{ selectedCount }} 张图片
+          </el-tag>
+        </div>
+
+        <!-- === 第八步：根据当前分类智能显示批量移动按钮 === -->
+        <!-- 批量操作按钮组 -->
+        <div v-if="isMultiSelectMode && selectedCount > 0" class="batch-actions">
+          <!-- 当前在有表格分类：只显示移动到无表格 -->
+          <el-button
+            v-if="activeCategory === 'tables'"
+            type="info"
+            size="small"
+            icon="el-icon-close"
+            @click="batchMoveImages('no_tables')"
+          >
+            批量移动到无表格
+          </el-button>
+
+          <!-- 当前在无表格分类：只显示移动到有表格 -->
+          <el-button
+            v-if="activeCategory === 'no_tables'"
+            type="success"
+            size="small"
+            icon="el-icon-check"
+            @click="batchMoveImages('tables')"
+          >
+            批量移动到有表格
+          </el-button>
+
+          <!-- 当前在不确定分类：显示两个按钮 -->
+          <template v-if="activeCategory === 'uncertain'">
+            <el-button
+              type="success"
+              size="small"
+              icon="el-icon-check"
+              @click="batchMoveImages('tables')"
+            >
+              批量移动到有表格
+            </el-button>
+            <el-button
+              type="info"
+              size="small"
+              icon="el-icon-close"
+              @click="batchMoveImages('no_tables')"
+            >
+              批量移动到无表格
+            </el-button>
+          </template>
+
+          <el-button
+            type="text"
+            size="small"
+            icon="el-icon-delete"
+            @click="clearSelection"
+          >
+            清空选择
+          </el-button>
+        </div>
+        <!-- === 第八步结束 === -->
+
+        <!-- 多选模式开关按钮 -->
+        <el-button
+          :type="isMultiSelectMode ? 'primary' : 'default'"
+          size="small"
+          :icon="isMultiSelectMode ? 'el-icon-finished' : 'el-icon-select'"
+          @click="toggleMultiSelectMode"
+          style="margin-right: 8px;"
+        >
+          {{ isMultiSelectMode ? '退出多选' : '多选模式' }}
+        </el-button>
+
         <el-button
           type="primary"
           size="small"
@@ -42,6 +117,7 @@
           完成
         </el-button>
       </div>
+
     </div>
 
     <!-- 主内容区：分屏布局 -->
@@ -116,8 +192,11 @@
               v-for="(image, index) in currentImages"
               :key="image.name"
               class="thumbnail-item"
-              :class="{ selected: selectedImage?.name === image.name }"
-              @click="selectImage(image)"
+              :class="{
+                selected: selectedImage?.name === image.name,
+                'multi-selected': isMultiSelectMode && selectedImages.has(image.name)
+              }"
+              @click="selectImage(image, $event)"
             >
               <div class="thumbnail-wrapper">
                 <img
@@ -485,6 +564,169 @@ const currentImageIndex = ref(-1)
 const previewLoading = ref(false)
 const refreshing = ref(false)
 
+
+// === 第一步：添加多选状态管理（在 refreshing 之后添加）===
+const selectedImages = ref(new Set()) // 使用Set存储选中的图片name
+const isMultiSelectMode = ref(true) // 多选模式开关
+
+// 计算选中的图片数量
+const selectedCount = computed(() => selectedImages.value.size)
+
+// 计算选中的图片对象数组
+const selectedImageObjects = computed(() => {
+  return currentImages.value.filter(img => selectedImages.value.has(img.name))
+})
+// === 第一步结束 ===
+
+
+// === 第二步：添加切换多选模式的函数 ===
+// 切换多选模式
+const toggleMultiSelectMode = () => {
+  isMultiSelectMode.value = !isMultiSelectMode.value
+  if (!isMultiSelectMode.value) {
+    selectedImages.value.clear() // 退出多选时清空选择
+  }
+  console.log('多选模式:', isMultiSelectMode.value ? '开启' : '关闭')
+}
+// === 第二步结束 ===
+
+
+// === 第三步：添加图片选择切换函数 ===
+// 切换图片选择状态
+const toggleImageSelection = (image) => {
+  if (selectedImages.value.has(image.name)) {
+    selectedImages.value.delete(image.name)
+  } else {
+    selectedImages.value.add(image.name)
+  }
+  // 保持响应式更新
+  selectedImages.value = new Set(selectedImages.value)
+  console.log('当前选中图片:', Array.from(selectedImages.value))
+}
+
+// 修改现有的 selectImage 函数，支持多选模式
+const selectImage = (image, event) => {
+  if (isMultiSelectMode.value) {
+    // 多选模式：切换选择状态
+    toggleImageSelection(image)
+  } else {
+    // 单选模式：保持原有逻辑
+    selectedImages.value.clear()
+    selectedImage.value = image
+    currentImageIndex.value = currentImages.value.findIndex(img => img.name === image.name)
+    previewLoading.value = true
+  }
+}
+// === 第三步结束 ===
+
+
+// === 第五步：添加清空选择函数 ===
+// 清除所有选择
+const clearSelection = () => {
+  selectedImages.value.clear()
+  selectedImages.value = new Set(selectedImages.value)
+  console.log('已清空选择')
+}
+// === 第五步结束 ===
+
+
+// === 第七步：修复批量移动函数 ===
+// 批量移动图片
+const batchMoveImages = async (targetType) => {
+  if (selectedImages.value.size === 0) {
+    ElMessage.warning('请先选择要移动的图片')
+    return
+  }
+
+  try {
+    const selectedArray = Array.from(selectedImages.value)
+    const movingCount = selectedArray.length
+
+    // 确认对话框
+    await ElMessageBox.confirm(
+      `确定要将选中的 ${movingCount} 张图片移动到"${getCategoryLabel(targetType)}"分类吗？`,
+      '批量移动确认',
+      {
+        confirmButtonText: '确定移动',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 显示批量操作进度 - 修复消息提示方式
+    let loadingMessage = null
+    try {
+      loadingMessage = ElMessage.info({
+        message: `正在移动图片... (0/${movingCount})`,
+        duration: 0
+      })
+    } catch (e) {
+      console.warn('消息提示创建失败，继续执行移动操作', e)
+    }
+
+    let successCount = 0
+    let errorCount = 0
+
+    // 逐个移动图片
+    for (let i = 0; i < selectedArray.length; i++) {
+      const imageName = selectedArray[i]
+      const image = currentImages.value.find(img => img.name === imageName)
+
+      if (!image) continue
+
+      try {
+        // 调用父组件的移动图片函数
+        emit('move-image', {
+          imageName: image.name,
+          fromType: image.type,
+          toType: targetType,
+          pdfDiskName: props.pdfDiskName
+        })
+        successCount++
+      } catch (error) {
+        console.error(`移动图片 ${imageName} 失败:`, error)
+        errorCount++
+      }
+
+      // 更新进度 - 修复消息更新方式
+      if (loadingMessage) {
+        try {
+          loadingMessage.close()
+          loadingMessage = ElMessage.info({
+            message: `正在移动图片... (${i + 1}/${movingCount})`,
+            duration: 0
+          })
+        } catch (e) {
+          console.warn('消息更新失败', e)
+        }
+      }
+    }
+
+    // 关闭消息提示
+    if (loadingMessage) {
+      loadingMessage.close()
+    }
+
+    // 显示结果
+    if (errorCount === 0) {
+      ElMessage.success(`成功移动 ${successCount} 张图片到${getCategoryLabel(targetType)}`)
+    } else {
+      ElMessage.warning(`移动完成：成功 ${successCount} 张，失败 ${errorCount} 张`)
+    }
+
+    // 清空选择
+    clearSelection()
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量移动失败:', error)
+      ElMessage.error('批量移动操作失败')
+    }
+  }
+}
+// === 第七步结束 ===
+
+
 // 移动相关状态
 const showMoveDialog = ref(false)
 const imageToMove = ref(null)
@@ -597,7 +839,7 @@ const getImageUrl = (image, size = 'thumb') => {
 
 
 
-const selectImage = (image) => {
+const selectImage000 = (image) => {
   selectedImage.value = image
   currentImageIndex.value = currentImages.value.findIndex(img => img.name === image.name)
   previewLoading.value = true
@@ -1299,4 +1541,41 @@ nextTick(() => {
     }
   }
 }
+
+
+
+/* === 第四步：添加多选选中状态的样式 === */
+.thumbnail-item.multi-selected {
+  border: 2px solid #409eff !important;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  background: #f0f9ff;
+  transform: translateY(-2px);
+}
+
+.thumbnail-item.multi-selected .thumbnail-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(64, 158, 255, 0.1);
+  z-index: 1;
+}
+/* === 第四步结束 === */
+
+
+/* === 第五步：添加工具栏布局样式 === */
+.selection-info {
+  margin-right: 12px;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-right: 12px;
+}
+/* === 第五步结束 === */
+
 </style>

@@ -149,6 +149,8 @@
         @afterFilter="onFilter"
         @after-change="onDataChange"
         @after-init="onHotInit"
+        @afterSelection="handleSelection"
+        @afterDeselect="clearSelection"
       />
 
       <div v-if="tableData.length === 0" class="empty-state">
@@ -199,6 +201,96 @@ const globalFlattenLoading = ref(false)
 const globalFlattenEnabled = computed(() => {
   return props.pdfId && props.excelFileName && props.sheetName && tableData.value.length > 0
 })
+
+
+// ============ 新增：选区处理 ============
+const selectedRange = ref(null)
+const selectedCellsCount = ref(0)
+
+
+
+// 添加选区事件处理
+const handleSelection = (startRow, startCol, endRow, endCol) => {
+  console.log('🎯🎯🎯🎯 选区选择事件被触发:', {
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+    时间: new Date().toLocaleTimeString()
+  })
+
+  // 检查是否是有效的选区（不是单个单元格）
+  const isSingleCell = (startRow === endRow && startCol === endCol)
+
+  if (isSingleCell) {
+    console.log('⏸⏸⏸️ 这是单个单元格，不是选区')
+    // 单个单元格的处理
+    const cellValue = tableData.value[startRow]?.[startCol] || ''
+    emit('cell-selected', {
+      isRange: false,
+      position: `R${startRow + 1}C${startCol + 1}`,
+      content: cellValue,
+      type: typeof cellValue === 'number' ? '数值' : '文本',
+      isNumeric: typeof cellValue === 'number',
+      row: startRow,
+      col: startCol
+    })
+    return
+  }
+
+  // 多个单元格选区
+  const rowCount = Math.abs(endRow - startRow) + 1
+  const colCount = Math.abs(endCol - startCol) + 1
+  const totalCells = rowCount * colCount
+
+  selectedRange.value = {
+    start: { row: startRow, col: startCol },
+    end: { row: endRow, col: endCol },
+    rowCount,
+    colCount,
+    totalCells
+  }
+
+  selectedCellsCount.value = totalCells
+
+  console.log('📊📊 选区统计:', {
+    行数: rowCount,
+    列数: colCount,
+    总单元格数: totalCells
+  })
+
+  // 发射选区信息给父组件
+  emit('cell-selected', {
+    isRange: true,
+    range: selectedRange.value,
+    totalCells: totalCells,
+    position: `R${startRow + 1}C${startCol + 1}:R${endRow + 1}C${endCol + 1}`,
+    content: `选中 ${totalCells} 个单元格`,
+    type: '选区',
+    rangeInfo: {
+      rowCount: rowCount,
+      colCount: colCount,
+      totalCells: totalCells
+    }
+  })
+
+  console.log('📤📤 发射选区信息完成')
+}
+
+// 清除选区
+const clearSelection = () => {
+  console.log('🗑🗑️ 清除选区')
+  selectedRange.value = null
+  selectedCellsCount.value = 0
+
+  // 发射清除选区事件
+  emit('cell-selected', {
+    isRange: false,
+    position: '',
+    content: '',
+    type: '文本'
+  })
+}
 
 
 // 前端调用时，需要将pdf_id放在URL路径中
@@ -380,7 +472,8 @@ const emit = defineEmits([
   'edit-status-changed',
   'cell-change',
   'instance-ready',
-  'global-flatten-complete'
+  'global-flatten-complete',
+  'cell-selected'
 ])
 
 const props = defineProps({
@@ -556,9 +649,9 @@ const {
   stats,
   currentSelection,
   calculateSelectionStats,
-  clearSelection,
+  clearSelection: clearSelectionStats,
   setupColumnSelectionListener
-} = useExcelSelection(getSafeHotInstance)
+} = useExcelSelection(getSafeHotInstance, selectedRange)
 
 // 主要逻辑
 const logic = useExcelViewerLogic(
@@ -618,6 +711,24 @@ useExcelViewerExpose({
   toggleEditMode: logic.toggleEditMode,
   forceFixStyles: logic.forceFixStyles,
 })
+
+
+// 在现有的代码后面添加这个测试函数
+const testSelectionEvent = () => {
+  console.log('🧪🧪 手动测试选区事件')
+
+  // 模拟一个选区事件
+  handleSelection(0, 0, 2, 2) // 选择 3x3 的选区
+
+  // 检查事件是否被发射
+  console.log('🔍🔍 检查 selectedRange:', selectedRange.value)
+}
+
+// 暴露给全局用于测试
+if (typeof window !== 'undefined') {
+  window.testSelection = testSelectionEvent
+  console.log('✅ testSelection 函数已暴露到全局')
+}
 
 
 // 模板中使用的属性和方法
