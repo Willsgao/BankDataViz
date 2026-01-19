@@ -32,6 +32,7 @@
           </el-tag>
         </div>
 
+        <!-- === 第八步：根据当前分类智能显示批量移动按钮 === -->
         <!-- 批量操作按钮组 -->
         <div v-if="isMultiSelectMode && selectedCount > 0" class="batch-actions">
           <!-- 当前在有表格分类：只显示移动到无表格 -->
@@ -85,6 +86,7 @@
             清空选择
           </el-button>
         </div>
+        <!-- === 第八步结束 === -->
 
         <!-- 多选模式开关按钮 -->
         <el-button
@@ -115,12 +117,13 @@
           完成
         </el-button>
       </div>
+
     </div>
 
     <!-- 主内容区：分屏布局 -->
-    <div class="split-layout" :class="{ 'multi-select-mode': isMultiSelectMode }">
+    <div class="split-layout">
       <!-- 左侧：分类缩略图面板 -->
-      <div class="left-panel" :class="{ 'full-width': isMultiSelectMode }">
+      <div class="left-panel">
         <div class="category-tabs">
           <el-tabs v-model="activeCategory" type="card" @tab-click="handleTabChange">
             <el-tab-pane label="有表格" name="tables">
@@ -159,9 +162,6 @@
             <div class="header-left">
               <span class="image-count">
                 共 {{ currentImages.length }} 张图片
-                <span v-if="isMultiSelectMode && selectedCount > 0" class="selected-count">
-                  (已选择 {{ selectedCount }} 张)
-                </span>
               </span>
             </div>
             <div class="header-right">
@@ -193,38 +193,29 @@
               :key="image.name"
               class="thumbnail-item"
               :class="{
-                selected: !isMultiSelectMode && selectedImage?.name === image.name,
+                selected: selectedImage?.name === image.name,
                 'multi-selected': isMultiSelectMode && selectedImages.has(image.name)
               }"
               @click="selectImage(image, $event)"
             >
-
-              <!-- 修改后的正确代码 -->
-                <div class="thumbnail-wrapper">
-                  <!-- 图片元素 -->
-                  <img
-                    :src="getImageUrl(image)"
-                    class="thumbnail-img"
-                    loading="lazy"
-                    @error="handleImageError(image, $event)"
-                  />
-
-                  <div class="thumbnail-overlay">
-                    <el-tag
-                      size="mini"
-                      :type="getCategoryType(image.type)"
-                      class="category-tag"
-                    >
-                      {{ getCategoryLabel(image.type) }}
-                    </el-tag>
-                  </div>
-                  <!-- 多选模式下的选中标记 -->
-                  <div v-if="isMultiSelectMode && selectedImages.has(image.name)" class="multi-select-checkmark">
-                    <i class="el-icon-check"></i>
-                  </div>
+              <div class="thumbnail-wrapper">
+                <img
+                  :src="getImageUrl(image)"
+                  :alt="image.name"
+                  class="thumbnail-img"
+                  loading="lazy"
+                  @error="handleImageError(image)"
+                />
+                <div class="thumbnail-overlay">
+                  <el-tag
+                    size="mini"
+                    :type="getCategoryType(image.type)"
+                    class="category-tag"
+                  >
+                    {{ getCategoryLabel(image.type) }}
+                  </el-tag>
                 </div>
-
-
+              </div>
               <div class="thumbnail-info">
                 <span class="image-name" :title="image.name">
                   {{ image.name }}
@@ -258,7 +249,6 @@
               @row-click="selectImage"
               style="width: 100%"
             >
-
               <el-table-column width="50">
                 <template #default="scope">
                   <img
@@ -316,8 +306,8 @@
         </div>
       </div>
 
-      <!-- 右侧：大图预览和操作面板（多选模式下隐藏） -->
-      <div class="right-panel" v-if="!isMultiSelectMode">
+      <!-- 右侧：大图预览和操作面板 -->
+      <div class="right-panel">
         <div class="preview-header">
           <h3 v-if="selectedImage" class="preview-title">
             <i class="el-icon-picture-outline-round"></i>
@@ -360,24 +350,21 @@
           </div>
 
           <div v-else class="image-preview">
-
             <div class="image-wrapper">
+              <img
+                :src="getImageUrl(selectedImage, 'large')"
+                :alt="selectedImage.name"
+                class="preview-img"
+                :class="{ loading: previewLoading }"
+                @load="previewLoading = false"
+                @error="handlePreviewError"
+              />
               <div v-if="previewLoading" class="image-loading">
                 <el-icon class="is-loading">
                   <Loading />
                 </el-icon>
                 <span>加载中...</span>
               </div>
-
-              <!-- 这里应该有一个 img 标签 -->
-              <img
-                v-if="selectedImage"
-                :src="getImageUrl(selectedImage, 'large')"
-                class="preview-img"
-                :class="{ loading: previewLoading }"
-                @load="previewLoading = false"
-                @error="handlePreviewError"
-              />
             </div>
 
             <div class="image-info">
@@ -481,6 +468,7 @@
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- 移动选项弹出框 -->
@@ -524,7 +512,6 @@
     </el-dialog>
   </div>
 </template>
-
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
@@ -1027,19 +1014,9 @@ const handlePreviewError = () => {
 }
 
 const handleTabChange = () => {
-  console.log('切换标签页到:', activeCategory.value)
-
-  // 切换标签页时清除所有选择
+  // 切换标签页时清除选中
   selectedImage.value = null
   currentImageIndex.value = -1
-
-  // 清除多选选择
-  selectedImages.value.clear()
-
-  // 如果需要，可以更新Set的响应式
-  selectedImages.value = new Set(selectedImages.value)
-
-  console.log('已清空所有选择状态')
 }
 
 const formatDate = (dateString) => {
@@ -1601,116 +1578,5 @@ nextTick(() => {
   margin-right: 12px;
 }
 /* === 第五步结束 === */
-
-
-/* 多选模式面板样式 */
-.multi-select-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fafafa;
-  border-left: 1px solid #e4e7ed;
-}
-
-.multi-select-content {
-  text-align: center;
-  padding: 40px;
-  max-width: 300px;
-}
-
-.multi-select-icon {
-  font-size: 64px;
-  color: #409eff;
-  margin-bottom: 16px;
-}
-
-.multi-select-title {
-  font-size: 20px;
-  color: #303133;
-  margin: 0 0 12px 0;
-}
-
-.multi-select-desc {
-  color: #606266;
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-.multi-select-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.multi-select-tips {
-  text-align: left;
-  background: #f0f9ff;
-  border: 1px solid #d1e9ff;
-  border-radius: 4px;
-  padding: 12px;
-
-  p {
-    margin: 0 0 8px 0;
-    font-weight: 600;
-    color: #409eff;
-  }
-
-  ul {
-    margin: 0;
-    padding-left: 16px;
-
-    li {
-      color: #606266;
-      font-size: 12px;
-      line-height: 1.5;
-      margin-bottom: 4px;
-    }
-  }
-}
-
-/* 多选模式下左侧面板占据更多空间 */
-.split-layout .left-panel {
-  transition: flex 0.3s ease;
-}
-
-.split-layout:has(.multi-select-panel) .left-panel {
-  flex: 1;
-}
-
-
-/* 多选模式下左侧面板占据全宽 */
-.left-panel.full-width {
-  flex: 1 !important;
-  width: 100%;
-}
-
-.split-layout.multi-select-mode .left-panel {
-  border-right: none;
-}
-
-/* 多选模式下的选中标记 */
-.multi-select-checkmark {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  background: #409eff;
-  color: white;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  z-index: 2;
-}
-
-/* 已选择数量显示 */
-.selected-count {
-  color: #409eff;
-  font-weight: 600;
-  margin-left: 8px;
-}
 
 </style>

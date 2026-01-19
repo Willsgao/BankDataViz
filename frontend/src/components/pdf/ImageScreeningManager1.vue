@@ -198,33 +198,22 @@
               }"
               @click="selectImage(image, $event)"
             >
+              <div class="thumbnail-wrapper">
 
-              <!-- 修改后的正确代码 -->
-                <div class="thumbnail-wrapper">
-                  <!-- 图片元素 -->
-                  <img
-                    :src="getImageUrl(image)"
-                    class="thumbnail-img"
-                    loading="lazy"
-                    @error="handleImageError(image, $event)"
-                  />
-
-                  <div class="thumbnail-overlay">
-                    <el-tag
-                      size="mini"
-                      :type="getCategoryType(image.type)"
-                      class="category-tag"
-                    >
-                      {{ getCategoryLabel(image.type) }}
-                    </el-tag>
-                  </div>
-                  <!-- 多选模式下的选中标记 -->
-                  <div v-if="isMultiSelectMode && selectedImages.has(image.name)" class="multi-select-checkmark">
-                    <i class="el-icon-check"></i>
-                  </div>
+                <div class="thumbnail-overlay">
+                  <el-tag
+                    size="mini"
+                    :type="getCategoryType(image.type)"
+                    class="category-tag"
+                  >
+                    {{ getCategoryLabel(image.type) }}
+                  </el-tag>
                 </div>
-
-
+                <!-- 多选模式下的选中标记 -->
+                <div v-if="isMultiSelectMode && selectedImages.has(image.name)" class="multi-select-checkmark">
+                  <i class="el-icon-check"></i>
+                </div>
+              </div>
               <div class="thumbnail-info">
                 <span class="image-name" :title="image.name">
                   {{ image.name }}
@@ -258,14 +247,9 @@
               @row-click="selectImage"
               style="width: 100%"
             >
-
               <el-table-column width="50">
                 <template #default="scope">
-                  <img
-                    :src="getImageUrl(scope.row)"
-                    class="list-thumbnail"
-                    loading="lazy"
-                  />
+
                 </template>
               </el-table-column>
 
@@ -360,24 +344,14 @@
           </div>
 
           <div v-else class="image-preview">
-
             <div class="image-wrapper">
+
               <div v-if="previewLoading" class="image-loading">
                 <el-icon class="is-loading">
                   <Loading />
                 </el-icon>
                 <span>加载中...</span>
               </div>
-
-              <!-- 这里应该有一个 img 标签 -->
-              <img
-                v-if="selectedImage"
-                :src="getImageUrl(selectedImage, 'large')"
-                class="preview-img"
-                :class="{ loading: previewLoading }"
-                @load="previewLoading = false"
-                @error="handlePreviewError"
-              />
             </div>
 
             <div class="image-info">
@@ -1027,19 +1001,9 @@ const handlePreviewError = () => {
 }
 
 const handleTabChange = () => {
-  console.log('切换标签页到:', activeCategory.value)
-
-  // 切换标签页时清除所有选择
+  // 切换标签页时清除选中
   selectedImage.value = null
   currentImageIndex.value = -1
-
-  // 清除多选选择
-  selectedImages.value.clear()
-
-  // 如果需要，可以更新Set的响应式
-  selectedImages.value = new Set(selectedImages.value)
-
-  console.log('已清空所有选择状态')
 }
 
 const formatDate = (dateString) => {
