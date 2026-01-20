@@ -1,20 +1,44 @@
+# 虚拟环境
 venv/
-*.png
-*.pdf
+.venv/
+.venv_311/
+.env/
+
+# Python缓存
 __pycache__/
-.venv_311
-.venv
+*.py[cod]
+*$py.class
+*.so
+.Python
 
-data/*  # 忽略data目录下的所有文件
-data/**/*  # 忽略data目录下的所有文件和子目录
+# 数据文件
+data/
+!data/.gitignore
+!data/README*
+!data/README*.md
 
-# frontend/.gitignore
+# 或者更精确地忽略
+/data/*
+!/data/.gitignore
+!/data/README*
+
+# 上传文件
+backend/static/uploads/
+
+# 日志文件
+*.log
+logs/
+
+# 前端
 node_modules/
-.cache/
 dist/
+.cache/
 *.local
-.DS_Store
-backend/data/*
-backend/venv/
-backend/static/uploads/*
 
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 测试文件
+test_codes/output/
+test_data/
