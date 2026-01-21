@@ -267,11 +267,12 @@ class UniversalDatabaseSchemaManager:
         indexes = [
             ('idx_files_filename', 'files(filename)'),
             ('idx_files_deleted', 'files(deleted)'),
-            ('idx_api_log_timestamp', 'api_call_log(timestamp)'),
-            ('idx_api_log_endpoint', 'api_call_log(api_endpoint)'),
-            ('idx_api_log_status', 'api_call_log(response_status)'),
+            # 删除不存在的索引
             ('idx_processing_job_id', 'table_processing_records(job_id)'),
-            ('idx_processing_status', 'table_processing_records(status)')
+            ('idx_processing_status', 'table_processing_records(status)'),
+            # 添加新的索引
+            ('idx_api_log_md5_provider', 'api_call_log(md5, provider)'),  # ✅ 新增
+            ('idx_api_log_created_at', 'api_call_log(created_at)')  # ✅ 新增
         ]
 
         for index_name, index_def in indexes:
