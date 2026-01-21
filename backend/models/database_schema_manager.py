@@ -266,7 +266,9 @@ class UniversalDatabaseSchemaManager:
                     completion_tokens INTEGER DEFAULT 0,
                     s3_key TEXT,
                     status VARCHAR(10) DEFAULT 'succ',
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    -- 添加唯一约束（修复冲突检测）
+                    UNIQUE(md5, provider)
                 )
             ''')
             print("✅ 检查/创建 api_call_log 表")
