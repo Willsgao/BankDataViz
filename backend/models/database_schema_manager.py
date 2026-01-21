@@ -228,38 +228,13 @@ class UniversalDatabaseSchemaManager:
             ''')
             print("✅ 检查/创建 table_processing_records 表")
 
-            # 5. api_call_log表 - API调用日志表（修复版）
+            # 5. api_call_log表 - 缓存网关专用表（简化版）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS api_call_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    -- API基本信息
-                    api_endpoint TEXT NOT NULL,
-                    http_method TEXT NOT NULL,
-                    request_headers TEXT,
-                    request_body TEXT,
-                    query_params TEXT,
-                    -- 响应信息
-                    response_status INTEGER,
-                    response_headers TEXT,
-                    response_body TEXT,
-                    response_size INTEGER,
-                    -- 性能监控
-                    processing_time_ms INTEGER,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    -- 客户端信息
-                    client_ip TEXT,
-                    user_agent TEXT,
-                    referer TEXT,
-                    -- 错误信息
-                    error_message TEXT,
-                    stack_trace TEXT,
-                    -- 业务上下文
-                    user_id INTEGER,
-                    session_id TEXT,
-                    correlation_id TEXT,
-                    -- 缓存网关需要的列（新增）
-                    md5 CHAR(32),
-                    provider VARCHAR(50),
+                    -- 缓存网关必需字段
+                    md5 CHAR(32) NOT NULL,
+                    provider VARCHAR(50) NOT NULL,
                     model_id VARCHAR(100),
                     cost_usd REAL DEFAULT 0,
                     prompt_tokens INTEGER DEFAULT 0,
@@ -267,7 +242,7 @@ class UniversalDatabaseSchemaManager:
                     s3_key TEXT,
                     status VARCHAR(10) DEFAULT 'succ',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    -- 添加唯一约束（修复冲突检测）
+                    -- 唯一约束
                     UNIQUE(md5, provider)
                 )
             ''')
