@@ -65,21 +65,6 @@ class UniversalDatabaseSchemaManager:
         print("⚠️ 无法自动检测项目根目录，使用当前目录")
         return Path.cwd()
 
-    def _detect_database_path00(self) -> Path:
-        """自动检测数据库路径"""
-        # 尝试从配置导入
-        try:
-            # 添加项目根目录到Python路径
-            sys.path.insert(0, str(self.project_root))
-            from backend.configs.config import config
-            db_path = getattr(config, 'DATABASE_PATH', 'data/database.db')
-            return self.project_root / db_path
-        except ImportError:
-            # 使用默认路径
-            default_path = self.project_root / 'data' / 'database.db'
-            print(f"ℹ️ 无法导入配置，使用默认路径: {default_path}")
-            return default_path
-
     def _ensure_directories(self):
         """确保所有必要目录存在"""
         directories = [
@@ -473,21 +458,18 @@ class UniversalDatabaseSchemaManager:
             from backend.configs.config import config
             db_path_config = getattr(config, 'DATABASE_PATH', 'data/database.db')
             print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH: {db_path_config}")
-            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH类型: {type(db_path_config)}")
 
-            # 检查是否是绝对路径
-            is_absolute = Path(db_path_config).is_absolute()
-            print(f"🔍🔍🔍 调试信息 - 是否是绝对路径: {is_absolute}")
-
+            # 确保返回正确的路径
             final_path = self.project_root / db_path_config
-            print(f"🔍🔍🔍 调试信息 - 拼接后路径: {final_path}")
-
+            print(f"🔍🔍🔍 调试信息 - 最终路径: {final_path}")
             return final_path
+
         except ImportError as e:
             print(f"🔍🔍🔍 调试信息 - 导入config失败: {e}")
             default_path = self.project_root / 'data' / 'database.db'
             print(f"🔍🔍🔍 调试信息 - 使用默认路径: {default_path}")
             return default_path
+
 
 
 def main():
