@@ -34,42 +34,7 @@ except ImportError:
 class DatabaseCleaner:
     """数据库清理工具 - 适配根目录数据库路径"""
 
-    def __init__000(self, db_path=None, uploads_dir=None):
-        """
-        初始化清理工具
-
-        Args:
-            db_path: 数据库文件路径，默认为根目录下的 database.db
-            uploads_dir: 上传目录路径，默认为 backend/static/uploads
-        """
-        # 计算根目录路径
-        self.project_root = Path(__file__).parent.parent.parent
-
-        print("self.project_root:", self.project_root)
-
-        # 设置默认路径
-        self.db_path = db_path or config.DATABASE_PATH
-        self.uploads_dir = uploads_dir or str(self.project_root / "data" /  "backend" / "static")
-        self.backup_dir = str(self.project_root / "data" / "backups")
-
-        # 修改：缓存路径下所有的JSON文件
-        self.mapping_files_path = Path(self.project_root) / "data" / "backend"  # 修改这一行
-        print("self.mapping_files_path:", self.mapping_files_path)
-
-        print(f"🔍🔍 项目根目录: {self.project_root}")
-        print(f"🗃🗃️ 数据库路径: {self.db_path}")
-        print(f"📁📁 上传目录: {self.uploads_dir}")
-        print(f"💾💾 备份目录: {self.backup_dir}")
-        print(f"🗂🗂🗂🗂 映射文件: {self.mapping_files_path}")  # 新增这一行
-
-        # 确保备份目录存在
-        Path(self.backup_dir).mkdir(parents=True, exist_ok=True)
-
-        # 检查数据库文件是否存在
-        if not os.path.exists(self.db_path):
-            print(f"⚠️ 数据库文件不存在: {self.db_path}")
-
-    def __init__(self, db_path=None, uploads_dir=None):
+    def __init__00(self, db_path=None, uploads_dir=None):
         """
         初始化清理工具 - 增强路径验证
         """
@@ -96,6 +61,39 @@ class DatabaseCleaner:
         # 检查数据库文件是否存在
         if not os.path.exists(self.db_path):
             print(f"⚠️⚠️ 数据库文件不存在: {self.db_path}")
+
+    def __init__(self, db_path=None, uploads_dir=None):
+        # 计算根目录路径
+        self.project_root = Path(__file__).parent.parent.parent
+
+        print(f"🔍🔍🔍 调试信息 - 项目根目录: {self.project_root}")
+
+        # 设置默认路径
+        try:
+            from backend.configs.config import config
+            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH: {config.DATABASE_PATH}")
+            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH类型: {type(config.DATABASE_PATH)}")
+
+            # 检查是否是绝对路径
+            db_path_from_config = config.DATABASE_PATH
+            is_absolute = Path(db_path_from_config).is_absolute()
+            print(f"🔍🔍🔍 调试信息 - 是否是绝对路径: {is_absolute}")
+
+            self.db_path = db_path or config.DATABASE_PATH
+            print(f"🔍🔍🔍 调试信息 - 最终db_path: {self.db_path}")
+
+        except ImportError as e:
+            print(f"🔍🔍🔍 调试信息 - 导入config失败: {e}")
+            self.db_path = db_path or str(self.project_root / "data" / "database.db")
+            print(f"🔍🔍🔍 调试信息 - 使用默认路径: {self.db_path}")
+
+        # 其他路径设置...
+        self.uploads_dir = uploads_dir or str(self.project_root / "data" / "backend" / "static" / "uploads")
+        self.backup_dir = str(self.project_root / "data" / "backups")
+        self.mapping_files_path = Path(self.project_root) / "data" / "backend"
+
+        print(f"🔍🔍🔍 调试信息 - 最终数据库路径: {self.db_path}")
+        print(f"🔍🔍🔍 调试信息 - 上传目录: {self.uploads_dir}")
 
     def _validate_and_create_dirs(self):
         """验证并创建必要的目录"""

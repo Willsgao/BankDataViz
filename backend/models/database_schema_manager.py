@@ -20,19 +20,14 @@ class UniversalDatabaseSchemaManager:
     """
 
     def __init__(self, db_path: str = None, project_root: str = None):
-        """
-        初始化数据库管理器
-
-        Args:
-            db_path: 数据库文件路径，如果为None则自动检测
-            project_root: 项目根目录，如果为None则自动检测
-        """
-        # 自动检测项目根目录
+        # 如果提供了项目根目录，直接使用
         if project_root:
             self.project_root = Path(project_root)
         else:
-            # 尝试多种方式检测项目根目录
-            self.project_root = self._detect_project_root()
+            # 直接使用固定层级计算
+            current_file = Path(__file__).resolve()
+            self.project_root = current_file.parent.parent.parent
+            print(f"✅ 修正后的项目根目录: {self.project_root}")
 
         # 设置数据库路径
         if db_path:
@@ -40,12 +35,13 @@ class UniversalDatabaseSchemaManager:
         else:
             self.db_path = self._detect_database_path()
 
-        print("🚀 通用数据库表结构管理器初始化")
+        print(f"🚀 通用数据库表结构管理器初始化")
         print(f"📁 项目根目录: {self.project_root}")
         print(f"🗃️ 数据库路径: {self.db_path}")
 
         # 确保所有必要目录存在
         self._ensure_directories()
+
 
     def _detect_project_root(self) -> Path:
         """自动检测项目根目录"""
@@ -69,7 +65,7 @@ class UniversalDatabaseSchemaManager:
         print("⚠️ 无法自动检测项目根目录，使用当前目录")
         return Path.cwd()
 
-    def _detect_database_path(self) -> Path:
+    def _detect_database_path00(self) -> Path:
         """自动检测数据库路径"""
         # 尝试从配置导入
         try:
@@ -468,6 +464,30 @@ class UniversalDatabaseSchemaManager:
                 print(f"\n📊 表: {table_name}")
                 print(f"   列数: {table_info['column_count']}")
                 print(f"   列名: {', '.join(table_info['columns'])}")
+
+    def _detect_database_path(self) -> Path:
+        """自动检测数据库路径"""
+        print(f"🔍🔍🔍 调试信息 - 项目根目录: {self.project_root}")
+
+        try:
+            from backend.configs.config import config
+            db_path_config = getattr(config, 'DATABASE_PATH', 'data/database.db')
+            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH: {db_path_config}")
+            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH类型: {type(db_path_config)}")
+
+            # 检查是否是绝对路径
+            is_absolute = Path(db_path_config).is_absolute()
+            print(f"🔍🔍🔍 调试信息 - 是否是绝对路径: {is_absolute}")
+
+            final_path = self.project_root / db_path_config
+            print(f"🔍🔍🔍 调试信息 - 拼接后路径: {final_path}")
+
+            return final_path
+        except ImportError as e:
+            print(f"🔍🔍🔍 调试信息 - 导入config失败: {e}")
+            default_path = self.project_root / 'data' / 'database.db'
+            print(f"🔍🔍🔍 调试信息 - 使用默认路径: {default_path}")
+            return default_path
 
 
 def main():
