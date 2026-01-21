@@ -164,11 +164,11 @@ class UniversalDatabaseSchemaManager:
             ''')
             print("✅ 检查/创建 texts 表")
 
-            # 2. files表 - 文件信息表（兼容线上现有结构）
+            # 2. files表 - 文件信息表（修复版）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    filename TEXT NOT NULL UNIQUE,
+                    filename TEXT NOT NULL UNIQUE,  -- 添加UNIQUE约束
                     file_type TEXT NOT NULL,
                     raw_filename TEXT,
                     -- 线上已有字段（完全保留）
@@ -228,7 +228,7 @@ class UniversalDatabaseSchemaManager:
             ''')
             print("✅ 检查/创建 table_processing_records 表")
 
-            # 5. api_call_log表 - API调用日志表（全新表）
+            # 5. api_call_log表 - API调用日志表（修复版）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS api_call_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,6 +257,15 @@ class UniversalDatabaseSchemaManager:
                     user_id INTEGER,
                     session_id TEXT,
                     correlation_id TEXT,
+                    -- 缓存网关需要的列（新增）
+                    md5 CHAR(32),
+                    provider VARCHAR(50),
+                    model_id VARCHAR(100),
+                    cost_usd REAL DEFAULT 0,
+                    prompt_tokens INTEGER DEFAULT 0,
+                    completion_tokens INTEGER DEFAULT 0,
+                    s3_key TEXT,
+                    status VARCHAR(10) DEFAULT 'succ',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
