@@ -1,10 +1,18 @@
 # backend/services/table_processor/cache_gateway.py
 from datetime import datetime
 from sqlalchemy import create_engine, text
-from backend.configs.config import tableconfig
 
-# 使用 tableconfig 中的 CACHE_URL
-DB_URL = tableconfig.CACHE_URL
+
+# from backend.configs.config import tableconfig
+# # 使用 tableconfig 中的 CACHE_URL
+# DB_URL = tableconfig.CACHE_URL
+
+
+from backend.configs.config import config  # ✅ 使用主配置
+# 使用主数据库，而不是缓存数据库
+DB_URL = f"sqlite:///{config.DATABASE_PATH}"  # ✅ 连接到主数据库
+
+
 print(f"[Cache] 使用配置中的数据库URL: {DB_URL}")
 
 engine = create_engine(DB_URL, future=True, pool_pre_ping=True)
