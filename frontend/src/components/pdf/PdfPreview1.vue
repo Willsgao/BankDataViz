@@ -47,8 +47,8 @@
           :has-screened-images="hasScreenedImages[currentPDF.disk_name] || false"
           :screening-result="screeningResultMap?.[currentPDF.disk_name] || null"
           @delete="$emit('delete', currentPDF.filename)"
-          @convert="$emit('convert', $event)"
           @screen-images="$emit('screen-images', currentPDF.disk_name)"
+          @convert="$emit('convert', currentPDF.disk_name)"
           @batch-crop="$emit('batch-crop', currentPDF.disk_name)"
           @parse-tables="$emit('parse-tables', currentPDF.disk_name)"
           @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
@@ -210,13 +210,6 @@ const getParsingProgress = (diskName) => {
   if (!diskName || !props.parsingProgressMap) return null
   const key = diskName.replace(/\.pdf$/i, '')  // 移除.pdf后缀
   return props.parsingProgressMap[key] || null
-}
-
-// 在 PdfPreviewSection.vue 的 script 部分添加
-const handleSmartProcess = (pdfDiskName) => {
-  console.log('🔄 触发智能处理:', pdfDiskName)
-  // 触发父组件（TwoColumnLayout）的智能处理
-  emit('smart-process', pdfDiskName)
 }
 
 // 监听父组件传递的图片筛选状态

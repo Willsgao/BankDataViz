@@ -1414,7 +1414,229 @@ def api_filtered_tables_image(pdf_folder: str, category: str, filename: str):
         }), 500
 
 
+# ---------------- 29. 智能PDF处理接口 ----------------
+@convert_bp.route('/api/smart-process-pdf/<pdf_disk_name>', methods=['POST', 'OPTIONS'])
+def api_smart_process_pdf(pdf_disk_name: str):
+    """
+    API: 智能PDF处理
+    功能: 自动化执行转图检查 → 分类完整性验证 → 预处理就绪
+    请求方法: POST
+    """
+    try:
+        # 处理OPTIONS预检请求
+        if request.method == 'OPTIONS':
+            response = jsonify({"status": "ok"})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            return response
+
+        print(f"🚀 收到智能处理请求: {pdf_disk_name}")
+
+        # 提取PDF文件夹名（去掉.pdf后缀）
+        pdf_folder = pdf_disk_name.replace('.pdf', '')
+
+        # 1. 第一步：检查PDF文件是否存在
+        pdf_path = Path(UPLOAD_DIR) / pdf_disk_name
+        if not pdf_path.exists():
+            return jsonify({
+                "success": False,
+                "error": f"PDF文件不存在: {pdf_disk_name}",
+                "step": "check_pdf_existence"
+            }), 404
+
+        # 2. 第二步：检查和处理转图状态
+        png_folder_path = Path(PNG_OUTPUT_DIR) / pdf_folder
+        png_files = list(png_folder_path.glob("*.png")) if png_folder_path.exists() else []
+
+        if not png_files:
+            print(f"🔄 PDF未转图，开始执行转图...")
+            # 调用现有的异步转图功能
+            conversion_result = pdf_converter.convert_pdf_async(
+                pdf_disk_name,
+                UPLOAD_DIR,
+                PNG_OUTPUT_DIR,
+                db_manager,
+                progress_tracker
+            )
+
+            if not conversion_result.get('success', False):
+                return jsonify({
+                    "success": False,
+                    "error": f"转图失败: {conversion_result.get('error', '未知错误')}",
+                    "step": "pdf_conversion"
+                }), 500
+
+            # 等待转图完成（简化处理，实际应该轮询进度）
+            import time
+            time.sleep(3)
+
+            # 重新检查转图结果
+            png_files = list(png_folder_path.glob("*.png")) if png_folder_path.exists() else []
+            if not png_files:
+                return jsonify({
+                    "success": False,
+                    "error": "转图失败，未生成PNG文件",
+                    "step": "pdf_conversion"
+                }), 500
+
+            print(f"✅ 转图完成，生成PNG数量: {len(png_files)}")
+        else:
+            print(f"✅ PDF已转图，跳过转图步骤。PNG数量: {len(png_files)}")
+
+        # 3. 第三步：检查和处理分类状态
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        tables_dir = output_dir / "tables"
+        no_tables_dir = output_dir / "no_tables"
+
+        # 检查分类是否存在且完整
+        classification_exists = tables_dir.exists() or no_tables_dir.exists()
+
+        if classification_exists:
+            # 验证分类完整性
+            tables_files = list(tables_dir.glob("*.png")) if tables_dir.exists() else []
+            no_tables_files = list(no_tables_dir.glob("*.png")) if no_tables_dir.exists() else []
+
+            classified_count = len(tables_files) + len(no_tables_files)
+            is_complete = (classified_count == len(png_files))
+
+            print(f"🔍 分类完整性检查: 已分类{classified_count}/{len(png_files)}, 完整: {is_complete}")
+
+            if not is_complete:
+                # 分类不完整，需要重建
+                print(f"🔄 分类不完整，开始重建分类...")
+
+                # 清空tables目录
+                if tables_dir.exists():
+                    for file_path in tables_dir.glob("*"):
+                        if file_path.is_file():
+                            file_path.unlink()
+                    print(f"🗑️ 已清空tables目录")
+
+                # 确保no_tables目录存在
+                no_tables_dir.mkdir(parents=True, exist_ok=True)
+
+                # 清空no_tables目录
+                if no_tables_dir.exists():
+                    for existing_file in no_tables_dir.glob("*.png"):
+                        existing_file.unlink()
+
+                # 复制所有PNG到no_tables目录
+                moved_count = 0
+                for png_file in png_files:
+                    dest_path = no_tables_dir / png_file.name
+                    shutil.copy2(str(png_file), str(dest_path))
+                    moved_count += 1
+
+                print(f"✅ 分类重建完成: 移动{moved_count}个文件到no_tables")
+            else:
+                print(f"✅ 分类已存在且完整")
+        else:
+            # 分类不存在，需要创建
+            print(f"🔄 分类不存在，开始创建分类...")
+
+            # 创建no_tables目录
+            no_tables_dir.mkdir(parents=True, exist_ok=True)
+
+            # 复制所有PNG到no_tables目录
+            moved_count = 0
+            for png_file in png_files:
+                dest_path = no_tables_dir / png_file.name
+                shutil.copy2(str(png_file), str(dest_path))
+                moved_count += 1
+
+            print(f"✅ 初始分类完成: 移动{moved_count}个文件到no_tables")
+
+        # 4. 返回最终状态
+        final_tables_files = list(tables_dir.glob("*.png")) if tables_dir.exists() else []
+        final_no_tables_files = list(no_tables_dir.glob("*.png")) if no_tables_dir.exists() else []
+
+        result = {
+            "success": True,
+            "pdf_disk_name": pdf_disk_name,
+            "pdf_folder": pdf_folder,
+            "converted": True,
+            "classified": True,
+            "ready_for_parsing": True,
+            "message": "预处理完成，可手动开始表格解析",
+            "stats": {
+                "total_png_count": len(png_files),
+                "tables_count": len(final_tables_files),
+                "no_tables_count": len(final_no_tables_files)
+            }
+        }
+
+        print(f"✅ 智能处理完成: {pdf_disk_name}")
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"💥 智能处理失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": f"智能处理失败: {str(e)}",
+            "pdf_disk_name": pdf_disk_name
+        }), 500
 
 
+# ---------------- 30. 获取PDF处理状态接口 ----------------
+@convert_bp.route('/api/pdf-process-status/<pdf_disk_name>', methods=['GET'])
+def api_get_pdf_process_status(pdf_disk_name: str):
+    """
+    API: 获取PDF处理状态
+    功能: 检查PDF的转图和分类状态
+    """
+    try:
+        pdf_folder = pdf_disk_name.replace('.pdf', '')
+
+        # 检查PDF文件是否存在
+        pdf_path = Path(UPLOAD_DIR) / pdf_disk_name
+        pdf_exists = pdf_path.exists()
+
+        # 检查转图状态
+        png_folder_path = Path(PNG_OUTPUT_DIR) / pdf_folder
+        png_files = list(png_folder_path.glob("*.png")) if png_folder_path.exists() else []
+
+        # 检查分类状态
+        output_dir = Path(FILTERED_TABLES_DIR) / pdf_folder
+        tables_dir = output_dir / "tables"
+        no_tables_dir = output_dir / "no_tables"
+
+        tables_files = list(tables_dir.glob("*.png")) if tables_dir.exists() else []
+        no_tables_files = list(no_tables_dir.glob("*.png")) if no_tables_dir.exists() else []
+
+        classification_exists = tables_dir.exists() or no_tables_dir.exists()
+        classification_complete = len(png_files) > 0 and (len(tables_files) + len(no_tables_files) == len(png_files))
+        ready_for_parsing = len(png_files) > 0 and classification_complete
+
+        return jsonify({
+            "success": True,
+            "pdf_disk_name": pdf_disk_name,
+            "pdf_folder": pdf_folder,
+            "pdf_exists": pdf_exists,
+            "conversion": {
+                "converted": len(png_files) > 0,
+                "png_count": len(png_files),
+                "png_folder_exists": png_folder_path.exists()
+            },
+            "classification": {
+                "classified": classification_exists,
+                "complete": classification_complete,
+                "tables_count": len(tables_files),
+                "no_tables_count": len(no_tables_files),
+                "total_expected": len(png_files)
+            },
+            "ready_for_parsing": ready_for_parsing,
+            "message": "状态检查完成"
+        })
+
+    except Exception as e:
+        print(f"💥 获取处理状态失败: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"获取处理状态失败: {str(e)}"
+        }), 500
 
 

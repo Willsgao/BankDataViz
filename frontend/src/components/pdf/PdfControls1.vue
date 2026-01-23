@@ -10,8 +10,19 @@
 
       <el-button type="success" size="small" icon="el-icon-picture"
                  @click="$emit('convert', pdf.disk_name)"
-                 :loading="!!converting[pdf.filename]">开始转图</el-button>
+                 :loading="!!converting[pdf.filename]">转图并管理</el-button>
 
+      <!-- 图片筛选按钮：仅在已转图时显示 -->
+      <el-button
+        v-if="hasConvertCache"
+        type="primary"
+        size="small"
+        icon="el-icon-filter"
+        @click="$emit('screen-images', pdf.disk_name)"
+        :loading="isScreening"
+        :title="hasScreenedImages ? '重新筛选表格图片' : '筛选出含表格的图片'">
+        {{ hasScreenedImages ? '重新筛选' : '图片筛选' }}
+      </el-button>
 
       <!-- 分类管理按钮：仅在已筛选图片后显示 -->
       <el-button
@@ -146,47 +157,33 @@ const hasConvertCache = computed(() => {
 })
 
 
+// 计算是否显示表格解析按钮 - 修改为：只有在已筛选图片后才显示
+const shouldShowParseButton = computed(() => {
+  const diskName = props.pdf.disk_name
+  const hasScreened = props.hasScreenedImages
+
+  console.log('🔍 PdfControls 表格解析按钮显示条件检查:', {
+    diskName,
+    hasConvertCache: hasConvertCache.value,
+    'hasConvertCache 值': hasConvertCache.value,
+    hasScreenedImages: hasScreened,
+    'hasScreenedImages 类型': typeof hasScreened,
+    'hasScreenedImages 值': hasScreened,
+    'props.hasScreenedImages': props.hasScreenedImages,
+    '当前时间': new Date().toISOString(),
+    shouldShow: hasConvertCache.value && hasScreened
+  })
+
+  // 必须同时满足：已转图 AND 已完成图片筛选
+  return hasConvertCache.value && hasScreened
+})
+
 
 const formatDate = (ts) => {
   if (!ts) return '未知时间'
   const d = new Date(ts)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-
-
-// 计算是否显示分类管理按钮
-const shouldShowClassificationButton = computed(() => {
-  const diskName = props.pdf.disk_name
-  const hasScreened = props.hasScreenedImages
-
-  console.log('🔍 分类管理按钮显示条件检查:', {
-    diskName,
-    hasScreened,
-    shouldShow: hasScreened
-  })
-
-  return hasScreened
-})
-
-// 计算是否显示表格解析按钮 - 分阶段显示
-const shouldShowParseButton = computed(() => {
-  const diskName = props.pdf.disk_name
-  const hasScreened = props.hasScreenedImages
-  const hasConverted = hasConvertCache.value
-
-  const showButton = hasScreened // 主要看筛选状态
-
-  console.log('🔍 表格解析按钮显示状态:', {
-    diskName,
-    转图状态: hasConverted ? '已完成' : '未完成',
-    筛选状态: hasScreened ? '已完成' : '未完成',
-    显示按钮: showButton ? '是' : '否'
-  })
-
-  return showButton
-})
-
-
 </script>
 
 <style scoped>

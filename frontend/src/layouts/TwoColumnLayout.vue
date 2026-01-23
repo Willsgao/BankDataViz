@@ -30,6 +30,7 @@
           @batch-crop="$emit('handle-batch-crop', $event)"
           @parse-tables="$emit('parse-tables', $event)"
           @clear-cache="$emit('clear-cache', $event)"
+          @smart-process-pdf="handleSmartProcess"
           @close-pdf="handleCloseCurrentPdf"
           @open-classification="$emit('handle-open-classification', $event)"
         />
@@ -289,17 +290,12 @@ const toggleFileList = () => {
 }
 
 
-const handleDeleteFile0 = (file) => {
-  console.log('🔄 TwoColumnLayout 收到删除事件:', file)
-
-  // 直接调用从父组件传递的函数
-  if (props.onDeleteFile) {
-    props.onDeleteFile(file)
-  } else {
-    console.error('❌ onDeleteFile 函数未定义')
-  }
+// 在 TwoColumnLayout.vue 中添加
+const handleSmartProcess = (pdfDiskName) => {
+  console.log('📡 TwoColumnLayout 收到智能处理请求:', pdfDiskName)
+  // 触发最外层父组件（TwoColumnPage）的智能处理
+  emit('smart-process-pdf', pdfDiskName)
 }
-
 
 // 第 190 行左右，修改 handleDeleteFile 函数
 const handleDeleteFile = (file) => {

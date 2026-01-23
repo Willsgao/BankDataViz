@@ -89,7 +89,7 @@
           :icon="hasConvertCache ? 'el-icon-picture' : 'el-icon-picture-outline'"
           :loading="!!convertingObj[currentPdf.disk_name]"
           @click="handleConvert"
-          title="转图并预览"
+          title="开始转图"
         >
           {{ hasConvertCache ? '重新转图' : '转图' }}
         </el-button>

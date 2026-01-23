@@ -172,7 +172,8 @@ const emit = defineEmits([
   'table-type-change',
   'screen-images-completed',
   'parse-tables-completed',
-  'update-step-status'
+  'update-step-status',
+  'smart-process-pdf'
 ])
 
 
@@ -181,6 +182,13 @@ onMounted(async () => {
   await loadFiles()
 
 })
+
+// 监听智能处理事件
+const handleSmartProcessPdf = (pdfDiskName) => {
+  console.log('🎯 TwoColumnPage 收到智能处理事件:', pdfDiskName)
+  // 调用之前创建的智能处理函数
+  smartProcessPdf(pdfDiskName)
+}
 
 // ---------------- 百度OCR相关函数 ----------------
 async function checkBaiduOCRHealth() {
@@ -809,118 +817,176 @@ const switchToPdf = (pdf) => {
 
 // 4. 修改 convertAndPreview 函数，更新操作时间
 async function convertAndPreview(pdfDiskName) {
-  console.log('🔄 开始转图预览，文件名:', pdfDiskName)
+  console.log('🚀🚀 开始自动化处理流程:', pdfDiskName)
 
-  // 更新当前PDF和操作时间
+  // 更新当前PDF
   updateCurrentPdf(pdfDiskName)
 
   const cacheKey = pdfDiskName.replace('.pdf', '')
+
+  // 步骤1：检查是否已经转图完成
+  const hasConverted = convertCache.value[cacheKey] && convertCache.value[cacheKey].length > 0
+
+  if (!hasConverted) {
+    // 需要转图，执行转图操作
+    console.log('📸 需要转图，开始转图操作...')
+    await executeConvertPdf(pdfDiskName, cacheKey)
+  } else {
+    console.log('✅ 转图已完成，跳过转图步骤')
+    // 转图已完成，直接记录状态
+    recordStepCompletion(pdfDiskName, 'convert', { timestamp: Date.now() })
+    updateStepStatus(pdfDiskName, 'convert', 'done')
+  }
+
+  // 步骤2：检查是否已经图片筛选完成
+  const hasScreened = hasScreenedImages.value[pdfDiskName]
+
+  if (!hasScreened) {
+    // 需要图片筛选，自动执行筛选
+    console.log('🖼️ 需要图片筛选，开始筛选操作...')
+    await executeScreenImages(pdfDiskName, cacheKey)
+  } else {
+    console.log('✅ 图片筛选已完成，跳过筛选步骤')
+    // 筛选已完成，直接记录状态
+    recordStepCompletion(pdfDiskName, 'screen', { timestamp: Date.now() })
+  }
+
+  // 步骤3：完成后更新UI状态，确保按钮显示
+  console.log('🎯 自动化流程完成，更新UI状态')
+  updateUIAfterAutoProcess(pdfDiskName)
+}
+
+// 执行转图操作
+async function executeConvertPdf(pdfDiskName, cacheKey) {
   convertingObj.value[pdfDiskName] = true
   progressVisible.value = true
   progressPercent.value = 0
   progressStatus.value = ''
-  progressMsg.value = '正在检查缓存...'
-
-  // 辅助函数：记录步骤完成时间
-  const recordStepTime = (step) => {
-    if (!stepCompletionTime.value[pdfDiskName]) {
-      stepCompletionTime.value[pdfDiskName] = {}
-    }
-    stepCompletionTime.value[pdfDiskName][step] = Date.now()
-    // 深拷贝以确保响应式更新
-    stepCompletionTime.value = { ...stepCompletionTime.value }
-    console.log(`✅ 记录${step}步骤完成时间:`, {
-      pdfDiskName,
-      step,
-      time: new Date(stepCompletionTime.value[pdfDiskName][step]).toLocaleTimeString(),
-      fullRecord: stepCompletionTime.value[pdfDiskName]
-    })
-  }
-
-  // 如果是缓存命中，直接记录完成时间
-  if (convertCache.value[cacheKey]) {
-    console.log('📦 转图缓存命中，自动记录完成时间')
-    recordStepTime('convert')
-
-    previewFolder.value = pdfDiskName.replace(/\.pdf$/i, '')
-    previewPngs.value = convertCache.value[cacheKey]
-    progressVisible.value = false
-    previewVisible.value = true
-    convertingObj.value[pdfDiskName] = false
-    delete convertingObj.value[pdfDiskName]
-
-    // 更新状态：转图已完成
-    updateStepStatus(pdfDiskName, 'convert', 'done')
-
-    return
-  }
+  progressMsg.value = '正在转图...'
 
   try {
-    progressMsg.value = '正在提交任务...'
+    // 检查缓存
+    progressMsg.value = '正在检查缓存...'
 
-    // 使用相对路径，让代理处理
-    console.log('🔗 调用转图API:', `/api/convert-pdf-async/${pdfDiskName}`)
-
-    // const { data } = await axios.post(`/api/convert-pdf-async/${pdfDiskName}`)
-    // 2. 转图API
+    // 调用转图API
     const { data } = await axios.post(getSmartUrl(`/api/convert-pdf-async/${pdfDiskName}`))
 
-    // API缓存命中
     if (data.hitCache) {
-      console.log('📦 API缓存命中')
-      recordStepTime('convert')
-
+      // 缓存命中
       convertCache.value[cacheKey] = data.pngs
-      previewFolder.value = pdfDiskName.replace(/\.pdf$/i, '')
-      previewPngs.value = data.pngs
       progressVisible.value = false
-      previewVisible.value = true
-      convertingObj.value[pdfDiskName] = false
-      delete convertingObj.value[pdfDiskName]
-
-      // 更新状态：转图已完成
-      updateStepStatus(pdfDiskName, 'convert', 'done')
-
-      return
-    }
-
-    progressMsg.value = '任务已提交，正在转图...'
-    await pollProgress(data.jobId)
-
-    if (progressStatus.value === 'success') {
-      // 转图成功，记录完成时间
-      recordStepTime('convert')
-
-      const list = await getPngList(pdfDiskName.replace(/\.pdf$/i, ''))
-      convertCache.value[cacheKey] = list.pngs
-      previewFolder.value = pdfDiskName.replace(/\.pdf$/i, '')
-      previewPngs.value = list.pngs
-      progressVisible.value = false
-      previewVisible.value = true
-
-      // 更新状态：转图已完成
-      updateStepStatus(pdfDiskName, 'convert', 'done')
-
-      // 显示成功消息
-      ElMessage.success({
-        message: `转图完成！已生成 ${list.pngs?.length || 0} 张图片`,
-        duration: 3000
-      })
+      ElMessage.success(`转图完成！已有 ${data.pngs?.length || 0} 张图片`)
     } else {
-      ElMessage.error('转图失败：' + progressMsg.value)
-      // 失败时清除转图状态
-      updateStepStatus(pdfDiskName, 'convert', 'failed')
+      // 需要实际转图
+      progressMsg.value = '任务已提交，正在转图...'
+      await pollProgress(data.jobId)
+
+      if (progressStatus.value === 'success') {
+        const list = await getPngList(pdfDiskName.replace(/\.pdf$/i, ''))
+        convertCache.value[cacheKey] = list.pngs
+        ElMessage.success(`转图完成！已生成 ${list.pngs?.length || 0} 张图片`)
+      } else {
+        throw new Error('转图失败：' + progressMsg.value)
+      }
     }
-  } catch (e) {
-    console.error('❌ 转图请求失败:', e)
-    ElMessage.error('转图请求失败：' + (e.response?.data?.error || e.message))
-    // 失败时清除转图状态
-    updateStepStatus(pdfDiskName, 'convert', 'failed')
+
+    // 记录转图完成
+    recordStepCompletion(pdfDiskName, 'convert', { timestamp: Date.now() })
+    updateStepStatus(pdfDiskName, 'convert', 'done')
+
+  } catch (error) {
+    console.error('❌ 转图失败:', error)
+    ElMessage.error('转图失败: ' + error.message)
+    throw error // 抛出错误，停止后续流程
   } finally {
     convertingObj.value[pdfDiskName] = false
-    delete convertingObj.value[pdfDiskName]
+    progressVisible.value = false
   }
 }
+
+// 执行图片筛选操作
+async function executeScreenImages(pdfDiskName, cacheKey) {
+  isScreening.value = true
+  progressVisible.value = true
+  progressPercent.value = 50
+  progressStatus.value = ''
+  progressMsg.value = '正在筛选图片...'
+
+  try {
+    // 获取该PDF的PNG图片
+    const pngList = convertCache.value[cacheKey]
+
+    if (!pngList || pngList.length === 0) {
+      throw new Error('请先完成转图操作')
+    }
+
+    // 调用后端API进行图片筛选
+    const response = await axios.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
+      png_names: pngList,
+      filter_only: false
+    })
+
+    if (response.data.success) {
+      // 更新筛选状态
+      const newHasScreenedImages = { ...hasScreenedImages.value }
+      newHasScreenedImages[pdfDiskName] = true
+      hasScreenedImages.value = newHasScreenedImages
+
+      // 更新筛选结果
+      const newScreeningResultMap = { ...screeningResultMap.value }
+      newScreeningResultMap[pdfDiskName] = {
+        success: true,
+        pdfDiskName: pdfDiskName,
+        total_count: response.data.total_images || pngList.length,
+        has_table_count: response.data.has_table_count || 0,
+        no_table_count: response.data.no_table_count || 0
+      }
+      screeningResultMap.value = newScreeningResultMap
+
+      // 记录筛选完成
+      recordStepCompletion(pdfDiskName, 'screen', {
+        timestamp: Date.now(),
+        result: newScreeningResultMap[pdfDiskName]
+      })
+
+      ElMessage.success('图片筛选完成！')
+    } else {
+      throw new Error('图片筛选失败: ' + response.data.error)
+    }
+
+  } catch (error) {
+    console.error('❌ 图片筛选失败:', error)
+    ElMessage.error('图片筛选失败: ' + error.message)
+    throw error // 抛出错误，停止后续流程
+  } finally {
+    isScreening.value = false
+    progressVisible.value = false
+  }
+}
+
+// 更新UI状态
+function updateUIAfterAutoProcess(pdfDiskName) {
+  console.log('🔄 更新UI状态，确保按钮显示:', pdfDiskName)
+
+  // 强制更新响应式数据，确保组件重新渲染
+  const updatedHasScreenedImages = { ...hasScreenedImages.value }
+  hasScreenedImages.value = updatedHasScreenedImages
+
+  const updatedConvertCache = { ...convertCache.value }
+  convertCache.value = updatedConvertCache
+
+  // 触发组件重新计算
+  nextTick(() => {
+    console.log('✅ UI状态更新完成，应该显示分类管理和表格分析按钮了')
+    console.log('当前状态:', {
+      hasScreenedImages: hasScreenedImages.value[pdfDiskName],
+      hasConvertCache: !!convertCache.value[pdfDiskName.replace('.pdf', '')]
+    })
+  })
+}
+
+
+
 
 // 新增：更新步骤状态的辅助函数
 function updateStepStatus(pdfDiskName, step, status) {
@@ -934,6 +1000,94 @@ function updateStepStatus(pdfDiskName, step, status) {
   stepStatuses.value[pdfDiskName][step] = status
   stepStatuses.value = { ...stepStatuses.value }
 
+}
+
+
+// 新增智能处理函数
+async function smartProcessPdf(pdfDiskName) {
+  console.log('🚀🚀 开始智能处理PDF:', pdfDiskName)
+
+  // 更新当前PDF
+  updateCurrentPdf(pdfDiskName)
+
+  const cacheKey = pdfDiskName.replace('.pdf', '')
+  convertingObj.value[pdfDiskName] = true
+  progressVisible.value = true
+  progressPercent.value = 0
+  progressStatus.value = ''
+  progressMsg.value = '开始智能处理PDF...'
+
+  try {
+    // 步骤1: 检查状态
+    progressPercent.value = 10
+    progressMsg.value = '检查PDF处理状态...'
+
+    const statusResponse = await axios.get(getSmartUrl(`/api/pdf-process-status/${pdfDiskName}`))
+
+    if (statusResponse.data.success && statusResponse.data.ready_for_parsing) {
+      // 如果已经处理完成，直接返回
+      progressMsg.value = 'PDF已预处理完成，可直接进行表格解析'
+      progressPercent.value = 100
+
+      setTimeout(() => {
+        progressVisible.value = false
+        ElMessage.success('PDF已预处理完成，可直接进行表格解析')
+      }, 1000)
+      return
+    }
+
+    // 步骤2: 执行智能处理
+    progressPercent.value = 30
+    progressMsg.value = '执行智能预处理...'
+
+    const processResponse = await axios.post(getSmartUrl(`/api/smart-process-pdf/${pdfDiskName}`))
+
+    if (!processResponse.data.success) {
+      throw new Error(processResponse.data.error || '智能处理失败')
+    }
+
+    // 步骤3: 更新前端状态
+    progressPercent.value = 80
+    progressMsg.value = '更新前端状态...'
+
+    // 更新转图缓存
+    const pngList = await getPngList(cacheKey)
+    convertCache.value[cacheKey] = pngList.pngs
+
+    // 更新筛选状态
+    hasScreenedImages.value[pdfDiskName] = true
+
+    // 记录完成时间
+    recordStepCompletion(pdfDiskName, 'convert', { timestamp: Date.now() })
+    recordStepCompletion(pdfDiskName, 'screen', { timestamp: Date.now() })
+
+    // 完成
+    progressPercent.value = 100
+    progressStatus.value = 'success'
+    progressMsg.value = '智能处理完成！'
+
+    setTimeout(() => {
+      progressVisible.value = false
+      ElMessage.success({
+        message: `智能处理完成！${pngList.pngs?.length || 0}张图片已准备就绪`,
+        duration: 3000
+      })
+    }, 1000)
+
+  } catch (error) {
+    console.error('❌❌ 智能处理失败:', error)
+    progressPercent.value = 100
+    progressStatus.value = 'exception'
+    progressMsg.value = '处理失败: ' + error.message
+
+    setTimeout(() => {
+      progressVisible.value = false
+      ElMessage.error('智能处理失败: ' + error.message)
+    }, 2000)
+  } finally {
+    convertingObj.value[pdfDiskName] = false
+    delete convertingObj.value[pdfDiskName]
+  }
 }
 
 
@@ -1662,14 +1816,12 @@ async function pollProgress(jobId) {
   return new Promise((resolve) => {
     const timer = setInterval(async () => {
       try {
-        // const { data } = await axios.get(getBackendUrl(`/api/progress/${jobId}`))
-        // 3. 进度查询API
         const { data } = await axios.get(getSmartUrl(`/api/progress/${jobId}`))
 
         progressPercent.value = data.percent
         if (data.percent === 100) {
           progressStatus.value = 'success'
-          progressMsg.value = '转图完成，正在加载预览...'
+          progressMsg.value = '转图完成！'  // 移除预览相关文字
           clearInterval(timer)
           resolve()
         } else if (data.percent < 0) {
