@@ -34,34 +34,6 @@ except ImportError:
 class DatabaseCleaner:
     """数据库清理工具 - 适配根目录数据库路径"""
 
-    def __init__00(self, db_path=None, uploads_dir=None):
-        """
-        初始化清理工具 - 增强路径验证
-        """
-        # 计算根目录路径
-        self.project_root = Path(__file__).parent.parent.parent
-
-        # 设置默认路径
-        self.db_path = db_path or config.DATABASE_PATH
-        self.uploads_dir = uploads_dir or str(self.project_root / "data" / "backend" / "static" / "uploads")
-        self.backup_dir = str(self.project_root / "data" / "backups")
-
-        # 修改：缓存路径下所有的JSON文件
-        self.mapping_files_path = Path(self.project_root) / "data" / "backend"
-
-        # 验证并创建必要的目录
-        self._validate_and_create_dirs()
-
-        print(f"🔍🔍 项目根目录: {self.project_root}")
-        print(f"🗃🗃 数据库路径: {self.db_path}")
-        print(f"📁📁 上传目录: {self.uploads_dir}")
-        print(f"💾💾 备份目录: {self.backup_dir}")
-        print(f"🗂🗂 映射文件路径: {self.mapping_files_path}")
-
-        # 检查数据库文件是否存在
-        if not os.path.exists(self.db_path):
-            print(f"⚠️⚠️ 数据库文件不存在: {self.db_path}")
-
     def __init__(self, db_path=None, uploads_dir=None):
         # 计算根目录路径
         self.project_root = Path(__file__).parent.parent.parent

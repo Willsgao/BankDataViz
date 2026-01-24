@@ -817,6 +817,97 @@ const switchToPdf = (pdf) => {
 
 // 4. 修改 convertAndPreview 函数，更新操作时间
 async function convertAndPreview(pdfDiskName) {
+  console.log('🚀🚀🚀🚀 开始智能处理流程:', pdfDiskName)
+
+  // 更新当前PDF
+  updateCurrentPdf(pdfDiskName)
+
+  const cacheKey = pdfDiskName.replace('.pdf', '')
+
+  try {
+    // 步骤1：调用智能处理接口（替代原有的转图和筛选步骤）
+    const smartResult = await smartProcessPdf(pdfDiskName)
+
+    // 步骤2：使用智能处理的结果，不再调用老的接口
+    if (smartResult && smartResult.success) {
+      console.log('✅ 智能处理成功，使用智能处理结果')
+
+      // 直接从智能处理结果获取数据，不再调用 getPngList
+      if (smartResult.pngs) {
+        convertCache.value[cacheKey] = smartResult.pngs
+      } else if (smartResult.conversion && smartResult.conversion.png_count > 0) {
+        // 如果智能处理没有直接返回pngs，但显示已转图，可以安全地设置为空数组
+        // 因为智能处理已经将图片复制到 no_tables 目录
+        convertCache.value[cacheKey] = [] // 或者设置为模拟数据
+      }
+
+      // 更新筛选状态
+      hasScreenedImages.value[pdfDiskName] = true
+
+      // 记录完成时间
+      recordStepCompletion(pdfDiskName, 'convert', { timestamp: Date.now() })
+      recordStepCompletion(pdfDiskName, 'screen', { timestamp: Date.now() })
+
+      console.log('🎯🎯 智能处理完成，更新UI状态')
+      updateUIAfterAutoProcess(pdfDiskName)
+
+    } else {
+      throw new Error('智能处理失败')
+    }
+
+  } catch (error) {
+    console.error('❌❌❌❌ 智能处理失败:', error)
+    ElMessage.error('智能处理失败: ' + error.message)
+
+    // 失败时也可以尝试调用智能处理的状态检查接口
+    try {
+      const statusResponse = await axios.get(`/api/pdf-process-status/${pdfDiskName}`)
+      if (statusResponse.data.success) {
+        const status = statusResponse.data
+        if (status.conversion.converted) {
+          // 即使智能处理失败，但如果转图已完成，可以手动设置状态
+          convertCache.value[cacheKey] = [] // 设置为空，因为图片在文件系统中
+          hasScreenedImages.value[pdfDiskName] = status.classification.classified
+        }
+      }
+    } catch (statusError) {
+      console.error('状态检查也失败:', statusError)
+    }
+  }
+}
+
+
+// 添加一个函数来检查后端图片是否真的存在
+async function checkPdfImagesExist(pdfDiskName) {
+  const cacheKey = pdfDiskName.replace('.pdf', '')
+
+  try {
+    // 直接调用后端API检查图片
+    const pngList = await getPngList(cacheKey)
+
+    if (pngList && pngList.pngs && pngList.pngs.length > 0) {
+      console.log('✅ 后端图片存在:', pngList.pngs.length, '张')
+
+      // 更新前端缓存
+      convertCache.value[cacheKey] = pngList.pngs
+
+      return {
+        exists: true,
+        count: pngList.pngs.length,
+        pngs: pngList.pngs
+      }
+    } else {
+      console.log('❌ 后端没有图片')
+      return { exists: false }
+    }
+  } catch (error) {
+    console.error('检查图片失败:', error)
+    return { exists: false, error: error.message }
+  }
+}
+
+
+async function convertAndPreview000(pdfDiskName) {
   console.log('🚀🚀 开始自动化处理流程:', pdfDiskName)
 
   // 更新当前PDF
@@ -855,6 +946,9 @@ async function convertAndPreview(pdfDiskName) {
   console.log('🎯 自动化流程完成，更新UI状态')
   updateUIAfterAutoProcess(pdfDiskName)
 }
+
+
+
 
 // 执行转图操作
 async function executeConvertPdf(pdfDiskName, cacheKey) {
@@ -1004,7 +1098,7 @@ function updateStepStatus(pdfDiskName, step, status) {
 
 
 // 新增智能处理函数
-async function smartProcessPdf(pdfDiskName) {
+async function smartProcessPdf000(pdfDiskName) {
   console.log('🚀🚀 开始智能处理PDF:', pdfDiskName)
 
   // 更新当前PDF
@@ -1084,6 +1178,93 @@ async function smartProcessPdf(pdfDiskName) {
       progressVisible.value = false
       ElMessage.error('智能处理失败: ' + error.message)
     }, 2000)
+  } finally {
+    convertingObj.value[pdfDiskName] = false
+    delete convertingObj.value[pdfDiskName]
+  }
+}
+
+
+
+async function smartProcessPdf(pdfDiskName) {
+  console.log('🚀🚀🚀🚀🚀🚀🚀🚀 开始智能处理PDF:', pdfDiskName)
+
+  // 更新当前PDF
+  updateCurrentPdf(pdfDiskName)
+
+  const cacheKey = pdfDiskName.replace('.pdf', '')
+  convertingObj.value[pdfDiskName] = true
+  progressVisible.value = true
+  progressPercent.value = 0
+  progressStatus.value = ''
+  progressMsg.value = '开始智能处理PDF...'
+
+  try {
+    // 步骤1: 检查状态
+    progressPercent.value = 10
+    progressMsg.value = '检查PDF处理状态...'
+
+    const statusResponse = await axios.get(`/api/pdf-process-status/${pdfDiskName}`)
+
+    if (statusResponse.data.success && statusResponse.data.ready_for_parsing) {
+      // 如果已经处理完成，直接返回成功结果
+      progressMsg.value = 'PDF已预处理完成，可直接进行表格解析'
+      progressPercent.value = 100
+
+      setTimeout(() => {
+        progressVisible.value = false
+      }, 1000)
+
+      // ✅ 返回处理结果，供父函数使用
+      return {
+        success: true,
+        ready: true,
+        conversion: statusResponse.data.conversion,
+        classification: statusResponse.data.classification
+      }
+    }
+
+    // 步骤2: 执行智能处理
+    progressPercent.value = 30
+    progressMsg.value = '执行智能预处理...'
+
+    const processResponse = await axios.post(`/api/smart-process-pdf/${pdfDiskName}`)
+
+    if (!processResponse.data.success) {
+      throw new Error(processResponse.data.error || '智能处理失败')
+    }
+
+    // 完成
+    progressPercent.value = 100
+    progressStatus.value = 'success'
+    progressMsg.value = '智能处理完成！'
+
+    setTimeout(() => {
+      progressVisible.value = false
+    }, 1000)
+
+    // ✅ 返回处理结果，供父函数使用
+    return {
+      success: true,
+      ready: false,
+      data: processResponse.data
+    }
+
+  } catch (error) {
+    console.error('❌❌❌❌❌❌❌❌ 智能处理失败:', error)
+    progressPercent.value = 100
+    progressStatus.value = 'exception'
+    progressMsg.value = '处理失败: ' + error.message
+
+    setTimeout(() => {
+      progressVisible.value = false
+    }, 2000)
+
+    // ✅ 返回错误结果
+    return {
+      success: false,
+      error: error.message
+    }
   } finally {
     convertingObj.value[pdfDiskName] = false
     delete convertingObj.value[pdfDiskName]

@@ -12,7 +12,7 @@ export const getProgress = jobId =>
 
 /** 获取某 PDF 的所有 PNG 文件名 */
 export const getPngList = folder =>
-  http.get(`/png-list/${folder}`).then(res => res.data)
+  http.get(`/api/png-list/${folder}`).then(res => res.data)
 
 /** 获取PNG图片URL */
 export const getPngUrl = (folder, pngName) => {

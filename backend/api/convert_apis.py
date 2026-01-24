@@ -1363,7 +1363,6 @@ def api_get_screening_statistics(pdf_folder: str):
         }), 500
 
 
-
 # ---------------- 25.5. 提供筛选分类图片 API ----------------
 @convert_bp.route('/filtered-tables-image/<pdf_folder>/<category>/<filename>')
 def api_filtered_tables_image(pdf_folder: str, category: str, filename: str):

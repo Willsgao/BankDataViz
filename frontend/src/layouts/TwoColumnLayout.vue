@@ -366,7 +366,7 @@ defineEmits([
   'load-files',
   'delete-file',
   'cutTable',
-  'convertAndPreview',
+  'convert-and-preview',
   'handleBatchCrop',
   'open-llm-config',
   'handleImageSelected',

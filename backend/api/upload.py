@@ -72,8 +72,8 @@ from backend.service.file_management_service import file_management_service
 
 
 
-@upload_bp.route('/api/files', methods=['GET'])
-def get_all_files():
+@upload_bp.route('/api/files0', methods=['GET'])
+def get_all_files0():
     """获取所有文件列表 - 简化版本"""
     print("🔍 upload_bp - 获取文件列表")
     try:
@@ -120,6 +120,58 @@ def get_all_files():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+
+@upload_bp.route('/api/files', methods=['GET'])
+def get_all_files():
+    """获取所有文件列表 - 修复版本"""
+    print("🔍🔍 upload_bp - 获取文件列表")
+    try:
+        conn = sqlite3.connect(DATABASE)
+        if not conn:
+            return jsonify({"error": "数据库连接失败"}), 500
+
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        # 使用正确的列名：upload_time 而不是 created_at
+        c.execute("""
+            SELECT filename, raw_filename, file_type, upload_time
+            FROM files 
+            WHERE deleted = 0 
+            ORDER BY upload_time DESC
+        """)
+
+        rows = c.fetchall()
+        files_list = []
+
+        upload_dir = Path(MAIN_ROOT) / UPLOAD_FOLDER
+
+        for row in rows:
+            file_path = upload_dir / row['filename']
+
+            if file_path.exists():
+                file_info = {
+                    "filename": row['raw_filename'] or row['filename'],
+                    "disk_name": row['filename'],
+                    "file_id": row['filename'].split('.')[0],
+                    "file_type": row['file_type'],
+                    "created_at": row['upload_time']  # 使用 upload_time 的值
+                }
+                files_list.append(file_info)
+
+        conn.close()
+
+        print(f"📊📊 返回文件数量: {len(files_list)}")
+        return jsonify(files_list)
+
+    except Exception as e:
+        print(f"❌❌ 获取文件列表失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 # 在现有路由后面添加以下路由
 @upload_bp.route('/api/files/stats', methods=['GET'])
