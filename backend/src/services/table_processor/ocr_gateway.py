@@ -239,10 +239,18 @@ class TableOCRService:
         三级缓存：Redis → DB → 盘；成功写盘+写库+写Redis
         当Redis不可用时自动跳过Redis缓存环节
         """
+        import os
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"图片不存在: {image_path}")
 
         print(f"使用 {self.provider_type} OCR识别: {image_path}")
+
+        # 提取序号
+        import os
+        filename = os.path.basename(image_path)
+        filename_without_ext = os.path.splitext(filename)[0]
+        parts = filename_without_ext.split('_')
+        sequence_number = parts[-1] if parts else "unknown"
 
         # 计算图片MD5
         with open(image_path, "rb") as f:
@@ -345,7 +353,9 @@ class TableOCRService:
 
             # ----- 3. 成功落盘 + 写库 + 写 Redis（如果可用） -----
             compressed = gzip.compress(json.dumps(ocr_result).encode())
-            s3_key = f"ocr/{md5}.json.gz"
+
+            # s3_key = f"ocr/{md5}.json.gz"
+            s3_key = f"ocr/{sequence_number}_{md5}.json.gz"
 
             pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
             put_object(s3_key, compressed, pdf_uuid)

@@ -42,7 +42,6 @@ class UniversalDatabaseSchemaManager:
         # 确保所有必要目录存在
         self._ensure_directories()
 
-
     def _detect_project_root(self) -> Path:
         """自动检测项目根目录"""
         # 方法1: 从当前文件向上查找
@@ -166,28 +165,29 @@ class UniversalDatabaseSchemaManager:
 
             # 2. files表 - 文件信息表（修复版）
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS files (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    filename TEXT NOT NULL UNIQUE,  -- 添加UNIQUE约束
-                    file_type TEXT NOT NULL,
-                    raw_filename TEXT,
-                    -- 线上已有字段（完全保留）
-                    upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    deleted INTEGER DEFAULT 0,
-                    file_size INTEGER,
-                    page_count INTEGER,
-                    processed INTEGER DEFAULT 0,
-                    file_hash TEXT,
-                    upload_count INTEGER DEFAULT 1,
-                    last_uploaded TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    bank_name TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    -- 安全新增字段
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    file_path TEXT
-                )
-            ''')
+                        CREATE TABLE IF NOT EXISTS files (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            filename TEXT NOT NULL UNIQUE,
+                            file_type TEXT NOT NULL,
+                            raw_filename TEXT,
+                            -- 线上已有字段（完全保留）
+                            upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            deleted INTEGER DEFAULT 0,
+                            file_size INTEGER,
+                            page_count INTEGER,
+                            processed INTEGER DEFAULT 0,
+                            file_hash TEXT,
+                            upload_count INTEGER DEFAULT 1,
+                            last_uploaded TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            bank_name TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- ✅ 这个字段必须有
+                            -- 安全新增字段
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            file_path TEXT
+                        )
+                    ''')
             print("✅ 检查/创建 files 表（100%兼容）")
+
 
             # 3. file_mappings表 - 文件映射表（兼容线上现有结构）
             cursor.execute('''
@@ -282,6 +282,97 @@ class UniversalDatabaseSchemaManager:
             except Exception as e:
                 print(f"⚠️ 创建索引失败 {index_name}: {e}")
 
+    def fix_created_at_default(self):
+        """修复files表的created_at字段默认值（简单方案）"""
+        if not self.check_table_exists('files'):
+            print("ℹ️ files表不存在，跳过修复")
+            return True
+
+        conn = self.connect()
+        try:
+            cursor = conn.cursor()
+
+            # 检查是否有created_at为NULL的记录
+            cursor.execute("SELECT COUNT(*) FROM files WHERE created_at IS NULL")
+            null_count = cursor.fetchone()[0]
+
+            if null_count == 0:
+                print("✅ files表的created_at字段没有NULL值，无需修复")
+                return True
+
+            print(f"🔄 发现 {null_count} 条记录的created_at为NULL，开始修复...")
+
+            # 为NULL值设置当前时间
+            cursor.execute('''
+                UPDATE files 
+                SET created_at = datetime('now')
+                WHERE created_at IS NULL
+            ''')
+
+            conn.commit()
+            print(f"✅ 成功修复 {cursor.rowcount} 条记录的created_at字段")
+            return True
+
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ 修复files表created_at字段失败: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def initialize_complete_database(self) -> bool:
+        """
+        初始化完整的数据库结构
+        这是主要的入口方法
+        """
+        print("=" * 70)
+        print("🚀 开始初始化完整的数据库结构")
+        print("=" * 70)
+
+        # 检查当前状态
+        db_exists = self.check_database_exists()
+        existing_tables = self.get_all_tables()
+
+        print(f"📊 当前状态:")
+        print(f"   数据库文件: {'✅ 存在' if db_exists else '❌ 不存在'}")
+        print(f"   现有表数量: {len(existing_tables)} 个")
+        if existing_tables:
+            print(f"   现有表: {', '.join(existing_tables)}")
+
+        # 创建完整的表结构
+        print("\n📋 步骤1: 创建完整的表结构")
+        success = self.create_complete_table_structure()
+
+        if not success:
+            print("❌ 表结构创建失败")
+            return False
+
+        # 新增：修复created_at字段的NULL值
+        print("\n📋 步骤2: 检查并修复created_at字段")
+        self.fix_created_at_default()
+
+        # 安全添加缺失列
+        print("\n📋 步骤3: 检查并添加缺失的列")
+        self.add_missing_columns_safely()
+
+        # 验证最终结果
+        print("\n📋 步骤4: 验证最终结构")
+        final_tables = self.get_all_tables()
+
+        print(f"🎉 初始化完成!")
+        print(f"📊 最终表数量: {len(final_tables)} 个")
+        print(f"📋 包含以下表:")
+        expected_tables = ['texts', 'files', 'file_mappings', 'table_processing_records', 'api_call_log']
+
+        for table in expected_tables:
+            status = "✅" if table in final_tables else "❌"
+            columns = self.get_table_structure(table)
+            column_count = len(columns) if columns else 0
+            print(f"   {status} {table}: {column_count} 列")
+
+        return True
+
+
     def add_missing_columns_safely(self) -> bool:
         """
         安全地添加缺失的列（不修改现有列）
@@ -294,6 +385,7 @@ class UniversalDatabaseSchemaManager:
             # 定义每个表应该有的完整列结构
             table_columns = {
                 'files': [
+                    ('created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),  # ✅ 添加这行
                     ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
                     ('file_path', 'TEXT')
                 ],
@@ -323,12 +415,12 @@ class UniversalDatabaseSchemaManager:
 
             for table_name, expected_columns in table_columns.items():
                 if not self.check_table_exists(table_name):
-                    print(f"ℹℹ️ 表 {table_name} 不存在，跳过列检查")
+                    print(f"ℹ️ 表 {table_name} 不存在，跳过列检查")
                     continue
 
                 # 获取现有列
                 existing_columns = [col['name'] for col in self.get_table_structure(table_name)]
-                print(f"🔍🔍 检查表 {table_name}，现有列: {existing_columns}")
+                print(f"🔍 检查表 {table_name}，现有列: {existing_columns}")
 
                 for column_name, column_type in expected_columns:
                     if column_name not in existing_columns:
@@ -337,7 +429,7 @@ class UniversalDatabaseSchemaManager:
                             print(f"✅ 为表 {table_name} 添加列: {column_name} {column_type}")
                             added_count += 1
                         except Exception as e:
-                            print(f"❌❌ 为表 {table_name} 添加列 {column_name} 失败: {e}")
+                            print(f"❌ 为表 {table_name} 添加列 {column_name} 失败: {e}")
                     else:
                         print(f"ℹ️ 表 {table_name} 列 {column_name} 已存在，跳过")
 
@@ -346,64 +438,16 @@ class UniversalDatabaseSchemaManager:
             if added_count > 0:
                 print(f"✅ 成功添加 {added_count} 个缺失的列")
             else:
-                print("ℹℹ️ 没有需要添加的列")
+                print("ℹ️ 没有需要添加的列")
 
             return True
 
         except Exception as e:
             conn.rollback()
-            print(f"❌❌ 添加缺失列失败: {e}")
+            print(f"❌ 添加缺失列失败: {e}")
             return False
         finally:
             conn.close()
-
-    def initialize_complete_database(self) -> bool:
-        """
-        初始化完整的数据库结构
-        这是主要的入口方法
-        """
-        print("=" * 70)
-        print("🚀🚀 开始初始化完整的数据库结构")
-        print("=" * 70)
-
-        # 检查当前状态
-        db_exists = self.check_database_exists()
-        existing_tables = self.get_all_tables()
-
-        print(f"📊📊 当前状态:")
-        print(f"   数据库文件: {'✅ 存在' if db_exists else '❌❌ 不存在'}")
-        print(f"   现有表数量: {len(existing_tables)} 个")
-        if existing_tables:
-            print(f"   现有表: {', '.join(existing_tables)}")
-
-        # 创建完整的表结构
-        print("\n📋📋 步骤1: 创建完整的表结构")
-        success = self.create_complete_table_structure()
-
-        if not success:
-            print("❌❌ 表结构创建失败")
-            return False
-
-        # 安全添加缺失列
-        print("\n📋📋 步骤2: 检查并添加缺失的列")
-        self.add_missing_columns_safely()
-
-        # 验证最终结果
-        print("\n📋📋 步骤3: 验证最终结构")
-        final_tables = self.get_all_tables()
-
-        print(f"🎉🎉 初始化完成!")
-        print(f"📊📊 最终表数量: {len(final_tables)} 个")
-        print(f"📋📋 包含以下表:")
-        expected_tables = ['texts', 'files', 'file_mappings', 'table_processing_records', 'api_call_log']
-
-        for table in expected_tables:
-            status = "✅" if table in final_tables else "❌❌"
-            columns = self.get_table_structure(table)
-            column_count = len(columns) if columns else 0
-            print(f"   {status} {table}: {column_count} 列")
-
-        return True
 
     def get_database_info(self) -> Dict[str, Any]:
         """获取数据库详细信息"""

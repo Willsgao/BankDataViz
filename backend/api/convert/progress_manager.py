@@ -95,7 +95,6 @@ class ProgressManager:
     def get_table_progress(self, job_id):
         """查询表格处理任务状态 - 返回数据，不返回响应"""
         if job_id not in self.TABLE_PROCESSING_JOBS:
-
             # ✅ 改为返回字典或None
             return None  # 或者 raise Exception("任务不存在")
 

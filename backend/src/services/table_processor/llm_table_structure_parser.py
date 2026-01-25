@@ -343,10 +343,6 @@ class EnhancedFinancialTableAnalyzer:
                 content = "\n".join(lines[1:-1]) if len(lines) > 2 else content
 
             result = json.loads(content)
-            from pprint import pprint
-            print("****************************************")
-            pprint(result)
-            print("****************************************")
 
             if "tables" not in result:
                 raise ValueError("响应缺少tables字段")
@@ -382,6 +378,12 @@ class EnhancedFinancialTableAnalyzer:
         md5 = hashlib.md5(base64_image.encode()).hexdigest()
         provider_key = f"llm:{self.model_name}"
 
+        # 提取序号
+        filename = os.path.basename(image_path)
+        filename_without_ext = os.path.splitext(filename)[0]
+        parts = filename_without_ext.split('_')
+        sequence_number = parts[-1] if parts else "unknown"
+
         if not LLM_FORCE_REFRESH:
             hit = cache_get(md5, provider_key)
             if hit:
@@ -416,7 +418,10 @@ class EnhancedFinancialTableAnalyzer:
         llm_result = self._call_llm_global(base64_image, prompt)
 
         compressed = gzip.compress(json.dumps(llm_result).encode())
-        s3_key = f"llm/{md5}.json.gz"
+
+        # s3_key = f"llm/{md5}.json.gz"
+        s3_key = f"llm/{sequence_number}_{md5}.json.gz"
+
         pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
         put_object(s3_key, compressed, pdf_uuid)
 
@@ -439,36 +444,4 @@ class EnhancedFinancialTableAnalyzer:
         }
 
 
-# 使用示例
-if __name__ == "__main__":
-    analyzer = EnhancedFinancialTableAnalyzer()
-    from backend.src.services import TableOCRService
-    from pprint import pprint
 
-    ocr_service = TableOCRService()
-    image_path = r"E:\Datas\base_pros\DocuVista\test_codes\pngs\123.png"
-
-    ocr_result = ocr_service.recognize_table(image_path)
-    print("ocr_result:", ocr_result)
-
-    result = analyzer.analyze_image(image_path, ocr_result)
-    print("llm_result:", result)
-    pprint(result)
-
-    print(f"分析完成，发现{result['processing_stats']['visual_tables_count']}个表格")
-
-    for table in result["tables_structure"]["tables"]:
-        print(f"\n表格ID: {table.get('id')}")
-        print(f"横向表头({len(table['headers']['cols'])}个):")
-        for col_path in table["headers"]["cols"]:
-            print(f"  {col_path}")
-
-        print(f"纵向表头({len(table['headers']['rows'])}个):")
-        if len(table["headers"]["rows"]) > 10:
-            for row_path in table["headers"]["rows"][:5]:
-                print(f"  {row_path}")
-            print(f"  ... 还有{len(table['headers']['rows']) - 5}个")
-        else:
-            for row_path in table["headers"]["rows"]:
-                print(f"  {row_path}")
-        print("-" * 50)
