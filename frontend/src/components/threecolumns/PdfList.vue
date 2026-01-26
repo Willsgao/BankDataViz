@@ -1,17 +1,6 @@
 <template>
   <div class="pdf-list">
-    <div class="collapse-control">
-      <el-tooltip content="折叠中间区域" placement="top">
-        <el-button
-          size="small"
-          circle
-          @click.stop="$emit('toggle-middle')"
-          class="collapse-btn"
-        >
-          <el-icon><Close /></el-icon>
-        </el-button>
-      </el-tooltip>
-    </div>
+
     <div v-if="isSearching" class="loading-state">
       <el-icon class="is-loading"><Loading /></el-icon>
       搜索中...
@@ -44,11 +33,6 @@
 import { defineProps, onMounted, watch, inject  } from 'vue'
 import { Close, Loading, Document } from '@element-plus/icons-vue'
 
-
-// 调试代码 - 检查 inject 接收的数据
-const searchResultsFromInject = inject('searchResults')
-console.log('🔍🔍 PdfList 通过 inject 接收的 searchResults:', searchResultsFromInject)
-console.log('🔍🔍 PdfList 通过 inject 接收的 searchResults 长度:', searchResultsFromInject?.length)
 
 
 // 🔥 正确：先定义 props

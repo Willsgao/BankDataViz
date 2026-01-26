@@ -7,17 +7,20 @@
       <div class="panel-header">
         <div class="header-left">
           <h3>PDF预览</h3>
-          <!-- 添加展开按钮 - 当中间栏折叠时显示 -->
+          <!-- 修改后的折叠/展开按钮 -->
           <el-button
-            v-if="isMiddleCollapsed"
-            size="small"
-            circle
-            @click="$emit('toggle-middle')"
-            class="expand-btn"
-            title="展开中间栏"
-          >
-            <el-icon><Right /></el-icon>
-          </el-button>
+              size="small"
+              @click="$emit('toggle-middle')"
+              class="collapse-toggle-btn"
+              :title="isMiddleCollapsed ? '展开中间栏' : '折叠中间栏'"
+              type="primary"
+            >
+              <!-- 图标不旋转，只改变图标本身 -->
+              <el-icon>
+                <component :is="isMiddleCollapsed ? 'DArrowRight' : 'DArrowLeft'" />
+              </el-icon>
+              <span class="btn-text">{{ isMiddleCollapsed ? '展开中间栏' : '折叠中间栏' }}</span>
+            </el-button>
         </div>
       </div>
 
@@ -51,46 +54,41 @@
       ref="middlePanel"
       :style="{ flex: `0 0 ${currentWidths.middle}px` }"
     >
-      <!-- 左侧拖拽条 -->
-      <div
-        class="resize-handle resize-handle-left"
-        @mousedown="startResize('middle-left', $event)"
-        :title="'调整左侧和中间宽度'"
-      ></div>
 
-      <!-- 上部分：筛选出的PDF名称 -->
-      <div class="middle-top" :class="{ 'collapsed': isTopSectionCollapsed }">
-        <div class="section-header" @click="toggleTopSection">
-          <span class="section-title">筛选的PDF文件</span>
-          <div class="header-right">
-            <el-tag type="info" size="small">{{ filteredPdfCount }} 个文件</el-tag>
-            <el-icon :class="{'rotate-icon': !isTopSectionCollapsed}">
-              <ArrowDown />
-            </el-icon>
+        <!-- 上部分：筛选出的PDF名称 -->
+        <div class="middle-top" :class="{ 'collapsed': isTopSectionCollapsed }">
+          <!-- 修改表头部分 -->
+            <div class="section-header" @click="toggleTopSection">
+              <span class="section-title">筛选的PDF文件</span>
+              <div class="header-right">
+                <el-tag type="info" size="small">{{ filteredPdfCount }} 个文件</el-tag>
+                <div class="double-arrow">
+                  <el-icon class="arrow-icon arrow-top" :class="{ 'active': !isTopSectionCollapsed }">
+                    <CaretTop />
+                  </el-icon>
+                  <el-icon class="arrow-icon arrow-bottom" :class="{ 'active': isTopSectionCollapsed }">
+                    <CaretBottom />
+                  </el-icon>
+                </div>
+              </div>
+            </div>
+
+          <!-- 只隐藏内容区域，不隐藏表头 -->
+          <div v-show="!isTopSectionCollapsed" class="content-area">
+            <div class="scroll-content">
+              <slot name="middle-top"></slot>
+            </div>
           </div>
         </div>
-        <div v-show="!isTopSectionCollapsed" class="scroll-content">
-          <slot name="middle-top"></slot>
-        </div>
-      </div>
 
-      <!-- 下部分：表格名称列表 -->
-      <div class="middle-bottom" :class="{ 'expanded': isTopSectionCollapsed }">
-        <div class="section-header">
-          <span class="section-title">表格名称列表</span>
-          <el-tag type="info">{{ tableCount }} 个表格</el-tag>
+        <!-- 下部分：表格名称列表 -->
+        <div class="middle-bottom" :class="{ 'expanded': isTopSectionCollapsed }">
+          <!-- 内容区域 -->
+          <div class="scroll-content">
+            <slot name="middle-bottom"></slot>
+          </div>
         </div>
-        <div class="scroll-content">
-          <slot name="middle-bottom"></slot>
-        </div>
-      </div>
 
-      <!-- 右侧拖拽条 -->
-      <div
-        class="resize-handle resize-handle-right"
-        @mousedown="startResize('middle-right', $event)"
-        :title="'调整中间宽度 (当前: ' + currentWidths.middle + 'px)'"
-      ></div>
     </div>
 
     <!-- 右侧：Excel内容滚动区域 -->
@@ -103,9 +101,11 @@
   </div>
 </template>
 
+
+
 <script setup>
 import { ref, defineProps, defineEmits, onMounted, watch, nextTick } from 'vue'
-import { ArrowDown, Right } from '@element-plus/icons-vue'
+import { ArrowDown, Right, Left, SwitchButton } from '@element-plus/icons-vue'
 
 const props = defineProps({
   filteredPdfCount: {
@@ -298,19 +298,7 @@ onMounted(() => {
   gap: 8px;
 }
 
-.rotate-icon {
-  transform: rotate(180deg);
-  transition: transform 0.2s;
-}
 
-.expand-btn {
-  transform: rotate(0deg);
-  transition: transform 0.3s ease;
-}
-
-.expand-btn:hover {
-  transform: rotate(0deg) scale(1.1);
-}
 
 /* 面板基础样式 - 使用flex布局 */
 .left-panel,
@@ -351,59 +339,6 @@ onMounted(() => {
   color: #303133;
 }
 
-/* 可滚动内容区域 */
-.scroll-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-}
-
-/* 分区头部 */
-.section-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e4e7ed;
-  cursor: pointer;
-  user-select: none;
-}
-
-.section-title {
-  font-weight: 600;
-  color: #303133;
-  font-size: 14px;
-}
-
-/* 中间面板上下分区 */
-.middle-top {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border-bottom: 1px solid #e4e7ed;
-  min-height: 0;
-  transition: flex 0.3s ease;
-}
-
-.middle-bottom {
-  flex: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  transition: flex 0.3s ease;
-}
-
-/* 折叠状态：下方占满 */
-.middle-top.collapsed {
-  flex: 0;
-}
-
-.middle-bottom.expanded {
-  flex: 1;
-}
 
 /* 基础拖拽条样式 */
 .resize-handle {
@@ -492,5 +427,150 @@ onMounted(() => {
   flex-direction: column;
   height: 100%;
 }
+
+
+
+
+
+
+.collapse-toggle-btn {
+  margin-left: 8px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.collapse-toggle-btn:hover {
+  transform: scale(1.05); /* 只缩放，不旋转 */
+  background-color: #ecf5ff;
+}
+
+/* 移除旋转相关的样式 */
+.three-column-layout.middle-collapsed .collapse-toggle-btn {
+  transform: none; /* 不要旋转整个按钮 */
+}
+
+.three-column-layout.middle-collapsed .collapse-toggle-btn:hover {
+  transform: scale(1.05); /* 悬停时只缩放 */
+}
+
+.btn-text {
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+
+
+.content-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+
+
+/* 修复折叠逻辑 */
+.middle-top {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #e4e7ed;
+  min-height: 0;
+  transition: flex 0.3s ease;
+}
+
+.middle-bottom {
+  flex: 0; /* 默认不展开 */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: flex 0.3s ease;
+}
+
+/* 上部分折叠时，收缩到最小高度 */
+.middle-top.collapsed {
+  flex: 0 0 auto; /* 关键：固定高度，不占用多余空间 */
+  min-height: auto;
+}
+
+/* 上部分折叠时，下部分展开占据剩余空间 */
+.middle-bottom.expanded {
+  flex: 1; /* 关键：占据所有可用空间 */
+}
+
+/* 确保内容区域正确隐藏 */
+.middle-top.collapsed .content-area {
+  display: none;
+  height: 0;
+  overflow: hidden;
+}
+
+/* 表头样式 - 添加蓝色主题 */
+.section-header {
+  flex-shrink: 0;
+  height: 48px;
+  min-height: 48px;
+  cursor: pointer;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+/* 表头悬停效果 - 蓝色主题 */
+.section-header:hover {
+  background: #ecf5ff;
+  border-bottom-color: #409eff;
+}
+
+/* 蓝色图标样式 */
+.section-header .el-icon {
+  color: #409eff; /* 蓝色 */
+  transition: all 0.3s ease;
+}
+
+/* 图标悬停效果 */
+.section-header:hover .el-icon {
+  color: #337ecc; /* 深蓝色 */
+  transform: scale(1.1);
+}
+
+/* 旋转图标动画 */
+.rotate-icon {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+
+/* 标签蓝色主题 */
+.section-header .el-tag {
+  background: #ecf5ff;
+  border-color: #d9ecff;
+  color: #409eff;
+}
+
+/* 表头文字蓝色主题 */
+.section-title {
+  font-weight: 600;
+  color: #409eff; /* 蓝色文字 */
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.section-header:hover .section-title {
+  color: #337ecc; /* 深蓝色 */
+}
+
 
 </style>

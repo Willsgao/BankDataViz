@@ -1621,7 +1621,7 @@ class TableReconstructor:
             return None
 
 
-    def process_all_tables_to_memory(self, ocr_result, llm_result, image_path=None, bank_name="未知银行"):
+    def process_all_tables_to_memory000(self, ocr_result, llm_result, image_path=None, bank_name="未知银行"):
         """
         处理表格并返回内存中的数据（不保存文件）
 
@@ -1761,6 +1761,125 @@ class TableReconstructor:
         print(f"\n✅ 内存处理完成: {len(all_final_tables)} 个表格")
 
         return all_final_tables, all_table_names, all_metadata_list  # 返回三个值
+
+
+    def process_all_tables_to_memory(self, ocr_result, llm_result, image_path=None, bank_name="未知银行"):
+        """
+        处理表格并返回内存中的数据（不保存文件）- 改进版
+        确保inner_idx按照表格在图片中的实际顺序分配，并为最后一个表格添加_T_后缀
+        """
+        print(f"\n🧠🧠🧠🧠 内存模式处理表格...")
+
+        # ========== 第0步：数据预处理和验证 ==========
+        self._fix_llm_table_references(ocr_result, llm_result)
+
+        # ========== 第1步：准备数据 ==========
+        ocr_result, llm_result = self.step1_prepare_data(ocr_result, llm_result)
+
+        # ========== 第2步：提取表格数据 ==========
+        ocr_tables, llm_tables = self.step2_extract_table_data(ocr_result, llm_result)
+
+        if not ocr_tables or not llm_tables:
+            self.log_issue("提取表格数据失败")
+            return [], [], []
+
+        print(f"OCR表格数量: {len(ocr_tables)}")
+        print(f"LLM表格结构数量: {len(llm_tables)}")
+
+        # ========== 第3步：列标题统一化处理 ==========
+        llm_tables = self._unify_headers_across_tables(llm_tables)
+
+        # ========== 第4步：提取页码前缀 ==========
+        page_prefix = ""
+        if image_path:
+            page_prefix = self._extract_page_number_from_image_path(image_path)
+            print(f"从图片路径提取页码前缀: {page_prefix}")
+
+        # ========== 第5步：按顺序处理所有表格 ==========
+        all_final_tables = []
+        all_table_names = []
+        all_metadata_list = []
+
+        total_tables = len(llm_tables)
+
+        # 直接按照LLM表格的原始顺序处理，确保顺序正确
+        for inner_idx, llm_table_info in enumerate(llm_tables, 1):
+            original_idx = inner_idx - 1  # 原始索引（0-based）
+
+            print(f"\n处理表格 {inner_idx}/{total_tables} (原始索引:{original_idx})")
+
+            # 提取表格名称
+            table_name = llm_table_info.get('name', f'表格{inner_idx}')
+
+            # ========== 关键修改：判断是否为最后一个表格 ==========
+            is_last_table = (inner_idx == total_tables)
+
+            # 构建完整Sheet名称（带页码前缀、内部序号和最后一个表格标记）
+            if page_prefix:
+                if is_last_table:
+                    full_table_name = f"{page_prefix}_{inner_idx}_T_{table_name}"
+                    print(f"  📍 这是本页最后一个表格，添加_T_后缀")
+                else:
+                    full_table_name = f"{page_prefix}_{inner_idx}_{table_name}"
+            else:
+                if is_last_table:
+                    full_table_name = f"{inner_idx}_T_{table_name}"
+                    print(f"  📍 这是本页最后一个表格，添加_T_后缀")
+                else:
+                    full_table_name = f"{inner_idx}_{table_name}"
+
+            print(f"  Sheet名称: {full_table_name}")
+
+            # 提取元数据
+            table_metadata = {
+                'default_currency': llm_table_info.get('default_currency', ''),
+                'default_report_period': llm_table_info.get('default_report_period', ''),
+                'default_unit': llm_table_info.get('default_unit', ''),
+                'original_table_name': llm_table_info.get('name', ''),
+                'ocr_table_id': llm_table_info.get('ocr_tables', [])[0] if llm_table_info.get('ocr_tables') else -1,
+                'inner_index': inner_idx,  # 内部序号（1-based）
+                'original_index': original_idx,  # 原始索引（0-based）
+                'page_prefix': page_prefix,
+                'total_tables_in_image': total_tables,  # 图片中表格总数
+                'is_last_table': is_last_table  # 新增：标记是否为最后一个表格
+            }
+            all_metadata_list.append(table_metadata)
+
+            # 处理单个表格
+            final_table = self._process_single_table_to_memory(ocr_tables, llm_table_info)
+
+            if final_table:
+                all_final_tables.append(final_table)
+                all_table_names.append(full_table_name)
+                print(f"  ✅ 表格处理成功")
+            else:
+                print(f"  ❌ 表格处理失败")
+                # 即使处理失败，也保留名称和元数据记录
+                all_table_names.append(full_table_name)
+
+        # 验证数据一致性
+        success_count = len(all_final_tables)
+        total_count = len(llm_tables)
+
+        if success_count != total_count:
+            print(f"⚠️ 警告：部分表格处理失败 - 成功:{success_count}, 总数:{total_count}")
+
+            # 确保三个列表长度一致
+            min_count = min(len(all_final_tables), len(all_table_names), len(all_metadata_list))
+            all_final_tables = all_final_tables[:min_count]
+            all_table_names = all_table_names[:min_count]
+            all_metadata_list = all_metadata_list[:min_count]
+
+        print(f"\n✅ 内存处理完成: {success_count}/{total_count} 个表格成功")
+
+        # 打印生成的Sheet名称列表
+        print(f"📋 生成的Sheet名称:")
+        for i, name in enumerate(all_table_names, 1):
+            is_last = (i == total_count)
+            last_marker = " 📍(最后一个)" if is_last else ""
+            print(f"  {i}. {name}{last_marker}")
+
+        return all_final_tables, all_table_names, all_metadata_list
 
 
     def process_all_tables(self, ocr_result, llm_result, output_file, final_output_file=None, image_path=None,

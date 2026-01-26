@@ -1390,13 +1390,6 @@ class TableProcessingService:
             analyzer = EnhancedFinancialTableAnalyzer()
             llm_result = analyzer.analyze_image(image_path, ocr_result)
 
-
-            print("*****************************************************")
-            print("image_path::::", image_path)
-            print("ocr_result:", ocr_result)
-            print("llm_result:", llm_result)
-
-
             if not llm_result.get('tables_structure', {}).get('tables'):
                 print(f"⚠️ LLM未分析出表格结构: {Path(image_path).name}")
                 return [], [], []

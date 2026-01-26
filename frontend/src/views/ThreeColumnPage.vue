@@ -31,7 +31,6 @@
         :isSearching="isSearching"
         :filteredPdfCount="filteredPdfCount"
         :selectedPdf="selectedPdf"
-        @toggle-middle="toggleMiddleCollapse"
         @select-pdf="selectPdf"
       />
     </template>
