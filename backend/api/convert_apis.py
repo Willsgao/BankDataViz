@@ -988,6 +988,7 @@ def api_move_screened_image(pdf_folder: str):
             "error": f"移动图片失败: {str(e)}"
         }), 500
 
+
 # ---------------- 26. 批量移动图片 API ----------------
 @convert_bp.route('/api/batch-move-images/<pdf_folder>', methods=['POST'])
 def api_batch_move_images(pdf_folder: str):
@@ -1152,7 +1153,7 @@ def api_batch_move_images(pdf_folder: str):
             "error": f"批量移动失败: {str(e)}"
         }), 500
 
-#
+
 # ---------------- 27. 重新检测图片 API ----------------
 @convert_bp.route('/api/re-screen-image/<pdf_folder>', methods=['POST'])
 def api_re_screen_image(pdf_folder: str):
@@ -1277,6 +1278,7 @@ def api_re_screen_image(pdf_folder: str):
             "success": False,
             "error": f"重新检测失败: {str(e)}"
         }), 500
+
 
 # ---------------- 28. 获取统计信息 ------ API ----------------
 @convert_bp.route('/api/screening-statistics/<pdf_folder>', methods=['GET'])

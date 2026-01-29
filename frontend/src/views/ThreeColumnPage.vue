@@ -91,30 +91,31 @@
 
     <template #right>
       <ExcelContent
-        ref="excelContent"
-        :key="`excel-content-${excelContentKey}`"
-        :selected-sheet="selectedSheet"
-        :selected-excel-file="selectedExcelFile"
-        :selected-pdf="selectedPdf"
-        :excel-data="excelData"
-        :flat-data="flatData"
-        :show-flat-mode="showFlatMode"
-        :loading-excel="loadingExcel"
-        :loading-flat="loadingFlat"
-        :save-status="saveStatus"
-        :modified-cells-count="modifiedCellsCount"
-        :last-save-time="lastSaveTime"
-        :saving="saving"
-        :actual-has-unsaved-changes="actualHasUnsavedChanges"
-        :is-dev="isDev"
-        @toggle-flat-mode="toggleFlatMode"
-        @save-data="saveData"
-        @restore-unsaved-data="restoreUnsavedData"
-        @cell-changed="handleCellChanged"
-        @data-changed="handleDataChanged"
-        @update:modelValue="console.log('传递的值:', $event)"
-        @unsaved-changes-updated="handleUnsavedChangesUpdated"
-      />
+          ref="excelContent"
+          :key="`excel-content-${excelContentKey}`"
+          :selected-sheet="selectedSheet"
+          :selected-excel-file="selectedExcelFile"
+          :selected-pdf="selectedPdf"
+          :excel-data="excelData"
+          :flat-data="flatData"
+          :show-flat-mode="showFlatMode"
+          :loading-excel="loadingExcel"
+          :loading-flat="loadingFlat"
+          :save-status="saveStatus"
+          :modified-cells-count="modifiedCellsCount"
+          :last-save-time="lastSaveTime"
+          :saving="saving"
+          :actual-has-unsaved-changes="actualHasUnsavedChanges"
+          :is-dev="isDev"
+          :sorted-sheets="getSortedSheets"
+          @toggle-flat-mode="toggleFlatMode"
+          @save-data="saveData"
+          @restore-unsaved-data="restoreUnsavedData"
+          @cell-changed="handleCellChanged"
+          @data-changed="handleDataChanged"
+          @unsaved-changes-updated="handleUnsavedChangesUpdated"
+          @navigate-sheet="handleNavigateSheet"
+        />
     </template>
 
 
@@ -3569,7 +3570,99 @@ if (typeof window !== 'undefined') {
 }
 
 
+// 解析sheet名称的辅助函数
+const parseSheetName = (sheetName) => {
+  // 格式1: P100_1_T_名称 (带_T_的，是最后一表)
+  const formatWithT = sheetName.match(/^P(\d+)_(\d+)_T_(.+)$/)
+  if (formatWithT) {
+    return {
+      isStandard: true,
+      pageNumber: parseInt(formatWithT[1]),
+      tableIndex: parseInt(formatWithT[2]),
+      isLastTable: true,
+      tableName: formatWithT[3],
+      originalName: sheetName
+    }
+  }
 
+  // 格式2: P100_2_名称 (不带_T_的，不是最后一表)
+  const formatWithoutT = sheetName.match(/^P(\d+)_(\d+)_(.+)$/)
+  if (formatWithoutT) {
+    return {
+      isStandard: true,
+      pageNumber: parseInt(formatWithoutT[1]),
+      tableIndex: parseInt(formatWithoutT[2]),
+      isLastTable: false,
+      tableName: formatWithoutT[3],
+      originalName: sheetName
+    }
+  }
+
+  // 非标准格式
+  return {
+    isStandard: false,
+    pageNumber: 9999,
+    tableIndex: 9999,
+    isLastTable: false,
+    tableName: sheetName,
+    originalName: sheetName
+  }
+}
+
+// 获取排序后的sheet列表
+const getSortedSheets = computed(() => {
+  if (!excelFiles.value || excelFiles.value.length === 0) return []
+
+  const allSheets = []
+
+  // 收集所有sheet
+  excelFiles.value.forEach(excelFile => {
+    if (excelFile.sheets && Array.isArray(excelFile.sheets)) {
+      excelFile.sheets.forEach(sheet => {
+        const sheetInfo = parseSheetName(sheet.name)
+        allSheets.push({
+          ...sheet,
+          excelFile: excelFile.excel_file,
+          ...sheetInfo
+        })
+      })
+    }
+  })
+
+  // 按规则排序
+  return allSheets.sort((a, b) => {
+    if (a.pageNumber !== b.pageNumber) {
+      return a.pageNumber - b.pageNumber
+    }
+    if (a.tableIndex !== b.tableIndex) {
+      return a.tableIndex - b.tableIndex
+    }
+    if (a.isStandard !== b.isStandard) {
+      return a.isStandard ? -1 : 1
+    }
+    return a.originalName.localeCompare(b.originalName)
+  })
+})
+
+// 处理导航事件
+const handleNavigateSheet = async (navigationInfo) => {
+  console.log('🔄🔄 处理sheet导航:', navigationInfo)
+
+  const { sheet, excelFile } = navigationInfo
+
+  try {
+    // 直接调用现有的selectSheet函数
+    await selectSheet(sheet, excelFile)
+
+    console.log('✅ sheet导航成功:', {
+      目标sheet: sheet.name,
+      目标文件: excelFile
+    })
+  } catch (error) {
+    console.error('❌ sheet导航失败:', error)
+    ElMessage.error(`切换sheet失败: ${error.message}`)
+  }
+}
 
 
 // 添加测试修改记录

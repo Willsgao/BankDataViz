@@ -12,6 +12,36 @@
 
         <div class="header-actions">
           <div class="action-row">
+            <!-- 新增：导航按钮 -->
+            <div class="navigation-buttons">
+              <el-button
+                size="small"
+                :disabled="!hasPreviousSheet"
+                @click="goToPreviousSheet"
+                title="上一页"
+              >
+                <el-icon><ArrowLeft /></el-icon>
+                上一页
+              </el-button>
+
+              <el-button
+                size="small"
+                :disabled="!hasNextSheet"
+                @click="goToNextSheet"
+                title="下一页"
+              >
+                下一页
+                <el-icon><ArrowRight /></el-icon>
+              </el-button>
+
+              <span v-if="currentPageInfo" class="page-indicator">
+                第{{ currentPageInfo.pageNumber }}页
+                (表{{ currentPageInfo.currentTablePosition }}/{{ currentPageInfo.totalTablesInPage }})
+              </span>
+            </div>
+
+
+
             <!-- 主功能：大按钮 -->
             <el-button
               type="primary"
@@ -148,7 +178,7 @@ import sheetStateManager from '@/utils/SheetStateManager.js'
 
 import HandsontableExcelViewer from '@/components/excel/HandsontableExcelViewer.vue'
 import {
-  DataAnalysis, Document, Check, Refresh, Timer, Grid, Loading
+  DataAnalysis, Document, Check, Refresh, Timer, Grid, Loading, ArrowLeft, ArrowRight
 } from '@element-plus/icons-vue'
 import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted   } from 'vue'
 
@@ -294,7 +324,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
     required: false
+  },
+  sortedSheets: {
+    type: Array,
+    default: () =>[]
   }
+
 })
 
 // ============ 新增状态 ============
@@ -721,8 +756,87 @@ const enableSaveButtons = computed(() => {
   return result
 })
 
+
+// 计算属性
+const allSheets = computed(() => props.sortedSheets)
+
+const currentSheetIndex = computed(() => {
+  if (!props.selectedSheet || !props.selectedExcelFile) return -1
+
+  return allSheets.value.findIndex(sheet =>
+    sheet.name === props.selectedSheet.name &&
+    sheet.excelFile === props.selectedExcelFile
+  )
+})
+
+const hasPreviousSheet = computed(() => currentSheetIndex.value > 0)
+const hasNextSheet = computed(() =>
+  currentSheetIndex.value >= 0 && currentSheetIndex.value < allSheets.value.length - 1
+)
+
+const currentPageInfo = computed(() => {
+  if (currentSheetIndex.value < 0) return null
+
+  const currentSheet = allSheets.value[currentSheetIndex.value]
+
+  // 获取所有不重复的页码
+  const allPageNumbers = [...new Set(allSheets.value
+    .filter(s => s.isStandard)
+    .map(s => s.pageNumber)
+  )].sort((a, b) => a - b)
+
+  const tablesInCurrentPage = allSheets.value.filter(s =>
+    s.pageNumber === currentSheet.pageNumber && s.isStandard
+  )
+
+  const currentPageIndex = allPageNumbers.indexOf(currentSheet.pageNumber)
+
+  return {
+    pageNumber: currentSheet.pageNumber,
+    tableIndex: currentSheet.tableIndex,
+    isLastTable: currentSheet.isLastTable,
+    totalTablesInPage: tablesInCurrentPage.length,
+    currentTablePosition: tablesInCurrentPage.findIndex(t =>
+      t.name === currentSheet.name
+    ) + 1,
+    currentPagePosition: currentPageIndex + 1,
+    totalPages: allPageNumbers.length
+  }
+})
+
+// 导航方法
+const goToPreviousSheet = () => {
+  if (!hasPreviousSheet.value) return
+
+  const previousSheet = allSheets.value[currentSheetIndex.value - 1]
+  console.log('📄 切换到上一页:', {
+    当前: `P${currentPageInfo.value?.pageNumber}_${currentPageInfo.value?.tableIndex}`,
+    上一页: `P${previousSheet.pageNumber}_${previousSheet.tableIndex}`
+  })
+
+  emit('navigate-sheet', {
+    sheet: previousSheet,
+    excelFile: previousSheet.excelFile
+  })
+}
+
+const goToNextSheet = () => {
+  if (!hasNextSheet.value) return
+
+  const nextSheet = allSheets.value[currentSheetIndex.value + 1]
+  console.log('📄 切换到下一页:', {
+    当前: `P${currentPageInfo.value?.pageNumber}_${currentPageInfo.value?.tableIndex}`,
+    下一页: `P${nextSheet.pageNumber}_${nextSheet.tableIndex}`
+  })
+
+  emit('navigate-sheet', {
+    sheet: nextSheet,
+    excelFile: nextSheet.excelFile
+  })
+}
+
+
 // ============ 暴露给父组件的 hasUnsavedChanges ============
-// 我们需要向上传递实际的状态
 const emit = defineEmits([
   'toggle-flat-mode',
   'save-data',
@@ -731,7 +845,8 @@ const emit = defineEmits([
   'cell-changed',
   'data-changed',
   'instance-ready',
-  'unsaved-changes-updated'
+  'unsaved-changes-updated',
+  'navigate-sheet'
 ])
 
 
@@ -1134,5 +1249,30 @@ defineExpose({
   font-size: 13px;
   color: #606266;
 }
+
+
+.navigation-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+}
+
+.navigation-buttons .el-button {
+  padding: 6px 8px;
+  min-width: 60px;
+}
+
+.page-indicator {
+  font-size: 12px;
+  color: #606266;
+  margin: 0 12px;
+  padding: 4px 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  min-width: 120px;
+  text-align: center;
+}
+
 
 </style>
