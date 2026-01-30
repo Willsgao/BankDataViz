@@ -804,34 +804,33 @@ const currentPageInfo = computed(() => {
   }
 })
 
-// 导航方法
-const goToPreviousSheet = () => {
+
+// 只修改这一处：将 excelFileName 改为 excelFile
+const goToPreviousSheet = async () => {
   if (!hasPreviousSheet.value) return
 
   const previousSheet = allSheets.value[currentSheetIndex.value - 1]
-  console.log('📄 切换到上一页:', {
-    当前: `P${currentPageInfo.value?.pageNumber}_${currentPageInfo.value?.tableIndex}`,
-    上一页: `P${previousSheet.pageNumber}_${previousSheet.tableIndex}`
-  })
 
+  console.log('📄 导航到上一表格')
+
+  // 🔥🔥 关键修复：将 excelFileName 改为 excelFile
   emit('navigate-sheet', {
     sheet: previousSheet,
-    excelFile: previousSheet.excelFile
+    excelFile: previousSheet.excelFile  // 原来是 excelFileName
   })
 }
 
-const goToNextSheet = () => {
+const goToNextSheet = async () => {
   if (!hasNextSheet.value) return
 
   const nextSheet = allSheets.value[currentSheetIndex.value + 1]
-  console.log('📄 切换到下一页:', {
-    当前: `P${currentPageInfo.value?.pageNumber}_${currentPageInfo.value?.tableIndex}`,
-    下一页: `P${nextSheet.pageNumber}_${nextSheet.tableIndex}`
-  })
 
+  console.log('📄 导航到下一表格')
+
+  // 🔥🔥 关键修复：将 excelFileName 改为 excelFile
   emit('navigate-sheet', {
     sheet: nextSheet,
-    excelFile: nextSheet.excelFile
+    excelFile: nextSheet.excelFile  // 原来是 excelFileName
   })
 }
 

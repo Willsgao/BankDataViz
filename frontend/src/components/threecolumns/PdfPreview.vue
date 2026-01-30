@@ -59,6 +59,7 @@ const props = defineProps({
 defineEmits(['download-pdf', 'pdf-loaded'])
 
 const pdfIframe = ref(null)
+
 </script>
 
 <style scoped>

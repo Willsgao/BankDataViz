@@ -280,6 +280,103 @@ const actualHasUnsavedChanges = computed(() => {
 
 
 
+// 专门用于导航切换的简单函数 - 放在 ThreeColumnPage.vue 的 setup 函数中
+const navigateToSheet = async (sheet, excelFile) => {
+  console.log('🧭🧭 专用导航函数: 切换到表格', {
+    表格名称: sheet?.name,
+    Excel文件: excelFile,
+    当前选中: selectedSheet.value?.name
+  })
+
+  try {
+    // 1. 安全检查
+    if (!sheet || !excelFile) {
+      throw new Error('导航参数缺失: sheet 或 excelFile 为空')
+    }
+
+    if (!selectedPdf.value) {
+      throw new Error('请先选择PDF文件')
+    }
+
+    // 2. 如果是当前已选中的表格，直接返回（避免重复加载）
+    if (selectedSheet.value?.name === sheet.name &&
+        selectedExcelFile.value === excelFile) {
+      console.log('📋 已是当前选中表格，跳过导航')
+      return { success: true, skipped: true }
+    }
+
+    // 3. 快速更新选中状态（立即响应）
+    selectedSheet.value = { ...sheet, excel_file: excelFile }
+    selectedExcelFile.value = excelFile
+
+    // 4. 清除旧数据，确保重新加载
+    excelData.value = []
+    flatData.value = []
+    tableColumns.value = []
+
+    // 等待DOM更新
+    await nextTick()
+
+    // 5. 直接调用数据加载，绕过复杂逻辑
+    console.log('🎯 直接加载表格数据...')
+    const result = await loadExcelData(sheet.name, excelFile, true) // true=强制刷新
+
+    if (!result.success) {
+      throw new Error(result.error || '数据加载失败')
+    }
+
+    // 6. 导航时默认显示原始模式，避免复杂判断
+    showFlatMode.value = false
+    if (currentTableMode) {
+      currentTableMode.value = 'original'
+    }
+
+    console.log('✅ 专用导航完成', {
+      数据行数: excelData.value?.length || 0,
+      显示模式: showFlatMode.value ? '扁平化' : '原始'
+    })
+
+    return { success: true, navigated: true }
+
+  } catch (error) {
+    console.error('❌ 专用导航失败:', error)
+
+    // 出错时恢复状态
+    excelData.value = []
+    flatData.value = []
+    tableColumns.value = []
+    showFlatMode.value = false
+
+    ElMessage.error(`切换表格失败: ${error.message}`)
+    return { success: false, error: error.message }
+  }
+}
+
+// 修改现有的导航处理函数，使用专用函数
+const handleNavigateSheet = async (navigationInfo) => {
+  const { sheet, excelFile } = navigationInfo
+
+  console.log('🔄 处理导航事件，使用专用导航函数')
+
+  try {
+    // 使用专用导航函数，而不是复杂的 selectSheetOperation
+    const result = await navigateToSheet(sheet, excelFile)
+
+    if (result.success) {
+      if (!result.skipped) {
+        console.log('✅ 导航处理完成')
+      }
+    } else {
+      console.error('❌ 导航处理失败:', result.error)
+    }
+
+  } catch (error) {
+    console.error('❌ 导航处理异常:', error)
+    ElMessage.error('导航切换失败')
+  }
+}
+
+
 
 // ----------------------------------------
 // 获取排序后的sheet列表
@@ -975,21 +1072,6 @@ const goToNextSheet = () => {
   selectSheet(nextSheet, nextSheet.excelFile)
 }
 
-// 处理导航事件（从ExcelContent接收）
-const handleNavigateSheet = async (navigationInfo) => {
-  console.log('🔄 处理sheet导航:', navigationInfo)
-
-  const { sheet, excelFile } = navigationInfo
-
-  try {
-    // 使用无刷新的selectSheet方法
-    await selectSheet(sheet, excelFile)
-    console.log('✅ sheet导航成功')
-  } catch (error) {
-    console.error('❌ sheet导航失败:', error)
-    ElMessage.error(`切换sheet失败: ${error.message}`)
-  }
-}
 
 
 
