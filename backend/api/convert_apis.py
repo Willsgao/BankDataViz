@@ -726,7 +726,6 @@ def api_cleanup_screening_temp():
 
 
 # ---------------- 24. 图片分类 API ----------------
-# convert_apis.py - 修改 api_get_classified_images 函数
 @convert_bp.route('/api/classified-images/<pdf_folder>', methods=['GET'])
 def api_get_classified_images(pdf_folder: str):
     """

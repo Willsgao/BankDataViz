@@ -11,6 +11,7 @@
     <!-- 只修改模板的left部分 -->
     <template #left>
       <PdfPreview
+        ref="pdfPreviewRef"
         :selected-pdf="selectedPdf"
         :pdf-url="pdfUrl"
         :current-page="currentPage"
@@ -276,6 +277,94 @@ const actualHasUnsavedChanges = computed(() => {
   console.log('🎯 计算结果:', result)
   return result
 })
+
+
+
+
+// ----------------------------------------
+// 获取排序后的sheet列表
+const getSortedSheets = computed(() => {
+  if (!excelFiles.value || excelFiles.value.length === 0) return []
+
+  const allSheets = []
+
+  // 收集所有sheet
+  excelFiles.value.forEach(excelFile => {
+    if (excelFile.sheets && Array.isArray(excelFile.sheets)) {
+      excelFile.sheets.forEach(sheet => {
+        const sheetInfo = parseSheetName(sheet.name)
+        allSheets.push({
+          ...sheet,
+          excelFile: excelFile.excel_file,
+          ...sheetInfo
+        })
+      })
+    }
+  })
+
+  // 按规则排序
+  return allSheets.sort((a, b) => {
+    if (a.pageNumber !== b.pageNumber) {
+      return a.pageNumber - b.pageNumber
+    }
+    if (a.tableIndex !== b.tableIndex) {
+      return a.tableIndex - b.tableIndex
+    }
+    if (a.isStandard !== b.isStandard) {
+      return a.isStandard ? -1 : 1
+    }
+    return a.originalName.localeCompare(b.originalName)
+  })
+})
+
+// 当前sheet索引
+const currentSheetIndex = computed(() => {
+  if (!selectedSheet.value || !selectedExcelFile.value) return -1
+
+  return getSortedSheets.value.findIndex(sheet =>
+    sheet.name === selectedSheet.value.name &&
+    sheet.excelFile === selectedExcelFile.value
+  )
+})
+
+// 是否有上一页/下一页
+const hasPreviousSheet = computed(() => currentSheetIndex.value > 0)
+const hasNextSheet = computed(() =>
+  currentSheetIndex.value >= 0 && currentSheetIndex.value < getSortedSheets.value.length - 1
+)
+
+// 当前页面信息
+const currentPageInfo = computed(() => {
+  if (currentSheetIndex.value < 0) return null
+
+  const currentSheet = getSortedSheets.value[currentSheetIndex.value]
+
+  // 获取所有不重复的页码
+  const allPageNumbers = [...new Set(getSortedSheets.value
+    .filter(s => s.isStandard)
+    .map(s => s.pageNumber)
+  )].sort((a, b) => a - b)
+
+  const tablesInCurrentPage = getSortedSheets.value.filter(s =>
+    s.pageNumber === currentSheet.pageNumber && s.isStandard
+  )
+
+  const currentPageIndex = allPageNumbers.indexOf(currentSheet.pageNumber)
+
+  return {
+    pageNumber: currentSheet.pageNumber,
+    tableIndex: currentSheet.tableIndex,
+    isLastTable: currentSheet.isLastTable,
+    totalTablesInPage: tablesInCurrentPage.length,
+    currentTablePosition: tablesInCurrentPage.findIndex(t =>
+      t.name === currentSheet.name
+    ) + 1,
+    currentPagePosition: currentPageIndex + 1,
+    totalPages: allPageNumbers.length
+  }
+})
+
+
 
 
 
@@ -725,139 +814,184 @@ const loadExcelSheets = async (pdfId) => {
   )
 }
 
-// 🔥 创建包装函数
-const selectSheet11 = async (sheet, excelFileName) => {
-  if (!selectedPdf.value) {
-    ElMessage.error('请先选择PDF文件')
-    return { success: false }
-  }
 
-  try {
-    const result = await selectSheetOperation(
-      sheet,
-      excelFileName,
-      selectedPdf.value,
-      selectedSheet,
-      selectedExcelFile,
-      sheetStateManager,
-      excelData,
-      tableColumns,
-      flatData,
-      showFlatMode,
-      currentTableMode,
-      loadExcelData,
-      loadAllClassData
-    )
-
-    // 🔥 简单但有效：延迟检查一次
-    setTimeout(() => {
-      console.log('🔄 最终检查扁平化状态:', {
-        flatData长度: flatData.value?.length || 0,
-        showFlatMode: showFlatMode.value,
-        应该显示扁平化: flatData.value?.length > 0
-      })
-
-      if (flatData.value?.length > 0 && !showFlatMode.value) {
-        showFlatMode.value = true
-        console.log('✅ 最终纠正：激活扁平化模式')
-      }
-    }, 500)
-
-    return result
-
-  } catch (error) {
-    console.error('❌ selectSheet 失败:', error)
-    ElMessage.error(`选择表格失败: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-}
-
-
-
+const pdfPreviewRef = ref(null)
+//++++++++++++++++++++++++++++++++
 const selectSheet = async (sheet, excelFileName) => {
   try {
-    console.log('🎯🎯🎯 选择Sheet（带智能检测）:', {
-      sheet名称: sheet.name,
-      excel文件: excelFileName,
-      当前PDF: selectedPdf.value?.id
-    })
+    console.log('🎯🎯 选择Sheet:', sheet?.name)
 
     if (!selectedPdf.value) {
       ElMessage.error('请先选择PDF文件')
       return { success: false }
     }
 
-    // 1. 调用基础选择逻辑
-    console.log('🔄 调用基础Sheet选择逻辑...')
-    const result = await selectSheetOperation(
-      sheet,
-      excelFileName,
-      selectedPdf.value,
-      selectedSheet,
-      selectedExcelFile,
-      sheetStateManager,
-      excelData,
-      tableColumns,
-      flatData,
-      showFlatMode,
-      currentTableMode,
-      loadExcelData,
-      loadAllClassData
-    )
+    // 1. 从sheet名称提取页码
+    const targetPage = getPageFromSheetName(sheet.name)
+    console.log('📄📄 目标页码:', targetPage)
 
-    console.log('📊 基础选择结果:', {
-      成功: result.success,
-      数据行数: excelData.value?.length || 0,
-      扁平化数据行数: flatData.value?.length || 0
-    })
+    // 2. 无刷新页面跳转逻辑
+    if (targetPage > 0 && targetPage !== currentPage.value) {
+      console.log('🔄🔄 需要跳转到页面:', targetPage)
 
-    // 2. 智能检测显示模式
-    if (result.success) {
-      console.log('🎯 开始智能检测显示模式...')
+      let jumpSuccess = false
 
-      // 延迟执行，确保数据已加载
+      // 优先使用PDF.js的无刷新跳转
+      if (pdfPreviewRef.value && typeof pdfPreviewRef.value.jumpToPage === 'function') {
+        try {
+          console.log('🔄 尝试PDF.js无刷新跳转...')
+          jumpSuccess = await pdfPreviewRef.value.jumpToPage(targetPage)
+
+          if (jumpSuccess) {
+            console.log('✅ PDF.js无刷新跳转成功')
+          } else {
+            console.warn('⚠️ PDF.js跳转返回失败，但不使用会重新加载的备用方法')
+          }
+        } catch (error) {
+          console.error('❌❌ PDF.js跳转执行出错:', error)
+        }
+      } else {
+        console.warn('⚠️ PDF.js跳转方法不可用')
+      }
+
+      // 更新当前页码状态
+      currentPage.value = targetPage
+      console.log('✅ 页码状态已更新:', targetPage)
+
+      // 重要：不调用会重新加载PDF的备用方法
+      console.log('🚫 已禁用会重新加载PDF的备用跳转方法')
+    }
+
+    // 3. 调用sheet选择操作
+    let result
+    if (typeof selectSheetOperation === 'function') {
+      console.log('🔄 调用selectSheetOperation...')
+      result = await selectSheetOperation(
+        sheet,
+        excelFileName,
+        selectedPdf.value,
+        selectedSheet,
+        selectedExcelFile,
+        sheetStateManager,
+        excelData,
+        tableColumns,
+        flatData,
+        showFlatMode,
+        currentTableMode,
+        loadExcelData,
+        loadAllClassData
+      )
+    } else {
+      console.warn('⚠️ selectSheetOperation不存在，使用备用逻辑')
+      if (typeof loadExcelData === 'function') {
+        result = await loadExcelData(sheet.name, excelFileName)
+      } else {
+        result = { success: true }
+      }
+    }
+
+    // 4. 智能检测显示模式
+    if (result && result.success) {
+      console.log('✅ Sheet选择成功')
+
       setTimeout(() => {
-        // 🔥🔥🔥 关键修复：检查数据特征
         const hasFlattenedData = flatData.value && flatData.value.length > 0
-        const hasOriginalData = excelData.value && excelData.value.length > 0
+        const shouldShowFlatMode = hasFlattenedData && !showFlatMode.value
 
-        console.log('🔍 数据特征检测:', {
-          有扁平化数据: hasFlattenedData,
-          有原始数据: hasOriginalData,
-          当前显示模式: showFlatMode.value ? '扁平化' : '原始',
-          应该显示: hasFlattenedData ? '扁平化' : '原始'
-        })
-
-        // 🔥🔥🔥 智能纠正显示模式
-        if (hasFlattenedData && !showFlatMode.value) {
-          console.log('🔄 检测到扁平化数据，自动切换到扁平化模式')
+        if (shouldShowFlatMode) {
           showFlatMode.value = true
-          currentTableMode.value = 'flattened'
+          console.log('✅ 检测到扁平化数据，自动切换到扁平化模式')
         }
-        else if (!hasFlattenedData && hasOriginalData && showFlatMode.value) {
-          console.log('🔄 只有原始数据，切换到原始模式')
-          showFlatMode.value = false
-          currentTableMode.value = 'original'
-        }
-        else {
-          console.log('✅ 显示模式正确，无需调整')
-        }
-
-        console.log('🎯 智能检测完成，最终状态:', {
-          显示模式: showFlatMode.value ? '扁平化' : '原始',
-          表格模式: currentTableMode.value
-        })
       }, 300)
     }
 
-    return result
+    return result || { success: true }
 
   } catch (error) {
-    console.error('❌ selectSheet 失败:', error)
+    console.error('❌❌ selectSheet失败:', error)
     ElMessage.error(`选择表格失败: ${error.message}`)
     return { success: false, error: error.message }
   }
 }
+
+// 完全禁用会重新加载PDF的备用方法
+const jumpToPageFallback = (pageNumber) => {
+  console.log('🚫🚫🚫 备用跳转方法已被禁用')
+  console.warn('⚠️ 为避免PDF重新加载和流量消耗，已永久禁用iframe跳转方法')
+  console.log('💡 提示：请确保PDF.js方案正常工作')
+  return false
+}
+
+// 修复导航方法中的跳转逻辑
+const goToPreviousSheet = () => {
+  if (!hasPreviousSheet.value) return
+
+  const previousSheet = getSortedSheets.value[currentSheetIndex.value - 1]
+  console.log('📄📄 切换到上一页:', {
+    当前: currentPageInfo.value ? `P${currentPageInfo.value.pageNumber}_${currentPageInfo.value.tableIndex}` : '无',
+    上一页: `P${previousSheet.pageNumber}_${previousSheet.tableIndex}`
+  })
+
+  // 使用无刷新跳转
+  const targetPage = getPageFromSheetName(previousSheet.name)
+  if (pdfPreviewRef.value && targetPage > 0) {
+    const success = pdfPreviewRef.value.jumpToPage(targetPage)
+    if (success) {
+      console.log('✅ 上一页跳转成功')
+      currentPage.value = targetPage
+    } else {
+      console.warn('⚠️ 上一页跳转失败，仅更新页码')
+      currentPage.value = targetPage
+    }
+  }
+
+  // 触发sheet切换
+  selectSheet(previousSheet, previousSheet.excelFile)
+}
+
+const goToNextSheet = () => {
+  if (!hasNextSheet.value) return
+
+  const nextSheet = getSortedSheets.value[currentSheetIndex.value + 1]
+  console.log('📄📄 切换到下一页:', {
+    当前: currentPageInfo.value ? `P${currentPageInfo.value.pageNumber}_${currentPageInfo.value.tableIndex}` : '无',
+    下一页: `P${nextSheet.pageNumber}_${nextSheet.tableIndex}`
+  })
+
+  // 使用无刷新跳转
+  const targetPage = getPageFromSheetName(nextSheet.name)
+  if (pdfPreviewRef.value && targetPage > 0) {
+    const success = pdfPreviewRef.value.jumpToPage(targetPage)
+    if (success) {
+      console.log('✅ 下一页跳转成功')
+      currentPage.value = targetPage
+    } else {
+      console.warn('⚠️ 下一页跳转失败，仅更新页码')
+      currentPage.value = targetPage
+    }
+  }
+
+  // 触发sheet切换
+  selectSheet(nextSheet, nextSheet.excelFile)
+}
+
+// 处理导航事件（从ExcelContent接收）
+const handleNavigateSheet = async (navigationInfo) => {
+  console.log('🔄 处理sheet导航:', navigationInfo)
+
+  const { sheet, excelFile } = navigationInfo
+
+  try {
+    // 使用无刷新的selectSheet方法
+    await selectSheet(sheet, excelFile)
+    console.log('✅ sheet导航成功')
+  } catch (error) {
+    console.error('❌ sheet导航失败:', error)
+    ElMessage.error(`切换sheet失败: ${error.message}`)
+  }
+}
+
+
 
 
 // useThreeColumnPage.js 中的 restoreUnsavedModifications 函数
@@ -3609,60 +3743,6 @@ const parseSheetName = (sheetName) => {
   }
 }
 
-// 获取排序后的sheet列表
-const getSortedSheets = computed(() => {
-  if (!excelFiles.value || excelFiles.value.length === 0) return []
-
-  const allSheets = []
-
-  // 收集所有sheet
-  excelFiles.value.forEach(excelFile => {
-    if (excelFile.sheets && Array.isArray(excelFile.sheets)) {
-      excelFile.sheets.forEach(sheet => {
-        const sheetInfo = parseSheetName(sheet.name)
-        allSheets.push({
-          ...sheet,
-          excelFile: excelFile.excel_file,
-          ...sheetInfo
-        })
-      })
-    }
-  })
-
-  // 按规则排序
-  return allSheets.sort((a, b) => {
-    if (a.pageNumber !== b.pageNumber) {
-      return a.pageNumber - b.pageNumber
-    }
-    if (a.tableIndex !== b.tableIndex) {
-      return a.tableIndex - b.tableIndex
-    }
-    if (a.isStandard !== b.isStandard) {
-      return a.isStandard ? -1 : 1
-    }
-    return a.originalName.localeCompare(b.originalName)
-  })
-})
-
-// 处理导航事件
-const handleNavigateSheet = async (navigationInfo) => {
-  console.log('🔄🔄 处理sheet导航:', navigationInfo)
-
-  const { sheet, excelFile } = navigationInfo
-
-  try {
-    // 直接调用现有的selectSheet函数
-    await selectSheet(sheet, excelFile)
-
-    console.log('✅ sheet导航成功:', {
-      目标sheet: sheet.name,
-      目标文件: excelFile
-    })
-  } catch (error) {
-    console.error('❌ sheet导航失败:', error)
-    ElMessage.error(`切换sheet失败: ${error.message}`)
-  }
-}
 
 
 // 添加测试修改记录
