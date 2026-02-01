@@ -2598,8 +2598,8 @@ const clearModificationStatesOnly = async () => {
         }
 
         // 9. 重置计数器
-        unsavedCellsTick.value = 0;
-        console.log('✅ 未保存单元格计数器已重置');
+        // unsavedCellsTick.value = 0;
+        // console.log('✅ 未保存单元格计数器已重置');
 
         // 10. 更新修改单元格计数显示
         updateModifiedCellsCount();
