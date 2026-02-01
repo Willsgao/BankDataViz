@@ -169,7 +169,7 @@ class ExcelFlattenHandler:
             "source": "fallback"
         }
 
-    def extract_metadata_and_clean_data(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
+    def extract_metadata_and_clean_data000000(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
         """
         从表格数据中提取元数据并清理数据
         """
@@ -201,6 +201,25 @@ class ExcelFlattenHandler:
                 clean_table_data.append(row)
 
         print(f"📋 提取的元数据: {metadata}")
+
+        return metadata, clean_table_data
+
+    def extract_metadata_and_clean_data(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
+        metadata = {}
+
+        # 🔥🔥🔥 直接返回所有数据，不做任何删除
+        clean_table_data = table_data
+
+        # 只提取元数据，不删除任何行
+        for row in table_data:
+            if row and row[0] and ":" in str(row[0]).strip():
+                try:
+                    key, value = str(row[0]).strip().split(":", 1)
+                    key, value = key.strip().lower(), value.strip()
+                    if key in ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id"]:
+                        metadata[key] = value
+                except:
+                    pass
 
         return metadata, clean_table_data
 
