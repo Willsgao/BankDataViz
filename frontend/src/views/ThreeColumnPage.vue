@@ -577,6 +577,7 @@ const registerRestoration = (pdfId, excelFile, sheetName, tableType, draftData) 
   return true
 }
 
+
 // 检查是否有待恢复的草稿（修正版）
 const hasPendingRestoration = (pdfId, excelFile, sheetName, tableType) => {
   const key = getRestorationKey(pdfId, excelFile, sheetName, tableType)
@@ -1320,9 +1321,8 @@ const loadAllClassData = async (excelFileName) => {
 
 
 
-// 在 ThreeColumnPage.vue 中找到 toggleFlatMode 函数，完全替换为：
 const toggleFlatMode = async () => {
-  console.log('🔄🔄 切换扁平化模式...')
+  console.log('🔄 切换扁平化模式...')
 
   if (!selectedSheet.value || !selectedPdf.value) {
     ElMessage.warning('请先选择表格')
@@ -1330,136 +1330,146 @@ const toggleFlatMode = async () => {
   }
 
   try {
-    // 🔥🔥🔥 关键修复：检查文件类型
+    const pdfId = selectedPdf.value.id
+    const excelFile = selectedExcelFile.value
+    const sheetName = selectedSheet.value.name
+    const wasFlatMode = showFlatMode.value
+
+    // 扁平化文件特殊处理（保持不变）
     const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
-
     if (isFlattenedFile) {
-      console.log('✅ 扁平化文件，只切换显示模式，不重新加载数据')
-
-      // 🔥🔥🔥 关键修复2：简单切换显示模式
-      showFlatMode.value = !showFlatMode.value
+      console.log('✅ 扁平化文件，只切换显示模式')
+      showFlatMode.value = !wasFlatMode
       currentTableMode.value = showFlatMode.value ? 'flattened' : 'original'
-
-      // 更新全局状态
       if (window.currentTableMode) {
         window.currentTableMode = currentTableMode.value
       }
-
-      console.log('✅ 扁平化文件模式切换完成:', {
-        新模式: showFlatMode.value ? '扁平化' : '原始',
-        当前数据行数: excelData.value?.length || 0,
-        扁平化数据行数: flatData.value?.length || 0
-      })
-
-      return  // 🔥🔥🔥 关键：直接返回，不执行后续逻辑
+      return
     }
 
-    // 🔥🔥🔥 只有非扁平化文件才执行正常切换逻辑
-    console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
+    console.log('🔄 非扁平化文件，执行正常切换逻辑')
 
-    // 保存切换前的状态
-    const wasFlatMode = showFlatMode.value
-    const newTableType = !wasFlatMode ? 'flattened' : 'original'
-
-    console.log('📊📊 切换信息:', {
-      当前模式: wasFlatMode ? '扁平化' : '原始',
-      目标模式: !wasFlatMode ? '扁平化' : '原始',
-      表类型: newTableType,
-      sheet: selectedSheet.value.name
-    })
-
-    // 关键修复：如果切换到扁平化模式，先获取实时数据
-    if (!wasFlatMode) { // 从原始模式切换到扁平化模式
+    if (!wasFlatMode) { // 切换到扁平化模式
       console.log('🔀🔀 切换到扁平化模式')
 
-      // 🔥🔥🔥 关键修复1：从当前表格实例获取实时数据
+      // 🔥 检查会话缓存（仅当没有未保存修改时）
+      if (!actualHasUnsavedChanges.value) {
+        const cachedData = sessionCacheManager.get(pdfId, excelFile, sheetName)
+        if (cachedData) {
+          console.log('✅ 使用会话缓存数据')
+          flatData.value = cachedData
+          showFlatMode.value = true
+          ElMessage.success('已切换到扁平化模式（缓存数据）')
+          return
+        }
+      }
+
+      console.log('🔄 实时生成扁平化数据...')
+
+      // 获取当前表格数据
       const hotInstance = getActiveHotInstance()
       if (!hotInstance) {
-        throw new Error('无法获取表格实例，请确保表格已加载')
+        throw new Error('无法获取表格实例')
       }
 
-      // 🔥🔥🔥 获取修改后的实时数据（不是缓存！）
       const currentTableData = hotInstance.getSourceData()
-      console.log('📊📊 使用实时数据进行扁平化:', {
-        数据行数: currentTableData.length,
-        第一行样本: currentTableData[0]
-      })
 
       if (!currentTableData || currentTableData.length === 0) {
-        throw new Error('表格数据为空，无法进行扁平化')
+        throw new Error('表格数据为空')
       }
 
-      const pdfId = selectedPdf.value.id
-      const excelFile = selectedExcelFile.value
-      const sheetName = selectedSheet.value.name
-
-      // 🔥🔥🔥 关键修复2：使用实时数据而不是缓存数据
-      console.log('🎯🎯 使用实时数据重建二维表格...')
+      // 重建二维表格
       const tableData = rebuildTwoDimensionalTable(currentTableData)
 
       if (!tableData || tableData.length === 0) {
-        throw new Error('无法重建二维表格数据')
+        throw new Error('无法重建二维表格')
       }
 
-      console.log('✅ 重建的二维表格数据:', {
-        行数: tableData.length,
-        列数: tableData[0]?.length || 0,
-        表格样本: tableData.slice(0, Math.min(3, tableData.length))
+      // 调用扁平化API
+      console.log('📤 请求实时扁平化数据...')
+      const response = await fetch(getApiUrl('/excel-flatten'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_data: tableData,
+          table_metadata: { name: sheetName }
+        })
       })
 
-      // 🔥🔥🔥 关键修复3：更新缓存，确保数据一致性
-      excelDataCache.setOriginalData(pdfId, excelFile, sheetName, currentTableData)
-      console.log('💾💾 已更新原始数据缓存（使用实时数据）')
-
-      // 3. 清除可能存在的旧缓存
-      try {
-        if (dataManager && dataManager.indexedDBManager) {
-          await dataManager.indexedDBManager.deleteFlattenedCache(
-            selectedPdf.value.id,
-            selectedExcelFile.value,
-            selectedSheet.value.name
-          )
-          console.log('🧹🧹 已清除旧缓存')
-        }
-      } catch (clearError) {
-        console.warn('⚠️ 清除缓存失败:', clearError.message)
+      if (!response.ok) {
+        throw new Error('扁平化API调用失败')
       }
 
-      // 4. 执行扁平化转换
-      await convertToFlatDataWithRealTimeData(tableData, pdfId, excelFile, sheetName)
+      const result = await response.json()
+
+      if (result.success) {
+        let flattenedData = []
+
+        // 处理响应格式（保持原有逻辑）
+        if (result.rows && Array.isArray(result.rows)) {
+          flattenedData = result.rows
+        } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
+          flattenedData = result.long_format_data
+        } else if (result.data && Array.isArray(result.data)) {
+          flattenedData = result.data
+        } else if (Array.isArray(result)) {
+          flattenedData = result
+        } else {
+          for (const key in result) {
+            if (Array.isArray(result[key])) {
+              flattenedData = result[key]
+              break
+            }
+          }
+        }
+
+        if (flattenedData.length > 0) {
+          // 🔥 保存到会话缓存
+          sessionCacheManager.set(pdfId, excelFile, sheetName, flattenedData)
+
+          flatData.value = flattenedData
+          showFlatMode.value = true
+
+          console.log('✅ 扁平化数据实时生成成功', {
+            数据行数: flattenedData.length,
+            缓存类型: '会话级'
+          })
+
+          ElMessage.success(`扁平化数据生成成功（${flattenedData.length}行）`)
+        } else {
+          throw new Error('生成的扁平化数据为空')
+        }
+      } else {
+        throw new Error(result.error || '扁平化处理失败')
+      }
 
     } else {
-      // 切换回原始模式
+      // 切换回原始模式（保持不变）
       console.log('🔀🔀 切换回原始模式')
-
-      // 设置上下文
       sheetStateManager.setActiveContext(
         selectedPdf.value.id,
         selectedExcelFile.value,
         selectedSheet.value.name,
         'original'
       )
-
       showFlatMode.value = false
       flatData.value = []
 
-      // 重新加载原始数据
       if (selectedSheet.value) {
         await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
       }
-
       ElMessage.success('已切换回原始模式')
     }
 
   } catch (error) {
-    console.error('❌❌ 切换失败:', error)
+    console.error('❌ 切换失败:', error)
     ElMessage.error(`切换失败: ${error.message}`)
-
-    // 恢复状态
     showFlatMode.value = false
     flatData.value = []
   }
 }
+
+
 
 
 // ThreeColumnPage.vue - 修复 toggleFlatMode 函数
@@ -2065,6 +2075,41 @@ const goToNextSheet = async () => {
 
 
 
+// 在 setup() 函数开头，其他变量声明之后
+const sessionCacheManager = {
+  cache: new Map(),
+
+  getKey(pdfId, excelFile, sheetName) {
+    return `${pdfId}_${excelFile}_${sheetName}`
+  },
+
+  get(pdfId, excelFile, sheetName) {
+    const key = this.getKey(pdfId, excelFile, sheetName)
+    return this.cache.get(key)
+  },
+
+  set(pdfId, excelFile, sheetName, data) {
+    const key = this.getKey(pdfId, excelFile, sheetName)
+    this.cache.set(key, data)
+    console.log('💾 会话缓存已设置:', key)
+  },
+
+  delete(pdfId, excelFile, sheetName) {
+    const key = this.getKey(pdfId, excelFile, sheetName)
+    this.cache.delete(key)
+  },
+
+  clear() {
+    this.cache.clear()
+    console.log('🧹 会话缓存已清空')
+  }
+}
+
+// 页面卸载时清理缓存
+onUnmounted(() => {
+  sessionCacheManager.clear()
+})
+
 
 
 // 在 ThreeColumnPage.vue 的模板部分，检查 ExcelContent 组件的使用
@@ -2598,7 +2643,6 @@ const clearModificationStatesOnly = async () => {
 };
 
 
-
 const saveData = async () => {
   console.log('💾💾💾💾💾💾💾💾 保存数据 - 区分表类型...');
 
@@ -2679,7 +2723,17 @@ const saveData = async () => {
     if (result.success) {
       console.log(`✅ ${currentTableType === 'original' ? '原始' : '扁平化'}数据保存成功`);
 
-      // 清除缓存并重新加载
+      // 🔥🔥🔥 关键添加：清理会话缓存（因为数据已改变）
+      if (sessionCacheManager) {
+        sessionCacheManager.delete(
+          selectedPdf.value.id,  // 注意：这里用数字ID，不是UUID
+          selectedExcelFile.value,
+          selectedSheet.value.name
+        );
+        console.log('🧹 保存成功，清理会话缓存');
+      }
+
+      // 清除缓存并重新加载（原有逻辑保持不变）
       if (excelDataCache.deleteOriginalData) {
         excelDataCache.deleteOriginalData(pdfId, selectedExcelFile.value, selectedSheet.value.name);
       }
@@ -2731,6 +2785,7 @@ const saveData = async () => {
     saving.value = false;
   }
 };
+
 
 
 // 修复后的清理缓存函数
