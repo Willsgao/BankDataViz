@@ -740,11 +740,6 @@ onMounted(() => {
   // 监听数据加载完成事件
   window.addEventListener('excel-data-loaded', (event) => {
     console.log('🎯 收到数据加载完成事件', event.detail)
-
-    // 延迟确保数据已渲染到DOM
-    setTimeout(() => {
-      forceRefreshTables()
-    }, 200)
   })
 })
 
