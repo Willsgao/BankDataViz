@@ -1019,59 +1019,6 @@ const jumpToPageFallback = (pageNumber) => {
   return false
 }
 
-// 修复导航方法中的跳转逻辑
-const goToPreviousSheet = () => {
-  if (!hasPreviousSheet.value) return
-
-  const previousSheet = getSortedSheets.value[currentSheetIndex.value - 1]
-  console.log('📄📄 切换到上一页:', {
-    当前: currentPageInfo.value ? `P${currentPageInfo.value.pageNumber}_${currentPageInfo.value.tableIndex}` : '无',
-    上一页: `P${previousSheet.pageNumber}_${previousSheet.tableIndex}`
-  })
-
-  // 使用无刷新跳转
-  const targetPage = getPageFromSheetName(previousSheet.name)
-  if (pdfPreviewRef.value && targetPage > 0) {
-    const success = pdfPreviewRef.value.jumpToPage(targetPage)
-    if (success) {
-      console.log('✅ 上一页跳转成功')
-      currentPage.value = targetPage
-    } else {
-      console.warn('⚠️ 上一页跳转失败，仅更新页码')
-      currentPage.value = targetPage
-    }
-  }
-
-  // 触发sheet切换
-  selectSheet(previousSheet, previousSheet.excelFile)
-}
-
-const goToNextSheet = () => {
-  if (!hasNextSheet.value) return
-
-  const nextSheet = getSortedSheets.value[currentSheetIndex.value + 1]
-  console.log('📄📄 切换到下一页:', {
-    当前: currentPageInfo.value ? `P${currentPageInfo.value.pageNumber}_${currentPageInfo.value.tableIndex}` : '无',
-    下一页: `P${nextSheet.pageNumber}_${nextSheet.tableIndex}`
-  })
-
-  // 使用无刷新跳转
-  const targetPage = getPageFromSheetName(nextSheet.name)
-  if (pdfPreviewRef.value && targetPage > 0) {
-    const success = pdfPreviewRef.value.jumpToPage(targetPage)
-    if (success) {
-      console.log('✅ 下一页跳转成功')
-      currentPage.value = targetPage
-    } else {
-      console.warn('⚠️ 下一页跳转失败，仅更新页码')
-      currentPage.value = targetPage
-    }
-  }
-
-  // 触发sheet切换
-  selectSheet(nextSheet, nextSheet.excelFile)
-}
-
 
 
 
@@ -1701,6 +1648,140 @@ const debugPropsToExcelContent = computed(() => {
   console.log('🚨 ThreeColumnPage -> ExcelContent 传递的值:', result)
   return result
 })
+
+
+
+
+// 组合方案1和方案3
+const goToPreviousSheet = async () => {
+  if (!hasPreviousSheet.value) return
+
+  const previousSheet = getSortedSheets.value[currentSheetIndex.value - 1]
+  console.log('📄📄📄📄 导航到上一表格')
+
+  try {
+    // === 方案1：修复调用顺序 ===
+
+    // 1. 先停止所有进行中的操作
+    if (loadingExcel.value) {
+      console.log('⏸⏸ 停止当前加载中的操作')
+      // 这里可以添加取消逻辑
+    }
+
+    // 2. 立即更新当前sheet状态
+    selectedSheet.value = { ...previousSheet }
+    selectedExcelFile.value = previousSheet.excelFile
+
+    // 3. 清空旧数据，确保重新加载
+    excelData.value = []
+    flatData.value = []
+    tableColumns.value = []
+
+    // 4. 等待DOM更新
+    await nextTick()
+
+    // 5. 使用专用的同步导航函数
+    const navResult = await navigateToSheet(previousSheet, previousSheet.excelFile)
+
+    if (!navResult.success) {
+      throw new Error(navResult.error || '导航失败')
+    }
+
+    // === 方案3：数据加载状态监控 ===
+
+    // 6. 等待数据加载完成
+    try {
+      await waitForDataLoad(5000) // 5秒超时
+      console.log('✅ 数据加载确认完成')
+    } catch (error) {
+      console.warn('⚠️ 数据加载可能未完成:', error.message)
+      // 不抛出错误，继续执行后续操作
+    }
+
+    // 7. 最后进行PDF页面跳转
+    const targetPage = getPageFromSheetName(previousSheet.name)
+    if (pdfPreviewRef.value && targetPage > 0) {
+      // 使用setTimeout确保数据加载优先
+      setTimeout(() => {
+        pdfPreviewRef.value.jumpToPage(targetPage)
+        currentPage.value = targetPage
+      }, 100)
+    }
+
+    console.log('✅ 上一页导航完成')
+  } catch (error) {
+    console.error('❌❌ 上一页导航失败:', error)
+    ElMessage.error(`切换表格失败: ${error.message}`)
+  }
+}
+
+// 方案3的数据加载监控函数
+const waitForDataLoad = async (timeout = 3000) => {
+  const startTime = Date.now()
+
+  while (Date.now() - startTime < timeout) {
+    // 根据当前模式检查对应的数据
+    const currentData = showFlatMode.value ? flatData.value : excelData.value
+    if (currentData && currentData.length > 0) {
+      console.log('✅ 数据加载完成，行数:', currentData.length)
+      return true // 数据已加载
+    }
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  throw new Error(`数据加载超时（${timeout}ms）`)
+}
+
+// 同样修复下一页函数
+const goToNextSheet = async () => {
+  if (!hasNextSheet.value) return
+
+  const nextSheet = getSortedSheets.value[currentSheetIndex.value + 1]
+  console.log('📄📄📄📄 导航到下一表格')
+
+  try {
+    // === 方案1：修复调用顺序 ===
+    if (loadingExcel.value) {
+      console.log('⏸⏸ 停止当前加载中的操作')
+    }
+
+    selectedSheet.value = { ...nextSheet }
+    selectedExcelFile.value = nextSheet.excelFile
+    excelData.value = []
+    flatData.value = []
+    tableColumns.value = []
+
+    await nextTick()
+
+    const navResult = await navigateToSheet(nextSheet, nextSheet.excelFile)
+    if (!navResult.success) {
+      throw new Error(navResult.error || '导航失败')
+    }
+
+    // === 方案3：数据加载状态监控 ===
+    try {
+      await waitForDataLoad(5000)
+      console.log('✅ 数据加载确认完成')
+    } catch (error) {
+      console.warn('⚠️ 数据加载可能未完成:', error.message)
+    }
+
+    const targetPage = getPageFromSheetName(nextSheet.name)
+    if (pdfPreviewRef.value && targetPage > 0) {
+      setTimeout(() => {
+        pdfPreviewRef.value.jumpToPage(targetPage)
+        currentPage.value = targetPage
+      }, 100)
+    }
+
+    console.log('✅ 下一页导航完成')
+  } catch (error) {
+    console.error('❌❌ 下一页导航失败:', error)
+    ElMessage.error(`切换表格失败: ${error.message}`)
+  }
+}
+
+
 
 
 

@@ -172,27 +172,22 @@
 
 <script setup>
 import SaveStatus from './SaveStatus.vue'
-
 import * as ExcelKey from '@/utils/excelKeyUtils.js'
 import sheetStateManager from '@/utils/SheetStateManager.js'
-
 import HandsontableExcelViewer from '@/components/excel/HandsontableExcelViewer.vue'
 import {
   DataAnalysis, Document, Check, Refresh, Timer, Grid, Loading, ArrowLeft, ArrowRight
 } from '@element-plus/icons-vue'
-import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted   } from 'vue'
-
-
+import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-
 import { useSheetOperations  } from './useSheetOperations.js'
-const sheetOperations = useSheetOperations()  // 可能需要参数
+
+const sheetOperations = useSheetOperations()
 const { handleSmartToggle, checkIfFlattenedData  } = sheetOperations
 
-
-/* ===== 给模板用的空壳变量（先让渲染不报错） ===== */
-const emptyCount = ref(0)          // 空白单元格数量
-const stats = ref({                // 选中区域统计
+/* ===== 模板变量 ===== */
+const emptyCount = ref(0)
+const stats = ref({
   rowCount: 0,
   numericCount: 0,
   sum: 0,
@@ -201,88 +196,12 @@ const stats = ref({                // 选中区域统计
   min: 0
 })
 
-// 当前单元格信息（空壳先占位）
 const currentCell = ref({
   position: '',
   content: '',
   type: '文本',
   isNumeric: false
 })
-
-// 监听子组件的选中事件
-const handleCellSelected000 = (cell) => {
-  currentCell.value = cell
-}
-
-
-// 监听子组件的选中事件
-// 监听子组件的选中事件
-const handleCellSelected = (cell) => {
-  console.log('🔍🔍 收到选择事件:', cell)
-
-  // 检查是否是选区（多个单元格）
-  if (cell.isRange && cell.range) {
-    // 多个单元格选区
-    currentCell.value = {
-      position: `R${cell.range.start.row + 1}C${cell.range.start.col + 1}:R${cell.range.end.row + 1}C${cell.range.end.col + 1}`,
-      content: `选中 ${cell.totalCells || 0} 个单元格`,
-      type: '选区',
-      isNumeric: false,
-      isRange: true,
-      rangeInfo: {
-        rowCount: cell.range.end.row - cell.range.start.row + 1,
-        colCount: cell.range.end.col - cell.range.start.col + 1,
-        totalCells: cell.totalCells || 0
-      }
-    }
-  } else {
-    // 单个单元格
-    currentCell.value = {
-      position: cell.position || '',
-      content: cell.content || '',
-      type: cell.type || '文本',
-      isNumeric: cell.isNumeric || false,
-      isRange: false
-    }
-  }
-
-  console.log('✅ 更新后的currentCell:', currentCell.value)
-}
-
-
-// 存后台按钮启用条件
-const enableFinalButton = computed(() => {
-  console.log('🔍 [存后台按钮] 启用条件检查:', {
-    时间: new Date().toLocaleTimeString(),
-    有sheet: !!props.selectedSheet,
-    全局unsavedCells数量: window.unsavedCells?.size || 0,
-    状态管理器修改数: sheetStateManager?.getUnsavedChangesCount?.(props.showFlatMode ? 'flattened' : 'original') || 0
-  })
-
-  if (!props.selectedSheet) {
-    return false
-  }
-
-  // 检查未保存修改
-  const hasUnsaved =
-    (window.unsavedCells?.size > 0) ||
-    (sheetStateManager?.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
-
-  console.log('  ✅ 是否有未保存修改:', hasUnsaved)
-  return hasUnsaved
-})
-
-
-
-/* ===== 后续你可以把真实数据接进来 ===== */
-// 例：当 Handsontable 抛出选中事件时
-const handleSelection = (sel) => {
-  stats.value = sel                    // 真实统计对象
-  emptyCount.value = sel.emptyCount    // 真实空白数
-}
-
-const forceRefreshKey = ref(0)
-const forceUpdateKey = ref(0)
 
 const props = defineProps({
   selectedSheet: Object,
@@ -310,7 +229,7 @@ const props = defineProps({
   lastSaveTime: Number,
   saving: Boolean,
   saveType: String,
-  hasUnsavedChanges: {  // 注意这里的名称
+  hasUnsavedChanges: {
     type: Boolean,
     default: false,
     required: false
@@ -319,7 +238,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  // 新增：接收父组件透传的 actualHasUnsavedChanges（核心修复）
   actualHasUnsavedChanges: {
     type: Boolean,
     default: false,
@@ -329,73 +247,143 @@ const props = defineProps({
     type: Array,
     default: () =>[]
   }
-
 })
 
-// ============ 新增状态 ============
+const emit = defineEmits([
+  'toggle-flat-mode',
+  'save-data',
+  'restore-unsaved-data',
+  'run-comprehensive-test',
+  'cell-changed',
+  'data-changed',
+  'instance-ready',
+  'unsaved-changes-updated',
+  'navigate-sheet'
+])
+
+/* ===== 组件引用和状态 ===== */
 const originalViewer = ref(null)
 const flatViewer = ref(null)
 const localUnsavedChanges = ref(0)
-
-
 const savingDraft = ref(false)
 const savingFinal = ref(false)
+const forceRefreshKey = ref(0)
 
+// 🔥🔥 修复：只定义一次响应式变量
+const tableDataVersion = ref(0)
+const isDataLoaded = ref(false)
+const dataChangeTimer = ref(null)
+let retryCount = 0
+const MAX_RETRY_COUNT = 3
 
-const handleSmartToggleWrapper = () => {
-  handleSmartToggle(
-    props.selectedSheet,
-    props.selectedPdf,
-    props.selectedExcelFile,
-    showFlatMode,
-    excelData,
-    flatData,
-    () => $emit('toggle-flat-mode')
-  )
-}
+/* ===== 事件处理函数 ===== */
+const handleCellSelected = (cell) => {
+  console.log('🔍🔍🔍🔍 收到选择事件:', cell)
 
-/* 存后台可点条件：有未保存且不在保存中 */
-const canSaveFinal = computed(() =>
-  !savingFinal.value && (window.unsavedCells?.size > 0 || sheetStateManager.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
-)
-
-
-// 触发保存的方法
-const triggerSave = () => {
-  console.log('💾 ExcelContent: 保存按钮点击')
-  // 触发父组件的 save-data 事件
-  emit('save-data')
-}
-
-
-// ExcelContent.vue - 在 script 部分添加
-const handleInstanceReady = (instanceInfo) => {
-  console.log('📡 ExcelContent: 收到实例就绪事件', instanceInfo)
-
-  // 透传给父组件
-  emit('instance-ready', instanceInfo)
-
-  // 同时更新本地状态（如果需要）
-  if (instanceInfo.tableType === 'original') {
-    console.log('✅ 原始表格实例就绪')
+  if (cell.isRange && cell.range) {
+    currentCell.value = {
+      position: `R${cell.range.start.row + 1}C${cell.range.start.col + 1}:R${cell.range.end.row + 1}C${cell.range.end.col + 1}`,
+      content: `选中 ${cell.totalCells || 0} 个单元格`,
+      type: '选区',
+      isNumeric: false,
+      isRange: true,
+      rangeInfo: {
+        rowCount: cell.range.end.row - cell.range.start.row + 1,
+        colCount: cell.range.end.col - cell.range.start.col + 1,
+        totalCells: cell.totalCells || 0
+      }
+    }
   } else {
-    console.log('✅ 扁平化表格实例就绪')
+    currentCell.value = {
+      position: cell.position || '',
+      content: cell.content || '',
+      type: cell.type || '文本',
+      isNumeric: cell.isNumeric || false,
+      isRange: false
+    }
+  }
+
+  console.log('✅ 更新后的currentCell:', currentCell.value)
+}
+
+const handleInstanceReady = (instanceInfo) => {
+  console.log('📡📡 ExcelContent: 收到实例就绪事件', instanceInfo)
+  emit('instance-ready', instanceInfo)
+}
+
+const handleCellChanged = (cellInfo) => {
+  console.log('📝📝 [ExcelContent] 单元格修改:', cellInfo)
+  emit('cell-changed', cellInfo)
+}
+
+const handleDataChanged = (changeInfo) => {
+  console.log('📊📊 [ExcelContent] 数据修改汇总:', changeInfo)
+  emit('data-changed', changeInfo)
+}
+
+const handleEditStatusChanged = (status) => {
+  console.log('🎛🎛️ [ExcelContent] 编辑状态变化:', status)
+}
+
+const handleGlobalFlattenComplete = (eventData) => {
+  console.log('📥📥 ExcelContent: 接收整体扁平化数据', eventData)
+  handleGlobalFlattenedData(eventData.flattenedData)
+}
+
+const handleGlobalFlattenedData = (flattenedData) => {
+  try {
+    console.log('🔄🔄 处理整体扁平化数据', {
+      数据行数: flattenedData.length,
+      第一行样本: flattenedData[0]
+    })
+
+    if (Array.isArray(flattenedData) && flattenedData.length > 0) {
+      props.flatData.length = 0
+      flattenedData.forEach(row => {
+        props.flatData.push(row)
+      })
+
+      console.log('✅ 扁平化数据已更新', {
+        新数据行数: props.flatData.length
+      })
+    }
+
+    if (!props.showFlatMode) {
+      console.log('🔄🔄 自动切换到扁平化模式')
+      emit('toggle-flat-mode')
+    }
+
+    nextTick(() => {
+      if (flatViewer.value) {
+        const hotInstance = flatViewer.value.getSafeHotInstance?.()
+        if (hotInstance && !hotInstance.isDestroyed) {
+          hotInstance.render()
+          console.log('✅ 表格已刷新显示')
+        }
+      }
+    })
+
+  } catch (error) {
+    console.error('❌❌ 处理整体扁平化数据失败:', error)
+    ElMessage.error('处理扁平化数据失败')
   }
 }
 
-/* 存草稿：纯前端，永远可点 */
-async function handleSaveDraft() {
+/* ===== 保存相关函数 ===== */
+const triggerSave = () => {
+  console.log('💾💾 ExcelContent: 保存按钮点击')
+  emit('save-data')
+}
+
+const handleSaveDraft = async () => {
   savingDraft.value = true
   try {
-    // 1. 取当前数据
     const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
     const key = ExcelKey.getDraftKey(props.selectedPdf.id,
         props.selectedExcelFile,
         props.selectedSheet.name,
         props.showFlatMode ? 'flattened' : 'original')
 
-
-    // 2. 写 localStorage（确保字符串化）
     const draft = {
       data: viewer.tableData,
       modifications: Array.from(window.unsavedCells?.[props.showFlatMode ? 'flattened' : 'original'] || []),
@@ -403,7 +391,6 @@ async function handleSaveDraft() {
     }
     localStorage.setItem(key, JSON.stringify(draft))
 
-    // 3. 立即读回验证（控制台可查）
     const back = JSON.parse(localStorage.getItem(key))
     console.log('【草稿验证】', key, back)
 
@@ -416,353 +403,25 @@ async function handleSaveDraft() {
   }
 }
 
-/* 存后台：调接口 + 防重复 */
-async function handleSaveFinal() {
-  if (!canSaveFinal.value) return
-  savingFinal.value = true
-  try {
-    const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
-    const payload = {
-      pdf_id: props.selectedPdf.id,
-      excel_file: props.selectedExcelFile,
-      sheet_name: props.selectedSheet.name,
-      table_type: props.showFlatMode ? 'flattened' : 'original',
-      modifications: Array.from(window.unsavedCells || []).map(key => {
-        const [row, col] = key.split(',').map(Number)
-        return { row, col, oldValue: '', newValue: viewer.tableData[row][col] || '' }
-      }),
-      data: viewer.tableData
-    }
-    await axios.post('/api/excel/save-final', payload)
-    // 成功 → 清前端未保存状态
-    // window.unsavedCells.clear()
-    window.unsavedCells?.[props.showFlatMode ? 'flattened' : 'original']?.clear()
-    sheetStateManager.markChangesAsSaved(props.showFlatMode ? 'flattened' : 'original')
-    emit('unsaved-changes-updated', false)
-    ElMessage.success('已保存到后台')
-  } catch (e) {
-    ElMessage.error(e.response?.data?.error || '后台保存失败')
-  } finally {
-    savingFinal.value = false
-  }
-}
-
-
-// 原有事件处理（向上传递）
-const handleCellChanged = (cellInfo) => {
-  console.log('📝 [ExcelContent] 单元格修改:', cellInfo)
-  emit('cell-changed', cellInfo)
-}
-
-const handleDataChanged = (changeInfo) => {
-  console.log('📊 [ExcelContent] 数据修改汇总:', changeInfo)
-  emit('data-changed', changeInfo)
-}
-
-const handleEditStatusChanged = (status) => {
-  console.log('🎛️ [ExcelContent] 编辑状态变化:', status)
-  // 可以在这里处理编辑状态变化
-}
-
-// ============ 辅助函数 ============
-const updateLocalUnsavedChanges = () => {
-  if (window.sheetStateManager) {
-    localUnsavedChanges.value = window.sheetStateManager.getUnsavedChangesCount()
-  }
-}
-
-
-
-
-// 添加计算属性来调试按钮状态
-const debugSaveButtonState = computed(() => {
-
-  return !props.selectedSheet || !props.hasUnsavedChanges
-})
-
-// 在 ExcelContent.vue 中添加 props 验证
-watch(() => props.hasUnsavedChanges, (newVal, oldVal) => {
-  console.log('✅ ExcelContent: 接收到 hasUnsavedChanges props', {
-    旧值: oldVal,
-    新值: newVal,
-    时间: new Date().toLocaleTimeString(),
-    数据类型: typeof newVal,
-    是否为布尔值: typeof newVal === 'boolean',
-    值本身: newVal
-  })
-}, { immediate: true })
-
-// 添加 DOM 检查函数
-const checkButtonDOMState = () => {
-  setTimeout(() => {
-    const buttons = document.querySelectorAll('.save-buttons .el-button')
-
-    buttons.forEach((btn, idx) => {
-      const shouldDisable = !props.selectedSheet || !props.hasUnsavedChanges
-      const isDisabled = btn.disabled
-      const isWrong = isDisabled !== shouldDisable
-
-    })
-  }, 100)
-}
-
-// 监听整体扁平化完成事件
-const handleGlobalFlattenComplete = (eventData) => {
-  console.log('📥 ExcelContent: 接收整体扁平化数据', eventData)
-
-  // 处理返回的扁平化数据
-  handleGlobalFlattenedData(eventData.flattenedData)
-}
-
-// 处理整体扁平化数据
-const handleGlobalFlattenedData = (flattenedData) => {
-  try {
-    console.log('🔄 处理整体扁平化数据', {
-      数据行数: flattenedData.length,
-      第一行样本: flattenedData[0]
-    })
-
-    // 1. 更新扁平化数据
-    if (Array.isArray(flattenedData) && flattenedData.length > 0) {
-      // 清空现有数据
-      props.flatData.length = 0
-
-      // 添加新数据（确保响应式更新）
-      flattenedData.forEach(row => {
-        props.flatData.push(row)
-      })
-
-      console.log('✅ 扁平化数据已更新', {
-        新数据行数: props.flatData.length
-      })
-    }
-
-    // 2. 自动切换到扁平化模式（如果当前不是的话）
-    if (!props.showFlatMode) {
-      console.log('🔄 自动切换到扁平化模式')
-      // 触发父组件切换模式
-      emit('toggle-flat-mode')
-    }
-
-    // 3. 更新表格显示
-    nextTick(() => {
-      // 强制刷新表格显示
-      if (flatViewer.value) {
-        const hotInstance = flatViewer.value.getSafeHotInstance?.()
-        if (hotInstance && !hotInstance.isDestroyed) {
-          hotInstance.render()
-          console.log('✅ 表格已刷新显示')
-        }
-      }
-    })
-
-  } catch (error) {
-    console.error('❌ 处理整体扁平化数据失败:', error)
-    ElMessage.error('处理扁平化数据失败')
-  }
-}
-
-// 在 mounted 和每次 props 变化时检查
-onMounted(() => {
-  console.log('🚀 ExcelContent mounted, 检查按钮初始状态')
-  checkButtonDOMState()
-})
-
-watch(() => props.hasUnsavedChanges, () => {
-  console.log('🔄 hasUnsavedChanges 变化，重新检查按钮')
-  checkButtonDOMState()
-})
-
-watch(() => props.selectedSheet, () => {
-  console.log('🔄 selectedSheet 变化，重新检查按钮')
-  checkButtonDOMState()
-})
-
-
-// 添加监听
-watch(() => props.hasUnsavedChanges, (newVal) => {
-  console.log('🎯 props.hasUnsavedChanges 变化:', newVal)
-}, { immediate: true })
-
-// 直接使用导入的实例，而不是 window.sheetStateManager
-const handleSheetCellChange = (changeData) => {
-  console.log('📦 [ExcelContent] 收到单元格修改:', changeData)
-
-  if (!sheetStateManager) {
-    console.warn('⚠️ sheetStateManager 未初始化')
-    return
-  }
-
-  // 获取当前表类型
-  const tableType = props.showFlatMode ? 'flattened' : 'original'
-
-  // 设置活跃上下文
-  if (props.selectedSheet && props.selectedPdf && props.selectedExcelFile) {
-    sheetStateManager.setActiveContext(
-      props.selectedPdf.id,
-      props.selectedExcelFile,
-      props.selectedSheet.name,
-      tableType
-    )
-  }
-
-  // 记录每个修改
-  changeData.changes.forEach(([row, col, oldValue, newValue]) => {
-    try {
-      const success = sheetStateManager.recordCellChange(
-        row,
-        col,
-        oldValue,
-        newValue,
-        tableType
-      )
-
-      // 2. 🔥 关键：同步到全局 Set（让按钮/样式生效）
-    const cellKey = ExcelKey.getCellKey(
-      props.selectedPdf.id,
-      props.selectedExcelFile,
-      props.selectedSheet.name,
-      tableType,
-      row,
-      col
-    );
-    if (!window.unsavedCells) {
-      window.unsavedCells = { original: new Set(), flattened: new Set() };
-    }
-    window.unsavedCells[tableType].add(cellKey);
-
-    } catch (error) {
-      console.error('❌ 记录修改失败:', error)
-    }
-  })
-
-  // 更新本地状态
-  updateLocalUnsavedChanges()
-
-  // 触发保存状态更新
-  emit('unsaved-changes-updated', true)
-}
-
-
-// ExcelContent.vue - 添加 watch
-watch(() => props.showFlatMode, (newMode, oldMode) => {
-  console.log('🔄 ExcelContent: 扁平化模式变化', {
-    旧模式: oldMode,
-    新模式: newMode,
-    当前sheet: props.selectedSheet?.name
-  })
-
-  // 重新计算保存按钮状态
-  if (props.selectedSheet) {
-    // 强制重新计算
-    setTimeout(() => {
-      console.log('🔄 强制更新保存按钮状态')
-      // 触发重新渲染
-      checkSaveButtons()
-    }, 50)
-  }
-}, { immediate: true })
-
-
-
-// 调试函数
-const checkSaveButtons = () => {
-  console.group('🔍 ExcelContent 保存按钮状态检查')
-  const noSheet = !props.selectedSheet
-  const noChanges = !enableSaveButtons.value
-  const shouldDisable = noSheet || noChanges
-  console.log('   - 按钮应该禁用?', shouldDisable)
-
-  console.log('4. 当前DOM按钮状态:')
-  setTimeout(() => {
-    const saveButtons = document.querySelectorAll('.save-buttons .el-button')
-    saveButtons.forEach((btn, idx) => {
-      console.log(`   按钮${idx + 1}:`, {
-        文本: btn.textContent,
-        是否禁用: btn.disabled,
-        类名: btn.className
-      })
-    })
-  }, 100) // 延迟确保DOM已更新
-
-  console.groupEnd()
-
-  return enableSaveButtons.value
-}
-
-// 暴露给全局调试
-if (typeof window !== 'undefined') {
-  window.checkExcelContentButtons = checkSaveButtons
-  window.debugExcelContent = {
-    checkButtons: checkSaveButtons,
-    getProps: () => ({
-      hasUnsavedChanges: props.hasUnsavedChanges,
-      selectedSheet: props.selectedSheet,
-      selectedPdf: props.selectedPdf,
-      selectedExcelFile: props.selectedExcelFile
-    }),
-    enableSaveButtons: () => enableSaveButtons.value
-  }
-}
-
-
-/* ===== 本地实时状态：决定按钮亮灭 ===== */
-const localHasUnsaved = computed(() => {
-  if (!props.selectedSheet) {
-    console.log('❌ localHasUnsaved: 无选中的 sheet，返回 false')
-    return false
-  }
-
-  const t = props.showFlatMode ? 'flattened' : 'original'
-
-  // 🔥 修复调试信息显示
-  console.group('🔍🔍🔍 localHasUnsaved 详细检查')
-  console.log('targetSet大小:', window.unsavedCells?.[t]?.size ?? 0)
-  console.log('sheetStateManager存在:', !!sheetStateManager)
-  console.log('sheetStateManager结果:', sheetStateManager?.hasUnsavedChanges?.(t) ?? false)
-  console.groupEnd()
-
-  // 1. 优先读全局 Set
-  const targetSetSize = window.unsavedCells?.[t]?.size ?? 0
-  if (targetSetSize > 0) {
-    console.log('✅✅✅ 方式1: window.unsavedCells 检测到修改，返回 true')
-    return true
-  }
-
-  // 2. 兜底读状态管理器
-  const sheetManagerResult = sheetStateManager?.hasUnsavedChanges?.(t) ?? false
-  console.log('🔄 方式2: sheetStateManager 结果:', sheetManagerResult)
-
-  return sheetManagerResult
-})
-
-
-
-/* 统一的条件：有选中 sheet 且有未保存修改 */
-// 🔥 替换 enableSaveButtons 计算属性
+/* ===== 计算属性 ===== */
 const enableSaveButtons = computed(() => {
-  console.log('🔍🔍🔍 enableSaveButtons 计算:', {
+  console.log('🔍🔍🔍🔍🔍🔍 enableSaveButtons 计算:', {
     时间: new Date().toLocaleTimeString(),
     有sheet: !!props.selectedSheet,
-    sheet名称: props.selectedSheet?.name,
-    hasUnsavedChanges: props.hasUnsavedChanges,           // 旧prop
-    actualHasUnsavedChanges: props.actualHasUnsavedChanges, // 新prop
+    hasUnsavedChanges: props.hasUnsavedChanges,
+    actualHasUnsavedChanges: props.actualHasUnsavedChanges,
     使用哪个: 'actualHasUnsavedChanges'
   })
 
-  // 🔥 关键修复：使用 actualHasUnsavedChanges
   const result = props.selectedSheet && props.actualHasUnsavedChanges
   console.log('✅ enableSaveButtons 结果:', result)
   return result
 })
 
-
-// 计算属性
 const allSheets = computed(() => props.sortedSheets)
 
 const currentSheetIndex = computed(() => {
   if (!props.selectedSheet || !props.selectedExcelFile) return -1
-
   return allSheets.value.findIndex(sheet =>
     sheet.name === props.selectedSheet.name &&
     sheet.excelFile === props.selectedExcelFile
@@ -776,10 +435,8 @@ const hasNextSheet = computed(() =>
 
 const currentPageInfo = computed(() => {
   if (currentSheetIndex.value < 0) return null
-
   const currentSheet = allSheets.value[currentSheetIndex.value]
 
-  // 获取所有不重复的页码
   const allPageNumbers = [...new Set(allSheets.value
     .filter(s => s.isStandard)
     .map(s => s.pageNumber)
@@ -804,19 +461,16 @@ const currentPageInfo = computed(() => {
   }
 })
 
-
-// 只修改这一处：将 excelFileName 改为 excelFile
+/* ===== 导航函数 ===== */
 const goToPreviousSheet = async () => {
   if (!hasPreviousSheet.value) return
 
   const previousSheet = allSheets.value[currentSheetIndex.value - 1]
+  console.log('📄📄 导航到上一表格')
 
-  console.log('📄 导航到上一表格')
-
-  // 🔥🔥 关键修复：将 excelFileName 改为 excelFile
   emit('navigate-sheet', {
     sheet: previousSheet,
-    excelFile: previousSheet.excelFile  // 原来是 excelFileName
+    excelFile: previousSheet.excelFile
   })
 }
 
@@ -824,123 +478,311 @@ const goToNextSheet = async () => {
   if (!hasNextSheet.value) return
 
   const nextSheet = allSheets.value[currentSheetIndex.value + 1]
+  console.log('📄📄 导航到下一表格')
 
-  console.log('📄 导航到下一表格')
-
-  // 🔥🔥 关键修复：将 excelFileName 改为 excelFile
   emit('navigate-sheet', {
     sheet: nextSheet,
-    excelFile: nextSheet.excelFile  // 原来是 excelFileName
+    excelFile: nextSheet.excelFile
   })
 }
 
+/* ===== 核心修复：数据监听和刷新逻辑 ===== */
+// 🔥🔥 修复：只定义一次 watch
+watch(() => props.excelData, (newData, oldData) => {
+  console.log('🎯🎯 ExcelContent: 检测到数据变化', {
+    新数据长度: newData?.length,
+    旧数据长度: oldData?.length,
+    数据是否相同: newData === oldData,
+    时间戳: new Date().toLocaleTimeString()
+  })
 
-// ============ 暴露给父组件的 hasUnsavedChanges ============
-const emit = defineEmits([
-  'toggle-flat-mode',
-  'save-data',
-  'restore-unsaved-data',
-  'run-comprehensive-test',
-  'cell-changed',
-  'data-changed',
-  'instance-ready',
-  'unsaved-changes-updated',
-  'navigate-sheet'
-])
+  if (dataChangeTimer.value) {
+    clearTimeout(dataChangeTimer.value)
+  }
 
+  if (newData && newData.length > 0) {
+    isDataLoaded.value = true
+    tableDataVersion.value++
 
-watch([() => props.excelData, () => props.flatData, () => props.showFlatMode], () => {
-  nextTick(refreshHot)
-}, { deep: true })
+    dataChangeTimer.value = setTimeout(() => {
+      forceRefreshHandsontable()
+    }, 300)
+  } else {
+    isDataLoaded.value = false
+    console.log('📭📭 数据为空，不进行刷新')
+  }
+}, { deep: true, immediate: true })
 
-function refreshHot () {
-  const viewer = originalViewer.value || flatViewer.value
-  const hot = viewer?.getSafeHotInstance?.()
-  hot && !hot.isDestroyed && hot.render()
-}
-
-
-// 当实际有未保存修改变化时，通知父组件
-watch(enableSaveButtons, (newVal, oldVal) => {
-  if (newVal !== oldVal) {
-    console.log('🔄 未保存修改状态变化:', { 旧值: oldVal, 新值: newVal })
-    emit('unsaved-changes-updated', newVal)
+// 🔥🔥 修复：只定义一次 watch
+watch(() => props.selectedSheet, (newSheet, oldSheet) => {
+  if (newSheet?.name !== oldSheet?.name) {
+    console.log('📋📋 Sheet切换，重置数据加载状态')
+    isDataLoaded.value = false
+    tableDataVersion.value = 0
   }
 })
 
+// 🔥🔥 修复：只定义一次函数
+const forceRefreshHandsontable = () => {
+  console.log('🔄🔄 开始强制刷新Handsontable...')
 
-// 监听修改变化，强制重新渲染
-watch(() => props.modifiedCellsCount, (newCount, oldCount) => {
-  console.log('🔄 修改计数变化，强制重新渲染:', { 旧值: oldCount, 新值: newCount })
-  forceRefreshKey.value++
-  nextTick(() => {
-    console.log('✅ 强制重新渲染完成')
-  })
-}, { immediate: true })
+  try {
+    const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
 
-// 监听保存状态变化
-watch(() => props.saveStatus, (newStatus, oldStatus) => {
-  console.log('🔄 保存状态变化，强制重新渲染:', { 旧状态: oldStatus, 新状态: newStatus })
-  forceRefreshKey.value++
-}, { deep: true })
-
-// 监听模式切换
-watch(() => props.showFlatMode, (newMode, oldMode) => {
-  console.log('🔄 扁平化模式变化，强制重新渲染:', { 旧模式: oldMode, 新模式: newMode })
-  forceRefreshKey.value++
-}, { immediate: true })
-
-
-// 正确的写法：
-watch(() => props.selectedSheet, (newSheet) => {  // ✅ 使用 props.selectedSheet
-  console.log('🔍 ExcelContent: selectedSheet 变化', newSheet?.name)
-
-  // 🔥 检查是否有扁平化数据
-  setTimeout(() => {
-    if (props.flatData && props.flatData.length > 0) {  // ✅ 使用 props.flatData
-      // 有扁平化数据，确保显示扁平化模式
-      if (!props.showFlatMode) {  // ✅ 使用 props.showFlatMode
-        // 这里需要触发父组件切换模式
-        emit('toggle-flat-mode')
-        console.log('🔄 ExcelContent: 强制切换到扁平化模式')
-      }
+    if (!viewer) {
+      console.log('⏳⏳⏳ 表格视图未就绪，稍后重试...')
+      setTimeout(() => {
+        if (retryCount < MAX_RETRY_COUNT) {
+          retryCount++
+          console.log(`🔄🔄 第${retryCount}次重试...`)
+          forceRefreshHandsontable()
+        }
+      }, 500)
+      return
     }
-  }, 200)
-}, { deep: true })
 
+    const hotInstance = viewer.getSafeHotInstance?.()
+    if (!hotInstance) {
+      console.error('❌❌ 无法获取Handsontable实例')
+      return
+    }
 
+    if (hotInstance.isDestroyed) {
+      console.error('❌❌ Handsontable实例已销毁')
+      return
+    }
 
-// 🔥 只在数据加载时自动设置一次
-watch(() => props.excelData, (newData) => {
-  if (newData && newData.length > 0) {
-    const isFlattenedData = checkIfFlattenedData(newData)
+    console.log('✅ 获取到Handsontable实例，开始刷新...')
+    hotInstance.render()
+    hotInstance.updateSettings({}, false)
 
-    console.log('🎯 初始化模式判断:', {
-      数据特征: isFlattenedData ? '扁平化' : '原始',
-      建议模式: isFlattenedData ? '扁平化' : '原始'
+    if (props.excelData && props.excelData.length > 0) {
+      hotInstance.loadData(props.excelData)
+    }
+
+    console.log('✅ 表格强制刷新完成', {
+      数据版本: tableDataVersion.value,
+      数据行数: props.excelData?.length,
+      实例状态: '正常'
     })
 
-    // 🔥 只在初始化时自动设置一次
-    if (isFlattenedData !== props.showFlatMode) {
-      console.log('🔄 初始化设置显示模式')
-      emit('toggle-flat-mode')
-    }
+  } catch (error) {
+    console.error('❌❌ 表格刷新失败:', error)
   }
-}, { immediate: true })  // 🔥 只在第一次加载时执行
+}
 
-/* ===== 最小全局源：只告诉按钮“有没有” ===== */
-const hasMod = computed(() => props.hasUnsavedChanges)   // 父组件给的 props
-window.$hasMod = hasMod                                  // 挂到 window
-onMounted(() => { window.$hasMod = hasMod })             // 确保挂载后可用
+/* ===== 生命周期 ===== */
+onMounted(() => {
+  console.log('🎯🎯 ExcelContent 组件挂载完成')
+  retryCount = 0
+  if (typeof window !== 'undefined') {
+    window.$hasMod = computed(() => props.hasUnsavedChanges)
+  }
+})
 
-// ============ 暴露给父组件的实例与方法 ============
+onUnmounted(() => {
+  if (dataChangeTimer.value) {
+    clearTimeout(dataChangeTimer.value)
+  }
+  console.log('🧹🧹 ExcelContent 组件卸载，清理资源')
+})
+
+/* ===== 暴露给父组件 ===== */
 defineExpose({
   originalViewer,
   flatViewer,
-  checkSaveButtons,
-  tableData: computed(() => hotViewerRef.value?.tableData ?? []),
-  flatData:  computed(() => []),
-  debugExcelContent: {
+  forceRefreshTable: forceRefreshHandsontable,
+  getDataVersion: () => tableDataVersion.value,
+  isDataLoaded: () => isDataLoaded.value
+})
+
+// 保留原有的其他函数和逻辑
+const handleSmartToggleWrapper = () => {
+  handleSmartToggle(
+    props.selectedSheet,
+    props.selectedPdf,
+    props.selectedExcelFile,
+    props.showFlatMode,
+    props.excelData,
+    props.flatData,
+    () => emit('toggle-flat-mode')
+  )
+}
+
+const canSaveFinal = computed(() =>
+  !savingFinal.value && (window.unsavedCells?.size > 0 || sheetStateManager.hasUnsavedChanges(props.showFlatMode ? 'flattened' : 'original'))
+)
+
+const handleSheetCellChange = (changeData) => {
+  console.log('📦📦 [ExcelContent] 收到单元格修改:', changeData)
+
+  if (!sheetStateManager) {
+    console.warn('⚠️ sheetStateManager 未初始化')
+    return
+  }
+
+  const tableType = props.showFlatMode ? 'flattened' : 'original'
+
+  if (props.selectedSheet && props.selectedPdf && props.selectedExcelFile) {
+    sheetStateManager.setActiveContext(
+      props.selectedPdf.id,
+      props.selectedExcelFile,
+      props.selectedSheet.name,
+      tableType
+    )
+  }
+
+  changeData.changes.forEach(([row, col, oldValue, newValue]) => {
+    try {
+      const success = sheetStateManager.recordCellChange(
+        row,
+        col,
+        oldValue,
+        newValue,
+        tableType
+      )
+
+      const cellKey = ExcelKey.getCellKey(
+        props.selectedPdf.id,
+        props.selectedExcelFile,
+        props.selectedSheet.name,
+        tableType,
+        row,
+        col
+      )
+      if (!window.unsavedCells) {
+        window.unsavedCells = { original: new Set(), flattened: new Set() }
+      }
+      window.unsavedCells[tableType].add(cellKey)
+
+    } catch (error) {
+      console.error('❌❌ 记录修改失败:', error)
+    }
+  })
+
+  emit('unsaved-changes-updated', true)
+}
+
+// 其他辅助函数
+const updateLocalUnsavedChanges = () => {
+  if (window.sheetStateManager) {
+    localUnsavedChanges.value = window.sheetStateManager.getUnsavedChangesCount()
+  }
+}
+
+const debugSaveButtonState = computed(() => {
+  return !props.selectedSheet || !props.hasUnsavedChanges
+})
+
+watch(() => props.hasUnsavedChanges, (newVal, oldVal) => {
+  console.log('✅ ExcelContent: 接收到 hasUnsavedChanges props', {
+    旧值: oldVal,
+    新值: newVal,
+    时间: new Date().toLocaleTimeString(),
+    数据类型: typeof newVal,
+    是否为布尔值: typeof newVal === 'boolean',
+    值本身: newVal
+  })
+}, { immediate: true })
+
+const checkButtonDOMState = () => {
+  setTimeout(() => {
+    const buttons = document.querySelectorAll('.save-buttons .el-button')
+    buttons.forEach((btn, idx) => {
+      const shouldDisable = !props.selectedSheet || !props.hasUnsavedChanges
+      const isDisabled = btn.disabled
+      const isWrong = isDisabled !== shouldDisable
+    })
+  }, 100)
+}
+
+onMounted(() => {
+  console.log('🚀🚀 ExcelContent mounted, 检查按钮初始状态')
+  checkButtonDOMState()
+})
+
+watch(() => props.hasUnsavedChanges, () => {
+  console.log('🔄🔄 hasUnsavedChanges 变化，重新检查按钮')
+  checkButtonDOMState()
+})
+
+watch(() => props.selectedSheet, () => {
+  console.log('🔄🔄 selectedSheet 变化，重新检查按钮')
+  checkButtonDOMState()
+})
+
+watch(() => props.showFlatMode, (newMode, oldMode) => {
+  console.log('🔄🔄 ExcelContent: 扁平化模式变化', {
+    旧模式: oldMode,
+    新模式: newMode,
+    当前sheet: props.selectedSheet?.name
+  })
+
+  if (props.selectedSheet) {
+    setTimeout(() => {
+      console.log('🔄🔄 强制更新保存按钮状态')
+    }, 50)
+  }
+}, { immediate: true })
+
+
+// 在 setup() 函数中添加
+onMounted(() => {
+  // 监听数据加载完成事件
+  window.addEventListener('excel-data-loaded', (event) => {
+    console.log('🎯 收到数据加载完成事件', event.detail)
+
+    // 延迟确保数据已渲染到DOM
+    setTimeout(() => {
+      forceRefreshTables()
+    }, 200)
+  })
+})
+
+// 强制刷新表格显示
+const forceRefreshTables = () => {
+  console.log('🔄 强制刷新表格显示')
+
+  const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+  if (!viewer) {
+    console.log('⏳ 表格视图未就绪，稍后重试')
+    setTimeout(forceRefreshTables, 100)
+    return
+  }
+
+  const hotInstance = viewer.getSafeHotInstance?.()
+  if (hotInstance && !hotInstance.isDestroyed) {
+    hotInstance.render()
+    console.log('✅ 表格已刷新显示')
+  }
+}
+
+
+const checkSaveButtons = () => {
+  console.group('🔍🔍 ExcelContent 保存按钮状态检查')
+  const noSheet = !props.selectedSheet
+  const noChanges = !enableSaveButtons.value
+  const shouldDisable = noSheet || noChanges
+  console.log('   - 按钮应该禁用?', shouldDisable)
+
+  setTimeout(() => {
+    const saveButtons = document.querySelectorAll('.save-buttons .el-button')
+    saveButtons.forEach((btn, idx) => {
+      console.log(`   按钮${idx + 1}:`, {
+        文本: btn.textContent,
+        是否禁用: btn.disabled,
+        类名: btn.className
+      })
+    })
+  }, 100)
+
+  console.groupEnd()
+  return enableSaveButtons.value
+}
+
+if (typeof window !== 'undefined') {
+  window.checkExcelContentButtons = checkSaveButtons
+  window.debugExcelContent = {
     checkButtons: checkSaveButtons,
     getProps: () => ({
       hasUnsavedChanges: props.hasUnsavedChanges,
@@ -950,12 +792,7 @@ defineExpose({
     }),
     enableSaveButtons: () => enableSaveButtons.value
   }
-})
-
-
-
-
-
+}
 </script>
 
 
