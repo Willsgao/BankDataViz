@@ -3118,7 +3118,7 @@ const convertSingleHeaderToTable = (singleHeaderData) => {
 
 
 
-const convertToFlatData = async () => {
+const convertToFlatData_DEPRECATED  = async () => {
   if (!selectedSheet.value || !selectedPdf.value) {
     ElMessage.warning('请先选择表格')
     return
