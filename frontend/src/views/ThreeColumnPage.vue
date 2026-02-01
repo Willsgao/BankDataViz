@@ -1320,7 +1320,9 @@ const loadAllClassData = async (excelFileName) => {
 }
 
 
-const toggleFlatMode = async () => {
+
+
+const toggleFlatMode000 = async () => {
   console.log('🔄🔄 切换扁平化模式...')
 
   if (!selectedSheet.value || !selectedPdf.value) {
@@ -1345,22 +1347,48 @@ const toggleFlatMode = async () => {
 
     console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
 
-    if (!wasFlatMode) { // 切换到扁平化模式
-      console.log('🔀🔀🔀🔀 切换到扁平化模式')
+    if (!wasFlatMode) {
+      // 🔥🔥 切换到扁平化模式 - 强制使用实时数据
+      console.log('🔀🔀🔀🔀 强制切换到扁平化模式（绕过缓存）')
 
-      // 在调用 generateFlattenedDataWithRealTimeData 时
-      const pdfId = String(selectedPdf.value.id) // 确保是字符串
+      const pdfId = String(selectedPdf.value.id) // 修复数据类型
       const excelFile = selectedExcelFile.value
       const sheetName = selectedSheet.value.name
 
-      // 🔥🔥 关键修复：强制使用实时数据，不检查缓存
-      console.log('🎯🎯 强制使用实时数据生成，忽略所有缓存')
+      // 🔥🔥 关键修复：强制清除所有缓存
+      console.log('🧹🧹🧹🧹 强制清除所有缓存')
 
-      // 清除所有可能的缓存
-      flatData.value = [] // 先清空数据
+      // 清除会话缓存
+      if (sessionCacheManager) {
+        sessionCacheManager.delete(pdfId, excelFile, sheetName)
+        console.log('✅ 清除会话缓存')
+      }
 
-      // 使用实时数据生成
+      // 清除内存缓存
+      const cacheKey = `${pdfId}_${excelFile}_${sheetName}`
+      if (window.sheetDataCache) {
+        delete window.sheetDataCache[cacheKey]
+        console.log('✅ 清除内存缓存')
+      }
+
+      // 清除其他缓存
+      if (excelDataCache) {
+        if (excelDataCache.deleteFlattenedData) {
+          excelDataCache.deleteFlattenedData(pdfId, excelFile, sheetName)
+          console.log('✅ 清除excelDataCache缓存')
+        }
+      }
+
+      // 🔥🔥 强制设置空数据，确保重新生成
+      flatData.value = []
+      await nextTick() // 等待DOM更新
+
+      console.log('🎯🎯 强制使用实时数据生成...')
+
+      // 直接调用实时生成函数，不检查缓存
       await generateFlattenedDataWithRealTimeData(pdfId, excelFile, sheetName)
+
+      console.log('✅✅ 实时数据生成完成')
 
     } else {
       // 切换回原始模式
@@ -1390,97 +1418,186 @@ const toggleFlatMode = async () => {
 }
 
 
+const toggleFlatMode = async () => {
+  console.log('🔄🔄 切换扁平化模式...')
+
+  if (!selectedSheet.value || !selectedPdf.value) {
+    ElMessage.warning('请先选择表格')
+    return
+  }
+
+  try {
+    const wasFlatMode = showFlatMode.value
+
+    // 扁平化文件特殊处理
+    const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
+    if (isFlattenedFile) {
+      console.log('✅ 扁平化文件，只切换显示模式')
+      showFlatMode.value = !wasFlatMode
+      // 🔥🔥 修复：移除不存在的 currentTableMode 引用
+      // currentTableMode.value = showFlatMode.value ? 'flattened' : 'original' // ❌ 删除这行
+      if (window.currentTableMode) {
+        window.currentTableMode = showFlatMode.value ? 'flattened' : 'original' // ✅ 直接设置
+      }
+      return
+    }
+
+    console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
+
+    if (!wasFlatMode) {
+      // 🔥🔥 切换到扁平化模式 - 强制使用实时数据
+      console.log('🔀🔀🔀🔀 强制切换到扁平化模式（绕过缓存）')
+
+      const pdfId = String(selectedPdf.value.id) // 修复数据类型
+      const excelFile = selectedExcelFile.value
+      const sheetName = selectedSheet.value.name
+
+      // 🔥🔥 关键修复：强制清除所有缓存
+      console.log('🧹🧹🧹🧹 强制清除所有缓存')
+
+      // 清除会话缓存
+      if (sessionCacheManager) {
+        sessionCacheManager.delete(pdfId, excelFile, sheetName)
+        console.log('✅ 清除会话缓存')
+      }
+
+      // 清除内存缓存
+      const cacheKey = `${pdfId}_${excelFile}_${sheetName}`
+      if (window.sheetDataCache) {
+        delete window.sheetDataCache[cacheKey]
+        console.log('✅ 清除内存缓存')
+      }
+
+      // 清除其他缓存
+      if (excelDataCache) {
+        if (excelDataCache.deleteFlattenedData) {
+          excelDataCache.deleteFlattenedData(pdfId, excelFile, sheetName)
+          console.log('✅ 清除excelDataCache缓存')
+        }
+      }
+
+      // 🔥🔥 强制设置空数据，确保重新生成
+      flatData.value = []
+      await nextTick() // 等待DOM更新
+
+      console.log('🎯🎯 强制使用实时数据生成...')
+
+      // 直接调用实时生成函数，不检查缓存
+      await generateFlattenedDataWithRealTimeData(pdfId, excelFile, sheetName)
+
+      // 🔥🔥 修复：设置窗口状态
+      if (window.currentTableMode) {
+        window.currentTableMode = 'flattened'
+      }
+
+      console.log('✅✅ 实时数据生成完成')
+
+    } else {
+      // 切换回原始模式
+      console.log('🔀🔀🔀🔀 切换回原始模式')
+      sheetStateManager.setActiveContext(
+        selectedPdf.value.id,
+        selectedExcelFile.value,
+        selectedSheet.value.name,
+        'original'
+      )
+      showFlatMode.value = false
+      flatData.value = []
+
+      // 🔥🔥 修复：设置窗口状态
+      if (window.currentTableMode) {
+        window.currentTableMode = 'original'
+      }
+
+      if (selectedSheet.value) {
+        await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
+      }
+      ElMessage.success('已切换回原始模式')
+    }
+
+  } catch (error) {
+    console.error('❌❌ 切换失败:', error)
+    ElMessage.error(`切换失败: ${error.message}`)
+    // 出错时回退到原始模式
+    showFlatMode.value = false
+    flatData.value = []
+
+    // 🔥🔥 修复：出错时也设置状态
+    if (window.currentTableMode) {
+      window.currentTableMode = 'original'
+    }
+  }
+}
+
 
 // 在 toggleFlatMode 函数之前添加这个函数
 const generateFlattenedDataWithRealTimeData = async (pdfId, excelFile, sheetName) => {
-  console.log('🎯🎯 使用实时数据生成扁平化数据...')
+  console.log('🎯🎯 使用实时数据生成扁平化数据（强制无缓存）...')
 
   try {
-    // 🔥🔥 关键修复：强制清除所有相关缓存
+    // 🔥🔥 再次确认清除缓存
     if (sessionCacheManager) {
       sessionCacheManager.delete(pdfId, excelFile, sheetName)
-      console.log('🧹🧹 强制清除会话缓存')
     }
 
-    // 清除其他可能的缓存
-    const cacheKey = `${pdfId}_${excelFile}_${sheetName}`
-    if (window.sheetDataCache) {
-      delete window.sheetDataCache[cacheKey]
-      console.log('🧹🧹 清除内存缓存')
-    }
-
-    // 获取当前表格数据（实时数据）
+    // 获取当前表格数据
     const hotInstance = getActiveHotInstance()
     if (!hotInstance) {
       throw new Error('无法获取表格实例')
     }
 
     const currentTableData = hotInstance.getSourceData()
+    console.log('📊📊 实时表格数据:', {
+      行数: currentTableData.length,
+      数据类型: typeof currentTableData[0]
+    })
 
     if (!currentTableData || currentTableData.length === 0) {
       throw new Error('表格数据为空')
     }
 
-    console.log('📊📊 实时表格数据:', {
-      行数: currentTableData.length,
-      第一行样本: currentTableData[0]
-    })
-
     // 重建二维表格
     const tableData = rebuildTwoDimensionalTable(currentTableData)
+    console.log('✅ 重建的二维表格:', {
+      行数: tableData.length,
+      列数: tableData[0]?.length || 0
+    })
 
     if (!tableData || tableData.length === 0) {
       throw new Error('无法重建二维表格数据')
     }
 
-    console.log('✅ 重建的二维表格数据:', {
-      行数: tableData.length,
-      列数: tableData[0]?.length || 0
-    })
-
-    // 准备请求数据
+    // 准备API请求
     const requestData = {
       table_data: tableData,
-      table_metadata: {
-        name: sheetName
-      },
-      marks_info: {
-        row_marks: [],
-        col_marks: []
-      }
+      table_metadata: { name: sheetName },
+      marks_info: { row_marks: [], col_marks: [] }
     }
 
-    console.log('📤📤 发送扁平化请求数据（实时数据）')
+    console.log('📤📤 发送实时API请求...')
 
-    // 调用扁平化API
     const response = await fetch(getApiUrl('/excel-flatten'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestData)
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+      throw new Error(`API请求失败: HTTP ${response.status}`)
     }
 
     const result = await response.json()
-    console.log('📥📥 扁平化API返回数据:', result)
+    console.log('📥📥 API响应:', result)
 
     if (result.success) {
       let flattenedData = []
 
-      // 处理多种可能的响应格式
-      if (result.rows && Array.isArray(result.rows)) {
-        flattenedData = result.rows
-      } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
-        flattenedData = result.long_format_data
-      } else if (result.data && Array.isArray(result.data)) {
-        flattenedData = result.data
-      } else if (Array.isArray(result)) {
-        flattenedData = result
-      } else {
+      // 解析响应数据
+      if (result.rows) flattenedData = result.rows
+      else if (result.long_format_data) flattenedData = result.long_format_data
+      else if (result.data) flattenedData = result.data
+      else if (Array.isArray(result)) flattenedData = result
+      else {
         for (const key in result) {
           if (Array.isArray(result[key])) {
             flattenedData = result[key]
@@ -1490,27 +1607,25 @@ const generateFlattenedDataWithRealTimeData = async (pdfId, excelFile, sheetName
       }
 
       if (flattenedData.length > 0) {
-        console.log('✅ 接收到实时扁平化数据:', {
-          总行数: flattenedData.length,
-          第一行样本: flattenedData[0]
+        console.log('✅ 实时数据生成成功:', {
+          数据行数: flattenedData.length,
+          第一行: flattenedData[0]
         })
 
-        // 🔥🔥 关键修复：不设置会话缓存，确保每次都是实时数据
-        // 直接设置数据，不缓存
+        // 🔥🔥 关键：直接设置数据，不进行任何缓存
         flatData.value = flattenedData
         showFlatMode.value = true
 
-        console.log('✅ 扁平化数据实时生成成功（无缓存）', {
-          数据行数: flattenedData.length
-        })
+        // 🔥🔥 明确不设置会话缓存
+        console.log('🚫 明确禁用会话缓存')
 
-        ElMessage.success(`扁平化数据生成成功（${flattenedData.length}行）`)
+        ElMessage.success(`实时生成扁平化数据（${flattenedData.length}行）`)
         return flattenedData
       } else {
-        throw new Error('生成的扁平化数据为空')
+        throw new Error('API返回空数据')
       }
     } else {
-      throw new Error(result.error || '扁平化处理失败')
+      throw new Error(result.error || 'API处理失败')
     }
 
   } catch (error) {
@@ -1973,8 +2088,7 @@ const goToNextSheet = async () => {
 }
 
 
-
-// 在 setup() 函数开头，其他变量声明之后
+// 修改 sessionCacheManager 的 set 方法，添加调试日志
 const sessionCacheManager = {
   cache: new Map(),
 
@@ -1984,25 +2098,37 @@ const sessionCacheManager = {
 
   get(pdfId, excelFile, sheetName) {
     const key = this.getKey(pdfId, excelFile, sheetName)
-    return this.cache.get(key)
+    const data = this.cache.get(key)
+    console.log('🔍🔍 会话缓存检查:', {
+      key,
+      存在缓存: !!data,
+      缓存数据长度: data?.length || 0
+    })
+    return data
   },
 
   set(pdfId, excelFile, sheetName, data) {
     const key = this.getKey(pdfId, excelFile, sheetName)
+    console.log('💾💾 设置会话缓存:', {
+      key,
+      数据长度: data?.length || 0,
+      调用栈: new Error().stack // 显示调用来源
+    })
     this.cache.set(key, data)
-    console.log('💾 会话缓存已设置:', key)
   },
 
   delete(pdfId, excelFile, sheetName) {
     const key = this.getKey(pdfId, excelFile, sheetName)
+    console.log('🧹🧹 删除会话缓存:', { key })
     this.cache.delete(key)
   },
 
   clear() {
+    console.log('🧹🧹 清空所有会话缓存')
     this.cache.clear()
-    console.log('🧹 会话缓存已清空')
   }
 }
+
 
 // 页面卸载时清理缓存
 onUnmounted(() => {
