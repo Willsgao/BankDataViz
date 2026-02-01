@@ -3,8 +3,8 @@ const { defineConfig } = require('@vue/cli-service')
 const path = require('path')
 
 // 使用环境变量或默认值
-const API_BASE = process.env.VUE_APP_API_BASE || 'http://localhost:5000'
-//const API_BASE = process.env.VUE_APP_API_BASE || 'http://122.51.196.65:5000'
+//const API_BASE = process.env.VUE_APP_API_BASE || 'http://localhost:5000'
+const API_BASE = process.env.VUE_APP_API_BASE || 'http://122.51.196.65:5000'
 
 module.exports = defineConfig({
   lintOnSave: false,
