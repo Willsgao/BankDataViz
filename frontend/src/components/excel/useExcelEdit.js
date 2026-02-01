@@ -131,7 +131,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
 
     // ============ 核心修复：处理单元格修改 ============
-    const onDataChange = (changes, source) => {
+    const onDataChange000 = (changes, source) => {
         console.log('🎯🎯 onDataChange 被执行', changes, source);
         if (!changes || source === 'loadData' || source === 'restore') return;
 
@@ -287,6 +287,45 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
                 isEditMode: true
             });
         }
+    };
+
+
+    // ✅✅✅ 确保 idb 工具正确定义
+    const idb = {
+      get: async (store, key) => {
+        try {
+          const db = await dbPromise;
+          return await db.get(store, key);
+        } catch (error) {
+          console.warn('❌ idb.get 失败:', error);
+          return null;
+        }
+      },
+      set: async (store, key, val) => {
+        try {
+          const db = await dbPromise;
+          return await db.put(store, val, key);
+        } catch (error) {
+          console.warn('❌ idb.set 失败:', error);
+        }
+      },
+      del: async (store, key) => {
+        try {
+          const db = await dbPromise;
+          return await db.delete(store, key);
+        } catch (error) {
+          console.warn('❌ idb.del 失败:', error);
+        }
+      },
+      getAll: async (store) => {
+        try {
+          const db = await dbPromise;
+          return await db.getAll(store);
+        } catch (error) {
+          console.warn('❌ idb.getAll 失败:', error);
+          return [];
+        }
+      }
     };
 
 
@@ -455,7 +494,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
 
   // 3. 新增：启动恢复函数
-  const restoreUnsavedFromIndexedDB = async () => {
+  const restoreUnsavedFromIndexedDB0000 = async () => {
   try {
     // ✅ 添加数据库连接状态检查
     if (!db || db.readyState === 'closed' || db.readyState === 'closing') {
@@ -733,6 +772,207 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         saving.value = false
       }
     }
+
+
+
+    // ✅✅✅ 修复后的完整函数
+    const restoreUnsavedFromIndexedDB = async () => {
+      try {
+        // 🔧 修复：检查 idb 工具是否可用
+        if (!idb || typeof idb.get !== 'function') {
+          console.warn('⚠️ IndexedDB 工具不可用，跳过恢复');
+          return;
+        }
+
+        console.log('🔄🔄 从IndexedDB恢复未保存数据...');
+
+        // 🔧 修复：使用正确的存储名称和键
+        const tableType = window.currentTableType || 'original';
+        const draftKey = ExcelKey.getDraftKey ?
+            ExcelKey.getDraftKey(
+                window.currentPdfId || '',
+                window.currentExcelFile || '',
+                window.currentSheetName || '',
+                tableType
+            ) :
+            `excel_draft_${window.currentPdfId}_${window.currentExcelFile}_${window.currentSheetName}_${tableType}`;
+
+        try {
+          // 🔧 修复：使用 idb.get 获取数据
+          const draftData = await idb.get('drafts', draftKey);
+
+          if (!draftData) {
+            console.log('📭 IndexedDB中无未保存数据');
+            return;
+          }
+
+          console.log(`📦📦 从IndexedDB恢复 ${draftData.modifications?.length || 0} 个未保存单元格`);
+
+          if (draftData.modifications && draftData.modifications.length > 0) {
+            // 应用恢复逻辑
+            applyRestoredCells(draftData.modifications);
+          }
+
+        } catch (dbError) {
+          console.warn('⚠️ 读取IndexedDB失败:', dbError);
+          // 静默失败，不阻断流程
+        }
+
+      } catch (error) {
+        console.warn('⚠️ 恢复未保存数据失败（非致命错误）:', error);
+        // 静默失败，不阻断主流程
+      }
+    };
+
+    // ✅✅✅ 添加缺失的 applyRestoredCells 函数
+    const applyRestoredCells = (modifications) => {
+      if (!modifications || !Array.isArray(modifications)) return;
+
+      const hot = getHotInstanceWithCache();
+      if (!hot || hot.isDestroyed) {
+        console.warn('❌ 无法应用恢复数据：表格实例无效');
+        return;
+      }
+
+      console.log('🔄 应用恢复的单元格数据...');
+
+      modifications.forEach(mod => {
+        if (mod.row !== undefined && mod.col !== undefined && mod.newValue !== undefined) {
+          try {
+            // 恢复单元格值
+            hot.setDataAtCell(mod.row, mod.col, mod.newValue);
+
+            // 标记为未保存
+            const cellKey = ExcelKey.getCellKey(
+              window.currentPdfId || '',
+              window.currentExcelFile || '',
+              window.currentSheetName || '',
+              window.currentTableType || 'original',
+              mod.row,
+              mod.col
+            );
+
+            unsavedCells.value.add(cellKey);
+            historyCells.value.add(cellKey);
+
+          } catch (error) {
+            console.warn('⚠️ 恢复单元格失败:', { row: mod.row, col: mod.col, error: error.message });
+          }
+        }
+      });
+
+      updateModifiedCellsCount();
+      updateModifiedCellsStyle();
+
+      console.log('✅ 恢复数据应用完成');
+    };
+
+
+    // ✅✅✅ 修复后的完整 onDataChange 函数
+    const onDataChange = (changes, source) => {
+      console.log('🎯🎯🎯🎯 onDataChange 被执行', changes, source);
+      if (!changes || source === 'loadData' || source === 'restore') return;
+
+      const tableType = window.currentTableType || 'original';
+      const modifiedCells = [];
+
+      // ✅ 使用统一的参数格式
+      const currentPdfId = window.currentPdfId || '';
+      const currentExcelFile = window.currentExcelFile || '';
+      const currentSheetName = window.currentSheetName || '';
+
+      // 🔥🔥🔥 修复：获取表格实例，但不进行数据转换
+      const hot = getHotInstanceWithCache();
+      if (!hot || hot.isDestroyed) {
+        console.warn('❌❌❌❌ 无法获取表格实例，跳过处理');
+        return;
+      }
+
+      changes.forEach(([row, col, oldVal, newVal]) => {
+        if (oldVal == newVal) return;
+
+        // ✅ 统一使用 ExcelKey.getCellKey 格式
+        const cellKey = ExcelKey.getCellKey(
+          currentPdfId,
+          currentExcelFile,
+          currentSheetName,
+          tableType,
+          row,
+          col
+        );
+
+        unsavedCells.value.add(cellKey);
+        historyCells.value.add(cellKey);
+        modifiedCells.push({ row, col, oldValue: oldVal, newValue: newVal, cellKey });
+      });
+
+      unsavedCellsTick.value++;
+      updateModifiedCellsCount();
+
+      /* === 🔥🔥🔥 关键修复：删除所有数据转换逻辑 === */
+      console.log('🔄🔄🔄🔄 处理单元格修改，但不进行数据转换');
+
+      /* === 立即落盘：带值缓存 === */
+      const changeList = [];
+      for (const key of unsavedCells.value) {
+        const parsed = ExcelKey.parseCellKey(key);
+        if (!parsed) continue;
+        const { row, col } = parsed;
+        changeList.push({
+          row,
+          col,
+          newValue: hot.getDataAtCell(row, col) ?? '',
+          oldValue: ''
+        });
+      }
+
+      const draftKey = ExcelKey.getDraftKey ?
+        ExcelKey.getDraftKey(currentPdfId, currentExcelFile, currentSheetName, tableType) :
+        `excel_draft_${currentPdfId}_${currentExcelFile}_${currentSheetName}_${tableType}`;
+
+      localStorage.setItem(draftKey, JSON.stringify({
+        modifications: changeList,
+        savedAt: Date.now(),
+        tableType
+      }));
+
+      console.log('💾💾💾💾 草稿已写入 localStorage', draftKey, '条数=', changeList.length);
+
+      // 🔥🔥🔥 新增：设置前端修改标记
+      if (!window.cacheMetadata) window.cacheMetadata = {};
+      window.cacheMetadata[draftKey] = {
+        source: 'frontend_modified',
+        lastModified: Date.now(),
+        tableType: tableType
+      };
+
+      console.log('🔧🔧🔧🔧 缓存标记为前端修改:', { draftKey });
+
+      /* 🔥🔥🔥 新增：写入索引，方便切表时快速找回 */
+      const indexKey = ExcelKey.getIndexKey ?
+        ExcelKey.getIndexKey(currentPdfId, currentExcelFile) :
+        `excel_draft_index_${currentPdfId}_${currentExcelFile}`;
+
+      let idx = JSON.parse(localStorage.getItem(indexKey) || '[]');
+      if (!idx.includes(draftKey)) idx.push(draftKey);
+      localStorage.setItem(indexKey, JSON.stringify(idx));
+
+      /* 🔥🔥🔥 新增：立即把颜色刷出来 */
+      nextTick(() => updateModifiedCellsStyle());
+
+      /* === 回调通知 === */
+      if (typeof onCellChangeCallback === 'function' && modifiedCells.length > 0) {
+        modifiedCells.forEach(cellInfo => onCellChangeCallback({ ...cellInfo, source, timestamp: Date.now() }));
+        onCellChangeCallback({
+          type: 'data-changed',
+          totalChanges: unsavedCells.value.size,
+          hasChanges: true,
+          allChanges: modifiedCells,
+          modifiedCellsCount: unsavedCells.value.size,
+          isEditMode: true
+        });
+      }
+    };
 
 
 
