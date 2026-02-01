@@ -1320,7 +1320,6 @@ const loadAllClassData = async (excelFileName) => {
 }
 
 
-
 const toggleFlatMode = async () => {
   console.log('🔄 切换扁平化模式...')
 
@@ -1330,12 +1329,9 @@ const toggleFlatMode = async () => {
   }
 
   try {
-    const pdfId = selectedPdf.value.id
-    const excelFile = selectedExcelFile.value
-    const sheetName = selectedSheet.value.name
     const wasFlatMode = showFlatMode.value
 
-    // 扁平化文件特殊处理（保持不变）
+    // 扁平化文件特殊处理
     const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
     if (isFlattenedFile) {
       console.log('✅ 扁平化文件，只切换显示模式')
@@ -1352,95 +1348,29 @@ const toggleFlatMode = async () => {
     if (!wasFlatMode) { // 切换到扁平化模式
       console.log('🔀🔀 切换到扁平化模式')
 
-      // 🔥 检查会话缓存（仅当没有未保存修改时）
-      if (!actualHasUnsavedChanges.value) {
+      const pdfId = selectedPdf.value.id
+      const excelFile = selectedExcelFile.value
+      const sheetName = selectedSheet.value.name
+
+      // 🔥🔥🔥 关键修改：检查是否有未保存修改
+      const hasUnsavedChanges = actualHasUnsavedChanges.value
+
+      if (hasUnsavedChanges) {
+        console.log('⚠️ 有未保存修改，强制使用实时数据')
+        // 跳过缓存检查，直接使用实时数据生成
+        await generateFlattenedDataWithRealTimeData(pdfId, excelFile, sheetName)
+      } else {
+        // 检查会话缓存
         const cachedData = sessionCacheManager.get(pdfId, excelFile, sheetName)
         if (cachedData) {
           console.log('✅ 使用会话缓存数据')
           flatData.value = cachedData
           showFlatMode.value = true
           ElMessage.success('已切换到扁平化模式（缓存数据）')
-          return
-        }
-      }
-
-      console.log('🔄 实时生成扁平化数据...')
-
-      // 获取当前表格数据
-      const hotInstance = getActiveHotInstance()
-      if (!hotInstance) {
-        throw new Error('无法获取表格实例')
-      }
-
-      const currentTableData = hotInstance.getSourceData()
-
-      if (!currentTableData || currentTableData.length === 0) {
-        throw new Error('表格数据为空')
-      }
-
-      // 重建二维表格
-      const tableData = rebuildTwoDimensionalTable(currentTableData)
-
-      if (!tableData || tableData.length === 0) {
-        throw new Error('无法重建二维表格')
-      }
-
-      // 调用扁平化API
-      console.log('📤 请求实时扁平化数据...')
-      const response = await fetch(getApiUrl('/excel-flatten'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          table_data: tableData,
-          table_metadata: { name: sheetName }
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('扁平化API调用失败')
-      }
-
-      const result = await response.json()
-
-      if (result.success) {
-        let flattenedData = []
-
-        // 处理响应格式（保持原有逻辑）
-        if (result.rows && Array.isArray(result.rows)) {
-          flattenedData = result.rows
-        } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
-          flattenedData = result.long_format_data
-        } else if (result.data && Array.isArray(result.data)) {
-          flattenedData = result.data
-        } else if (Array.isArray(result)) {
-          flattenedData = result
         } else {
-          for (const key in result) {
-            if (Array.isArray(result[key])) {
-              flattenedData = result[key]
-              break
-            }
-          }
+          console.log('🔄 无缓存，使用实时数据生成')
+          await generateFlattenedDataWithRealTimeData(pdfId, excelFile, sheetName)
         }
-
-        if (flattenedData.length > 0) {
-          // 🔥 保存到会话缓存
-          sessionCacheManager.set(pdfId, excelFile, sheetName, flattenedData)
-
-          flatData.value = flattenedData
-          showFlatMode.value = true
-
-          console.log('✅ 扁平化数据实时生成成功', {
-            数据行数: flattenedData.length,
-            缓存类型: '会话级'
-          })
-
-          ElMessage.success(`扁平化数据生成成功（${flattenedData.length}行）`)
-        } else {
-          throw new Error('生成的扁平化数据为空')
-        }
-      } else {
-        throw new Error(result.error || '扁平化处理失败')
       }
 
     } else {
@@ -1470,6 +1400,89 @@ const toggleFlatMode = async () => {
 }
 
 
+
+// 在 toggleFlatMode 函数之前添加这个函数
+const generateFlattenedDataWithRealTimeData = async (pdfId, excelFile, sheetName) => {
+  console.log('🎯 使用实时数据生成扁平化数据...')
+
+  // 获取当前表格数据（实时数据）
+  const hotInstance = getActiveHotInstance()
+  if (!hotInstance) {
+    throw new Error('无法获取表格实例')
+  }
+
+  const currentTableData = hotInstance.getSourceData()
+
+  if (!currentTableData || currentTableData.length === 0) {
+    throw new Error('表格数据为空')
+  }
+
+  // 重建二维表格
+  const tableData = rebuildTwoDimensionalTable(currentTableData)
+
+  if (!tableData || tableData.length === 0) {
+    throw new Error('无法重建二维表格')
+  }
+
+  // 调用API生成数据
+  const response = await fetch(getApiUrl('/excel-flatten'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      table_data: tableData,
+      table_metadata: { name: sheetName }
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error('扁平化API调用失败')
+  }
+
+  const result = await response.json()
+
+  if (result.success) {
+    let flattenedData = []
+
+    // 处理响应格式
+    if (result.rows && Array.isArray(result.rows)) {
+      flattenedData = result.rows
+    } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
+      flattenedData = result.long_format_data
+    } else if (result.data && Array.isArray(result.data)) {
+      flattenedData = result.data
+    } else if (Array.isArray(result)) {
+      flattenedData = result
+    } else {
+      for (const key in result) {
+        if (Array.isArray(result[key])) {
+          flattenedData = result[key]
+          break
+        }
+      }
+    }
+
+    if (flattenedData.length > 0) {
+      // 设置数据
+      flatData.value = flattenedData
+      showFlatMode.value = true
+
+      // 缓存数据（用于下次使用）
+      sessionCacheManager.set(pdfId, excelFile, sheetName, flattenedData)
+
+      console.log('✅ 扁平化数据实时生成成功', {
+        数据行数: flattenedData.length
+      })
+
+      ElMessage.success(`扁平化数据生成成功（${flattenedData.length}行）`)
+
+      return flattenedData
+    } else {
+      throw new Error('生成的扁平化数据为空')
+    }
+  } else {
+    throw new Error(result.error || '扁平化处理失败')
+  }
+}
 
 
 // ThreeColumnPage.vue - 修复 toggleFlatMode 函数
