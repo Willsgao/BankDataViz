@@ -212,6 +212,10 @@ class ExcelFlattenHandler:
 
         # 只提取元数据，不删除任何行
         for row in table_data:
+
+            print("**********row******************")
+            print(row)
+
             if row and row[0] and ":" in str(row[0]).strip():
                 try:
                     key, value = str(row[0]).strip().split(":", 1)
@@ -220,6 +224,10 @@ class ExcelFlattenHandler:
                         metadata[key] = value
                 except:
                     pass
+
+
+        print("metadata:")
+        print(metadata)
 
         return metadata, clean_table_data
 
@@ -353,7 +361,6 @@ class ExcelFlattenHandler:
         }
 
         return table_metadata
-
 
     def apply_units_to_flattened_data(self, flattened_data: List[Dict], source_info: Dict[str, Any]) -> List[Dict]:
         """
