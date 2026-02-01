@@ -688,6 +688,159 @@ const handleCellChanged = (cellInfo) => {
     })
   }
 
+  // ✅ 一次性脏锁：只要改过一次就永远亮
+  sheetEverDirty.value = true
+  console.log('🔓 清除最终保存锁定，按钮应该恢复')
+
+  // 更新保存状态
+  updateSaveStatus()
+
+  // 🔥🔥🔥 关键修复：立即更新缓存，确保扁平化使用最新数据
+  if (selectedPdf.value && selectedExcelFile.value && selectedSheet.value) {
+    const pdfId = selectedPdf.value.id
+    const excelFile = selectedExcelFile.value
+    const sheetName = selectedSheet.value.name
+    const tableType = showFlatMode.value ? 'flattened' : 'original'
+
+    try {
+      // 获取当前表格实例，读取最新数据
+      const hot = getActiveHotInstance()
+      if (hot && !hot.isDestroyed) {
+        // 获取完整的表格数据
+        const fullData = hot.getSourceData()
+
+        // 🔥🔥 立即更新缓存，确保数据同步
+        if (tableType === 'original') {
+          excelDataCache.setOriginalData(pdfId, excelFile, sheetName, fullData)
+          console.log('💾💾 原始数据缓存已更新（实时同步）:', {
+            行数: fullData.length,
+            修改的单元格: `[${cellInfo.row},${cellInfo.col}]`
+          })
+        } else {
+          excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, fullData)
+          console.log('💾💾 扁平化数据缓存已更新（实时同步）:', {
+            行数: fullData.length,
+            修改的单元格: `[${cellInfo.row},${cellInfo.col}]`
+          })
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ 更新数据缓存失败:', error.message)
+    }
+  }
+
+  // 自动草稿：1 秒无操作即落盘
+  autoSaveDraft()
+
+  // 🔍 新增诊断代码（放在函数末尾）
+  console.log('=== 缓存诊断开始 ===')
+  const draftKey = ExcelKey.getDraftKey(
+    selectedPdf.value?.id,
+    selectedExcelFile.value,
+    selectedSheet.value?.name,
+    tableType
+  )
+
+  const raw = localStorage.getItem(draftKey)
+  console.log('诊断结果:', {
+    缓存键: draftKey,
+    是否存在: !!raw,
+    内容: raw ? JSON.parse(raw) : '无数据'
+  })
+  console.log('=== 缓存诊断结束 ===')
+}
+
+const handleCellChanged000 = (cellInfo) => {
+  cacheDebug.log('ThreeColumnPage', 'handleCellChanged', {
+    cellInfo,
+    selectedPdf: selectedPdf.value?.id,
+    selectedSheet: selectedSheet.value?.name,
+    tableType: showFlatMode.value ? 'flattened' : 'original'
+  }, {
+    unsavedCellsOriginal: window.unsavedCells?.original?.size || 0,
+    unsavedCellsFlattened: window.unsavedCells?.flattened?.size || 0
+  });
+
+  console.log('🔥 handleCellChanged 入口 - cellInfo:', cellInfo)
+  if (!cellInfo) {
+    console.warn('⚠️ cellInfo 为空，直接返回')
+    return
+  }
+
+  // 检查上下文是否完整
+  if (!selectedPdf.value || !selectedExcelFile.value || !selectedSheet.value) {
+    console.error('❌ 上下文不完整，无法记录修改:', {
+      pdf: selectedPdf.value,
+      excelFile: selectedExcelFile.value,
+      sheet: selectedSheet.value
+    })
+    return
+  }
+
+  console.log('📝 ThreeColumnPage: 收到单元格修改:', cellInfo)
+
+  const tableType = showFlatMode.value ? 'flattened' : 'original'
+
+  // 🔥 关键修复1：确保有活跃上下文
+  if (!sheetStateManager.getActiveContext()) {
+    sheetStateManager.setActiveContext(
+      selectedPdf.value.id,
+      selectedExcelFile.value,
+      selectedSheet.value.name || selectedSheet.value, // 兼容两种格式
+      tableType
+    )
+    console.log('🔥 创建新上下文')
+  }
+
+  // 🔥 关键修复2：记录单元格修改
+  const success = sheetStateManager.recordCellChange(
+    cellInfo.row,
+    cellInfo.col,
+    cellInfo.oldValue || '',
+    cellInfo.newValue,
+    tableType
+  )
+
+  console.log('🔥 记录单元格修改结果:', {
+    成功: success,
+    修改: { row: cellInfo.row, col: cellInfo.col },
+    当前上下文: sheetStateManager.getActiveContext()
+  })
+
+  // 🔥 关键修复3：更新全局状态
+  if (typeof window !== 'undefined') {
+    if (!window.unsavedCells) {
+      window.unsavedCells = {
+        original: new Set(),
+        flattened: new Set()
+      }
+    }
+
+    // 生成正确的cellKey
+    const cellKey = ExcelKey.getCellKey(
+      selectedPdf.value.id,
+      selectedExcelFile.value,
+      selectedSheet.value.name || selectedSheet.value,
+      tableType,
+      cellInfo.row,
+      cellInfo.col
+    )
+
+    console.log('🔑 生成的cellKey:', cellKey)
+
+    // 添加到对应的集合
+    window.unsavedCells[tableType].add(cellKey)
+
+    // 设置全局修改标志
+    window.currentHasChanges = true
+
+    console.log('🌍 更新全局状态:', {
+      数量: window.unsavedCells[tableType].size,
+      当前单元格: cellKey,
+      完整集合: Array.from(window.unsavedCells[tableType])
+    })
+  }
+
 
   // ✅ 一次性脏锁：只要改过一次就永远亮
   sheetEverDirty.value = true
@@ -1167,8 +1320,150 @@ const loadAllClassData = async (excelFileName) => {
 
 
 
-// ThreeColumnPage.vue - 修复 toggleFlatMode 函数
+// 在 ThreeColumnPage.vue 中找到 toggleFlatMode 函数，完全替换为：
 const toggleFlatMode = async () => {
+  console.log('🔄🔄 切换扁平化模式...')
+
+  if (!selectedSheet.value || !selectedPdf.value) {
+    ElMessage.warning('请先选择表格')
+    return
+  }
+
+  try {
+    // 🔥🔥🔥 关键修复：检查文件类型
+    const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
+
+    if (isFlattenedFile) {
+      console.log('✅ 扁平化文件，只切换显示模式，不重新加载数据')
+
+      // 🔥🔥🔥 关键修复2：简单切换显示模式
+      showFlatMode.value = !showFlatMode.value
+      currentTableMode.value = showFlatMode.value ? 'flattened' : 'original'
+
+      // 更新全局状态
+      if (window.currentTableMode) {
+        window.currentTableMode = currentTableMode.value
+      }
+
+      console.log('✅ 扁平化文件模式切换完成:', {
+        新模式: showFlatMode.value ? '扁平化' : '原始',
+        当前数据行数: excelData.value?.length || 0,
+        扁平化数据行数: flatData.value?.length || 0
+      })
+
+      return  // 🔥🔥🔥 关键：直接返回，不执行后续逻辑
+    }
+
+    // 🔥🔥🔥 只有非扁平化文件才执行正常切换逻辑
+    console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
+
+    // 保存切换前的状态
+    const wasFlatMode = showFlatMode.value
+    const newTableType = !wasFlatMode ? 'flattened' : 'original'
+
+    console.log('📊📊 切换信息:', {
+      当前模式: wasFlatMode ? '扁平化' : '原始',
+      目标模式: !wasFlatMode ? '扁平化' : '原始',
+      表类型: newTableType,
+      sheet: selectedSheet.value.name
+    })
+
+    // 关键修复：如果切换到扁平化模式，先获取实时数据
+    if (!wasFlatMode) { // 从原始模式切换到扁平化模式
+      console.log('🔀🔀 切换到扁平化模式')
+
+      // 🔥🔥🔥 关键修复1：从当前表格实例获取实时数据
+      const hotInstance = getActiveHotInstance()
+      if (!hotInstance) {
+        throw new Error('无法获取表格实例，请确保表格已加载')
+      }
+
+      // 🔥🔥🔥 获取修改后的实时数据（不是缓存！）
+      const currentTableData = hotInstance.getSourceData()
+      console.log('📊📊 使用实时数据进行扁平化:', {
+        数据行数: currentTableData.length,
+        第一行样本: currentTableData[0]
+      })
+
+      if (!currentTableData || currentTableData.length === 0) {
+        throw new Error('表格数据为空，无法进行扁平化')
+      }
+
+      const pdfId = selectedPdf.value.id
+      const excelFile = selectedExcelFile.value
+      const sheetName = selectedSheet.value.name
+
+      // 🔥🔥🔥 关键修复2：使用实时数据而不是缓存数据
+      console.log('🎯🎯 使用实时数据重建二维表格...')
+      const tableData = rebuildTwoDimensionalTable(currentTableData)
+
+      if (!tableData || tableData.length === 0) {
+        throw new Error('无法重建二维表格数据')
+      }
+
+      console.log('✅ 重建的二维表格数据:', {
+        行数: tableData.length,
+        列数: tableData[0]?.length || 0,
+        表格样本: tableData.slice(0, Math.min(3, tableData.length))
+      })
+
+      // 🔥🔥🔥 关键修复3：更新缓存，确保数据一致性
+      excelDataCache.setOriginalData(pdfId, excelFile, sheetName, currentTableData)
+      console.log('💾💾 已更新原始数据缓存（使用实时数据）')
+
+      // 3. 清除可能存在的旧缓存
+      try {
+        if (dataManager && dataManager.indexedDBManager) {
+          await dataManager.indexedDBManager.deleteFlattenedCache(
+            selectedPdf.value.id,
+            selectedExcelFile.value,
+            selectedSheet.value.name
+          )
+          console.log('🧹🧹 已清除旧缓存')
+        }
+      } catch (clearError) {
+        console.warn('⚠️ 清除缓存失败:', clearError.message)
+      }
+
+      // 4. 执行扁平化转换
+      await convertToFlatDataWithRealTimeData(tableData, pdfId, excelFile, sheetName)
+
+    } else {
+      // 切换回原始模式
+      console.log('🔀🔀 切换回原始模式')
+
+      // 设置上下文
+      sheetStateManager.setActiveContext(
+        selectedPdf.value.id,
+        selectedExcelFile.value,
+        selectedSheet.value.name,
+        'original'
+      )
+
+      showFlatMode.value = false
+      flatData.value = []
+
+      // 重新加载原始数据
+      if (selectedSheet.value) {
+        await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
+      }
+
+      ElMessage.success('已切换回原始模式')
+    }
+
+  } catch (error) {
+    console.error('❌❌ 切换失败:', error)
+    ElMessage.error(`切换失败: ${error.message}`)
+
+    // 恢复状态
+    showFlatMode.value = false
+    flatData.value = []
+  }
+}
+
+
+// ThreeColumnPage.vue - 修复 toggleFlatMode 函数
+const toggleFlatMode000 = async () => {
   console.log('🔄 切换扁平化模式...')
 
   if (!selectedSheet.value || !selectedPdf.value) {
@@ -1317,127 +1612,114 @@ const toggleFlatMode = async () => {
 }
 
 
-// ThreeColumnPage.vue - 修复 toggleFlatMode 函数
-const toggleFlatMode222 = async () => {
-  console.log('🔄 切换扁平化模式...')
-
-  if (!selectedSheet.value || !selectedPdf.value) {
-    ElMessage.warning('请先选择表格')
-    return
-  }
+// 在 ThreeColumnPage.vue 中添加新函数
+const convertToFlatDataWithRealTimeData = async (tableData, pdfId, excelFile, sheetName) => {
+  console.log('🔄🔄 使用实时数据进行扁平化处理...')
 
   try {
-    // 保存切换前的状态
-    const wasFlatMode = showFlatMode.value
-    const newTableType = !wasFlatMode ? 'flattened' : 'original'
+    // 准备请求数据
+    const requestData = {
+      table_data: tableData,
+      table_metadata: {
+        name: sheetName
+      },
+      marks_info: {
+        row_marks: [],  // 后端会智能处理
+        col_marks: []   // 后端会智能处理
+      }
+    }
 
-    console.log('📊 切换信息:', {
-      当前模式: wasFlatMode ? '扁平化' : '原始',
-      目标模式: !wasFlatMode ? '扁平化' : '原始',
-      表类型: newTableType,
-      sheet: selectedSheet.value.name
+    console.log('📤📤 发送扁平化请求数据（实时数据）:', {
+      表数据行数: requestData.table_data.length,
+      表数据列数: requestData.table_data[0]?.length || 0,
+      表格名称: sheetName
     })
 
-    // 关键修复：如果切换到扁平化模式，先确保有原始数据
-    if (!wasFlatMode) { // 从原始模式切换到扁平化模式
-      console.log('🔀 切换到扁平化模式')
+    // 调用扁平化API
+    const response = await fetch(getApiUrl('/excel-flatten'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
 
-      // 1. 先确保原始数据已加载
-      const pdfId = selectedPdf.value.id
-      const excelFile = selectedExcelFile.value
-      const sheetName = selectedSheet.value.name
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
+      throw new Error(errorData.error || 'API调用失败')
+    }
 
-      // 检查缓存中是否有原始数据
-      const cachedOriginalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
-      if (!cachedOriginalData || cachedOriginalData.length === 0) {
-        console.log('🔄 缓存中无原始数据，重新加载...')
+    const result = await response.json()
+    console.log('📥📥 扁平化API返回数据:', result)
 
-        // 重新加载原始数据
-        const loadResult = await loadExcelData(sheetName, excelFile)
-        if (!loadResult.success) {
-          throw new Error('无法加载原始表格数据')
+    // 处理API响应
+    if (result.success) {
+      let flattenedData = []
+
+      // 处理多种可能的响应格式
+      if (result.rows && Array.isArray(result.rows)) {
+        flattenedData = result.rows
+      } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
+        flattenedData = result.long_format_data
+      } else if (result.data && Array.isArray(result.data)) {
+        flattenedData = result.data
+      } else if (Array.isArray(result)) {
+        flattenedData = result
+      } else {
+        // 尝试查找响应中的第一个数组字段
+        for (const key in result) {
+          if (Array.isArray(result[key])) {
+            flattenedData = result[key]
+            break
+          }
         }
-
-        // 等待数据加载完成
-        await nextTick()
-        await new Promise(resolve => setTimeout(resolve, 300))
       }
 
-      // 2. 检查当前显示的原始数据
-      if (!excelData.value || excelData.value.length === 0) {
-        console.log('⚠️ 当前显示数据为空，重新设置数据')
-        const originalData = excelDataCache.getOriginalData(pdfId, excelFile, sheetName)
-        if (originalData && originalData.length > 0) {
-          excelData.value = originalData
-          await nextTick()
-        } else {
-          throw new Error('原始数据加载失败')
+      if (flattenedData.length > 0) {
+        console.log('✅ 接收到扁平化数据（实时）:', {
+          总行数: flattenedData.length,
+          第一行样本: flattenedData[0]
+        })
+
+        // 保存到缓存
+        excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, flattenedData)
+
+        // 缓存到 IndexedDB
+        try {
+          await dataManager.saveFlattenedData(flattenedData, tableData)
+        } catch (cacheError) {
+          console.warn('缓存到 IndexedDB 失败:', cacheError)
         }
-      }
 
-
-
-      // 3. 清除可能存在的旧缓存
-      try {
-        if (dataManager && dataManager.indexedDBManager) {
-          await dataManager.indexedDBManager.deleteFlattenedCache(
-            selectedPdf.value.id,
-            selectedExcelFile.value,
-            selectedSheet.value.name
-          )
-          console.log('🧹 已清除旧缓存')
+        // 更新状态
+        const currentContext = sheetStateManager.getActiveContext()
+        if (currentContext &&
+            currentContext.pdfId === pdfId &&
+            currentContext.excelFile === excelFile &&
+            currentContext.sheetName === sheetName) {
+          sheetStateManager.setData('flattened', flattenedData)
         }
-      } catch (clearError) {
-        console.warn('⚠️ 清除缓存失败:', clearError.message)
-      }
 
-      // 4. 执行扁平化转换
-      await convertToFlatData()
+        // 显示扁平化数据
+        flatData.value = flattenedData
+        showFlatMode.value = true
 
-      // 检查是否成功
-      if (flatData.value.length > 0) {
-        // 设置上下文
-        sheetStateManager.setActiveContext(
-          selectedPdf.value.id,
-          selectedExcelFile.value,
-          selectedSheet.value.name,
-          'flattened'
-        )
+        ElMessage.success(`数据扁平化成功，生成 ${flattenedData.length} 行数据`)
 
-        console.log('✅ 扁平化成功:', flatData.value.length, '行')
-        ElMessage.success(`数据扁平化成功，${flatData.value.length}行`)
+      } else {
+        console.log('📝📝 表格为空或无数据可转换')
+        flatData.value = []
+        showFlatMode.value = true
+        ElMessage.info('表格为空或无数据可转换')
       }
 
     } else {
-      // 切换回原始模式
-      console.log('🔀 切换回原始模式')
-
-      // 设置上下文
-      sheetStateManager.setActiveContext(
-        selectedPdf.value.id,
-        selectedExcelFile.value,
-        selectedSheet.value.name,
-        'original'
-      )
-
-      showFlatMode.value = false
-      flatData.value = []
-
-      // 重新加载原始数据
-      if (selectedSheet.value) {
-        await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
-      }
-
-      ElMessage.success('已切换回原始模式')
+      throw new Error(result.error || '后端处理失败')
     }
 
   } catch (error) {
-    console.error('❌ 切换失败:', error)
-    ElMessage.error(`切换失败: ${error.message}`)
-
-    // 恢复状态
-    showFlatMode.value = false
-    flatData.value = []
+    console.error('❌❌ 数据扁平化失败:', error)
+    throw error // 重新抛出错误
   }
 }
 
