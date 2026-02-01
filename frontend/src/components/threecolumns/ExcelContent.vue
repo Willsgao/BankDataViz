@@ -522,6 +522,7 @@ watch(() => props.selectedSheet, (newSheet, oldSheet) => {
   }
 })
 
+
 // 🔥🔥 修复：只定义一次函数
 const forceRefreshHandsontable = () => {
   console.log('🔄🔄 开始强制刷新Handsontable...')
@@ -531,15 +532,25 @@ const forceRefreshHandsontable = () => {
 
     if (!viewer) {
       console.log('⏳⏳⏳ 表格视图未就绪，稍后重试...')
+
+      // 🔥 关键修复：先检查再增加
+      if (retryCount >= MAX_RETRY_COUNT) {
+        console.log('⏹️⏹️ 达到最大重试次数，停止重试')
+        retryCount = 0 // 重置计数器
+        return
+      }
+
+      retryCount++ // 增加重试计数
+
       setTimeout(() => {
-        if (retryCount < MAX_RETRY_COUNT) {
-          retryCount++
-          console.log(`🔄🔄 第${retryCount}次重试...`)
-          forceRefreshHandsontable()
-        }
+        console.log(`🔄🔄 第${retryCount}次重试...`)
+        forceRefreshHandsontable()
       }, 500)
       return
     }
+
+    // 🔥 成功获取viewer时重置计数器
+    retryCount = 0
 
     const hotInstance = viewer.getSafeHotInstance?.()
     if (!hotInstance) {
@@ -560,16 +571,14 @@ const forceRefreshHandsontable = () => {
       hotInstance.loadData(props.excelData)
     }
 
-    console.log('✅ 表格强制刷新完成', {
-      数据版本: tableDataVersion.value,
-      数据行数: props.excelData?.length,
-      实例状态: '正常'
-    })
+    console.log('✅ 表格强制刷新完成')
 
   } catch (error) {
     console.error('❌❌ 表格刷新失败:', error)
+    retryCount = 0 // 🔥 出错时也重置计数器
   }
 }
+
 
 /* ===== 生命周期 ===== */
 onMounted(() => {
