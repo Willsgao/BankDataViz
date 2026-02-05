@@ -82,7 +82,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { llmApi } from '@/api/llm'
 import { getBackendUrl, getStaticUrl, getFullUrl, getConfig } from '@/utils/config'  // 导入统一配置
 import { screenTableImages } from '@/api/convert'
-
 import { convertPdf, getPngList } from '@/api/convert'
 import screeningApi from '@/api/screening'
 import PdfPreviewSection from '@/components/pdf/PdfPreview.vue'
@@ -93,6 +92,7 @@ import ImagePreviewDialog from '@/components/common/ImagePreviewDialog.vue'
 
 // WebSocket 相关状态
 const websocket = ref(null)
+const llmConfigRef = ref(null)
 const websocketTimeout = ref(null)
 const connectionStatus = ref('disconnected')
 const isWebSocketConnected = ref(false)
@@ -718,7 +718,8 @@ const handleRecognizeNonFinancialTable = async (tableInfo) => {
           type: 'warning'
         }
       )
-      emit('open-llm-config')
+      // emit('open-llm-config')
+      emit('openLLMConfig')
       return
     }
 
@@ -970,95 +971,6 @@ const handleLLMProcess = async (params) => {
     resetLoadingState(pdfDiskName);
   }
 }
-
-
-
-const handleLLMProcess111 = async (params) => {
-
-    console.log('🔍 进入 handleLLMProcess，参数:', params);
-
-
-  try {
-    const pdfDiskName = (typeof params === 'object' && params !== null)
-      ? (params.pdfName || params.pdfDiskName)
-      : params;
-
-
-    llmLoading.value[pdfDiskName] = { loading: true, progress: 0 }   // 0%
-    await checkLLMStatus();
-    if (!llmConfigured.value) {
-      const go = await ElMessageBox.confirm(
-        'LLM 未配置，请先配置大模型参数',
-        '提示', { confirmButtonText: '去配置', cancelButtonText: '取消', type: 'warning' }
-      ).catch(() => null);
-      if (go) emit('openLLMConfig');
-      return;
-    }
-
-    const images = safeJoinedResults.value[pdfDiskName];
-    console.log('🔍 图片数组:', images);
-    if (!images?.length) {
-      ElMessage.warning('没有可用的裁切图片');
-      return;
-    }
-
-    const config = getConfig();
-
-    const imagePaths = images.map(url => {
-      // 去掉域名，只留 /static/joined_tables/...
-      // return url.replace('http://localhost:5000', '');
-      return url.replace(/^https?:\/\/[^/]+/, '');
-    });
-
-    const type = params.tableType || tableType.value;
-    const data = {
-      image_paths: imagePaths,
-      output_dir: `static/excel_data/${pdfDiskName.replace('.pdf', '')}`,
-      bank_name: type === 'financial' ? '未知银行' : '未知机构',
-      table_type: type
-    };
-
-
-    ElMessage.info('开始批量表格识别…');
-    // ⬇️⬇️⬇️ 先拿到原始响应，再打印，再解构
-    const response = await (type === 'financial'
-      ? llmApi.batchProcess
-      : llmApi.batchProcessNonFinancial)(data);
-
-    console.log('🔍 原始响应:', response);          // ← 必须看到这一行
-
-    /* ===== 非金融一次性完成兜底 ===== */
-    if (type === 'non_financial' && response?.data?.excel_url) {
-      emit('excel-data-received', {
-        excelUrl : response.data.excel_url,
-        tableName: `普通表格批量结果 - ${pdfDiskName}`,
-        fromCache: response.data.from_cache || false,
-        tableType: 'non_financial'
-      });
-      return;   // 不再往下走轮询
-    }
-    /* ================================= */
-
-    if (!response || typeof response !== 'object') {
-      throw new Error('后端返回为空或格式错误');
-    }
-    const { task_id } = response;
-    if (!task_id) throw new Error('接口未返回任务 ID');
-
-    startSimplePolling(task_id, pdfDiskName, type);
-
-  } catch (e) {
-    console.error('💥 批量处理失败:', e);
-    ElMessage.error(e.message || '处理异常');
-  } finally {
-    resetLoadingState(
-      (typeof params === 'object' && params !== null)
-        ? (params.pdfName || params.pdfDiskName)
-        : params
-    );
-  }
-}
-
 
 
 

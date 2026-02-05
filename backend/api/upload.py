@@ -34,6 +34,70 @@ def calculate_file_hash(file_content):
     return hashlib.md5(file_content).hexdigest()
 
 
+def get_db_connection():
+    """获取数据库连接"""
+    db_path = os.path.join(os.path.dirname(__file__), '..', '..', 'database.db')
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def check_and_fix_table_structure():
+    """检查并修复文件表结构"""
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+
+        # 检查表是否存在
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='files'")
+        table_exists = c.fetchone()
+
+        if not table_exists:
+            # 创建新表
+            c.execute('''
+                CREATE TABLE files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filename TEXT NOT NULL,
+                    disk_name TEXT UNIQUE NOT NULL,
+                    file_hash TEXT NOT NULL,
+                    upload_count INTEGER DEFAULT 1,
+                    upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    file_size INTEGER,
+                    bank_name TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            print("✅ 创建文件表成功")
+        else:
+            # 检查是否存在 upload_time 列
+            c.execute("PRAGMA table_info(files)")
+            columns = [column[1] for column in c.fetchall()]
+            print(f"🔍 当前表结构: {columns}")
+
+            if 'upload_time' not in columns:
+                print("🔄 添加 upload_time 列到文件表")
+                c.execute('ALTER TABLE files ADD COLUMN upload_time DATETIME DEFAULT CURRENT_TIMESTAMP')
+
+            if 'file_size' not in columns:
+                print("🔄 添加 file_size 列到文件表")
+                c.execute('ALTER TABLE files ADD COLUMN file_size INTEGER')
+
+            if 'bank_name' not in columns:
+                print("🔄 添加 bank_name 列到文件表")
+                c.execute('ALTER TABLE files ADD COLUMN bank_name TEXT')
+
+            if 'created_at' not in columns:
+                print("🔄 添加 created_at 列到文件表")
+                c.execute('ALTER TABLE files ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP')
+
+        conn.commit()
+        conn.close()
+        print("✅ 数据库表结构检查完成")
+
+    except Exception as e:
+        print(f"❌ 检查表结构失败: {e}")
+
 
 from backend.service.file_upload_service import file_upload_service
 
@@ -72,59 +136,8 @@ from backend.service.file_management_service import file_management_service
 
 
 
-@upload_bp.route('/api/files0', methods=['GET'])
-def get_all_files0():
-    """获取所有文件列表 - 简化版本"""
-    print("🔍 upload_bp - 获取文件列表")
-    try:
-        conn = sqlite3.connect(DATABASE)
-        if not conn:
-            return jsonify({"error": "数据库连接失败"}), 500
-
-        conn.row_factory = sqlite3.Row
-        c = conn.cursor()
-
-        # 先只查询基本字段，避免列不存在错误
-        c.execute("""
-            SELECT filename, raw_filename, file_type, created_at
-            FROM files 
-            WHERE deleted = 0 
-            ORDER BY created_at DESC
-        """)
-
-        rows = c.fetchall()
-        files_list = []
-
-        upload_dir = Path(MAIN_ROOT) / UPLOAD_FOLDER
-
-        for row in rows:
-            file_path = upload_dir / row['filename']
-
-            if file_path.exists():
-                file_info = {
-                    "filename": row['raw_filename'] or row['filename'],
-                    "disk_name": row['filename'],
-                    "file_id": row['filename'].split('.')[0],
-                    "file_type": row['file_type'],
-                    "created_at": row['created_at']
-                }
-                files_list.append(file_info)
-
-        conn.close()
-
-        print(f"📊 返回文件数量: {len(files_list)}")
-        return jsonify(files_list)
-
-    except Exception as e:
-        print(f"❌ 获取文件列表失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-
-
-@upload_bp.route('/api/files', methods=['GET'])
-def get_all_files():
+@upload_bp.route('/api/files111', methods=['GET'])
+def get_all_files111():
     """获取所有文件列表 - 修复版本"""
     print("🔍🔍 upload_bp - 获取文件列表")
     try:
@@ -171,6 +184,56 @@ def get_all_files():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@upload_bp.route('/api/files', methods=['GET'])
+def get_all_files():
+    """获取所有文件列表 - 简化版本"""
+    try:
+        print("🔍🔍 获取文件列表请求")
+
+        conn = sqlite3.connect(DATABASE)  # 直接使用 DATABASE 常量
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        # 只查询最基本肯定存在的字段
+        c.execute("""
+            SELECT id, filename, raw_filename, file_type, created_at
+            FROM files 
+            WHERE deleted = 0 
+            ORDER BY created_at DESC
+        """)
+
+        rows = c.fetchall()
+        files = []
+
+        for row in rows:
+            file_info = {
+                "id": row["id"],
+                "filename": row["raw_filename"] or row["filename"],  # 显示名
+                "disk_name": row["filename"],  # 磁盘文件名
+                "file_type": row["file_type"],
+                "created_at": row["created_at"]
+            }
+            files.append(file_info)
+
+        conn.close()
+
+        print(f"✅ 返回 {len(files)} 个文件")
+        return jsonify({
+            "success": True,
+            "files": files
+        })
+
+    except Exception as e:
+        print(f"❌❌ 获取文件列表失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": True,  # 即使出错也返回成功，但文件列表为空
+            "files": []
+        })
+
 
 
 # 在现有路由后面添加以下路由

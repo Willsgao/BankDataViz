@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed, watch } from 'vue'  // 添加了 watch 导入
+import { ref, onMounted, nextTick, computed, watch, reactive } from 'vue'  // 添加了 watch 导入
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 // 在现有的import部分添加
@@ -130,6 +130,7 @@ const visualizationVisible = ref(false)
 const visualizationKey = ref(0)
 const excelViewerKey = ref(0)
 const screeningResultMap = ref({})
+const cutTable = ref(null)
 
 const screeningData = ref({}) // 分类图片数据：{ pdfName: { tables: [], no_tables: [] } }
 const screeningVisible = ref(false) // 筛选管理器可见性
@@ -577,8 +578,82 @@ const otherPdfs = computed(() => {
 
 
 
-// ---------------- 修改现有的操作函数 ----------------
 async function loadFiles() {
+  try {
+    console.log('🔍 第一步：检查 loadFiles() 执行')
+    console.log('📡 准备调用 getFiles() API...')
+
+    // 清空现有状态
+    files.value = []
+    currentPdfDiskName.value = ''
+    console.log('🔄 清空后的 files.value:', files.value)
+
+    // 调用 API
+    const apiResult = await getFiles()
+    console.log('✅ getFiles() 返回结果:', apiResult)
+
+    // 🔧 修复1：检查API响应是否成功
+    if (!apiResult.success) {
+      console.error('❌ API返回失败:', apiResult.error)
+      ElMessage.error('获取文件列表失败: ' + (apiResult.error || '未知错误'))
+      return
+    }
+
+    // 🔧 修复2：正确获取文件数组
+    const fileList = apiResult.files || []
+    console.log('📊 返回文件列表长度:', fileList.length)
+    console.log('📁 文件列表内容:', fileList)
+
+    files.value = fileList
+    console.log('📁 赋值后的文件列表:', files.value)
+
+    // 如果没有文件，直接返回
+    if (files.value.length === 0) {
+      console.log('📭 没有PDF文件，清空当前PDF')
+      ElMessage.info('没有找到PDF文件')
+      return
+    }
+
+    // 设置当前PDF（核心逻辑）
+    let defaultPdf = null
+
+    // 优先使用最近操作的文件
+    if (Object.keys(lastOperationTime.value).length > 0) {
+      const sorted = Object.entries(lastOperationTime.value)
+        .sort((a, b) => b[1] - a[1])
+      const latestPdfDiskName = sorted[0][0]
+      defaultPdf = files.value.find(f => f.disk_name === latestPdfDiskName)
+      console.log('🔍 查找最近操作的PDF:', { latestPdfDiskName, found: !!defaultPdf })
+    }
+
+    // 如果没有最近操作记录，使用第一个文件
+    if (!defaultPdf) {
+      defaultPdf = files.value[0]
+      console.log('📌 使用第一个文件作为默认PDF:', defaultPdf.filename)
+    }
+
+    // 更新当前PDF状态
+    updateCurrentPdf(defaultPdf.disk_name)
+    console.log('✅ 已设置当前PDF:', defaultPdf.filename)
+
+    // 状态摘要
+    console.log('📊 文件加载完成，状态摘要:', {
+      totalFiles: files.value.length,
+      currentPdfDiskName: currentPdfDiskName.value,
+      otherPdfsCount: files.value.filter(f => f.disk_name !== currentPdfDiskName.value).length
+    })
+
+  } catch (error) {
+    console.error('💥 加载文件失败:', error)
+    ElMessage.error('加载文件失败: ' + (error.message || '未知错误'))
+    files.value = []
+    currentPdfDiskName.value = ''
+  }
+}
+
+
+// ---------------- 修改现有的操作函数 ----------------
+async function loadFiles1111() {
   try {
     console.log('🔍 第一步：检查 loadFiles() 执行')
     console.log('📡 准备调用 getFiles() API...')
