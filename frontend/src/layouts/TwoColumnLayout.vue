@@ -281,6 +281,7 @@ import FileUpload from '@/components/file/FileUpload.vue'
 import PdfPreview from '@/components/pdf/PdfPreview.vue'
 import CurrentPdfStatus from '@/components/pdf/CurrentPdfStatus.vue'
 
+
 // 控制文件列表展开状态
 const fileListExpanded = ref(false)
 
@@ -360,6 +361,7 @@ const props = defineProps({
   },
   onDeleteFile: Function
 })
+
 
 // 定义emit事件
 defineEmits([
@@ -503,6 +505,11 @@ const handleCloseCurrentPdf = () => {
 
 // 添加watch监听
 watch(() => props.currentPdf, (newPdf, oldPdf) => {
+  console.log('🔄 currentPdf变化:', {
+    from: oldPdf?.disk_name,
+    to: newPdf?.disk_name
+  })
+
   if (newPdf && newPdf.disk_name !== oldPdf?.disk_name) {
     console.log('📄📄 TwoColumnLayout: PDF发生变化', {
       from: oldPdf?.filename,
