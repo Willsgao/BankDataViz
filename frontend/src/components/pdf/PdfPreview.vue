@@ -1,317 +1,294 @@
 <template>
-  <div class="pdf-preview-container">
-    <div v-if="selectedPdf" class="pdf-viewer">
-      <div class="pdf-header">
-        <h3>{{ selectedPdf.name }}</h3>
-        <div class="header-actions">
-          <el-button
-            type="primary"
-            size="small"
-            @click="$emit('download-pdf', selectedPdf)"
-            :loading="downloadLoading"
-          >
-            <el-icon><Download /></el-icon>
-            下载PDF
-          </el-button>
-        </div>
+  <div class="pdf-container">
+    <!-- 折叠控制头部 -->
+    <div class="section-header" v-if="currentPDF">
+      <div class="header-left">
+        <el-button
+          type="text"
+          @click="toggleCollapse"
+          :icon="isCollapsed ? 'el-icon-arrow-down' : 'el-icon-arrow-up'"
+          class="collapse-btn"
+          size="small"
+        >
+          {{ isCollapsed ? '展开PDF预览' : '折叠PDF预览' }}
+        </el-button>
+        <span class="section-title">PDF预览 - {{ currentPDF.filename }}</span>
       </div>
-      <div class="pdf-content">
-        <!-- PDF.js渲染区域 -->
-        <div v-if="pdfDocument" class="pdf-render-area">
-          <canvas ref="pdfCanvas"></canvas>
-
-          <!-- 页面导航控件 -->
-          <div class="page-navigation">
-            <el-button
-              size="small"
-              :disabled="currentPage <= 1"
-              @click="handlePageChange(currentPage - 1)"
-            >
-              <el-icon><ArrowLeft /></el-icon>
-            </el-button>
-
-            <span class="page-info">第 {{ currentPage }} 页 / 共 {{ totalPages }} 页</span>
-
-            <el-button
-              size="small"
-              :disabled="currentPage >= totalPages"
-              @click="handlePageChange(currentPage + 1)"
-            >
-              <el-icon><ArrowRight /></el-icon>
-            </el-button>
-          </div>
-        </div>
-
-        <div v-else-if="loadingPdf" class="loading-state">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          加载PDF中...
-        </div>
-
-        <div v-else class="no-preview">
-          <el-icon><Document /></el-icon>
-          <p>无法加载PDF预览</p>
-        </div>
+      <div class="header-actions">
+        <el-button
+          v-if="isCollapsed"
+          type="text"
+          @click="toggleCollapse"
+          size="small"
+        >
+          展开查看
+        </el-button>
       </div>
     </div>
 
-    <div v-else class="pdf-placeholder">
-      <el-icon><Document /></el-icon>
-      <p>请从右侧选择PDF文件进行预览</p>
+    <!-- PDF预览内容 -->
+    <div v-show="!isCollapsed" class="pdf-content">
+      <!-- 当前PDF预览 -->
+      <div class="pdf-preview-section" v-if="currentPDF">
+        <PdfViewer
+          :file="currentPDF"
+          @close="$emit('close-pdf')"
+        />
+
+        <PdfControls
+          :pdf="currentPDF"
+          :crop-loading="cropLoading"
+          :converting="converting"
+          :convert-cache="convertCache"
+          :batch-crop-loading="batchCropLoading"
+          :has-batch-results="hasBatchCropResults(currentPDF.disk_name)"
+          :parsing-progress="getParsingProgress(currentPDF.disk_name)"
+          :has-screened-images="hasScreenedImages[currentPDF.disk_name] || false"
+          :screening-result="screeningResultMap?.[currentPDF.disk_name] || null"
+          @delete="$emit('delete', currentPDF.filename)"
+          @convert="$emit('convert', $event)"
+          @screen-images="$emit('screen-images', currentPDF.disk_name)"
+          @batch-crop="$emit('batch-crop', currentPDF.disk_name)"
+          @parse-tables="$emit('parse-tables', currentPDF.disk_name)"
+          @clear-cache="$emit('clear-cache', currentPDF.disk_name)"
+          @open-classification="$emit('open-classification', currentPDF.disk_name)"
+        />
+      </div>
+
+      <!-- 其他PDF列表 -->
+      <OtherPdfsList
+        v-if="otherPDFs.length > 0"
+        :pdfs="otherPDFs"
+        @switch-pdf="$emit('switch-pdf', $event)"
+        @delete="$emit('delete', $event)"
+      />
+    </div>
+
+    <!-- 折叠状态提示 -->
+    <div v-show="isCollapsed && currentPDF" class="collapsed-hint">
+      <el-text type="info">PDF预览已折叠</el-text>
+      <div class="hint-actions">
+        <el-button type="text" @click="toggleCollapse" size="small">
+          点击展开查看PDF
+        </el-button>
+        <el-text type="info" size="small">
+          当前PDF: {{ currentPDF.filename }}
+        </el-text>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-
-import { Download, Document, Loading, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
-import { ref, defineProps, defineEmits, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
+import PdfViewer from './PdfViewer.vue'  // 导入现有的PdfViewer组件
+import PdfControls from './PdfControls.vue'
+import OtherPdfsList from './OtherPdfsList.vue'
 
 const props = defineProps({
-  selectedPdf: Object,
-  pdfUrl: String,
-  currentPage: {
-    type: Number,
-    default: 1
+  pdfFiles: {
+    type: Array,
+    default: () => []
   },
-  downloadLoading: {
-    type: Boolean,
-    default: false
+  currentPdfIndex: {
+    type: Number,
+    default: 0
+  },
+  cropLoading: {
+    type: Object,
+    default: () => ({})
+  },
+  cropResults: {
+    type: Object,
+    default: () => ({})
+  },
+  converting: {
+    type: Object,
+    default: () => ({})
+  },
+  convertCache: {
+    type: Object,
+    default: () => ({})
+  },
+  batchCropLoading: {
+    type: Object,
+    default: () => ({})
+  },
+  joinedResults: {
+    type: Object,
+    default: () => ({})
+  },
+  tableType: {
+    type: String,
+    default: 'financial'
+  },
+  llmLoading: {
+    type: Object,
+    default: () => ({})
+  },
+  parsingProgressMap: {
+    type: Object,
+    default: () => ({})
+  },
+  screenedImagesMap: {
+    type: Object,
+    default: () => ({})
+  },
+  screeningResultMap: {
+    type: Object,
+    default: () => ({})
   }
 })
 
-const emit = defineEmits(['download-pdf', 'pdf-loaded', 'page-change'])
+const emit = defineEmits([
+  'switch-pdf',
+  'delete',
+  'screen-images',
+  'convert',
+  'batch-crop',
+  'clear-cache',
+  'close-pdf',
+  'preview-image',
+  'llm-process',
+  'single-llm-process',
+  'open-llm-config',
+  'update:llmLoading',
+  'ocr-completed',
+  'parse-tables'
+])
 
-// PDF.js相关变量
-const pdfCanvas = ref(null)
-const pdfDocument = ref(null)
-const loadingPdf = ref(false)
-const totalPages = ref(0)
-const scale = ref(1.5)
+// 折叠状态
+const isCollapsed = ref(false)
 
-// 暴露给父组件的方法 - 真正的无刷新跳转
-const jumpToPage = async (pageNumber) => {
-  if (!pdfDocument.value || pageNumber < 1 || pageNumber > totalPages.value) {
-    console.warn('❌ 跳转参数无效')
-    return false
-  }
+// 图片筛选状态管理
+const hasScreenedImages = ref({})
 
-  try {
-    await renderPage(pageNumber)
-    console.log(`✅ PDF页面无刷新跳转成功: 第${pageNumber}页`)
-    emit('page-change', pageNumber)
-    return true
-  } catch (error) {
-    console.error('❌ PDF页面跳转失败:', error)
-    return false
-  }
+// 切换折叠状态
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
 }
 
-// 渲染指定页面 - 无网络请求
-const renderPage = async (pageNum) => {
-  const page = await pdfDocument.value.getPage(pageNum)
-  const canvas = pdfCanvas.value
-  const ctx = canvas.getContext('2d')
+// 计算属性
+const currentPDF = computed(() => props.pdfFiles[props.currentPdfIndex] || null)
+const otherPDFs = computed(() => props.pdfFiles.filter((_, index) => index !== props.currentPdfIndex))
 
-  const viewport = page.getViewport({ scale: scale.value })
-  canvas.width = viewport.width
-  canvas.height = viewport.height
-
-  const renderContext = {
-    canvasContext: ctx,
-    viewport: viewport
-  }
-
-  await page.render(renderContext).promise
-}
-
-// 本地页面切换处理
-const handlePageChange = (newPage) => {
-  if (newPage >= 1 && newPage <= totalPages.value) {
-    jumpToPage(newPage)
-  }
-}
-
-// 加载PDF文档 - 只执行一次
-const loadPdf = async () => {
-  if (!props.pdfUrl) return
-
-  try {
-    loadingPdf.value = true
-
-    // 动态导入PDF.js
-    const pdfjsLib = await import('pdfjs-dist')
-
-    // 设置worker路径
-    const pdfjsVersion = '3.11.174'
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.js`
-
-    // 加载PDF文档（只执行一次）
-    const loadingTask = pdfjsLib.getDocument(props.pdfUrl)
-    pdfDocument.value = await loadingTask.promise
-    totalPages.value = pdfDocument.value.numPages
-
-    // 初始渲染当前页面
-    await renderPage(props.currentPage)
-    loadingPdf.value = false
-
-    emit('pdf-loaded')
-    console.log('✅ PDF加载完成，总页数:', totalPages.value)
-
-  } catch (error) {
-    console.error('❌ PDF加载失败:', error)
-    loadingPdf.value = false
-  }
-}
-
-// 监听PDF URL变化（只在PDF切换时重新加载）
-watch(() => props.pdfUrl, (newUrl, oldUrl) => {
-  if (newUrl && newUrl !== oldUrl) {
-    console.log('🔄 切换PDF文件，重新加载')
-    loadPdf()
-  }
-}, { immediate: true })
-
-// 监听页面变化（无刷新跳转）
-watch(() => props.currentPage, (newPage, oldPage) => {
-  if (pdfDocument.value && newPage >= 1 && newPage <= totalPages.value && newPage !== oldPage) {
-    console.log('🔄 接收到页面跳转请求:', newPage)
-    jumpToPage(newPage)
-  }
+// 安全访问 joinedResults
+const safeJoinedResults = computed(() => {
+  return props.joinedResults || {}
 })
 
-// 清理资源
-onUnmounted(() => {
-  if (pdfDocument.value) {
-    pdfDocument.value.destroy()
-    console.log('🧹 PDF资源已清理')
+// 工具函数
+const hasBatchCropResults = (pdfDiskName) => {
+  return pdfDiskName &&
+         props.joinedResults &&
+         props.joinedResults[pdfDiskName] &&
+         props.joinedResults[pdfDiskName].length > 0
+}
+
+const getParsingProgress = (diskName) => {
+  if (!diskName || !props.parsingProgressMap) return null
+  const key = diskName.replace(/\.pdf$/i, '')
+  return props.parsingProgressMap[key] || null
+}
+
+// 监听父组件传递的图片筛选状态
+watch(() => props.screenedImagesMap, (newMap) => {
+  console.log('PdfPreview 收到图片筛选状态更新:', newMap)
+  hasScreenedImages.value = { ...newMap }
+}, { deep: true })
+
+// 监听批量裁切完成，自动展开
+watch(() => props.joinedResults, (newVal) => {
+  if (newVal && Object.keys(newVal).length > 0) {
+    // 如果有新的裁切结果，自动展开
+    isCollapsed.value = false
   }
+}, { deep: true })
+
+// 监听当前PDF变化，重置折叠状态
+watch(() => props.currentPdfIndex, () => {
+  isCollapsed.value = false
 })
 
-// 暴露方法给父组件
-defineExpose({
-  jumpToPage,
-  getTotalPages: () => totalPages.value,
-  getCurrentPage: () => props.currentPage
-})
+watch(
+  () => currentPDF.value,
+  () => {
+    console.log('PdfPreview 当前PDF变化:', currentPDF.value)
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
-.pdf-preview-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.pdf-viewer {
+.pdf-container {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  background: white;
+  margin: 16px;
 }
 
-.pdf-header {
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
+  padding: 12px 16px;
   background: #fafafa;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid #e8e8e8;
+  border-radius: 8px 8px 0 0;
 }
 
-.pdf-header h3 {
-  margin: 0;
-  font-size: 16px;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collapse-btn {
+  padding: 4px 8px;
+}
+
+.section-title {
+  font-weight: 600;
   color: #303133;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .pdf-content {
   flex: 1;
-  min-height: 0;
-  background: #f8f9fa;
   display: flex;
   flex-direction: column;
 }
 
-.pdf-render-area {
+.pdf-preview-section {
+  display: flex;
+  flex-direction: column;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
+  min-height: 0;
+}
+
+.collapsed-hint {
   padding: 20px;
-}
-
-.pdf-render-area canvas {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e0e0e0;
-  max-width: 100%;
-  height: auto;
-}
-
-.page-navigation {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 16px;
-  padding: 8px 16px;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.page-info {
-  font-size: 14px;
-  color: #606266;
-  font-weight: 500;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #909399;
-}
-
-.loading-state .el-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
-}
-
-.no-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #909399;
-}
-
-.no-preview .el-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.pdf-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #909399;
   text-align: center;
-  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 0 0 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
 }
 
-.pdf-placeholder .el-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.5;
+.hint-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 </style>
