@@ -62,6 +62,20 @@
               <el-icon><DataAnalysis /></el-icon>
               {{ showFlatMode ? '二维化' : '扁平化' }}
             </el-button>
+
+            <div class="save-buttons">
+              <el-button
+              type="success"
+              size="small"
+              :disabled="!enableSaveButtons || saving"
+              @click="triggerSave"
+              :loading="saving"
+            >
+              <el-icon><Check /></el-icon>
+              保存
+            </el-button>
+            </div>
+
           </div>
         </div>
 
@@ -115,8 +129,6 @@
             :pdf-id="String(selectedPdf?.id)"
             :excel-file-name="selectedExcelFile"
             :flat-data="flatData"
-            :enable-save-buttons="enableSaveButtons"
-            :saving="saving"
             :key="`original-${selectedSheet?.name}-${excelData.length}`"
             @cell-changed="handleCellChanged"
             @data-changed="handleDataChanged"
@@ -124,7 +136,6 @@
             @instance-ready="handleInstanceReady"
             @edit-status-changed="handleEditStatusChanged"
             @global-flatten-complete="handleGlobalFlattenComplete"
-            @save-data="triggerSave"
           />
         </div>
 
@@ -136,15 +147,12 @@
             :pdf-id="String(selectedPdf?.id)"
             :excel-file-name="selectedExcelFile"
             :key="`flat-${selectedSheet?.name}-${flatData.length}`"
-            :enable-save-buttons="enableSaveButtons"
-            :saving="saving"
             @cell-changed="handleCellChanged"
             @data-changed="handleDataChanged"
             @cell-change="handleSheetCellChange"
             @instance-ready="handleInstanceReady"
             @edit-status-changed="handleEditStatusChanged"
             @global-flatten-complete="handleGlobalFlattenComplete"
-            @save-data="triggerSave"
           />
         </div>
 
@@ -879,8 +887,6 @@ if (typeof window !== 'undefined') {
   margin-left: auto;
 }
 
-
-
 .placeholder {
   display: flex;
   flex-direction: column;
@@ -917,7 +923,6 @@ if (typeof window !== 'undefined') {
   justify-content: center;
   flex-direction: column;
 }
-
 
 
 /* 扁平化加载中的提示 */
@@ -1012,17 +1017,12 @@ if (typeof window !== 'undefined') {
 }
 
 .sub-bar {
-  flex-shrink: 0;        /* 允许它自己收缩，但不要写 height:24px  */
-  line-height: 24px;     /* 如果只想文字垂直居中，用 line-height 即可 */
-  padding: 4px 16px;     /* 用 padding 撑出高度，而不是硬编码 height */
+  flex-shrink: 0;
+  line-height: 24px;
+  padding: 4px 16px;
 }
 
-
-
-
-
 /* 在 ExcelContent.vue 的 style 部分，确保这样写 */
-
 .excel-content-container {
   height: 100%;
   display: flex;
@@ -1055,12 +1055,12 @@ if (typeof window !== 'undefined') {
 .action-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;   /* 左右分离 */
-  gap: 16px;                        /* 主按钮与保存组间距 */
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .save-buttons {
-  margin-left: auto;                /* 保存组靠右 */
+  margin-left: auto;
 }
 
 .cell-info-container {
@@ -1068,7 +1068,7 @@ if (typeof window !== 'undefined') {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 16px; /* 添加一些内边距 */
+  padding: 8px 16px;
   background: #f8f9fa;
   border-bottom: 1px solid #e4e7ed;
 }
@@ -1107,6 +1107,5 @@ if (typeof window !== 'undefined') {
   min-width: 120px;
   text-align: center;
 }
-
 
 </style>

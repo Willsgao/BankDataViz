@@ -3,13 +3,8 @@
     <!-- 第一行：主控栏（最简科学） -->
     <div class="main-toolbar">
       <div class="toolbar-section left-section">
-        <el-button
-          type="primary"
-          size="small"
-          @click="exportFinalFile"
-          :loading="exportFinalLoading"
-        >
-          <el-icon><Download /></el-icon>最终导出
+        <el-button type="primary" size="small" :disabled="!tableData.length" @click="exportData">
+          <el-icon><Download /></el-icon>导出
         </el-button>
 
         <el-button
@@ -369,46 +364,6 @@ const handleGlobalFlatten = async () => {
     ElMessage.error(`整体扁平化失败: ${error.message}`)
   } finally {
     globalFlattenLoading.value = false
-  }
-}
-
-const exportFinalLoading = ref(false)
-// 导出最终的excel文件
-const exportFinalFile = async () => {
-  exportFinalLoading.value = true
-
-  try {
-    const requestData = {
-      pdf_id: props.pdfId,
-      excel_file: props.excelFileName, // 当前文件名
-      request_timestamp: Date.now()
-    }
-
-    const response = await fetch('/api/excel/export-final-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestData)
-    })
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-
-    const result = await response.json()
-
-    if (result.success) {
-      if (result.file_exists) {
-        // 后端返回下载URL
-        window.open(result.download_url, '_blank')
-        ElMessage.success('最终文件导出成功')
-      } else {
-        ElMessage.warning('最终文件未生成')
-      }
-    } else {
-      throw new Error(result.error || '导出失败')
-    }
-  } catch (error) {
-    ElMessage.error(`导出失败: ${error.message}`)
-  } finally {
-    exportFinalLoading.value = false
   }
 }
 

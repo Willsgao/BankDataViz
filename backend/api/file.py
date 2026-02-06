@@ -1,9 +1,10 @@
 """
 文件相关蓝图 - 重构版本（只重构Excel转PDF功能）
 """
-from flask import Blueprint, request, jsonify, send_from_directory, make_response
+from flask import Blueprint, request, jsonify, send_from_directory, make_response, send_file
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
+import os
 
 # 新增导入
 from backend.service.file_mapping_service import file_mapping_service
@@ -730,8 +731,6 @@ def get_flat_excel_data(pdf_id, excel_file, sheet_name):
     print(f"📥 获取Excel数据: {pdf_id}, {excel_file}, {sheet_name}")
 
     try:
-        # 构建文件路径
-        import os
         file_path = os.path.join(EXCEL_OUTPUT_ROOT, pdf_id, excel_file)
         print(f"🔍 文件路径: {file_path}")
 
@@ -818,7 +817,6 @@ def excel_flatten_from_excel():
         }), 500
 
 
-# 后端API示例（Python Flask）
 # ========== 新增的Excel转PDF接口 ==========
 @file_bp.route('/api/convert/excel-to-pdf', methods=['POST'])
 def convert_excel_to_pdf_api():
@@ -1051,7 +1049,7 @@ def save_flattened_data():
 
 
 from datetime import datetime
-# 伪代码 - Python Flask 示例
+
 @file_bp.route('/api/excel/global-flatten/<pdf_id>', methods=['POST', 'OPTIONS'])
 def global_flatten(pdf_id):
     """整体扁平化处理 - 处理PDF对应的所有Excel文件的所有sheet，合并成一个大的扁平化表格"""
@@ -1094,5 +1092,58 @@ def global_flatten(pdf_id):
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
+
+
+@file_bp.route('/api/excel/export-final-file', methods=['POST'])
+def export_final_file():
+    data = request.get_json()
+    current_excel_file = data.get('excel_file')
+
+    try:
+        # 从当前文件名提取UUID部分
+        file_uuid = current_excel_file.split('_')[0]  # 提取UUID部分
+
+        # 使用正确的UUID作为目录名
+        final_file_name = f"flattened_整合_{file_uuid}.xlsx"
+        final_file_path = os.path.join(EXCEL_OUTPUT_ROOT, file_uuid, final_file_name)
+
+        if os.path.exists(final_file_path):
+            download_url = f"/api/excel/download-final/{file_uuid}/{final_file_name}"
+
+            return {
+                'success': True,
+                'file_exists': True,
+                'file_name': final_file_name,
+                'file_path': final_file_path,
+                'download_url': download_url
+            }
+        else:
+            return {
+                'success': True,
+                'file_exists': False,
+                'file_name': final_file_name,
+                'file_path': final_file_path,
+                'message': '最终文件未生成'
+            }
+
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
+
+
+@file_bp.route('/api/excel/download-final/<pdf_id>/<file_name>')
+def download_final_file(pdf_id, file_name):
+    try:
+        # 直接使用已导入的 EXCEL_OUTPUT_ROOT
+        file_path = os.path.join(EXCEL_OUTPUT_ROOT, pdf_id, file_name)
+
+        print(f"下载文件路径: {file_path}")
+
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True, download_name=file_name)
+        else:
+            return jsonify({'success': False, 'error': '文件不存在'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 
