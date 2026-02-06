@@ -10,8 +10,8 @@
       <!-- 当前PDF预览区域 -->
       <div class="pdf-preview-section" v-if="currentPdf">
         <PdfPreview
-          :pdf-files="[currentPdf]"
-          :current-pdf-index="0"
+          :pdf-files="files"
+          :current-pdf-index="currentPdfIndex"
           :crop-loading="cropLoading"
           :crop-results="cutResults"
           :converting="convertingObj"
