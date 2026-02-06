@@ -1349,7 +1349,6 @@ class TableProcessingService:
                 image_paths=valid_images,
                 output_dir=str(output_dir),
                 bank_name=bank_name
-                # 移除：pdf_uuid=pdf_uuid  # batch_example不支持这个参数
             )
 
             # 解析结果，添加UUID信息

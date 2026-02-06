@@ -372,12 +372,15 @@ const handleGlobalFlatten = async () => {
   }
 }
 
+
 const exportFinalLoading = ref(false)
 // 导出最终的excel文件
 const exportFinalFile = async () => {
+  console.log('🎯🎯🎯 最终导出按钮被点击')
   exportFinalLoading.value = true
 
   try {
+
     const requestData = {
       pdf_id: props.pdfId,
       excel_file: props.excelFileName, // 当前文件名
@@ -390,7 +393,10 @@ const exportFinalFile = async () => {
       body: JSON.stringify(requestData)
     })
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
 
     const result = await response.json()
 
@@ -405,9 +411,13 @@ const exportFinalFile = async () => {
     } else {
       throw new Error(result.error || '导出失败')
     }
+
   } catch (error) {
+    console.error('❌❌❌ 最终导出失败:', error)
+    console.error('错误堆栈:', error.stack)
     ElMessage.error(`导出失败: ${error.message}`)
   } finally {
+    console.log('🏁 导出流程结束')
     exportFinalLoading.value = false
   }
 }

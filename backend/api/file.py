@@ -4,6 +4,7 @@
 from flask import Blueprint, request, jsonify, send_from_directory, make_response, send_file
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
+import sqlite3
 import os
 
 # 新增导入
@@ -1094,6 +1095,7 @@ def global_flatten(pdf_id):
         return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
 
 
+
 @file_bp.route('/api/excel/export-final-file', methods=['POST'])
 def export_final_file():
     data = request.get_json()
@@ -1103,19 +1105,52 @@ def export_final_file():
         # 从当前文件名提取UUID部分
         file_uuid = current_excel_file.split('_')[0]  # 提取UUID部分
 
-        # 使用正确的UUID作为目录名
+        # 查询数据库获取文件信息
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT filename, raw_filename, file_type, file_path, bank_name 
+            FROM files 
+            WHERE filename LIKE ? OR raw_filename LIKE ?
+        """, (f"%{file_uuid}%", f"%{file_uuid}%"))
+
+        file_info = cursor.fetchone()
+        conn.close()
+
+        print(f"=== 数据库查询结果 ===")
+        print(f"查询条件 (UUID): {file_uuid}")
+        print(f"查询结果: {file_info}")
+
+        # 文件路径还是按照原先的逻辑（使用UUID）
         final_file_name = f"flattened_整合_{file_uuid}.xlsx"
-        final_file_path = os.path.join(EXCEL_OUTPUT_ROOT, file_uuid, final_file_name)
+        final_file_path = os.path.join(MAIN_ROOT, EXCEL_OUTPUT_ROOT, file_uuid, final_file_name)
 
         if os.path.exists(final_file_path):
+            # 获取下载时显示的文件名（使用raw_filename）
+            if file_info and file_info[1]:  # file_info[1] 是 raw_filename
+                # 确保文件名有.xlsx后缀
+                raw_filename = file_info[1]
+                if not raw_filename.lower().endswith('.xlsx'):
+                    raw_filename = f"{raw_filename}.xlsx"
+                download_display_name = f"整合_{raw_filename}"  # 例如：整合_财务报表2024.xlsx
+            else:
+                # 如果没有raw_filename，使用UUID
+                download_display_name = f"整合_{file_uuid}.xlsx"
+
             download_url = f"/api/excel/download-final/{file_uuid}/{final_file_name}"
+
+            print(f"下载显示文件名: {download_display_name}")
+            print(f"下载URL: {download_url}")
 
             return {
                 'success': True,
                 'file_exists': True,
-                'file_name': final_file_name,
+                'file_name': final_file_name,  # 服务器上的文件名
+                'download_name': download_display_name,  # 下载时显示的文件名
                 'file_path': final_file_path,
-                'download_url': download_url
+                'download_url': download_url,
+                'message': '最终文件存在'
             }
         else:
             return {
@@ -1127,23 +1162,50 @@ def export_final_file():
             }
 
     except Exception as e:
+        print(f"错误详情: {str(e)}")
         return {'success': False, 'error': str(e)}, 500
 
 
 @file_bp.route('/api/excel/download-final/<pdf_id>/<file_name>')
 def download_final_file(pdf_id, file_name):
     try:
-        # 直接使用已导入的 EXCEL_OUTPUT_ROOT
-        file_path = os.path.join(EXCEL_OUTPUT_ROOT, pdf_id, file_name)
-
-        print(f"下载文件路径: {file_path}")
+        # 文件路径还是按照原先的逻辑
+        file_path = os.path.join(MAIN_ROOT, EXCEL_OUTPUT_ROOT, pdf_id, file_name)
 
         if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True, download_name=file_name)
+            # 查询数据库获取raw_filename作为下载文件名
+            conn = sqlite3.connect(DATABASE)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT raw_filename FROM files 
+                WHERE filename LIKE ? OR raw_filename LIKE ?
+            """, (f"%{pdf_id}%", f"%{pdf_id}%"))
+
+            file_info = cursor.fetchone()
+            conn.close()
+
+            # 设置下载文件名
+            if file_info and file_info[0]:
+                raw_filename = file_info[0]
+                base_name = os.path.splitext(raw_filename)[0]  # 去掉文件扩展名
+                download_name = f"整合_{base_name}.xlsx"
+                print("download_name:", download_name)
+            else:
+                download_name = f"整合_{pdf_id}.xlsx"  # 备用名称
+
+            print(f"下载显示名称: {download_name}")
+            print(f"开始下载文件...")
+
+            return send_file(file_path, as_attachment=True, download_name=download_name)
         else:
-            return jsonify({'success': False, 'error': '文件不存在'}), 404
+            print(f"❌ 文件不存在: {file_path}")
+            return jsonify({
+                'success': False,
+                'error': '文件不存在',
+                'file_path': file_path
+            }), 404
+
     except Exception as e:
+        print(f"❌ 下载错误: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
 
