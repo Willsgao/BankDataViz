@@ -4,8 +4,8 @@
     <div v-for="pdf in pdfs" :key="pdf.id" class="other-pdf-item">
       <div class="other-pdf-name">{{ pdf.filename }}</div>
       <div class="other-pdf-actions">
-        <el-button size="mini" type="primary" @click="$emit('switch-pdf', pdf)">切换到该PDF</el-button>
-        <el-button size="mini" type="danger" @click="$emit('delete', pdf.filename)">删除</el-button>
+        <el-button size="small" type="primary" @click="$emit('switch-pdf', pdf)">切换到该PDF</el-button>
+        <el-button size="small" type="danger" @click="$emit('delete', pdf.filename)">删除</el-button>
       </div>
     </div>
   </div>

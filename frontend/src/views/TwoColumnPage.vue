@@ -2,6 +2,7 @@
 <template>
   <TwoColumnLayout
       :files="files"
+      :current-pdf-index="currentPdfIndex"
       :crop-loading="cropLoading"
       :cut-results="cutResults"
       :converting-obj="convertingObj"
@@ -564,11 +565,6 @@ const updateCurrentPdf = (pdfDiskName) => {
 }
 
 // ---------------- 计算属性：获取当前PDF对象 ----------------
-const currentPdf = computed(() => {
-  if (!currentPdfDiskName.value || files.value.length === 0) return null
-
-  return files.value.find(f => f.disk_name === currentPdfDiskName.value) || null
-})
 
 const otherPdfs = computed(() => {
   if (!currentPdfDiskName.value) return files.value
@@ -578,58 +574,65 @@ const otherPdfs = computed(() => {
 
 
 
+
 async function loadFiles() {
   try {
-    console.log('🔍 第一步：检查 loadFiles() 执行')
-    console.log('📡 准备调用 getFiles() API...')
+    console.log('🔍🔍 第一步：检查 loadFiles() 执行')
+    console.log('📡📡 准备调用 getFiles() API...')
 
-    // 清空现有状态
+    // 🔴 修复：不要清空 currentPdfDiskName，保留当前选择状态
+    const previousCurrentPdf = currentPdfDiskName.value // 保存当前选择
     files.value = []
-    currentPdfDiskName.value = ''
-    console.log('🔄 清空后的 files.value:', files.value)
+    // currentPdfDiskName.value = '' // ← 删除这行，不要清空
+
+    console.log('🔄🔄 清空后的 files.value:', files.value)
 
     // 调用 API
     const apiResult = await getFiles()
     console.log('✅ getFiles() 返回结果:', apiResult)
 
-    // 🔧 修复1：检查API响应是否成功
+    // 🔴 修复：检查API响应是否成功
     if (!apiResult.success) {
-      console.error('❌ API返回失败:', apiResult.error)
+      console.error('❌❌ API返回失败:', apiResult.error)
       ElMessage.error('获取文件列表失败: ' + (apiResult.error || '未知错误'))
       return
     }
 
-    // 🔧 修复2：正确获取文件数组
+    // 获取文件数组
     const fileList = apiResult.files || []
-    console.log('📊 返回文件列表长度:', fileList.length)
-    console.log('📁 文件列表内容:', fileList)
+    console.log('📊📊 返回文件列表长度:', fileList.length)
+    console.log('📁📁 文件列表内容:', fileList)
 
     files.value = fileList
-    console.log('📁 赋值后的文件列表:', files.value)
 
-    // 如果没有文件，直接返回
+    // 如果没有文件，清空状态
     if (files.value.length === 0) {
-      console.log('📭 没有PDF文件，清空当前PDF')
+      console.log('📭📭 没有PDF文件，清空当前PDF')
+      currentPdfDiskName.value = '' // 只有确实没有文件时才清空
       ElMessage.info('没有找到PDF文件')
       return
     }
 
-    // 设置当前PDF（核心逻辑）
+    // 🔴 修复：优先使用之前选择的PDF（如果还存在）
     let defaultPdf = null
+    if (previousCurrentPdf) {
+      defaultPdf = files.value.find(f => f.disk_name === previousCurrentPdf)
+      console.log('🔍🔍 查找之前选择的PDF:', { previousCurrentPdf, found: !!defaultPdf })
+    }
 
-    // 优先使用最近操作的文件
-    if (Object.keys(lastOperationTime.value).length > 0) {
+    // 如果之前的选择不存在，使用最近操作的文件
+    if (!defaultPdf && Object.keys(lastOperationTime.value).length > 0) {
       const sorted = Object.entries(lastOperationTime.value)
         .sort((a, b) => b[1] - a[1])
       const latestPdfDiskName = sorted[0][0]
       defaultPdf = files.value.find(f => f.disk_name === latestPdfDiskName)
-      console.log('🔍 查找最近操作的PDF:', { latestPdfDiskName, found: !!defaultPdf })
+      console.log('🔍🔍 查找最近操作的PDF:', { latestPdfDiskName, found: !!defaultPdf })
     }
 
-    // 如果没有最近操作记录，使用第一个文件
+    // 如果还没有找到，使用第一个文件
     if (!defaultPdf) {
       defaultPdf = files.value[0]
-      console.log('📌 使用第一个文件作为默认PDF:', defaultPdf.filename)
+      console.log('📌📌 使用第一个文件作为默认PDF:', defaultPdf.filename)
     }
 
     // 更新当前PDF状态
@@ -637,14 +640,14 @@ async function loadFiles() {
     console.log('✅ 已设置当前PDF:', defaultPdf.filename)
 
     // 状态摘要
-    console.log('📊 文件加载完成，状态摘要:', {
+    console.log('📊📊 文件加载完成，状态摘要:', {
       totalFiles: files.value.length,
       currentPdfDiskName: currentPdfDiskName.value,
       otherPdfsCount: files.value.filter(f => f.disk_name !== currentPdfDiskName.value).length
     })
 
   } catch (error) {
-    console.error('💥 加载文件失败:', error)
+    console.error('💥💥 加载文件失败:', error)
     ElMessage.error('加载文件失败: ' + (error.message || '未知错误'))
     files.value = []
     currentPdfDiskName.value = ''
@@ -1766,6 +1769,18 @@ async function pollTableProgress(jobId, pdfDiskName) {
 }
 
 
+// 现有的 currentPdf 计算属性
+const currentPdf = computed(() => {
+  if (!currentPdfDiskName.value || files.value.length === 0) return null
+  return files.value.find(f => f.disk_name === currentPdfDiskName.value) || null
+})
+
+// 新增：currentPdfIndex 计算属性
+const currentPdfIndex = computed(() => {
+  if (!currentPdfDiskName.value || files.value.length === 0) return 0
+  const index = files.value.findIndex(f => f.disk_name === currentPdfDiskName.value)
+  return index >= 0 ? index : 0
+})
 
 
 // 在 setup 中添加处理函数

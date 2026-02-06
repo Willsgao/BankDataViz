@@ -308,6 +308,10 @@ const handleDeleteFile = (file) => {
 // 定义props
 const props = defineProps({
   files: Array,
+  currentPdfIndex: {
+    type: Number,
+    default: 0
+  },
   cropLoading: Object,
   cutResults: Object,
   convertingObj: Object,
