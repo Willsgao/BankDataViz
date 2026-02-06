@@ -39,6 +39,10 @@ node_modules/
 dist/
 .cache/
 .idea/
+*./vue.config.js
+*./.env.development
+frontend/.env.*
+frontend/vue.config.js
 
 # 系统文件
 .DS_Store
