@@ -1,5 +1,5 @@
 <template>
-  <div class="handsontable-excel-viewer" :class="{ 'edit-mode': isEditMode }">
+  <div class="handsontable-excel-viewer">
     <!-- 第一行：主控栏（最简科学） -->
     <div class="main-toolbar">
       <div class="toolbar-section left-section">
@@ -19,15 +19,6 @@
           @click="toggleEmptyCellsHighlight"
         >
           <el-icon><View /></el-icon>{{ showEmptyCellsHighlight ? '隐藏空格' : '高亮空格' }}
-        </el-button>
-
-        <el-button
-          :type="isEditMode ? 'danger' : 'warning'"
-          size="small"
-          :disabled="!tableData.length"
-          @click="toggleEditMode"
-        >
-          <el-icon><Edit /></el-icon>{{ isEditMode ? '退出' : '编辑' }}
         </el-button>
 
         <el-button
@@ -80,7 +71,6 @@
 
 
         <el-tooltip
-          v-if="isEditMode"
           :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
           placement="bottom"
         >
@@ -147,7 +137,7 @@
         :language="currentLanguage"
         :filters="true"
         :dropdownMenu="true"
-        :contextMenu="true"
+        :contextMenu="getContextMenuConfig"
         :manualColumnResize="true"
         :manualRowResize="true"
         :wordWrap="false"
@@ -159,6 +149,8 @@
         :fixedRowsTop="fixedRowsTop"
         :fixedColumnsLeft="fixedColumnsLeft"
         :key="langKey"
+        :allowInsertColumn="true"
+        :allowRemoveColumn="true"
         @afterFilter="onFilter"
         @after-change="onDataChange"
         @after-init="onHotInit"
@@ -183,7 +175,9 @@ import { registerLanguageDictionary, zhCN } from 'handsontable/i18n'
 import { ref, computed, defineEmits, defineProps, nextTick, onMounted, onUnmounted, defineExpose } from 'vue'
 
 import { HotTable } from '@handsontable/vue3'
-import 'handsontable/dist/handsontable.full.min.css'  // 使用最新样式
+// import 'handsontable/dist/handsontable.full.min.css'  // 使用最新样式
+import 'handsontable/styles/handsontable.css'
+
 import {
   Download, Edit, View, Grid, Menu, DataAnalysis,
   Close, Position, DataBoard
@@ -199,6 +193,20 @@ import useExcelSelection from './useExcelSelection.js'
 import useExcelViewerLogic from './useExcelViewerLogic.js'
 import useExcelViewerExpose from './useExcelViewerExpose.js'
 
+// 在现有的import语句后添加
+import Handsontable from 'handsontable';
+
+
+// 或者使用更安全的方式
+try {
+  // 检查插件是否已经存在
+  if (Handsontable.plugins.Alter) {
+    console.log('✅ Alter插件已自动注册');
+  }
+} catch (error) {
+  console.warn('⚠️ 插件检查失败:', error);
+}
+
 // 注册中文语言包
 try {
   registerLanguageDictionary(zhCN)
@@ -209,6 +217,7 @@ try {
 
 // 在现有的响应式变量后添加新变量
 const globalFlattenLoading = ref(false)
+
 
 // 添加计算属性：判断是否启用整体扁平化按钮
 const globalFlattenEnabled = computed(() => {
@@ -289,6 +298,51 @@ const handleSelection = (startRow, startCol, endRow, endCol) => {
 
   console.log('📤📤 发射选区信息完成')
 }
+
+const getContextMenuConfig = computed(() => {
+  return {
+    items: {
+      'row_above': {
+        name: '在上方插入行',
+        disabled: !isEditMode.value
+      },
+      'row_below': {
+        name: '在下方插入行',
+        disabled: !isEditMode.value
+      },
+      'col_left': {
+        name: '在左侧插入列',
+        disabled: !isEditMode.value
+      },
+      'col_right': {
+        name: '在右侧插入列',
+        disabled: !isEditMode.value
+      },
+      'remove_row': {
+        name: '删除行',
+        disabled: !isEditMode.value
+      },
+      'remove_col': {
+        name: '删除列',
+        disabled: !isEditMode.value
+      },
+      'separator': Handsontable.plugins.ContextMenu.SEPARATOR,
+      'clear_custom': {
+        name: '清除内容',
+        callback: function(key, selection) {
+          const hot = this
+          selection.forEach(([startRow, startCol, endRow, endCol]) => {
+            for (let row = startRow; row <= endRow; row++) {
+              for (let col = startCol; col <= endCol; col++) {
+                hot.setDataAtCell(row, col, '')
+              }
+            }
+          })
+        }
+      }
+    }
+  }
+})
 
 // 清除选区
 const clearSelection = () => {
@@ -627,8 +681,59 @@ const getHotInstanceDirect = () => {
   }
 }
 
-// 修改 onHotInit 函数
-// HandsontableExcelViewer.vue - 修改 onHotInit 函数
+
+onMounted(() => {
+  // 确保Handsontable已加载
+  if (typeof Handsontable === 'undefined') {
+    console.error('❌ Handsontable未加载')
+    return
+  }
+
+  // 强制注册Alter插件
+  if (!Handsontable.plugins.Alter) {
+    console.log('🔥 强制注册Alter插件...')
+
+    Handsontable.plugins.Alter = function(hotInstance) {
+      this.hot = hotInstance;
+      this.enabled = true;
+    };
+
+    Handsontable.plugins.Alter.prototype.isEnabled = function() {
+      return this.enabled;
+    };
+
+    Handsontable.plugins.Alter.prototype.enablePlugin = function() {
+      if (this.enabled) {
+        return;
+      }
+      this.enabled = true;
+    };
+
+    Handsontable.plugins.Alter.prototype.disablePlugin = function() {
+      this.enabled = false;
+    };
+
+    Handsontable.plugins.Alter.prototype.alter = function(action, index, amount, source, keepEmptyRows) {
+      if (!this.enabled) {
+        return;
+      }
+
+      const dataMap = this.hot.getDataMap();
+      const result = dataMap.createCol(index, amount, source);
+
+      if (result) {
+        this.hot.forceFullRender();
+        this.hot.view.adjustElementsSize(true);
+      }
+
+      return result;
+    };
+
+    console.log('✅ Alter插件已强制注册')
+  }
+})
+
+
 const onHotInit = () => {
   setTimeout(() => {
     const hot = getHotInstanceDirect()
@@ -644,7 +749,22 @@ const onHotInit = () => {
         时间戳: Date.now()
       })
 
-      // 🔥 关键修改：发射强化版的就绪事件
+      // 🔥 关键检查：确保Alter插件已启用
+      console.log('🔍 检查Alter插件状态:')
+      const alterPlugin = hot.getPlugin('alter')
+      if (!alterPlugin) {
+        console.error('❌ Alter插件未启用！')
+        // 强制启用
+        hot.updateSettings({
+          plugins: {
+            alter: true
+          }
+        })
+        console.log('✅ 已强制启用Alter插件')
+      } else {
+        console.log('✅ Alter插件已启用')
+      }
+
       emit('instance-ready', {
         instance: hot,
         guid: hot.guid,
@@ -655,11 +775,11 @@ const onHotInit = () => {
         timestamp: Date.now()
       })
 
-      // 原有的恢复红色标记
       nextTick(() => restoreModifiedCellsStyle())
     }
   }, 0)
 }
+
 
 // 获取增强版实例（兼容原有逻辑）
 const getEnhancedHotInstance = () => {
@@ -829,6 +949,26 @@ onUnmounted(() => {
     window.__excelHotInstance = null
   }
 })
+
+
+onMounted(() => {
+  console.log('🔧 强制注册Alter插件...')
+
+  // 方法1：检查并注册插件
+  if (Handsontable && Handsontable.plugins) {
+    console.log('✅ Handsontable插件系统已加载')
+    console.log('已注册的插件:', Object.keys(Handsontable.plugins))
+
+    // 检查Alter插件是否存在
+    if (!Handsontable.plugins.Alter) {
+      console.warn('⚠️ Alter插件未找到，尝试手动注册')
+      // 这里可以尝试手动注册，但通常不需要
+    } else {
+      console.log('✅ Alter插件已自动注册')
+    }
+  }
+})
+
 </script>
 
 
@@ -1292,11 +1432,12 @@ onUnmounted(() => {
 /* ====================
    单元格样式控制（全部保持不变）
    ==================== */
-/* 最简单：通过父级类名控制 */
+/* 最简单：通过父级类名控制
 .edit-mode :deep(.handsontable .htCore td:not([readonly])) {
   background-color: #f9f9f9 !important;
   border: 1px solid #d9d9d9 !important;
 }
+*/
 
 /* 在保存时给修改过的单元格添加类 */
 .edit-mode :deep(.handsontable .htCore td.modified) {

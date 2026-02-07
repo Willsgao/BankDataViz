@@ -961,6 +961,12 @@ export default function useExcelViewerLogic(
   }
 
   const onCellClick = (row, col) => {
+
+    if (row < 0 || col < 0) {
+    console.log('🟡 点击了列头或行头，跳过单元格显示');
+    return; // 不处理列头/行头点击
+  }
+
     updateSelectedCellDisplay(row, col)
     showCellContent.value = true
   }

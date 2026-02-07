@@ -1,200 +1,509 @@
 // frontend/src/components/excel/useExcelData.js
 import { computed } from 'vue'
 
-export default function useExcelData(props) {
-  // ============ 计算属性 ============
+const convertObjectArrayToArray = (inputData) => {
+  if (!inputData || !Array.isArray(inputData)) {
+    console.log('📭 convertObjectArrayToArray: 输入为空或不是数组')
+    return []
+  }
 
+  if (inputData.length === 0) {
+    console.log('📭 convertObjectArrayToArray: 输入数组为空')
+    return []
+  }
+
+  console.log('🔍 convertObjectArrayToArray 输入检查:', {
+    输入类型: typeof inputData[0],
+    是数组数组: Array.isArray(inputData[0]),
+    是对象: typeof inputData[0] === 'object',
+    第一行样本: inputData[0]
+  })
+
+  // 如果已经是数组数组，直接返回（但需要验证格式）
+  if (Array.isArray(inputData[0])) {
+    console.log('✅ convertObjectArrayToArray: 输入已经是数组数组格式')
+
+    // 验证数组数组格式是否正确
+    const isValidArrayArray = inputData.every(row => Array.isArray(row))
+    if (isValidArrayArray) {
+      console.log('✅ 数组数组格式验证通过')
+      return inputData
+    } else {
+      console.warn('⚠️ 数组数组格式验证失败，尝试修复')
+    }
+  }
+
+  // 如果是对象数组，转换为数组数组
+  if (typeof inputData[0] === 'object' && inputData[0] !== null) {
+    console.log('🔄 convertObjectArrayToArray: 将对象数组转换为数组数组')
+
+    try {
+      const keys = Object.keys(inputData[0] || {})
+      const result = []
+
+      // 第一行是列名
+      result.push(keys)
+      console.log('📋 提取的列名:', keys)
+
+      // 后续行是数据
+      inputData.forEach((obj, index) => {
+        const row = keys.map(key => {
+          const value = obj[key]
+          // 统一处理空值
+          if (value === null || value === undefined || value === '') {
+            return ''
+          }
+          return String(value)
+        })
+        result.push(row)
+      })
+
+      console.log('✅ convertObjectArrayToArray: 转换完成', {
+        原数据行数: inputData.length,
+        转换后行数: result.length,
+        列数: keys.length,
+        转换后格式: Array.isArray(result[0]) ? '数组数组' : '其他'
+      })
+
+      return result
+    } catch (error) {
+      console.error('❌ convertObjectArrayToArray 转换失败:', error)
+      return inputData // 出错时返回原数据
+    }
+  }
+
+  console.warn('⚠️ convertObjectArrayToArray: 无法识别的数据格式，返回原数据')
+  return inputData
+}
+
+export default function useExcelData(props) {
 
   // tableData 计算属性 - 修复版本
   const tableData = computed(() => {
-    console.log('🔄 tableData computed 触发')
+  console.log('🔄🔄 tableData computed 触发')
 
-    // 1. 检查数据是否存在
-    if (!props.excelData) {
-      console.log('📊 tableData: props.excelData 为 undefined')
-      return []
-    }
+  console.log('=== 🔥 tableData 计算属性开始 ===')
 
-    if (!Array.isArray(props.excelData)) {
-      console.warn('⚠️ tableData: props.excelData 不是数组', props.excelData)
-      return []
-    }
+  // 添加诊断代码
+  console.log('1. props.excelData 类型:', typeof props.excelData)
+  console.log('2. props.excelData 是数组:', Array.isArray(props.excelData))
+  if (props.excelData && Array.isArray(props.excelData)) {
+    console.log('3. props.excelData[0] 类型:', typeof props.excelData[0])
+    console.log('4. props.excelData[0] 是数组:', Array.isArray(props.excelData[0]))
+    console.log('5. props.excelData[0] 样本:', props.excelData[0])
+  }
 
-    if (props.excelData.length === 0) {
-      console.log('📊 tableData: 数据长度为0')
-      return []
-    }
+  // 1. 检查数据是否存在
+  if (!props.excelData) {
+    console.log('📊📊 tableData: props.excelData 为 undefined')
+    return []
+  }
 
-    console.log('📊 接收到的原始数据:', {
-      长度: props.excelData.length,
-      第一个元素类型: typeof props.excelData[0],
-      第一个元素: props.excelData[0],
-      第一个元素的键: Object.keys(props.excelData[0] || {})
+  if (!Array.isArray(props.excelData)) {
+    console.warn('⚠️ tableData: props.excelData 不是数组', props.excelData)
+    return []
+  }
+
+  if (props.excelData.length === 0) {
+    console.log('📊📊 tableData: 数据长度为0')
+    return []
+  }
+
+  console.log('📊📊 接收到的原始数据:', {
+    长度: props.excelData.length,
+    第一个元素类型: typeof props.excelData[0],
+    第一个元素: props.excelData[0],
+    第一个元素的键: Object.keys(props.excelData[0] || {})
+  })
+
+  const firstItem = props.excelData[0]
+
+  // 2. 双表头逻辑
+  if (firstItem?.__metadata?.has_dual_headers) {
+    console.log('✅ 检测到双表头元数据（旧结构）')
+
+    const metadata = firstItem.__metadata
+    const dataRows = props.excelData.slice(1) // 跳过元数据
+
+    console.log('📋📋 元数据详情:', {
+      左上角: metadata.top_left_cell,
+      横向表头数: metadata.horizontal_headers?.length,
+      纵向表头数: metadata.vertical_headers?.length,
+      数据行数: dataRows.length
     })
 
-    const firstItem = props.excelData[0]
+    // 关键修复：重新设计渲染逻辑
+    const renderedTable = []
 
-    // 2. 双表头逻辑
-    if (firstItem?.__metadata?.has_dual_headers) {
-      console.log('✅ 检测到双表头元数据（旧结构）')
+    // 1. 找到第一行数据（包含横向表头）
+    const headerRowObj = dataRows.find(row => row?.__is_first_row)
+    if (!headerRowObj) {
+      console.warn('⚠️ 未找到第一行（横向表头）数据')
+      return []
+    }
 
-      const metadata = firstItem.__metadata
-      const dataRows = props.excelData.slice(1) // 跳过元数据
+    // 2. 构建第一行：左上角 + 横向表头
+    const firstRow = []
 
-      console.log('📋 元数据详情:', {
-        左上角: metadata.top_left_cell,
-        横向表头数: metadata.horizontal_headers?.length,
-        纵向表头数: metadata.vertical_headers?.length,
-        数据行数: dataRows.length
-      })
+    // 左上角单元格
+    firstRow.push(headerRowObj.__top_left_cell || '')
 
-      // 关键修复：重新设计渲染逻辑
-      const renderedTable = []
+    // 横向表头（按顺序 H_1, H_2, H_3...）
+    const horizontalCount = metadata.horizontal_headers?.length || 0
+    for (let i = 1; i <= horizontalCount; i++) {
+      const key = `H_${i}`
+      const value = headerRowObj[key] ||
+                   metadata.horizontal_headers?.[i-1] ||
+                   ``
+      firstRow.push(value || '')
+    }
 
-      // 1. 找到第一行数据（包含横向表头）
-      const headerRowObj = dataRows.find(row => row?.__is_first_row)
-      if (!headerRowObj) {
-        console.warn('⚠️ 未找到第一行（横向表头）数据')
+    renderedTable.push(firstRow)
+    console.log('📊📊 第一行构建完成:', firstRow)
+
+    // 3. 构建数据行：纵向表头 + 数据
+    const dataRowsOnly = dataRows.filter(row => row?.__is_data_row)
+    const verticalCount = metadata.vertical_headers?.length || 0
+
+    dataRowsOnly.forEach((rowData, rowIndex) => {
+      const row = []
+
+      // 纵向表头
+      const verticalHeader = rowData.__vertical_header ||
+                            metadata.vertical_headers?.[rowIndex] ||
+                            ``
+      row.push(verticalHeader || '')
+
+      // 数据单元格
+      for (let i = 1; i <= horizontalCount; i++) {
+        const key = `H_${i}`
+        const value = rowData[key] ?? ''
+        row.push(value)
+      }
+
+      renderedTable.push(row)
+    })
+
+    // ==================== 新增：添加空白行和列 ====================
+    // 在数据后面添加6行空白
+    for (let i = 0; i < 6; i++) {
+      const blankRow = new Array(renderedTable[0]?.length || 0).fill('')
+      renderedTable.push(blankRow)
+    }
+
+    // 在每行后面添加2列空白
+    renderedTable.forEach(row => {
+      for (let i = 0; i < 2; i++) {
+        row.push('')
+      }
+    })
+    // ==================== 结束新增 ====================
+
+    // 🔥🔥🔥🔥 关键修复：应用格式转换
+    const finalData = convertObjectArrayToArray(renderedTable)
+
+    console.log('✅ 双表头数据转换检查:', {
+      转换前类型: Array.isArray(renderedTable[0]) ? '数组数组' : '对象数组',
+      转换后类型: Array.isArray(finalData[0]) ? '数组数组' : '对象数组',
+      转换前形状: `${renderedTable.length}行 × ${renderedTable[0]?.length || 0}列`,
+      转换后形状: `${finalData.length}行 × ${finalData[0]?.length || 0}列`
+    })
+
+    // 🔥🔥🔥🔥 强制验证和修复数据格式
+    const validatedData = (() => {
+      if (!finalData || !Array.isArray(finalData)) {
+        console.error('❌❌ 数据为空或不是数组')
         return []
       }
 
-      // 2. 构建第一行：左上角 + 横向表头
-      const firstRow = []
-
-      // 左上角单元格
-      //firstRow.push(headerRowObj.__top_left_cell || metadata.top_left_cell || '')
-      firstRow.push(headerRowObj.__top_left_cell || '')
-
-
-      // 横向表头（按顺序 H_1, H_2, H_3...）
-      const horizontalCount = metadata.horizontal_headers?.length || 0
-      for (let i = 1; i <= horizontalCount; i++) {
-        const key = `H_${i}`
-        const value = headerRowObj[key] ||
-                     metadata.horizontal_headers?.[i-1] ||
-                     ``
-        firstRow.push(value || '')
+      // 强制转换为数组数组
+      if (Array.isArray(finalData[0])) {
+        console.log('✅ 数据已经是数组数组格式')
+        return finalData
       }
 
-      renderedTable.push(firstRow)
-      console.log('📊 第一行构建完成:', firstRow)
+      // 如果是对象数组，强制转换
+      if (typeof finalData[0] === 'object' && finalData[0] !== null) {
+        console.warn('⚠️ 检测到对象数组，强制转换为数组数组')
 
-      // 3. 构建数据行：纵向表头 + 数据
-      const dataRowsOnly = dataRows.filter(row => row?.__is_data_row)
-      const verticalCount = metadata.vertical_headers?.length || 0
-
-      dataRowsOnly.forEach((rowData, rowIndex) => {
-        const row = []
-
-        // 纵向表头
-        const verticalHeader = rowData.__vertical_header ||
-                              metadata.vertical_headers?.[rowIndex] ||
-                              ``
-        //row.push(verticalHeader || '')
-        row.push(verticalHeader || '')
-
-        // 数据单元格
-        for (let i = 1; i <= horizontalCount; i++) {
-          const key = `H_${i}`
-          const value = rowData[key] ?? ''
-          row.push(value)
-        }
-
-        renderedTable.push(row)
-
-      })
-
-      // ==================== 新增：添加空白行和列 ====================
-      // 在数据后面添加6行空白
-      for (let i = 0; i < 6; i++) {
-        const blankRow = new Array(renderedTable[0]?.length || 0).fill('')
-        renderedTable.push(blankRow)
-      }
-
-      // 在每行后面添加2列空白
-      renderedTable.forEach(row => {
-        for (let i = 0; i < 2; i++) {
-          row.push('')
-        }
-      })
-      // ==================== 结束新增 ====================
-
-      return renderedTable
-    }
-
-    // 3. 单表头逻辑
-    console.log('📊 单表头模式')
-
-    // 获取表头
-    let headers = []
-
-    // 首先检查是否有 __orderedHeaders
-    if (firstItem.__orderedHeaders && Array.isArray(firstItem.__orderedHeaders)) {
-      headers = firstItem.__orderedHeaders
-      console.log('📊 使用 __orderedHeaders:', headers)
-    } else {
-      // 提取非 __ 开头的属性作为表头
-      const allKeys = Object.keys(firstItem || {})
-      headers = allKeys.filter(key => !key.startsWith('__'))
-
-    }
-
-    // 如果还是没有表头，创建默认表头
-    if (!headers.length) {
-      console.warn('⚠️ 未找到表头，使用默认表头')
-
-      // 计算数据中的最大列数
-      let maxColumns = 0
-      for (const row of props.excelData) {
-        if (row && typeof row === 'object') {
-          const validKeys = Object.keys(row).filter(key => !key.startsWith('__'))
-          maxColumns = Math.max(maxColumns, validKeys.length)
+        try {
+          const keys = Object.keys(finalData[0] || {})
+          const converted = [
+            keys, // 第一行是表头
+            ...finalData.map(obj => keys.map(key => obj[key] ?? ''))
+          ]
+          console.log('✅ 强制转换完成:', { 行数: converted.length, 列数: keys.length })
+          return converted
+        } catch (error) {
+          console.error('❌❌ 强制转换失败:', error)
+          return finalData // 返回原数据
         }
       }
 
-      headers = Array.from({ length: Math.max(maxColumns, 1) }, (_, i) => `列${i+1}`)
+      console.error('❌❌ 无法识别的数据格式')
+      return finalData
+    })()
 
-    }
-
-
-    // 构建数据
-    const result = props.excelData.map((row, rowIndex) => {
-      return headers.map(header => {
-        const value = row[header]
-        // 处理可能的 null/undefined
-        if (value === null || value === undefined || value === '') {
-          return ''
-        }
-        // 确保返回字符串
-        return String(value)
-      })
+    console.log('🎯🎯 双表头最终数据格式验证:', {
+      格式: Array.isArray(validatedData[0]) ? '数组数组 ✅' : '对象数组 ❌❌',
+      行数: validatedData.length,
+      列数: validatedData[0]?.length || 0,
+      支持列操作: Array.isArray(validatedData[0]) ? '是' : '否'
     })
 
-    // ==================== 新增：单表头模式也添加空白行和列 ====================
-    if (result.length > 0 && result[0].length > 0) {
-      // 在数据后面添加3行空白
-      for (let i = 0; i < 3; i++) {
-        const blankRow = new Array(result[0].length).fill('')
-        result.push(blankRow)
+    // 🔥🔥🔥🔥🔥 最终诊断
+    console.group('🔍🔍🔍 最终数据诊断')
+    console.log('1. 数据格式检查:', {
+      数据存在: !!validatedData,
+      是数组: Array.isArray(validatedData),
+      长度: validatedData?.length || 0,
+      第一行存在: !!validatedData?.[0],
+      第一行类型: typeof validatedData?.[0],
+      是数组数组: Array.isArray(validatedData?.[0]),
+      是对象: typeof validatedData?.[0] === 'object',
+      第一行样本: validatedData?.[0]
+    })
+
+    // 强制转换验证
+    // 在调用 forceArrayArrayFormat 的地方添加诊断
+console.log('🔥 调用 forceArrayArrayFormat 前:')
+console.log('- 输入数据:', finalData)
+console.log('- 输入数据[0] 类型:', typeof finalData?.[0])
+console.log('- 是数组数组:', Array.isArray(finalData?.[0]))
+
+const forceConverted = forceArrayArrayFormat(finalData)
+
+console.log('🔥 调用 forceArrayArrayFormat 后:')
+console.log('- 输出数据[0] 类型:', typeof forceConverted?.[0])
+console.log('- 是数组数组:', Array.isArray(forceConverted?.[0]))
+console.log('- 转换结果:', forceConverted)
+    console.log('2. 强制转换验证:', {
+      转换成功: Array.isArray(forceConverted?.[0]),
+      格式: Array.isArray(forceConverted?.[0]) ? '数组数组 ✅' : '对象数组 ❌',
+      行数: forceConverted.length,
+      列数: forceConverted[0]?.length || 0
+    })
+    console.groupEnd()
+
+    return forceConverted
+  }
+
+  // 3. 单表头逻辑
+  console.log('📊📊 单表头模式')
+
+  // 获取表头
+  let headers = []
+
+  // 首先检查是否有 __orderedHeaders
+  if (firstItem.__orderedHeaders && Array.isArray(firstItem.__orderedHeaders)) {
+    headers = firstItem.__orderedHeaders
+    console.log('📊📊 使用 __orderedHeaders:', headers)
+  } else {
+    // 提取非 __ 开头的属性作为表头
+    const allKeys = Object.keys(firstItem || {})
+    headers = allKeys.filter(key => !key.startsWith('__'))
+  }
+
+  // 如果还是没有表头，创建默认表头
+  if (!headers.length) {
+    console.warn('⚠️ 未找到表头，使用默认表头')
+
+    // 计算数据中的最大列数
+    let maxColumns = 0
+    for (const row of props.excelData) {
+      if (row && typeof row === 'object') {
+        const validKeys = Object.keys(row).filter(key => !key.startsWith('__'))
+        maxColumns = Math.max(maxColumns, validKeys.length)
       }
-
-      // 在每行后面添加3列空白
-      result.forEach(row => {
-        for (let i = 0; i < 3; i++) {
-          row.push('')
-        }
-      })
-
-
-    } else {
-      console.warn('⚠️ 结果为空，不添加空白行列')
     }
-    // ==================== 结束新增 ====================
 
-    return result
+    headers = Array.from({ length: Math.max(maxColumns, 1) }, (_, i) => `列${i+1}`)
+  }
 
+  // 构建数据
+  const result = props.excelData.map((row, rowIndex) => {
+    return headers.map(header => {
+      const value = row[header]
+      // 处理可能的 null/undefined
+      if (value === null || value === undefined || value === '') {
+        return ''
+      }
+      // 确保返回字符串
+      return String(value)
+    })
   })
 
+  // ==================== 新增：单表头模式也添加空白行和列 ====================
+  if (result.length > 0 && result[0].length > 0) {
+    // 在数据后面添加3行空白
+    for (let i = 0; i < 3; i++) {
+      const blankRow = new Array(result[0].length).fill('')
+      result.push(blankRow)
+    }
+
+    // 在每行后面添加3列空白
+    result.forEach(row => {
+      for (let i = 0; i < 3; i++) {
+        row.push('')
+      }
+    })
+  } else {
+    console.warn('⚠️ 结果为空，不添加空白行列')
+  }
+  // ==================== 结束新增 ====================
+
+  // 🔥🔥🔥🔥 关键修复：应用格式转换
+  const finalData = convertObjectArrayToArray(result)
+
+  console.log('✅ 单表头数据转换检查:', {
+    转换前类型: Array.isArray(result[0]) ? '数组数组' : '对象数组',
+    转换后类型: Array.isArray(finalData[0]) ? '数组数组' : '对象数组',
+    转换前形状: `${result.length}行 × ${result[0]?.length || 0}列`,
+    转换后形状: `${finalData.length}行 × ${finalData[0]?.length || 0}列`
+  })
+
+  // 🔥🔥🔥🔥 强制验证和修复数据格式
+  const validatedData = (() => {
+    if (!finalData || !Array.isArray(finalData)) {
+      console.error('❌❌ 数据为空或不是数组')
+      return []
+    }
+
+    // 强制转换为数组数组
+    if (Array.isArray(finalData[0])) {
+      console.log('✅ 数据已经是数组数组格式')
+      return finalData
+    }
+
+    // 如果是对象数组，强制转换
+    if (typeof finalData[0] === 'object' && finalData[0] !== null) {
+      console.warn('⚠️ 检测到对象数组，强制转换为数组数组')
+
+      try {
+        const keys = Object.keys(finalData[0] || {})
+        const converted = [
+          keys, // 第一行是表头
+          ...finalData.map(obj => keys.map(key => obj[key] ?? ''))
+        ]
+        console.log('✅ 强制转换完成:', { 行数: converted.length, 列数: keys.length })
+        return converted
+      } catch (error) {
+        console.error('❌❌ 强制转换失败:', error)
+        return finalData // 返回原数据
+      }
+    }
+
+    console.error('❌❌ 无法识别的数据格式')
+    return finalData
+  })()
+
+  console.log('🎯🎯 单表头最终数据格式验证:', {
+    格式: Array.isArray(validatedData[0]) ? '数组数组 ✅' : '对象数组 ❌❌',
+    行数: validatedData.length,
+    列数: validatedData[0]?.length || 0,
+    支持列操作: Array.isArray(validatedData[0]) ? '是' : '否'
+  })
+
+  // 🔥🔥🔥🔥🔥 最终诊断
+  console.group('🔍🔍🔍 最终数据诊断')
+  console.log('1. 数据格式检查:', {
+    数据存在: !!validatedData,
+    是数组: Array.isArray(validatedData),
+    长度: validatedData?.length || 0,
+    第一行存在: !!validatedData?.[0],
+    第一行类型: typeof validatedData?.[0],
+    是数组数组: Array.isArray(validatedData?.[0]),
+    是对象: typeof validatedData?.[0] === 'object',
+    第一行样本: validatedData?.[0]
+  })
+
+  // 强制转换验证
+  // 在调用 forceArrayArrayFormat 的地方添加诊断
+console.log('🔥 调用 forceArrayArrayFormat 前:')
+console.log('- 输入数据:', finalData)
+console.log('- 输入数据[0] 类型:', typeof finalData?.[0])
+console.log('- 是数组数组:', Array.isArray(finalData?.[0]))
+
+const forceConverted = forceArrayArrayFormat(finalData)
+
+console.log('🔥 调用 forceArrayArrayFormat 后:')
+console.log('- 输出数据[0] 类型:', typeof forceConverted?.[0])
+console.log('- 是数组数组:', Array.isArray(forceConverted?.[0]))
+console.log('- 转换结果:', forceConverted)
+
+  console.log('2. 强制转换验证:', {
+    转换成功: Array.isArray(forceConverted?.[0]),
+    格式: Array.isArray(forceConverted?.[0]) ? '数组数组 ✅' : '对象数组 ❌',
+    行数: forceConverted.length,
+    列数: forceConverted[0]?.length || 0
+  })
+  console.groupEnd()
+
+  const finalDataToReturn = (() => {
+      if (Array.isArray(forceConverted) && forceConverted.length > 0 && Array.isArray(forceConverted[0])) {
+        return forceConverted;
+      }
+
+      if (Array.isArray(forceConverted) && forceConverted.length > 0 && typeof forceConverted[0] === 'object') {
+        console.log('🔥 强制转换对象数组为数组数组');
+        const keys = Object.keys(forceConverted[0] || {});
+        return [
+          keys,
+          ...forceConverted.map(row => keys.map(key => String(row[key] || '')))
+        ];
+      }
+
+      return forceConverted || [];
+    })();
+
+    console.log('✅ 最终数据格式:', Array.isArray(finalDataToReturn[0]) ? '数组数组' : '对象数组');
+    return finalDataToReturn;
+})
+
+
+  // 在 useExcelData.js 中添加这个函数
+  const forceArrayArrayFormat = (data) => {
+      if (!data || !Array.isArray(data)) {
+        console.log('❌ 数据无效:', { 数据存在: !!data, 是数组: Array.isArray(data) })
+        return []
+      }
+
+      // 🔍 添加深度验证
+      if (Array.isArray(data[0])) {
+        const allRowsAreArrays = data.every(row => Array.isArray(row))
+        console.log('✅ 数据验证:', {
+          是数组数组: true,
+          所有行都是数组: allRowsAreArrays,
+          行数: data.length,
+          列数: data[0]?.length || 0
+        })
+        return allRowsAreArrays ? data : []
+      }
+
+      // 对象数组转换
+      if (typeof data[0] === 'object' && data[0] !== null) {
+        console.warn('⚠️ 检测到对象数组，强制转换...')
+        try {
+          const keys = Object.keys(data[0] || {})
+          const converted = [
+            keys, // 表头行
+            ...data.map(row => keys.map(key => String(row[key] ?? '')))
+          ]
+          console.log('✅ 转换结果:', {
+            行数: converted.length,
+            列数: keys.length,
+            第一行样本: converted[0]
+          })
+          return converted
+        } catch (e) {
+          console.error('❌ 转换失败:', e)
+          return []
+        }
+      }
+
+      console.warn('⚠️ 无法识别的数据格式')
+      return []
+    }
 
   // ============ 其他计算属性 ============
     /**
@@ -519,7 +828,7 @@ export default function useExcelData(props) {
   })
 
   // 列配置 - 重要：这里需要传入 isEditMode
-    const columns = computed(() => {
+  const columns = computed(() => {
       if (!tableData.value || tableData.value.length === 0) return []
 
       const headers = tableData.value[0] || []

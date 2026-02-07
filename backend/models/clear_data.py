@@ -43,13 +43,10 @@ class DatabaseCleaner:
         # 设置默认路径
         try:
             from backend.configs.config import config
-            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH: {config.DATABASE_PATH}")
-            print(f"🔍🔍🔍 调试信息 - config.DATABASE_PATH类型: {type(config.DATABASE_PATH)}")
 
             # 检查是否是绝对路径
             db_path_from_config = config.DATABASE_PATH
             is_absolute = Path(db_path_from_config).is_absolute()
-            print(f"🔍🔍🔍 调试信息 - 是否是绝对路径: {is_absolute}")
 
             self.db_path = db_path or config.DATABASE_PATH
             print(f"🔍🔍🔍 调试信息 - 最终db_path: {self.db_path}")

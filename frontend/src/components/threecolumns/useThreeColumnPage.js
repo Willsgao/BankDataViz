@@ -240,8 +240,6 @@ export function useThreeColumnPage() {
         // 方法3：再次触发更新
         excelData.value = tableData.slice()
 
-        console.log('✅ 数据响应式更新完成')
-
         // 🔥🔥🔥 关键修复4：通知表格组件刷新显示
         setTimeout(() => {
           if (typeof window !== 'undefined') {
@@ -266,7 +264,6 @@ export function useThreeColumnPage() {
     }
 
     // ✅ 正确的声明
-    // useThreeColumnPage.js
     const loadExcelData00 = async (sheetName, excelFileName, forceRefresh = false) => {
       try {
         console.log('🔍🔍🔍🔍🔍🔍 开始加载Excel数据流程 🔍🔍🔍🔍🔍🔍')
@@ -447,11 +444,9 @@ export function useThreeColumnPage() {
         const pageMatch = sheetName.match(/P(\d+)_/)
         if (pageMatch && pageMatch[1]) {
             const page = parseInt(pageMatch[1])
-            console.log(`🔢 从sheet名称提取页码: "${sheetName}" -> ${page}`)
             return page
         }
 
-        console.log(`🔢 未从sheet名称找到页码: "${sheetName}"`)
         return null
     }
 

@@ -4,6 +4,7 @@
 from flask import Blueprint, request, jsonify, send_from_directory, make_response, send_file
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
+from datetime import datetime
 import sqlite3
 import os
 
@@ -1049,7 +1050,6 @@ def save_flattened_data():
         return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
 
 
-from datetime import datetime
 
 @file_bp.route('/api/excel/global-flatten/<pdf_id>', methods=['POST', 'OPTIONS'])
 def global_flatten(pdf_id):
