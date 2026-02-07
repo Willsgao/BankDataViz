@@ -828,7 +828,7 @@ console.log('- 转换结果:', forceConverted)
   })
 
   // 列配置 - 重要：这里需要传入 isEditMode
-  const columns = computed(() => {
+  const columns00000 = computed(() => {
       if (!tableData.value || tableData.value.length === 0) return []
 
       const headers = tableData.value[0] || []
@@ -852,6 +852,66 @@ console.log('- 转换结果:', forceConverted)
         }))
       ]
     })
+
+  // 列配置 - 重要：这里需要传入 isEditMode
+  const columns = computed(() => {
+    if (!tableData.value || tableData.value.length === 0) return []
+
+    const headers = tableData.value[0] || []
+
+    // 🔥 判断是否有"项目0"列（检查第一列的表头）
+    const hasProjectZero = headers[0] === '项目0'
+
+    if (hasProjectZero) {
+        // 原始数据：有"项目0"和"项目"两列
+        return [
+            // 第 0 列："项目0"
+            {
+                data: 0,
+                title: '项目0',
+                width: 100,
+                className: 'project-zero-column',
+                readOnly: true
+            },
+            // 第 1 列："项目"
+            {
+                data: 1,
+                title: '项目',
+                width: 180,
+                className: 'vertical-header-column',
+                readOnly: false
+            },
+            // 其余列从第2列开始
+            ...headers.slice(2).map((h, i) => ({
+                data: i + 2,
+                type: 'text',
+                title: h || `列${i + 3}`,
+                width: 150,
+                readOnly: true
+            }))
+        ]
+    } else {
+        // 扁平化后数据：只有"项目"一列（原来的两列已合并）
+        return [
+            // 第 0 列："项目"（纵向表头）
+            {
+                data: 0,
+                title: headers[0] || '项目',  // 使用实际表头
+                width: 180,
+                className: 'vertical-header-column',
+                readOnly: false
+            },
+            // 其余列从第1列开始
+            ...headers.slice(1).map((h, i) => ({
+                data: i + 1,
+                type: 'text',
+                title: h || `列${i + 2}`,
+                width: 150,
+                readOnly: true
+            }))
+        ]
+    }
+})
 
 
   // 验证表格结构

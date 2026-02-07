@@ -803,6 +803,9 @@ def excel_flatten_from_excel():
         # 使用处理器处理
         result = excel_flatten_handler.excel_flatten_from_excel(data)
 
+        print("***************result****************")
+        print(result)
+
         if not result.get('success', True):
             return jsonify(result), 500
 

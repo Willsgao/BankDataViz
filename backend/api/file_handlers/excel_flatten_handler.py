@@ -169,42 +169,7 @@ class ExcelFlattenHandler:
             "source": "fallback"
         }
 
-    def extract_metadata_and_clean_data000000(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
-        """
-        从表格数据中提取元数据并清理数据
-        """
-        metadata = {}
-        clean_table_data = []
-
-        for row in table_data:
-            if not row or not row[0]:
-                clean_table_data.append(row)
-                continue
-
-            first_cell = str(row[0]).strip()
-
-            # 查找包含冒号的行作为元数据
-            if ":" in first_cell:
-                try:
-                    key, value = first_cell.split(":", 1)
-                    key = key.strip().lower()
-                    value = value.strip()
-
-                    # 只收集已知的元数据字段
-                    valid_keys = ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id"]
-                    if key in valid_keys:
-                        metadata[key] = value
-                        print(f"✅ 找到元数据: {key} = {value}")
-                except:
-                    clean_table_data.append(row)
-            else:
-                clean_table_data.append(row)
-
-        print(f"📋 提取的元数据: {metadata}")
-
-        return metadata, clean_table_data
-
-    def extract_metadata_and_clean_data(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
+    def extract_metadata_and_clean_data_old(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
         metadata = {}
 
         # 🔥🔥🔥 直接返回所有数据，不做任何删除
@@ -215,6 +180,49 @@ class ExcelFlattenHandler:
             if row and row[0] and ":" in str(row[0]).strip():
                 try:
                     key, value = str(row[0]).strip().split(":", 1)
+                    key, value = key.strip().lower(), value.strip()
+                    if key in ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id"]:
+                        metadata[key] = value
+                except:
+                    pass
+
+        return metadata, clean_table_data
+
+    def extract_metadata_and_clean_data(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
+        metadata = {}
+
+        # 🔥🔥🔥 关键修改：合并前两列
+        clean_table_data = []
+
+        for row in table_data:
+            if not row or len(row) == 0:
+                continue
+
+            # 获取前两列的内容
+            col_0 = str(row[0]).strip() if len(row) > 0 and row[0] is not None else ""
+            col_1 = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
+
+            # 合并前两列
+            merged_col = ""
+            if col_0 and col_1:
+                # 两列都有内容，用>>拼接
+                merged_col = f"{col_0}>>{col_1}"
+            elif col_0:
+                # 只有第0列有内容
+                merged_col = col_0
+            elif col_1:
+                # 只有第1列有内容
+                merged_col = col_1
+            # 否则保持空字符串
+
+            # 构建新行：合并后的第一列 + 剩余列（从第2列开始）
+            new_row = [merged_col] + row[2:] if len(row) > 2 else [merged_col]
+            clean_table_data.append(new_row)
+
+            # 提取元数据（只从合并后的第一列提取）
+            if merged_col and ":" in merged_col:
+                try:
+                    key, value = merged_col.split(":", 1)
                     key, value = key.strip().lower(), value.strip()
                     if key in ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id"]:
                         metadata[key] = value
@@ -744,6 +752,9 @@ class ExcelFlattenHandler:
                     "error": "数据转换器模块不可用"
                 }
 
+
+            print("TTTTTTTTTTTTTTTTTTTTTTTTTT:", data)
+
             # 1. 提取和验证输入数据
             table_data = data.get('table_data', [])
             source_info = data.get('source_info', {})
@@ -756,6 +767,8 @@ class ExcelFlattenHandler:
                 }
 
             print(f"📊📊📊📊 开始处理Excel表格数据:")
+            print("|source_info::::", source_info)
+
             print(f"  - 原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
 
             # 2. 提取元数据并清理数据

@@ -340,7 +340,7 @@ class FinalDataConverter:
             "col_mark_row_index": col_mark_row_index
         }
 
-    def _filter_and_clean_table_data(self, table_data: List[List], marks_info: Dict[str, Any]) -> List[List]:
+    def _filter_and_clean_table_data_old(self, table_data: List[List], marks_info: Dict[str, Any]) -> List[List]:
         """
         过滤和清理表格数据，同时移除标记列和标记行
 
@@ -396,7 +396,124 @@ class FinalDataConverter:
 
         return cleaned_data
 
+    def _filter_and_clean_table_data(self, table_data: List[List], marks_info: Dict[str, Any]) -> List[List]:
+        """
+        过滤和清理表格数据，同时移除标记列和标记行
+        保持旧版返回格式：纯二维数组，第一行是表头，后面是数据行
+        """
+        if not table_data or len(table_data) < 2:
+            return []
 
+        print(f"原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
+
+        # 获取标记信息
+        row_mark_col_index = marks_info["row_mark_col_index"]
+        col_mark_row_index = marks_info["col_mark_row_index"]
+
+        cleaned_data = []
+
+        for row_idx, row in enumerate(table_data):
+            # 跳过列标记行
+            if row_idx == col_mark_row_index:
+                continue
+
+            # 处理每一行，排除行标记列
+            cleaned_row = []
+            for col_idx, cell in enumerate(row):
+                # 跳过行标记列
+                if col_idx == row_mark_col_index:
+                    continue
+                cleaned_row.append(cell)
+
+            # 第一行总是保留（表头行）
+            if row_idx == 0:
+                cleaned_data.append(cleaned_row)
+            else:
+                # 检查第一列（行表头列）是否为空
+                if cleaned_row and len(cleaned_row) > 0:
+                    row_header = cleaned_row[0]
+                    # 判断行表头是否有效
+                    if (row_header is not None and
+                            str(row_header).strip() != "" and
+                            str(row_header).strip() not in ["0", "1", "2", "3", "4"]):
+                        cleaned_data.append(cleaned_row)
+                    else:
+                        print(f"过滤第{row_idx}行：行表头缺失或无效 ('{row_header}')")
+                else:
+                    print(f"过滤第{row_idx}行：行数据为空")
+
+        print(f"清理后表格尺寸: {len(cleaned_data)}行 × {len(cleaned_data[0]) if cleaned_data else 0}列")
+
+        return cleaned_data
+
+    def _filter_and_clean_table_data(self, table_data: List[List], marks_info: Dict[str, Any]) -> List[List]:
+        """
+        过滤和清理表格数据，同时移除标记列和标记行
+        关键：保留正确的表头行（包含日期的那行）
+        """
+        if not table_data or len(table_data) < 2:
+            return []
+
+        print(f"原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
+
+        # 获取标记信息
+        row_mark_col_index = marks_info["row_mark_col_index"]
+        col_mark_row_index = marks_info["col_mark_row_index"]
+
+        cleaned_data = []
+
+        for row_idx, row in enumerate(table_data):
+            # 跳过列标记行（包含"1","1","1"那行）
+            if row_idx == col_mark_row_index:
+                continue
+
+            # 处理每一行，排除行标记列
+            cleaned_row = []
+            for col_idx, cell in enumerate(row):
+                # 跳过行标记列（最后一列）
+                if col_idx == row_mark_col_index:
+                    continue
+                cleaned_row.append(cell)
+
+            # 🔥🔥 关键修复：识别真正的表头行
+            # 表头行特征：包含日期字符串（如"2025年6月30日"）
+            is_header_row = any(
+                isinstance(cell, str) and
+                ('年' in cell and '月' in cell and '日' in cell)  # 日期特征
+                for cell in cleaned_row
+            )
+
+            # 第一行或者是包含日期的行，都保留
+            if row_idx == 0 or is_header_row:
+                cleaned_data.append(cleaned_row)
+                print(f"保留表头行 {row_idx}: {cleaned_row}")
+            else:
+                # 检查第一列（行表头列）是否为空
+                if cleaned_row and len(cleaned_row) > 0:
+                    row_header = cleaned_row[0]
+                    # 判断行表头是否有效
+                    if (row_header is not None and
+                            str(row_header).strip() != "" and
+                            str(row_header).strip() not in ["0", "1", "2", "3", "4"]):
+                        cleaned_data.append(cleaned_row)
+                    else:
+                        print(f"过滤第{row_idx}行：行表头缺失或无效 ('{row_header}')")
+                else:
+                    print(f"过滤第{row_idx}行：行数据为空")
+
+        print(f"清理后表格尺寸: {len(cleaned_data)}行 × {len(cleaned_data[0]) if cleaned_data else 0}列")
+
+        # 🔥🔥 确保第一行是正确的表头（包含日期）
+        if cleaned_data and len(cleaned_data) > 0:
+            # 如果第一行不包含日期，但第二行包含，则交换
+            first_row_has_date = any('年' in str(cell) and '月' in str(cell) for cell in cleaned_data[0])
+            if not first_row_has_date and len(cleaned_data) > 1:
+                second_row_has_date = any('年' in str(cell) and '月' in str(cell) for cell in cleaned_data[1])
+                if second_row_has_date:
+                    print("交换表头行，确保第一行是正确的表头")
+                    cleaned_data[0], cleaned_data[1] = cleaned_data[1], cleaned_data[0]
+
+        return cleaned_data
 
     def _extract_report_period(self, col_header: str,
                                table_metadata: Dict[str, Any]) -> str:
@@ -1684,29 +1801,29 @@ class FinalDataConverter:
         """
         智能识别表头行索引，跳过标记行
         """
-        if not table_data or len(table_data) < 2:
-            return 0
-
-        # 策略1：查找包含>>的行
-        for i, row in enumerate(table_data):
-            # 跳过标记行
-            if i == mark_row_index:
-                continue
-
-            if not row:
-                continue
-
-            for cell in row:
-                if cell and '>>' in str(cell):
-                    return i
-
-        # 策略2：使用第一行非标记行
-        for i, row in enumerate(table_data):
-            if i == mark_row_index:
-                continue
-
-            if row and any(cell for cell in row if cell):
-                return i
+        # if not table_data or len(table_data) < 2:
+        #     return 0
+        #
+        # # 策略1：查找包含>>的行
+        # for i, row in enumerate(table_data):
+        #     # 跳过标记行
+        #     if i == mark_row_index:
+        #         continue
+        #
+        #     if not row:
+        #         continue
+        #
+        #     for cell in row:
+        #         if cell and '>>' in str(cell):
+        #             return i
+        #
+        # # 策略2：使用第一行非标记行
+        # for i, row in enumerate(table_data):
+        #     if i == mark_row_index:
+        #         continue
+        #
+        #     if row and any(cell for cell in row if cell):
+        #         return i
 
         return 0
 

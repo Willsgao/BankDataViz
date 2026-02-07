@@ -126,7 +126,7 @@
     <div class="excel-container" ref="excelContainer">
       <HotTable
         ref="hotTable"
-        :data="tableDataArray"
+        :data="tableData"
         :columns="computedColumns"
         :colWidths="colWidths"
         :colHeaders="true"

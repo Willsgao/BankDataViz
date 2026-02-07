@@ -1421,7 +1421,7 @@ class TableReconstructor:
 
         return name
 
-    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
+    def step9_save_to_excel_optimized_old(self, tables_data, output_file, table_names, metadata_list=None):
         """
         保存到 Excel（优化版）- 增加元数据支持
         强制使用外部传入的 table_names，不再自己拼名字
@@ -1502,6 +1502,163 @@ class TableReconstructor:
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         wb.save(output_file)
         wb.close()
+
+        print(f"✅ Excel保存完成: {output_file}")
+        return True
+
+    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
+        """
+        保存到 Excel（优化版）- 增加元数据支持
+        强制使用外部传入的 table_names，不再自己拼名字
+
+        Args:
+            tables_data: 表格数据列表
+            output_file: 输出文件路径
+            table_names: 表格名称列表
+            metadata_list: 元数据列表（可选，新增参数）
+        """
+        from openpyxl import Workbook
+        from pathlib import Path
+
+        wb = Workbook()
+        wb.remove(wb.active)  # 删默认 Sheet
+
+        print(f"📊📊 开始保存Excel到: {output_file}")
+
+        for idx, (table, name) in enumerate(zip(tables_data, table_names)):
+            ws = wb.create_sheet(title=name)  # 直接用外部名字
+
+            # 🔥🔥🔥 关键修改：在第一列插入"项目0"表头，原有数据整体右移一列
+            for r, row in enumerate(table, 1):
+                # 第1列：插入"项目0"（表头行）或空值（数据行）
+                if r == 1:
+                    ws.cell(row=r, column=1, value="项目0")
+                else:
+                    ws.cell(row=r, column=1, value="")
+
+                # 原有数据从第2列开始写入（整体右移一列）
+                for c, val in enumerate(row, 2):
+                    ws.cell(row=r, column=c, value=val)
+
+            # ========== 保存元数据到表格末尾（逻辑不变）==========
+            if metadata_list and idx < len(metadata_list):
+                metadata = metadata_list[idx]
+
+                # 计算数据行数
+                data_row_count = len(table)
+
+                # 在数据之后空一行，然后添加元数据
+                metadata_start_row = data_row_count + 2
+
+                # 添加元数据标记和内容
+                if any(metadata.values()):
+                    ws.cell(row=metadata_start_row, column=1, value="")
+
+                    row_offset = 1
+                    if metadata.get('default_currency'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"currency:{metadata['default_currency']}")
+                        print(f"      币种: {metadata['default_currency']}")
+                        row_offset += 1
+
+                    if metadata.get('default_report_period'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"report_period:{metadata['default_report_period']}")
+                        print(f"      报告期: {metadata['default_report_period']}")
+                        row_offset += 1
+
+                    if metadata.get('default_unit'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"unit:{metadata['default_unit']}")
+                        print(f"      单位: {metadata['default_unit']}")
+                        row_offset += 1
+
+                    if metadata.get('original_table_name'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"table_name:{metadata['original_table_name']}")
+                        print(f"      原始表名: {metadata['original_table_name']}")
+                        row_offset += 1
+
+                    if metadata.get('ocr_table_id') != -1:
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"ocr_table_id:{metadata['ocr_table_id']}")
+                        print(f"      OCR表ID: {metadata['ocr_table_id']}")
+                        row_offset += 1
+
+                    ws.cell(row=metadata_start_row + row_offset, column=1, value="")
+
+                    print(f"    元数据已保存到第{metadata_start_row}行之后")
+            else:
+                print(f"    无元数据或元数据索引超出范围")
+
+        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        wb.save(output_file)
+        wb.close()
+
+        print(f"✅ Excel保存完成: {output_file}")
+        return True
+
+    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
+        """
+        保存到 Excel（优化版）- 保持旧版数据结构，元数据放在数据末尾
+        """
+        from openpyxl import Workbook
+        from pathlib import Path
+
+        wb = Workbook()
+        wb.remove(wb.active)
+
+        print(f"📊📊 开始保存Excel到: {output_file}")
+
+        for idx, (table, name) in enumerate(zip(tables_data, table_names)):
+            ws = wb.create_sheet(title=name)
+
+            # 保存表格数据
+            for r, row in enumerate(table, 1):
+                for c, val in enumerate(row, 1):
+                    ws.cell(row=r, column=c, value=val)
+
+            # 保存元数据到表格末尾（保持旧版格式）
+            if metadata_list and idx < len(metadata_list):
+                metadata = metadata_list[idx]
+
+                data_row_count = len(table)
+                metadata_start_row = data_row_count + 2
+
+                if any(metadata.values()):
+                    ws.cell(row=metadata_start_row, column=1, value="")
+
+                    row_offset = 1
+                    if metadata.get('default_currency'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"currency:{metadata['default_currency']}")
+                        row_offset += 1
+
+                    if metadata.get('default_report_period'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"report_period:{metadata['default_report_period']}")
+                        row_offset += 1
+
+                    if metadata.get('default_unit'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"unit:{metadata['default_unit']}")
+                        row_offset += 1
+
+                    if metadata.get('original_table_name'):
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"table_name:{metadata['original_table_name']}")
+                        row_offset += 1
+
+                    if metadata.get('ocr_table_id') != -1:
+                        ws.cell(row=metadata_start_row + row_offset, column=1,
+                                value=f"ocr_table_id:{metadata['ocr_table_id']}")
+                        row_offset += 1
+
+                    ws.cell(row=metadata_start_row + row_offset, column=1, value="")
+
+            Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+            wb.save(output_file)
+            wb.close()
 
         print(f"✅ Excel保存完成: {output_file}")
         return True

@@ -916,6 +916,14 @@ const loadExcelSheets = async (pdfId) => {
 const pdfPreviewRef = ref(null)
 //++++++++++++++++++++++++++++++++
 const selectSheet = async (sheet, excelFileName) => {
+
+  // 🔥 强制重置为原始模式（与导航按钮保持一致）
+  showFlatMode.value = false
+  flatData.value = []
+  if (window.currentTableMode) {
+    window.currentTableMode = 'original'
+  }
+
   try {
     console.log('🎯🎯 选择Sheet:', sheet?.name)
 
