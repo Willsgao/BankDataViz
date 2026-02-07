@@ -326,49 +326,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     }
 
 
-  // 3. 新增：启动恢复函数
-  const restoreUnsavedFromIndexedDB0000 = async () => {
-  try {
-    // ✅ 添加数据库连接状态检查
-    if (!db || db.readyState === 'closed' || db.readyState === 'closing') {
-      console.warn('⚠️ 数据库连接不可用，跳过恢复');
-      return;
-    }
-
-    // ✅ 添加延迟确保数据库就绪
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    console.log('🔄 从IndexedDB恢复未保存数据...');
-
-    const transaction = db.transaction(['unsavedCells'], 'readonly');
-    const store = transaction.objectStore('unsavedCells');
-    const request = store.getAll();
-
-    return new Promise((resolve) => {
-      request.onsuccess = () => {
-        const unsavedCells = request.result || [];
-        console.log(`📦 从IndexedDB恢复 ${unsavedCells.length} 个未保存单元格`);
-
-        if (unsavedCells.length > 0) {
-          // 应用恢复逻辑
-          applyRestoredCells(unsavedCells);
-        }
-        resolve();
-      };
-
-      request.onerror = () => {
-        console.warn('⚠️ 读取IndexedDB失败:', request.error);
-        resolve(); // 不阻断流程
-      };
-    });
-
-  } catch (error) {
-    console.warn('⚠️ 恢复未保存数据失败（非致命错误）:', error);
-    // 静默失败，不阻断主流程
-  }
-};
-
-
   // ============ 公共方法 ============
   const toggleEditMode = (onSuccess) => {
       console.log('🔄 toggleEditMode 被调用，当前状态:', isEditMode.value, '回调:', typeof onSuccess);
@@ -704,6 +661,14 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     // ✅✅✅ 修复后的完整 onDataChange 函数
     const onDataChange = (changes, source) => {
       console.log('🎯🎯🎯🎯 onDataChange 被执行', changes, source);
+
+      // ✅ 忽略 loadData 和 restore 操作（这是正常的）
+      if (!changes || source === 'loadData' || source === 'restore') {
+        console.log('⏭️ 忽略非用户修改操作:', source);
+        return;
+      }
+
+
       if (!changes || source === 'loadData' || source === 'restore') return;
 
       const tableType = window.currentTableType || 'original';

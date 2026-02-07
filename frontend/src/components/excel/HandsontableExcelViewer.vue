@@ -126,7 +126,7 @@
     <div class="excel-container" ref="excelContainer">
       <HotTable
         ref="hotTable"
-        :data="tableData"
+        :data="tableDataArray"
         :columns="computedColumns"
         :colWidths="colWidths"
         :colHeaders="true"
@@ -224,6 +224,11 @@ const globalFlattenEnabled = computed(() => {
   return props.pdfId && props.excelFileName && props.sheetName && tableData.value.length > 0
 })
 
+// 表头数组
+const computedColHeaders = computed(() => {
+  return computedColumns.value.map(col => col.title || `列${col.data + 1}`);
+});
+
 
 // ============ 新增：选区处理 ============
 const selectedRange = ref(null)
@@ -299,6 +304,152 @@ const handleSelection = (startRow, startCol, endRow, endCol) => {
   console.log('📤📤 发射选区信息完成')
 }
 
+
+// 1. 先添加辅助函数（放在文件顶部或合适位置）
+const convertObjectArrayToArray = (objectArray) => {
+  if (!objectArray || objectArray.length === 0) return [];
+
+  const keys = Object.keys(objectArray[0] || {});
+  const result = [keys]; // 第一行是表头
+
+  objectArray.forEach(row => {
+    const rowArray = keys.map(key => row[key] ?? '');
+    result.push(rowArray);
+  });
+
+  return result;
+};
+
+
+const handleInsertColumn = async (colIndex) => {
+  try {
+    const hot = getSafeHotInstance();
+    if (!hot) return;
+
+    console.log('🎯 插入列到索引:', colIndex);
+
+    // 1. 获取当前数据（对象数组格式）
+    const currentData = hot.getSourceData();
+    if (!currentData || currentData.length === 0) {
+      ElMessage.warning('表格数据为空，无法插入列');
+      return;
+    }
+
+    // 2. 生成新的列名（避免重复）
+    const newColName = generateNewColumnName(currentData[0], colIndex);
+
+    // 3. 构建新的数据：在指定位置插入新列
+    const newData = currentData.map((row, rowIndex) => {
+      const newRow = {};
+      const keys = Object.keys(row);
+
+      // 在指定位置插入新键
+      keys.forEach((key, index) => {
+        if (index === colIndex) {
+          newRow[newColName] = ''; // 新列空值
+        }
+        newRow[key] = row[key];
+      });
+
+      // 如果插入位置在最后
+      if (colIndex >= keys.length) {
+        newRow[newColName] = '';
+      }
+
+      return newRow;
+    });
+
+    // 4. 🔥 关键：更新 columns 配置，插入新列定义
+    if (columns.value && columns.value.length > 0) {
+      const newColumnDef = {
+        data: newColName,  // 使用字段名而不是索引
+        title: newColName,
+        readOnly: !isEditMode.value
+      };
+
+      // 在指定位置插入
+      const newColumns = [...columns.value];
+      newColumns.splice(colIndex, 0, newColumnDef);
+
+      // 更新 columns（这会触发 computedColumns 重新计算）
+      columns.value = newColumns;
+    }
+
+    // 5. 使用 loadData 更新数据（不触发 afterChange 的修改标记）
+    hot.loadData(newData);
+
+    console.log('✅ 插入列完成，新列数:', Object.keys(newData[0]).length);
+    ElMessage.success(`已插入新列 "${newColName}"`);
+
+  } catch (error) {
+    console.error('❌ 插入列失败:', error);
+    ElMessage.error('插入列失败: ' + error.message);
+  }
+};
+
+// 生成唯一的列名
+const generateNewColumnName = (firstRow, insertIndex) => {
+  const existingKeys = Object.keys(firstRow);
+  let newName = `列${insertIndex + 1}`;
+  let counter = 1;
+
+  while (existingKeys.includes(newName)) {
+    newName = `新列${counter}`;
+    counter++;
+  }
+
+  return newName;
+};
+
+
+const handleInsertColumn1111111 = async (colIndex) => {
+  try {
+    const hot = getSafeHotInstance();
+    if (!hot) return;
+
+    // 🔥 获取当前所有表头信息
+    const settings = hot.getSettings();
+    const currentData = hot.getData();
+
+    // 处理不同类型的表头
+    let colHeaders = settings.colHeaders;
+
+    if (Array.isArray(colHeaders)) {
+      // 数组表头：插入空白表头
+      colHeaders.splice(colIndex, 0, `列${colIndex + 1}`);
+    } else if (colHeaders === true) {
+      // 自动生成表头：重新生成
+      colHeaders = Array.from({ length: currentData[0].length + 1 }, (_, i) =>
+        String.fromCharCode(65 + i)
+      );
+    }
+    // colHeaders === false 时不处理表头
+
+    // 更新数据
+    const newData = currentData.map(row => {
+      const newRow = [...row];
+      newRow.splice(colIndex, 0, '');
+      return newRow;
+    });
+
+    // 同时更新数据和表头
+    hot.updateSettings({
+      data: newData,
+      colHeaders: colHeaders
+    }, false);
+
+    hot.render();
+    console.log('✅ 列和表头同步更新完成');
+
+  } catch (error) {
+    console.error('❌ 插入列失败:', error);
+    ElMessage.error('插入列失败');
+  }
+};
+
+
+
+// 3. 然后修改现有的 getContextMenuConfig 函数
 const getContextMenuConfig = computed(() => {
   return {
     items: {
@@ -312,11 +463,19 @@ const getContextMenuConfig = computed(() => {
       },
       'col_left': {
         name: '在左侧插入列',
-        disabled: !isEditMode.value
+        disabled: !isEditMode.value,
+        callback: function(key, selection) {
+          const startCol = selection[0]?.[1] || 0;
+          handleInsertColumn(startCol); // 使用新的处理函数
+        }
       },
       'col_right': {
         name: '在右侧插入列',
-        disabled: !isEditMode.value
+        disabled: !isEditMode.value,
+        callback: function(key, selection) {
+          const startCol = selection[0]?.[1] || 0;
+          handleInsertColumn(startCol + 1); // 在右侧插入
+        }
       },
       'remove_row': {
         name: '删除行',
@@ -343,6 +502,7 @@ const getContextMenuConfig = computed(() => {
     }
   }
 })
+
 
 // 清除选区
 const clearSelection = () => {

@@ -252,7 +252,8 @@ const emit = defineEmits([
   'data-changed',
   'instance-ready',
   'unsaved-changes-updated',
-  'navigate-sheet'
+  'navigate-sheet',
+  'update-flat-data'
 ])
 
 /* ===== 组件引用和状态 ===== */
@@ -324,7 +325,46 @@ const handleGlobalFlattenComplete = (eventData) => {
   handleGlobalFlattenedData(eventData.flattenedData)
 }
 
+
 const handleGlobalFlattenedData = (flattenedData) => {
+  try {
+    console.log('🔄🔄 处理整体扁平化数据', {
+      数据行数: flattenedData.length,
+      第一行样本: flattenedData[0]
+    })
+
+    if (Array.isArray(flattenedData) && flattenedData.length > 0) {
+
+      // ✅ 正确方式：通过emit通知父组件更新
+      emit('update-flat-data', flattenedData)
+
+      console.log('✅ 已通知父组件更新扁平化数据', {
+        新数据行数: flattenedData.length
+      })
+    }
+
+    if (!props.showFlatMode) {
+      console.log('🔄🔄 自动切换到扁平化模式')
+      emit('toggle-flat-mode')
+    }
+
+    nextTick(() => {
+      if (flatViewer.value) {
+        const hotInstance = flatViewer.value.getSafeHotInstance?.()
+        if (hotInstance && !hotInstance.isDestroyed) {
+          hotInstance.render()
+          console.log('✅ 表格已刷新显示')
+        }
+      }
+    })
+
+  } catch (error) {
+    console.error('❌❌ 处理整体扁平化数据失败:', error)
+    ElMessage.error('处理扁平化数据失败')
+  }
+}
+
+const handleGlobalFlattenedData0000 = (flattenedData) => {
   try {
     console.log('🔄🔄 处理整体扁平化数据', {
       数据行数: flattenedData.length,

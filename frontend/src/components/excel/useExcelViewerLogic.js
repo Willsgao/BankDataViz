@@ -65,7 +65,7 @@ export default function useExcelViewerLogic(
     )
   )
 
-  const computedColumns = computed(() => {
+  const computedColumns00000 = computed(() => {
     const baseColumns = columns.value
     if (!baseColumns || baseColumns.length === 0) {
       return []
@@ -76,6 +76,55 @@ export default function useExcelViewerLogic(
       readOnly: !isEditMode.value
     }))
   })
+
+  const computedColumns = computed(() => {
+  const baseColumns = columns.value;
+
+  // 获取当前数据列数
+  const dataColCount = tableData.value[0]?.length || 0;
+
+  // 如果没有配置或列数不匹配，基于数据生成配置
+  if (!baseColumns || baseColumns.length === 0) {
+    return Array.from({ length: dataColCount }, (_, index) => ({
+      data: index,
+      readOnly: !isEditMode.value,
+      title: String.fromCharCode(65 + index) // A, B, C...
+    }));
+  }
+
+  // ✅ 关键：如果配置列数 < 数据列数，补充新列配置
+  if (baseColumns.length < dataColCount) {
+    const newColumns = [...baseColumns];
+    for (let i = baseColumns.length; i < dataColCount; i++) {
+      newColumns.push({
+        data: i,
+        readOnly: !isEditMode.value,
+        title: `列${i + 1}`  // 新列默认名称
+      });
+    }
+    return newColumns.map((col, index) => ({
+      ...col,
+      data: index,  // 确保 data 索引正确
+      readOnly: !isEditMode.value
+    }));
+  }
+
+  // 如果配置列数 > 数据列数，截断（但保留名称供后续使用）
+  if (baseColumns.length > dataColCount) {
+    return baseColumns.slice(0, dataColCount).map((col, index) => ({
+      ...col,
+      data: index,
+      readOnly: !isEditMode.value
+    }));
+  }
+
+  // 正常情况：列数匹配
+  return baseColumns.map((col, index) => ({
+    ...col,
+    data: index,
+    readOnly: !isEditMode.value
+  }));
+});
 
   // 处理单元格修改的函数
   const handleCellChangeFromEdit = (cellInfo) => {
@@ -626,7 +675,6 @@ export default function useExcelViewerLogic(
       showCellContent.value = false
     }
   }
-
 
   const restoreModifiedCellsStyle = () => {
       const hot = getSafeHotInstance()
