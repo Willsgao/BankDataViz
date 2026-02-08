@@ -1,6 +1,6 @@
 <template>
   <div class="handsontable-excel-viewer">
-    <!-- 第一行：主控栏（保持不变） -->
+    <!-- 第一行：主控栏（最简科学） -->
     <div class="main-toolbar">
       <div class="toolbar-section left-section">
         <el-button
@@ -69,6 +69,7 @@
           整体扁平化
         </el-button>
 
+
         <el-tooltip
           :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
           placement="bottom"
@@ -85,31 +86,7 @@
       </div>
     </div>
 
-    <!-- 新增：选中区域求和显示栏（放在第二行） -->
-    <div v-if="selectionSum.visible" class="selection-summary-bar">
-      <div class="sum-info">
-        <el-icon><DataAnalysis /></el-icon>
-        <span class="sum-label">选中区域求和:</span>
-        <span class="sum-value">{{ selectionSum.total }}</span>
-        <span class="sum-details">
-          ({{ selectionSum.numericCount }}/{{ selectionSum.totalCells }} 个数值)
-        </span>
-        <span v-if="selectionSum.numericCount > 1" class="sum-stats">
-          平均值: {{ selectionSum.average }} | 最大: {{ selectionSum.max }} | 最小: {{ selectionSum.min }}
-        </span>
-      </div>
-      <el-button
-        size="small"
-        type="info"
-        link
-        @click="clearSelectionSum"
-        title="清除求和显示"
-      >
-        <el-icon><Close /></el-icon>
-      </el-button>
-    </div>
-
-    <!-- 第三行：功能操作栏（原有逻辑保持不变） -->
+    <!-- 第二行：功能操作栏（合并当前单元格完整信息，选中才显） -->
     <div class="action-toolbar compact-line" v-if="tableData.length > 0 && (showStatsPanel || selectedCell.position)">
       <!-- 左侧：选中统计（原有） -->
       <div v-if="showStatsPanel" class="action-group selection-stats-group">
@@ -193,10 +170,9 @@
 </template>
 
 
-
 <script setup>
 import { registerLanguageDictionary, zhCN } from 'handsontable/i18n'
-import { ref, computed, defineEmits, defineProps, nextTick, onMounted, onUnmounted, defineExpose, watch } from 'vue'
+import { ref, computed, defineEmits, defineProps, nextTick, onMounted, onUnmounted, defineExpose } from 'vue'
 
 import { HotTable } from '@handsontable/vue3'
 // import 'handsontable/dist/handsontable.full.min.css'  // 使用最新样式
@@ -216,8 +192,6 @@ import useExcelEdit from './useExcelEdit.js'
 import useExcelSelection from './useExcelSelection.js'
 import useExcelViewerLogic from './useExcelViewerLogic.js'
 import useExcelViewerExpose from './useExcelViewerExpose.js'
-import { useSelectionSum } from './useSelectionSum.js'
-
 
 // 在现有的import语句后添加
 import Handsontable from 'handsontable';
@@ -777,8 +751,7 @@ const emit = defineEmits([
   'instance-ready',
   'global-flatten-complete',
   'cell-selected',
-  'save-data',
-  'selection-sum-changed'
+  'save-data'
 ])
 
 const props = defineProps({
@@ -869,20 +842,6 @@ const getHotInstanceDirect = () => {
 }
 
 
-
-// 在现有代码之后添加求和功能
-const {
-  selectionSum,
-  calculateSelectionSum,
-  clearSelectionSum,
-  setupSelectionSumListener
-} = useSelectionSum(getSafeHotInstance)
-
-watch(selectionSum, (newVal) => {
-  emit('selection-sum-changed', newVal)
-}, { deep: true })
-
-
 onMounted(() => {
   // 确保Handsontable已加载
   if (typeof Handsontable === 'undefined') {
@@ -933,6 +892,53 @@ onMounted(() => {
     console.log('✅ Alter插件已强制注册')
   }
 })
+
+
+const onHotInit = () => {
+  setTimeout(() => {
+    const hot = getHotInstanceDirect()
+    if (hot) {
+      hotInstanceRef.value = hot
+      hotController.setInstance(hot)
+      window.__excelHotInstance = hot
+
+      console.log('⚡ Handsontable 实例已立即暴露', {
+        行数: hot.countRows(),
+        列数: hot.countCols(),
+        实例ID: hot.guid,
+        时间戳: Date.now()
+      })
+
+      // 🔥 关键检查：确保Alter插件已启用
+      console.log('🔍 检查Alter插件状态:')
+      const alterPlugin = hot.getPlugin('alter')
+      if (!alterPlugin) {
+        console.error('❌ Alter插件未启用！')
+        // 强制启用
+        hot.updateSettings({
+          plugins: {
+            alter: true
+          }
+        })
+        console.log('✅ 已强制启用Alter插件')
+      } else {
+        console.log('✅ Alter插件已启用')
+      }
+
+      emit('instance-ready', {
+        instance: hot,
+        guid: hot.guid,
+        pdfId: props.pdfId,
+        excelFileName: props.excelFileName,
+        sheetName: props.sheetName,
+        tableType: props.excelData === props.flatData ? 'flattened' : 'original',
+        timestamp: Date.now()
+      })
+
+      nextTick(() => restoreModifiedCellsStyle())
+    }
+  }, 0)
+}
 
 
 // 获取增强版实例（兼容原有逻辑）
@@ -1105,60 +1111,6 @@ onUnmounted(() => {
 })
 
 
-const onHotInit = () => {
-  setTimeout(() => {
-    const hot = getHotInstanceDirect()
-    if (hot) {
-      hotInstanceRef.value = hot
-      hotController.setInstance(hot)
-      window.__excelHotInstance = hot
-
-      console.log('⚡ Handsontable 实例已立即暴露', {
-        行数: hot.countRows(),
-        列数: hot.countCols(),
-        实例ID: hot.guid,
-        时间戳: Date.now()
-      })
-
-      // 🔥 关键检查：确保Alter插件已启用
-      console.log('🔍 检查Alter插件状态:')
-      const alterPlugin = hot.getPlugin('alter')
-      if (!alterPlugin) {
-        console.error('❌ Alter插件未启用！')
-        // 强制启用
-        hot.updateSettings({
-          plugins: {
-            alter: true
-          }
-        })
-        console.log('✅ 已强制启用Alter插件')
-      } else {
-        console.log('✅ Alter插件已启用')
-      }
-
-      emit('instance-ready', {
-        instance: hot,
-        guid: hot.guid,
-        pdfId: props.pdfId,
-        excelFileName: props.excelFileName,
-        sheetName: props.sheetName,
-        tableType: props.excelData === props.flatData ? 'flattened' : 'original',
-        timestamp: Date.now()
-      })
-
-      nextTick(() => restoreModifiedCellsStyle())
-    }
-  }, 0)
-
-  // 🎯 设置选中求和监听器（合并自第二个 onHotInit）
-  console.log('🎯 表格实例就绪，设置选中求和监听器')
-  // 延迟设置监听器，确保表格完全初始化
-  setTimeout(() => {
-    setupSelectionSumListener()
-  }, 100)
-}
-
-
 onMounted(() => {
   console.log('🔧 强制注册Alter插件...')
 
@@ -1175,23 +1127,6 @@ onMounted(() => {
       console.log('✅ Alter插件已自动注册')
     }
   }
-})
-
-
-// 监听选中区域统计事件
-onMounted(() => {
-  const handleSelectionSumChanged = (event) => {
-    console.log('📥 HandsontableExcelViewer 收到统计事件:', event.detail)
-    // 转发给父组件 ExcelContent
-    emit('selection-sum-changed', event.detail)
-  }
-
-  window.addEventListener('selection-sum-changed', handleSelectionSumChanged)
-
-  // 清理事件监听
-  onUnmounted(() => {
-    window.removeEventListener('selection-sum-changed', handleSelectionSumChanged)
-  })
 })
 
 </script>
@@ -2507,88 +2442,6 @@ onMounted(() => {
   .toolbar-section {
     justify-content: center;
     width: 100%;
-  }
-}
-
-/* 新增样式：选中区域求和显示栏 */
-.selection-summary-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #f6ffed 0%, #f0fff3 100%);
-  border-bottom: 1px solid #b7eb8f;
-  border-left: 4px solid #52c41a;
-  animation: slideDown 0.3s ease;
-  margin: 2px 0;
-}
-
-.sum-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  flex-wrap: wrap;
-}
-
-.sum-info .el-icon {
-  color: #52c41a;
-  font-size: 16px;
-}
-
-.sum-label {
-  font-weight: 600;
-  color: #389e0d;
-}
-
-.sum-value {
-  font-weight: 700;
-  color: #135200;
-  font-size: 16px;
-  background: #fff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid #b7eb8f;
-  box-shadow: 0 1px 3px rgba(82, 196, 26, 0.2);
-}
-
-.sum-details {
-  color: #73d13d;
-  font-size: 12px;
-  margin-left: 8px;
-}
-
-.sum-stats {
-  color: #95de64;
-  font-size: 11px;
-  margin-left: 12px;
-  opacity: 0.8;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .selection-summary-bar {
-    padding: 6px 12px;
-  }
-
-  .sum-info {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .sum-details, .sum-stats {
-    margin-left: 0;
   }
 }
 

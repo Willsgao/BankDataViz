@@ -40,6 +40,8 @@
               </span>
             </div>
 
+
+
             <!-- 主功能：大按钮 -->
             <el-button
               type="primary"
@@ -62,6 +64,8 @@
             </el-button>
           </div>
         </div>
+
+
       </div>
     </div>
 
@@ -86,30 +90,6 @@
         </template>
       </div>
     </template>
-
-    <!-- 🔥 新增：选中区域统计信息 -->
-    <div v-if="selectionSumData.visible" class="selection-summary-bar">
-      <div class="sum-info">
-        <el-icon><DataAnalysis /></el-icon>
-        <span class="sum-label">选中区域求和:</span>
-        <span class="sum-value">{{ selectionSumData.total }}</span>
-        <span class="sum-details">
-          ({{ selectionSumData.numericCount }}/{{ selectionSumData.totalCells }} 个数值)
-        </span>
-        <span v-if="selectionSumData.numericCount > 1" class="sum-stats">
-          平均值: {{ selectionSumData.average }} | 最大: {{ selectionSumData.max }} | 最小: {{ selectionSumData.min }}
-        </span>
-      </div>
-      <el-button
-        size="small"
-        type="info"
-        link
-        @click="clearSelectionSum"
-        title="清除求和显示"
-      >
-        <el-icon><Close /></el-icon>
-      </el-button>
-    </div>
 
     <!-- 表格区域：自动撑满剩余高度 -->
     <div class="excel-content">
@@ -145,7 +125,6 @@
             @edit-status-changed="handleEditStatusChanged"
             @global-flatten-complete="handleGlobalFlattenComplete"
             @save-data="triggerSave"
-            @selection-sum-changed="handleSelectionSumChanged"
           />
         </div>
 
@@ -166,7 +145,6 @@
             @edit-status-changed="handleEditStatusChanged"
             @global-flatten-complete="handleGlobalFlattenComplete"
             @save-data="triggerSave"
-            @selection-sum-changed="handleSelectionSumChanged"
           />
         </div>
 
@@ -184,6 +162,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup>
 import SaveStatus from './SaveStatus.vue'
@@ -344,23 +323,6 @@ const handleEditStatusChanged = (status) => {
 const handleGlobalFlattenComplete = (eventData) => {
   console.log('📥📥 ExcelContent: 接收整体扁平化数据', eventData)
   handleGlobalFlattenedData(eventData.flattenedData)
-}
-
-
-// 选中区域合计数据
-const selectionSumData = ref({
-  visible: false,
-  total: 0,
-  numericCount: 0,
-  totalCells: 0,
-  average: 0,
-  max: 0,
-  min: 0
-})
-
-// 处理选中区域合计变化
-const handleSelectionSumChanged = (data) => {
-  selectionSumData.value = data
 }
 
 
@@ -869,27 +831,6 @@ if (typeof window !== 'undefined') {
     enableSaveButtons: () => enableSaveButtons.value
   }
 }
-
-
-// 在 ExcelContent.vue 的 onMounted 中添加
-onMounted(() => {
-  console.log('🚀 ExcelContent 组件挂载，开始监听统计事件')
-
-  // 监听选中区域统计事件
-  const handleSelectionSum = (event) => {
-    console.log('📥 ExcelContent 收到统计事件:', event.detail)
-    selectionSumData.value = event.detail
-  }
-
-  window.addEventListener('selection-sum-changed', handleSelectionSum)
-
-  // 清理事件监听
-  onUnmounted(() => {
-    window.removeEventListener('selection-sum-changed', handleSelectionSum)
-    console.log('🧹 ExcelContent 清理统计事件监听')
-  })
-})
-
 </script>
 
 
@@ -1117,6 +1058,11 @@ onMounted(() => {
 }
 
 
+
+
+
+/* 在 ExcelContent.vue 的 style 部分，确保这样写 */
+
 .excel-content-container {
   height: 100%;
   display: flex;
@@ -1200,58 +1146,6 @@ onMounted(() => {
   border-radius: 4px;
   min-width: 120px;
   text-align: center;
-}
-
-
-.selection-summary-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  font-size: 14px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-  animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.selection-summary-bar .summary-label {
-  font-weight: 600;
-  margin-right: 8px;
-}
-
-.selection-summary-bar .summary-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.selection-summary-bar .sum-value {
-  font-size: 18px;
-  font-weight: bold;
-  color: #ffd700;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.selection-summary-bar .summary-stats {
-  margin-left: auto;
-  padding-left: 16px;
-  border-left: 1px solid rgba(255,255,255,0.3);
-  font-size: 13px;
-  opacity: 0.95;
 }
 
 

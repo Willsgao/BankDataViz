@@ -423,180 +423,180 @@ export function useSheetOperations() {
 
   // 替换 useSheetOperations.js 中的 selectSheet 函数
   // 替换 useSheetOperations.js 中的整个 selectSheet 函数
-const selectSheet = async (
-  sheet,
-  excelFileName,
-  selectedPdf,
-  selectedSheetRef,
-  selectedExcelFileRef,
-  sheetStateManager,
-  excelDataRef,
-  tableColumnsRef,
-  flatDataRef,
-  showFlatModeRef,
-  currentTableModeRef,
-  loadExcelDataFn,
-  loadAllClassDataFn,
-  loadingExcelRef,
-  excelDataCache,
-  dataManager
-) => {
-  console.log('🔄🔄🔄🔄🔄🔄🔄🔄 选择sheet - 强制从后台读取数据:', {
-    sheet名称: sheet?.name,
-    excel文件: excelFileName,
-    当前PDF: selectedPdf?.id
-  })
-
-  // 参数验证
-  if (!selectedSheetRef || !selectedExcelFileRef || !sheetStateManager) {
-    console.error('❌❌❌❌❌❌❌❌ 关键参数缺失')
-    throw new Error('函数参数不完整，无法选择表格')
-  }
-
-  if (!selectedPdf) {
-    console.error('❌❌❌❌❌❌❌❌ selectedPdf参数为undefined或null')
-    ElMessage.error('PDF参数缺失，请先选择PDF文件')
-    return { success: false, error: 'PDF参数缺失' }
-  }
-
-  try {
-    // 1. 重置状态
-    console.log('🔄🔄🔄🔄🔄🔄🔄🔄 开始重置状态...')
-    selectedSheetRef.value = { ...sheet, excel_file: excelFileName }
-    selectedExcelFileRef.value = excelFileName
-
-    if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
-      currentTableModeRef.value = 'original'
-      console.log('✅ currentTableModeRef 设置为: original')
-    }
-
-    if (typeof window !== 'undefined') {
-      window.currentTableMode = 'original'
-      console.log('✅ window.currentTableMode 设置为: original')
-    }
-    console.log('✅ 状态重置完成')
-
-    // 2. 状态管理器上下文
-    console.log('🔄🔄🔄🔄🔄🔄🔄🔄 设置状态管理器上下文...')
-    sheetStateManager.setActiveContext(
-      selectedPdf.id,
+    const selectSheet = async (
+      sheet,
       excelFileName,
-      sheet.name,
-      'original'
-    )
-    console.log('✅ 上下文设置完成')
+      selectedPdf,
+      selectedSheetRef,
+      selectedExcelFileRef,
+      sheetStateManager,
+      excelDataRef,
+      tableColumnsRef,
+      flatDataRef,
+      showFlatModeRef,
+      currentTableModeRef,
+      loadExcelDataFn,
+      loadAllClassDataFn,
+      loadingExcelRef,
+      excelDataCache,
+      dataManager
+    ) => {
+      console.log('🔄🔄🔄🔄🔄🔄🔄🔄 选择sheet - 强制从后台读取数据:', {
+        sheet名称: sheet?.name,
+        excel文件: excelFileName,
+        当前PDF: selectedPdf?.id
+      })
 
-    // 3. 清除缓存
-    const pdfId = selectedPdf.id
-    console.log('🧹🧹🧹🧹🧹🧹🧹🧹 强制清除缓存，确保从后台读取最新数据')
-
-    if (excelDataCache && excelDataCache.deleteOriginalData) {
-      excelDataCache.deleteOriginalData(pdfId, excelFileName, sheet.name)
-      console.log('✅ 清除原始数据缓存')
-    }
-    if (excelDataCache && excelDataCache.deleteFlattenedData) {
-      excelDataCache.deleteFlattenedData(pdfId, excelFileName, sheet.name)
-      console.log('✅ 清除扁平化数据缓存')
-    }
-
-    const cacheKey = `${pdfId}_${excelFileName}_${sheet.name}`
-    if (window.sheetDataCache) {
-      delete window.sheetDataCache[cacheKey]
-      console.log('✅ 清除内存缓存')
-    }
-
-    if (dataManager && dataManager.indexedDBManager) {
-      try {
-        await dataManager.indexedDBManager.deleteOriginalCache(pdfId, excelFileName, sheet.name)
-        await dataManager.indexedDBManager.deleteFlattenedCache(pdfId, excelFileName, sheet.name)
-        console.log('✅ 清除 IndexedDB 缓存')
-      } catch (error) {
-        console.warn('⚠️ 清除IndexedDB缓存失败:', error)
+      // 参数验证
+      if (!selectedSheetRef || !selectedExcelFileRef || !sheetStateManager) {
+        console.error('❌❌❌❌❌❌❌❌ 关键参数缺失')
+        throw new Error('函数参数不完整，无法选择表格')
       }
-    }
 
-    // 4. 加载数据
-    console.log('🎯🎯🎯🎯🎯🎯🎯🎯 直接从后台加载数据...')
-    if (loadingExcelRef) {
-      loadingExcelRef.value = true
-    }
+      if (!selectedPdf) {
+        console.error('❌❌❌❌❌❌❌❌ selectedPdf参数为undefined或null')
+        ElMessage.error('PDF参数缺失，请先选择PDF文件')
+        return { success: false, error: 'PDF参数缺失' }
+      }
 
-    try {
-      if (sheet.name === '目录') {
-        console.log('📁📁📁📁📁📁📁📁 加载目录数据...')
-        await loadAllClassDataFn(excelFileName)
-      } else {
-        console.log('📊📊📊📊📊📊📊📊 加载普通表格数据...')
-        const loadResult = await loadExcelDataFn(sheet.name, excelFileName, true)
+      try {
+        // 1. 重置状态
+        console.log('🔄🔄🔄🔄🔄🔄🔄🔄 开始重置状态...')
+        selectedSheetRef.value = { ...sheet, excel_file: excelFileName }
+        selectedExcelFileRef.value = excelFileName
 
-        if (!loadResult.success) {
-          throw new Error(loadResult.error || '加载数据失败')
+        if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
+          currentTableModeRef.value = 'original'
+          console.log('✅ currentTableModeRef 设置为: original')
         }
 
-        console.log('✅ 后台数据加载完成:', {
-          数据行数: excelDataRef.value?.length || 0,
-          扁平化数据行数: flatDataRef.value?.length || 0,
-          来源: loadResult.fromCache ? '缓存' : 'API'
+        if (typeof window !== 'undefined') {
+          window.currentTableMode = 'original'
+          console.log('✅ window.currentTableMode 设置为: original')
+        }
+        console.log('✅ 状态重置完成')
+
+        // 2. 状态管理器上下文
+        console.log('🔄🔄🔄🔄🔄🔄🔄🔄 设置状态管理器上下文...')
+        sheetStateManager.setActiveContext(
+          selectedPdf.id,
+          excelFileName,
+          sheet.name,
+          'original'
+        )
+        console.log('✅ 上下文设置完成')
+
+        // 3. 清除缓存
+        const pdfId = selectedPdf.id
+        console.log('🧹🧹🧹🧹🧹🧹🧹🧹 强制清除缓存，确保从后台读取最新数据')
+
+        if (excelDataCache && excelDataCache.deleteOriginalData) {
+          excelDataCache.deleteOriginalData(pdfId, excelFileName, sheet.name)
+          console.log('✅ 清除原始数据缓存')
+        }
+        if (excelDataCache && excelDataCache.deleteFlattenedData) {
+          excelDataCache.deleteFlattenedData(pdfId, excelFileName, sheet.name)
+          console.log('✅ 清除扁平化数据缓存')
+        }
+
+        const cacheKey = `${pdfId}_${excelFileName}_${sheet.name}`
+        if (window.sheetDataCache) {
+          delete window.sheetDataCache[cacheKey]
+          console.log('✅ 清除内存缓存')
+        }
+
+        if (dataManager && dataManager.indexedDBManager) {
+          try {
+            await dataManager.indexedDBManager.deleteOriginalCache(pdfId, excelFileName, sheet.name)
+            await dataManager.indexedDBManager.deleteFlattenedCache(pdfId, excelFileName, sheet.name)
+            console.log('✅ 清除 IndexedDB 缓存')
+          } catch (error) {
+            console.warn('⚠️ 清除IndexedDB缓存失败:', error)
+          }
+        }
+
+        // 4. 加载数据
+        console.log('🎯🎯🎯🎯🎯🎯🎯🎯 直接从后台加载数据...')
+        if (loadingExcelRef) {
+          loadingExcelRef.value = true
+        }
+
+        try {
+          if (sheet.name === '目录') {
+            console.log('📁📁📁📁📁📁📁📁 加载目录数据...')
+            await loadAllClassDataFn(excelFileName)
+          } else {
+            console.log('📊📊📊📊📊📊📊📊 加载普通表格数据...')
+            const loadResult = await loadExcelDataFn(sheet.name, excelFileName, true)
+
+            if (!loadResult.success) {
+              throw new Error(loadResult.error || '加载数据失败')
+            }
+
+            console.log('✅ 后台数据加载完成:', {
+              数据行数: excelDataRef.value?.length || 0,
+              扁平化数据行数: flatDataRef.value?.length || 0,
+              来源: loadResult.fromCache ? '缓存' : 'API'
+            })
+          }
+
+          sheetStateManager.setData('original', excelDataRef.value)
+        } finally {
+          if (loadingExcelRef) {
+            loadingExcelRef.value = false
+          }
+        }
+
+        // 5. 🔥🔥 关键修复：彻底禁用智能判断，直接强制设置为原始模式
+        console.log('🚫🚫🚫🚫 彻底禁用智能判断，强制设置为原始模式')
+
+        // 强制设置为原始模式
+        showFlatModeRef.value = false
+        if (currentTableModeRef) {
+          currentTableModeRef.value = 'original'
+        }
+        if (typeof window !== 'undefined') {
+          window.currentTableMode = 'original'
+        }
+
+        // 🔥🔥 关键：清空扁平化数据，避免后续误判
+        if (flatDataRef && typeof flatDataRef.value !== 'undefined') {
+          flatDataRef.value = []
+        }
+
+        console.log('✅✅ 强制设置为原始模式完成', {
+          显示模式: showFlatModeRef.value ? '扁平化' : '原始',
+          当前表模式: currentTableModeRef?.value || 'unknown',
+          窗口表模式: window.currentTableMode || 'unknown',
+          扁平化数据长度: flatDataRef.value?.length || 0
         })
+
+        console.log('✅✅✅ selectSheet 完成')
+        return { success: true, source: 'api' }
+
+      } catch (error) {
+        console.error('❌❌❌❌❌❌❌❌ selectSheet 执行失败:', error)
+        excelDataRef.value = []
+        tableColumnsRef.value = []
+        flatDataRef.value = []
+        showFlatModeRef.value = false
+
+        // 出错时也要确保状态正确
+        if (currentTableModeRef) {
+          currentTableModeRef.value = 'original'
+        }
+        if (typeof window !== 'undefined') {
+          window.currentTableMode = 'original'
+        }
+
+        if (loadingExcelRef) {
+          loadingExcelRef.value = false
+        }
+
+        ElMessage.error(`选择表格失败: ${error.message}`)
+        return { success: false, error: error.message }
       }
-
-      sheetStateManager.setData('original', excelDataRef.value)
-    } finally {
-      if (loadingExcelRef) {
-        loadingExcelRef.value = false
-      }
     }
-
-    // 5. 🔥🔥 关键修复：彻底禁用智能判断，直接强制设置为原始模式
-    console.log('🚫🚫🚫🚫 彻底禁用智能判断，强制设置为原始模式')
-
-    // 强制设置为原始模式
-    showFlatModeRef.value = false
-    if (currentTableModeRef) {
-      currentTableModeRef.value = 'original'
-    }
-    if (typeof window !== 'undefined') {
-      window.currentTableMode = 'original'
-    }
-
-    // 🔥🔥 关键：清空扁平化数据，避免后续误判
-    if (flatDataRef && typeof flatDataRef.value !== 'undefined') {
-      flatDataRef.value = []
-    }
-
-    console.log('✅✅ 强制设置为原始模式完成', {
-      显示模式: showFlatModeRef.value ? '扁平化' : '原始',
-      当前表模式: currentTableModeRef?.value || 'unknown',
-      窗口表模式: window.currentTableMode || 'unknown',
-      扁平化数据长度: flatDataRef.value?.length || 0
-    })
-
-    console.log('✅✅✅ selectSheet 完成')
-    return { success: true, source: 'api' }
-
-  } catch (error) {
-    console.error('❌❌❌❌❌❌❌❌ selectSheet 执行失败:', error)
-    excelDataRef.value = []
-    tableColumnsRef.value = []
-    flatDataRef.value = []
-    showFlatModeRef.value = false
-
-    // 出错时也要确保状态正确
-    if (currentTableModeRef) {
-      currentTableModeRef.value = 'original'
-    }
-    if (typeof window !== 'undefined') {
-      window.currentTableMode = 'original'
-    }
-
-    if (loadingExcelRef) {
-      loadingExcelRef.value = false
-    }
-
-    ElMessage.error(`选择表格失败: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-}
 
   // 加载Excel sheets列表
   const loadExcelSheets = async (
