@@ -1528,11 +1528,15 @@ class TableReconstructor:
         for idx, (table, name) in enumerate(zip(tables_data, table_names)):
             ws = wb.create_sheet(title=name)  # 直接用外部名字
 
+            print("XXXXXXXXXXXXXidx:", idx, name)
+
             # 🔥🔥🔥 关键修改：在第一列插入"项目0"表头，原有数据整体右移一列
             for r, row in enumerate(table, 1):
                 # 第1列：插入"项目0"（表头行）或空值（数据行）
+                print("rrrrrrrrrrrrrrrrrrrrrrrrrrr", r)
                 if r == 1:
                     ws.cell(row=r, column=1, value="项目0")
+                    print("*****XXXXXXXXXXXXXXXXXXX***********", r)
                 else:
                     ws.cell(row=r, column=1, value="")
 
@@ -1598,7 +1602,7 @@ class TableReconstructor:
         print(f"✅ Excel保存完成: {output_file}")
         return True
 
-    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
+    def step9_save_to_excel_optimized000000(self, tables_data, output_file, table_names, metadata_list=None):
         """
         保存到 Excel（优化版）- 保持旧版数据结构，元数据放在数据末尾
         """
@@ -1777,149 +1781,6 @@ class TableReconstructor:
             traceback.print_exc()
             return None
 
-
-    def process_all_tables_to_memory000(self, ocr_result, llm_result, image_path=None, bank_name="未知银行"):
-        """
-        处理表格并返回内存中的数据（不保存文件）
-
-        Args:
-            ocr_result: OCR识别结果
-            llm_result: LLM分析结果
-            image_path: 图片路径（用于提取页码）
-            bank_name: 银行名称
-
-        Returns:
-            tuple: (tables_data, table_names, metadata_list)
-                   tables_data: 表格数据列表，每个元素是一个二维列表
-                   table_names: 对应的Sheet名称列表
-                   metadata_list: 对应的元数据列表
-        """
-        print(f"\n🧠🧠 内存模式处理表格...")
-
-        # ========== 第0步：数据预处理和验证 ==========
-        # 修正LLM引用的表格索引
-        self._fix_llm_table_references(ocr_result, llm_result)
-
-        # ========== 第1步：准备数据 ==========
-        ocr_result, llm_result = self.step1_prepare_data(ocr_result, llm_result)
-
-        # ========== 第2步：提取表格数据 ==========
-        ocr_tables, llm_tables = self.step2_extract_table_data(ocr_result, llm_result)
-
-        if not ocr_tables or not llm_tables:
-            self.log_issue("提取表格数据失败")
-            return [], [], []
-
-        print(f"OCR表格数量: {len(ocr_tables)}")
-        print(f"LLM表格结构数量: {len(llm_tables)}")
-
-        # ========== 第3步：列标题统一化处理 ==========
-        llm_tables = self._unify_headers_across_tables(llm_tables)
-
-        # ========== 第4步：检测需要合并的表格 ==========
-        merge_groups = self._detect_tables_to_merge(llm_tables)
-
-        # 分离需要合并的表格和独立处理的表格
-        all_indices = set(range(len(llm_tables)))
-        merged_indices = set()
-
-        for group in merge_groups:
-            for idx in group:
-                merged_indices.add(idx)
-
-        independent_indices = all_indices - merged_indices
-
-        # ========== 第5步：处理所有表格并收集结果 ==========
-        all_final_tables = []  # 存储表格数据
-        all_table_names = []  # 存储表格名称
-        all_metadata_list = []  # 存储元数据列表（新增）
-
-        # 提取图片页码前缀
-        page_prefix = ""
-        if image_path:
-            page_prefix = self._extract_page_number_from_image_path(image_path)
-            print(f"从图片路径提取页码前缀: {page_prefix}")
-
-        # 1. 处理合并的表格组
-        for group_idx, group in enumerate(merge_groups):
-            print(f"\n处理合并表格组 {group_idx + 1}/{len(merge_groups)}")
-            print(f"包含表格索引: {group}")
-
-            # 先按独立表格处理
-            for table_idx in group:
-                llm_table_info = llm_tables[table_idx]
-
-                # 提取表格名称
-                table_name = llm_table_info.get('name', f'表格{table_idx + 1}')
-
-                # 构建完整Sheet名称（带页码前缀）
-                full_table_name = f"{page_prefix}_{table_name}" if page_prefix else table_name
-
-                all_table_names.append(full_table_name)
-
-                # 提取元数据（新增）
-                table_metadata = {
-                    'default_currency': llm_table_info.get('default_currency', ''),
-                    'default_report_period': llm_table_info.get('default_report_period', ''),
-                    'default_unit': llm_table_info.get('default_unit', ''),
-                    'original_table_name': llm_table_info.get('name', ''),
-                    'ocr_table_id': llm_table_info.get('ocr_tables', [])[0] if llm_table_info.get('ocr_tables') else -1
-                }
-                all_metadata_list.append(table_metadata)
-
-                # 处理单个表格
-                final_table = self._process_single_table_to_memory(ocr_tables, llm_table_info)
-
-                if final_table:
-                    all_final_tables.append(final_table)
-
-        # 2. 处理独立的表格
-        for table_idx in independent_indices:
-            print(f"\n处理表格 {table_idx + 1}/{len(llm_tables)} (独立)")
-
-            llm_table_info = llm_tables[table_idx]
-
-            # 提取表格名称
-            table_name = llm_table_info.get('name', f'表格{table_idx + 1}')
-
-            # 构建完整Sheet名称（带页码前缀）
-            full_table_name = f"{page_prefix}_{table_name}" if page_prefix else table_name
-
-            all_table_names.append(full_table_name)
-
-            # 提取元数据（新增）
-            table_metadata = {
-                'default_currency': llm_table_info.get('default_currency', ''),
-                'default_report_period': llm_table_info.get('default_report_period', ''),
-                'default_unit': llm_table_info.get('default_unit', ''),
-                'original_table_name': llm_table_info.get('name', ''),
-                'ocr_table_id': llm_table_info.get('ocr_tables', [])[0] if llm_table_info.get('ocr_tables') else -1
-            }
-            all_metadata_list.append(table_metadata)
-
-
-            # 处理单个表格
-            final_table = self._process_single_table_to_memory(ocr_tables, llm_table_info)
-
-            if final_table:
-                all_final_tables.append(final_table)
-
-        # 验证数据一致性
-        if len(all_final_tables) != len(all_table_names) or len(all_final_tables) != len(all_metadata_list):
-            print(f"⚠️ 警告：数据数量不一致 - 表格:{len(all_final_tables)}, "
-                  f"名称:{len(all_table_names)}, 元数据:{len(all_metadata_list)}")
-
-            # 补齐数据
-            min_count = min(len(all_final_tables), len(all_table_names), len(all_metadata_list))
-            all_final_tables = all_final_tables[:min_count]
-            all_table_names = all_table_names[:min_count]
-            all_metadata_list = all_metadata_list[:min_count]
-
-        print(f"\n✅ 内存处理完成: {len(all_final_tables)} 个表格")
-
-        return all_final_tables, all_table_names, all_metadata_list  # 返回三个值
-
-
     def process_all_tables_to_memory(self, ocr_result, llm_result, image_path=None, bank_name="未知银行"):
         """
         处理表格并返回内存中的数据（不保存文件）- 改进版
@@ -1985,10 +1846,11 @@ class TableReconstructor:
                 else:
                     full_table_name = f"{inner_idx}_{table_name}"
 
-            print(f"  Sheet名称: {full_table_name}")
+            print(f"  Sheet名称: {full_table_name}", "bank_nam:::", bank_name)
 
             # 提取元数据
             table_metadata = {
+                'bank_name': bank_name,
                 'default_currency': llm_table_info.get('default_currency', ''),
                 'default_report_period': llm_table_info.get('default_report_period', ''),
                 'default_unit': llm_table_info.get('default_unit', ''),

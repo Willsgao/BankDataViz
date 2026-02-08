@@ -1922,7 +1922,7 @@ table_processing_service = TableProcessingService()
 
 
 # ========== 4. API 接口函数 ==========
-def get_bank_name_from_database(pdf_folder):
+def get_bank_name_from_database000(pdf_folder):
     """从数据库中根据pdf_folder获取银行名称"""
     try:
         conn = sqlite3.connect(DATABASE)
@@ -1950,6 +1950,39 @@ def get_bank_name_from_database(pdf_folder):
         print(f"⚠️ 查询数据库银行名称失败: {e}")
         return ""
 
+def get_bank_name_from_database(pdf_folder):
+    """从数据库中根据pdf_folder获取银行名称"""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+
+        print(f"🔍 查询银行名称 - pdf_folder: {pdf_folder}")
+
+        # 🔥 修复：查询 filename 字段（不是 raw_filename）
+        # SELECT bank_name FROM files
+        c.execute("""
+            SELECT bank_name FROM files 
+            WHERE filename = ? AND deleted = 0 AND bank_name IS NOT NULL AND bank_name != ''
+            ORDER BY created_at DESC 
+            LIMIT 1
+        """, (pdf_folder,))  # 直接精确匹配，不需要 LIKE
+
+        result = c.fetchone()
+        conn.close()
+
+        if result and result[0]:
+            print(f"🏦 从数据库获取到银行名称: {result[0]}")
+            return result[0]
+        else:
+            print(f"ℹ️ 数据库中未找到银行名称: {pdf_folder}")
+            return ""
+
+    except Exception as e:
+        print(f"⚠️ 查询数据库银行名称失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return ""
+
 
 def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - 更新调用方式"""
@@ -1973,6 +2006,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
         # 先从数据库中读取银行名称，如果没有再从请求参数获取
         bank_name = get_bank_name_from_database(pdf_folder)
+        print("&&&&&&&&&&&&&&&&&&&&&&pdf_folder:", pdf_folder, bank_name)
         if not bank_name:
             bank_name = data.get('bank_name', '')
 
@@ -2149,6 +2183,7 @@ def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_
         print(f"  - 总图片数: {len(image_paths)}")
         print(f"  - 跳过正在处理: {len(skipped_processing)}")
         print(f"  - 实际处理: {len(images_to_process)}")
+        print("************bank_name*********", bank_name)
 
         if skipped_processing:
             print(f"  - 跳过的图片: {skipped_processing}")

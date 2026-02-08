@@ -914,8 +914,22 @@ const loadExcelSheets = async (pdfId) => {
 
 
 const pdfPreviewRef = ref(null)
-//++++++++++++++++++++++++++++++++
+// 最简单的修复：直接调用 handleNavigateSheet
 const selectSheet = async (sheet, excelFileName) => {
+  console.log('🎯🎯🎯🎯 手动选择Sheet，复用导航逻辑:', sheet?.name)
+
+  // 直接使用现有的导航处理函数
+  await handleNavigateSheet({
+    sheet: sheet,
+    excelFile: excelFileName
+  })
+
+  return { success: true }
+}
+
+
+//++++++++++++++++++++++++++++++++
+const selectSheet00000 = async (sheet, excelFileName) => {
 
   // 🔥 强制重置为原始模式（与导航按钮保持一致）
   showFlatMode.value = false
@@ -994,21 +1008,6 @@ const selectSheet = async (sheet, excelFileName) => {
       } else {
         result = { success: true }
       }
-    }
-
-    // 4. 智能检测显示模式
-    if (result && result.success) {
-      console.log('✅ Sheet选择成功')
-
-      setTimeout(() => {
-        const hasFlattenedData = flatData.value && flatData.value.length > 0
-        const shouldShowFlatMode = hasFlattenedData && !showFlatMode.value
-
-        if (shouldShowFlatMode) {
-          showFlatMode.value = true
-          console.log('✅ 检测到扁平化数据，自动切换到扁平化模式')
-        }
-      }, 300)
     }
 
     return result || { success: true }
