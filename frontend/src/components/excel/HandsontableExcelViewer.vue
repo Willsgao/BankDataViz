@@ -145,41 +145,41 @@
       </div>
     </div>
 
-    <!-- 表格区域（完全不动） -->
+    <!-- 表格区域（完全不动） :contextMenu="getContextMenuConfig" -->
     <div class="excel-container" ref="excelContainer">
-      <HotTable
-        ref="hotTable"
-        :data="tableData"
-        :columns="computedColumns"
-        :colWidths="colWidths"
-        :colHeaders="true"
-        :rowHeaders="true"
-        :width="'100%'"
-        :height="tableHeight"
-        licenseKey="non-commercial-and-evaluation"
-        :language="currentLanguage"
-        :filters="true"
-        :dropdownMenu="true"
-        :contextMenu="getContextMenuConfig"
-        :manualColumnResize="true"
-        :manualRowResize="true"
-        :wordWrap="false"
-        :columnSorting="true"
-        :multiColumnSorting="false"
-        :autoRowSize="false"
-        :autoColumnSize="false"
-        :renderAllRows="false"
-        :fixedRowsTop="fixedRowsTop"
-        :fixedColumnsLeft="fixedColumnsLeft"
-        :key="langKey"
-        :allowInsertColumn="true"
-        :allowRemoveColumn="true"
-        @afterFilter="onFilter"
-        @after-change="onDataChange"
-        @after-init="onHotInit"
-        @afterSelection="handleSelection"
-        @afterDeselect="clearSelection"
-      />
+        <HotTable
+          ref="hotTable"
+          :data="tableData"
+          :columns="computedColumns"
+          :colWidths="colWidths"
+          :colHeaders="true"
+          :rowHeaders="true"
+          :width="'100%'"
+          :height="tableHeight"
+          licenseKey="non-commercial-and-evaluation"
+          :language="currentLanguage"
+          :filters="false"
+          :dropdownMenu="true"
+          :contextMenu="true"
+          :manualColumnResize="true"
+          :manualRowResize="true"
+          :wordWrap="false"
+          :columnSorting="true"
+          :multiColumnSorting="false"
+          :autoRowSize="false"
+          :autoColumnSize="false"
+          :renderAllRows="false"
+          :fixedRowsTop="fixedRowsTop"
+          :fixedColumnsLeft="fixedColumnsLeft"
+          :key="langKey"
+          :allowInsertColumn="true"
+          :allowRemoveColumn="true"
+          @afterFilter="onFilter"
+          @after-change="onDataChange"
+          @after-init="onHotInit"
+          @afterSelection="handleSelection"
+          @afterDeselect="clearSelection"
+        />
 
       <div v-if="tableData.length === 0" class="empty-state">
         <el-empty description="暂无表格数据" />
@@ -528,6 +528,8 @@ const getContextMenuConfig = computed(() => {
     }
   }
 })
+
+
 
 
 // 清除选区
@@ -1105,7 +1107,7 @@ onUnmounted(() => {
 })
 
 
-const onHotInit = () => {
+const onHotInit000000000 = () => {
   setTimeout(() => {
     const hot = getHotInstanceDirect()
     if (hot) {
@@ -1125,7 +1127,6 @@ const onHotInit = () => {
       const alterPlugin = hot.getPlugin('alter')
       if (!alterPlugin) {
         console.error('❌ Alter插件未启用！')
-        // 强制启用
         hot.updateSettings({
           plugins: {
             alter: true
@@ -1134,6 +1135,71 @@ const onHotInit = () => {
         console.log('✅ 已强制启用Alter插件')
       } else {
         console.log('✅ Alter插件已启用')
+      }
+
+      // 🔥🔥🔥 修复：增强筛选功能检查和修复
+      console.log('🔍🔍🔍 检查并修复筛选功能:')
+      const settings = hot.getSettings()
+
+      // 1. 检查全局筛选配置
+      console.log('- 全局filters配置:', settings.filters)
+      console.log('- 全局dropdownMenu配置:', settings.dropdownMenu)
+
+      // 2. 检查列级别的筛选配置
+      let hasFilterIssues = false
+      if (settings.columns && settings.columns.length > 0) {
+        console.log('🔍 检查列筛选配置:')
+        settings.columns.forEach((col, index) => {
+          if (!col.filter) {
+            console.warn(`⚠️ 列${index}缺少筛选配置:`, col.title)
+            hasFilterIssues = true
+          }
+        })
+      } else {
+        console.warn('⚠️ 没有列配置信息')
+        hasFilterIssues = true
+      }
+
+      // 3. 检查筛选插件状态
+      const filterPlugin = hot.getPlugin('filters')
+      if (!filterPlugin) {
+        console.warn('⚠️ Filters 插件未启用')
+        hasFilterIssues = true
+      } else {
+        console.log('✅ Filters 插件已启用')
+      }
+
+      // 4. 如果有问题，强制修复筛选配置
+      if (hasFilterIssues) {
+        console.log('🛠️ 检测到筛选问题，开始修复...')
+
+        // 获取当前列配置
+        const currentColumns = settings.columns || []
+        const fixedColumns = currentColumns.map(col => ({
+          ...col,
+          filter: col.filter || { // 确保每列都有筛选配置
+            condition: 'contains',
+            placeholder: '筛选...'
+          }
+        }))
+
+        // 强制更新配置
+        hot.updateSettings({
+          filters: true,
+          dropdownMenu: true,
+          columns: fixedColumns
+        }, false)
+
+        console.log('✅ 筛选功能修复完成')
+
+        // 重新启用插件
+        setTimeout(() => {
+          const refreshedFilterPlugin = hot.getPlugin('filters')
+          if (refreshedFilterPlugin) {
+            refreshedFilterPlugin.enablePlugin()
+            console.log('✅ 筛选插件重新启用')
+          }
+        }, 50)
       }
 
       emit('instance-ready', {
@@ -1150,9 +1216,192 @@ const onHotInit = () => {
     }
   }, 0)
 
-  // 🎯 设置选中求和监听器（合并自第二个 onHotInit）
   console.log('🎯 表格实例就绪，设置选中求和监听器')
-  // 延迟设置监听器，确保表格完全初始化
+  setTimeout(() => {
+    setupSelectionSumListener()
+  }, 100)
+}
+
+
+const onHotInit = () => {
+  setTimeout(() => {
+    const hot = getHotInstanceDirect()
+    if (hot) {
+      hotInstanceRef.value = hot
+      hotController.setInstance(hot)
+      window.__excelHotInstance = hot
+
+      console.log('⚡⚡ Handsontable 实例已立即暴露', {
+        行数: hot.countRows(),
+        列数: hot.countCols(),
+        实例ID: hot.guid,
+        时间戳: Date.now()
+      })
+
+      // 🔥🔥 关键修复：启用 dropdownMenu 但只保留筛选功能
+      console.log('🔍🔍 配置筛选下拉菜单...')
+      hot.updateSettings({
+        filters: true,
+        dropdownMenu: ['filter_by_value', 'filter_operators', 'filter_action_bar'], // ✅ 启用特定菜单
+        columnSorting: true
+      }, false)
+
+      console.log('✅ 筛选下拉菜单已配置')
+
+      // 检查当前配置
+      const settings = hot.getSettings()
+      console.log('🔍🔍 当前生效配置:')
+      console.log('- filters:', settings.filters)
+      console.log('- dropdownMenu:', settings.dropdownMenu)
+      console.log('- columnSorting:', settings.columnSorting)
+
+      // 🔥🔥 详细检查筛选插件
+      const filterPlugin = hot.getPlugin('filters')
+      if (filterPlugin) {
+        console.log('✅ Filters 插件状态:', {
+          已启用: filterPlugin.isEnabled(),
+          插件方法: Object.keys(filterPlugin)
+        })
+
+        // 手动绑定点击事件测试
+        setTimeout(() => {
+          console.log('🔍🔍 检查表头点击事件...')
+          const tableElement = hot.rootElement
+          const columnHeaders = tableElement.querySelectorAll('.ht_clone_top th, thead th')
+
+          columnHeaders.forEach((header, index) => {
+            // 移除旧的事件监听器
+            header.onclick = null
+            // 添加新的事件监听器
+            header.addEventListener('click', (e) => {
+              console.log(`🎯 点击了表头 ${index}`, e.target)
+
+              // 手动触发筛选菜单
+              if (filterPlugin && filterPlugin.open) {
+                console.log('🎯 手动触发筛选菜单...')
+                filterPlugin.open(index)
+              }
+            })
+          })
+        }, 500)
+      }
+
+      // 🔥🔥 检查下拉菜单容器
+      setTimeout(() => {
+        console.log('🔍🔍 检查下拉菜单容器...')
+        const dropdownContainers = document.querySelectorAll('.htDropdownMenu')
+        console.log(`✅ 找到 ${dropdownContainers.length} 个下拉菜单容器`)
+
+        dropdownContainers.forEach((container, index) => {
+          console.log(`下拉菜单容器 ${index}:`, {
+            可见性: window.getComputedStyle(container).visibility,
+            显示: window.getComputedStyle(container).display,
+            zIndex: window.getComputedStyle(container).zIndex
+          })
+        })
+      }, 1000)
+
+      emit('instance-ready', {
+        instance: hot,
+        guid: hot.guid,
+        pdfId: props.pdfId,
+        excelFileName: props.excelFileName,
+        sheetName: props.sheetName,
+        tableType: props.excelData === props.flatData ? 'flattened' : 'original',
+        timestamp: Date.now()
+      })
+
+      nextTick(() => restoreModifiedCellsStyle())
+    }
+  }, 0)
+
+  console.log('🎯🎯 表格实例就绪，设置选中求和监听器')
+  setTimeout(() => {
+    setupSelectionSumListener()
+  }, 100)
+}
+
+const onHotInit009999 = () => {
+  setTimeout(() => {
+    const hot = getHotInstanceDirect()
+    if (hot) {
+      hotInstanceRef.value = hot
+      hotController.setInstance(hot)
+      window.__excelHotInstance = hot
+
+      console.log('⚡⚡ Handsontable 实例已立即暴露', {
+        行数: hot.countRows(),
+        列数: hot.countCols(),
+        实例ID: hot.guid,
+        时间戳: Date.now()
+      })
+
+      // 🔥🔥 关键修复：强制设置筛选配置
+      console.log('🔍🔍 强制启用筛选功能...')
+      hot.updateSettings({
+        filters: true,
+        dropdownMenu: false,  // ✅ 明确禁用
+        columnSorting: true
+      }, false)
+
+      console.log('✅ 筛选功能已强制启用')
+
+      // 检查当前配置
+      const settings = hot.getSettings()
+      console.log('🔍🔍 当前生效配置:')
+      console.log('- filters:', settings.filters)
+      console.log('- dropdownMenu:', settings.dropdownMenu)
+      console.log('- columnSorting:', settings.columnSorting)
+
+      // 🔥🔥 检查筛选插件状态
+      const filterPlugin = hot.getPlugin('filters')
+      if (filterPlugin) {
+        console.log('✅ Filters 插件已启用:', {
+          已启用: filterPlugin.isEnabled(),
+          插件版本: filterPlugin.constructor?.name || '未知'
+        })
+
+        // 确保插件启用
+        if (!filterPlugin.isEnabled()) {
+          filterPlugin.enablePlugin()
+          console.log('✅ 已手动启用筛选插件')
+        }
+      } else {
+        console.warn('❌ Filters 插件未找到')
+      }
+
+      // 🔥🔥 检查表头实际渲染
+      setTimeout(() => {
+        console.log('🔍🔍 检查表头渲染情况...')
+        const tableElement = hot.rootElement
+        const columnHeaders = tableElement.querySelectorAll('.ht_clone_top th, thead th')
+        console.log(`✅ 找到 ${columnHeaders.length} 个表头`)
+
+        columnHeaders.forEach((header, index) => {
+          const hasFilterIcon = header.querySelector('.changeType') !== null
+          console.log(`表头 ${index}:`, {
+            内容: header.textContent?.trim(),
+            有筛选图标: hasFilterIcon,
+            类名: header.className
+          })
+        })
+      }, 1000)
+
+      emit('instance-ready', {
+        instance: hot,
+        guid: hot.guid,
+        pdfId: props.pdfId,
+        excelFileName: props.excelFileName,
+        sheetName: props.sheetName,
+        tableType: props.excelData === props.flatData ? 'flattened' : 'original',
+        timestamp: Date.now()
+      })
+
+      nextTick(() => restoreModifiedCellsStyle())
+    }
+  }, 0)
+
+  console.log('🎯🎯 表格实例就绪，设置选中求和监听器')
   setTimeout(() => {
     setupSelectionSumListener()
   }, 100)
@@ -2590,6 +2839,81 @@ onMounted(() => {
   .sum-details, .sum-stats {
     margin-left: 0;
   }
+}
+
+
+/* 在 HandsontableExcelViewer.vue 的 style 部分添加 */
+:deep(.handsontable thead th) {
+  position: relative;
+  cursor: pointer;
+  overflow: visible !important;
+}
+
+:deep(.handsontable thead th .changeType) {
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #666 !important;
+  font-size: 10px !important;
+  opacity: 0.6;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+:deep(.handsontable thead th:hover .changeType) {
+  opacity: 1;
+  color: #409eff !important;
+}
+
+/* 如果图标仍然不显示，强制添加 */
+:deep(.handsontable thead th::after) {
+  content: '▼';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: #666;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+:deep(.handsontable thead th:hover::after) {
+  opacity: 1;
+  color: #409eff;
+}
+
+
+/* 确保下拉菜单正确显示 */
+:deep(.htDropdownMenu) {
+  z-index: 10000 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+:deep(.handsontable .changeType) {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+:deep(.handsontable thead th) {
+  position: relative;
+  cursor: pointer;
+  overflow: visible;
+}
+
+:deep(.handsontable thead th .changeType:hover) {
+  background-color: rgba(64, 158, 255, 0.1) !important;
+}
+
+/* 确保下拉菜单不被遮挡 */
+:deep(.ht_clone_top) {
+  z-index: 100 !important;
+}
+
+:deep(.htDropdownMenu .ht_master .wtHolder) {
+  z-index: 10001 !important;
 }
 
 </style>

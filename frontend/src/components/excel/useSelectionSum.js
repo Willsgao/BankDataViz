@@ -46,130 +46,128 @@ export const useSelectionSum = (getHotInstance) => {
   /**
    * 设置选中区域监听器
    */
-  const setupSelectionSumListener = () => {
-    const hot = getHotInstance()
-    if (!hot) {
-      console.warn('⚠️ 表格实例未就绪，无法设置选中监听器')
-      return
+   const setupSelectionSumListener = () => {
+      const hot = getHotInstance()
+      if (!hot) {
+        console.warn('⚠️ 表格实例未就绪，无法设置选中监听器')
+        return
+      }
+
+      try {
+        // 监听选中变化事件 - 修复参数传递
+        hot.addHook('afterSelection', (row, column, row2, column2) => {
+          console.log('🔥 afterSelection 事件被触发:', {row, column, row2, column2})
+
+          // 🔥 修复：直接传递参数，而不是从 hot.getSelected() 获取
+          const selection = {
+            row: row,
+            column: column,
+            row2: row2,
+            column2: column2
+          }
+
+          // 延迟计算，确保选中完成
+          setTimeout(() => {
+            calculateSelectionSum(selection)
+          }, 10)
+        })
+
+        // 监听取消选中事件
+        hot.addHook('afterDeselect', () => {
+          console.log('🔥 afterDeselect 事件被触发')
+          selectionSum.visible = false
+          emitSelectionSumChanged({ visible: false })
+        })
+
+        console.log('✅ 选中区域求和监听器已设置')
+      } catch (error) {
+        console.error('❌❌ 设置选中监听器失败:', error)
+      }
     }
-
-    try {
-      // 监听选中变化事件
-      hot.addHook('afterSelection', (row, column, row2, column2) => {
-        console.log('🔥 afterSelection 事件被触发:', {row, column, row2, column2})
-        // 延迟计算，确保选中完成
-        setTimeout(() => {
-          calculateSelectionSum()
-        }, 10)
-      })
-
-      // 监听取消选中事件
-      hot.addHook('afterDeselect', () => {
-        console.log('🔥 afterDeselect 事件被触发')
-        selectionSum.visible = false
-      })
-
-      console.log('✅ 选中区域求和监听器已设置')
-    } catch (error) {
-      console.error('❌ 设置选中监听器失败:', error)
-    }
-  }
 
 
   /**
      * 计算选中区域的数值总和
      */
-    const calculateSelectionSum = () => {
-      const hot = getHotInstance()
-      if (!hot) {
-        console.log('⚠️ 表格实例未就绪，无法计算选中区域')
-        return
-      }
+     const calculateSelectionSum = (selection) => {
+      const hot = getHotInstance();
+      if (!hot) return;
 
-      try {
-        const selected = hot.getSelected()
-        if (!selected || selected.length === 0) {
-          selectionSum.visible = false
-          return
-        }
+      const { row: startRow, column: startCol, row2: endRow, column2: endCol } = selection;
 
-        // 处理多区域选中情况，取第一个区域
-        const [startRow, startCol, endRow, endCol] = selected[0]
+      let total = 0;
+      const numericValues = [];
+      let totalCells = 0;
+      let maxVal = -Infinity;
+      let minVal = Infinity;
 
-        // 确保行列顺序正确
-        const minRow = Math.min(startRow, endRow)
-        const maxRow = Math.max(startRow, endRow)
-        const minCol = Math.min(startCol, endCol)
-        const maxCol = Math.max(startCol, endCol)
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= endCol; c++) {
+          totalCells++;
+          const cellValue = hot.getDataAtCell(r, c);
 
-        let total = 0
-        let numericCount = 0
-        let totalCells = 0
-        const numericValues = []
+          // 🔥 关键修复：同时处理千分位和括号负数
+          let numValue = 0;
+          if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+            // 处理字符串类型的数字
+            if (typeof cellValue === 'string') {
+              // 1. 检查是否用括号表示负数，如 (123) 或 (1,234.56)
+              const isNegativeInParentheses = cellValue.startsWith('(') && cellValue.endsWith(')');
 
-        // 遍历选中区域的所有单元格
-        for (let row = minRow; row <= maxRow; row++) {
-          for (let col = minCol; col <= maxCol; col++) {
-            const cellData = hot.getDataAtCell(row, col)
-            totalCells++
+              // 2. 移除所有非数字字符（保留小数点、负号和括号用于判断）
+              let cleanedValue = cellValue;
 
-            // 检查是否为数值
-            if (cellData !== null && cellData !== undefined && cellData !== '') {
-              const numValue = parseFloat(cellData)
-              if (!isNaN(numValue)) {
-                total += numValue
-                numericCount++
-                numericValues.push(numValue)
+              if (isNegativeInParentheses) {
+                // 如果是括号负数，移除括号并在前面加负号
+                cleanedValue = '-' + cellValue.replace(/[()]/g, '');
               }
+
+              // 3. 移除千分位逗号和其他非数字字符（保留小数点、负号）
+              cleanedValue = cleanedValue.replace(/[^\d.-]/g, '');
+
+              // 4. 解析数字
+              numValue = parseFloat(cleanedValue) || 0;
+
+            } else if (typeof cellValue === 'number') {
+              // 直接使用数字类型
+              numValue = cellValue;
             }
           }
-        }
 
-        // 如果有数值单元格，更新显示状态
-        if (numericCount > 0) {
-          const average = total / numericCount
-          const max = numericValues.length > 0 ? Math.max(...numericValues) : 0
-          const min = numericValues.length > 0 ? Math.min(...numericValues) : 0
+          // 只处理有效的数字（排除 NaN 和 0）
+          if (!isNaN(numValue) && numValue !== 0) {
+            numericValues.push(numValue);
+            total += numValue;
+            maxVal = Math.max(maxVal, numValue);
+            minVal = Math.min(minVal, numValue);
 
-          // 直接修改 reactive 对象的属性
-          selectionSum.visible = true
-          selectionSum.total = formatNumber(total)
-          selectionSum.numericCount = numericCount
-          selectionSum.totalCells = totalCells
-          selectionSum.average = formatNumber(average)
-          selectionSum.max = formatNumber(max)
-          selectionSum.min = formatNumber(min)
-          selectionSum.selectionRange = {
-            startRow: minRow,
-            startCol: minCol,
-            endRow: maxRow,
-            endCol: maxCol
+            console.log('🔢 解析单元格值:', {
+              原始值: cellValue,
+              解析后: numValue,
+              位置: `R${r+1}C${c+1}`
+            });
           }
-
-          console.log('🎯🎯 选中区域统计:', {
-            总单元格数: totalCells,
-            数值单元格数: numericCount,
-            求和: selectionSum.total,
-            平均值: selectionSum.average,
-            范围: selectionSum.selectionRange
-          })
-
-          // 🔥🔥🔥 关键添加：发射事件到父组件
-          emitSelectionSumChanged(selectionSum)
-
-        } else {
-          selectionSum.visible = false
-          console.log('📭📭 选中区域无有效数值')
-
-          // 无有效数值时也发射事件
-          emitSelectionSumChanged({ visible: false })
         }
-      } catch (error) {
-        console.error('❌❌ 计算选中区域求和失败:', error)
-        selectionSum.visible = false
-        emitSelectionSumChanged({ visible: false })
       }
-    }
+
+      const numericCount = numericValues.length;
+      const avg = numericCount > 0 ? total / numericCount : 0;
+
+      // 更新统计结果
+      selectionSum.value = {
+        visible: numericCount > 0,
+        total: formatNumber(total),
+        numericCount,
+        totalCells,
+        average: formatNumber(avg),
+        max: formatNumber(maxVal === -Infinity ? 0 : maxVal),
+        min: formatNumber(minVal === Infinity ? 0 : minVal),
+        range: { startRow, startCol, endRow, endCol }
+      };
+
+      console.log('🎯 最终统计结果:', selectionSum.value);
+      emitSelectionSumChanged(selectionSum.value);
+    };
 
     /**
      * 🔥🔥🔥 新增：发射选中区域统计事件

@@ -74,66 +74,145 @@ export default function useExcelViewerLogic(
     )
   )
 
-  const computedColumns00000 = computed(() => {
-    const baseColumns = columns.value
-    if (!baseColumns || baseColumns.length === 0) {
-      return []
-    }
+  const computedColumns000000 = computed(() => {
+      const baseColumns = columns.value;
 
-    return baseColumns.map((col, index) => ({
-      ...col,
-      readOnly: !isEditMode.value
-    }))
-  })
+      // 获取当前数据列数
+      const dataColCount = tableData.value[0]?.length || 0;
 
-  const computedColumns = computed(() => {
-    const baseColumns = columns.value;
+      // 如果没有配置或列数不匹配，基于数据生成配置
+      if (!baseColumns || baseColumns.length === 0) {
+        return Array.from({ length: dataColCount }, (_, index) => ({
+          data: index,
+          readOnly: !isEditMode.value,
+          title: String.fromCharCode(65 + index), // A, B, C...
+          filter: true // 🔥 添加筛选配置
+        }));
+      }
 
-    // 获取当前数据列数
-    const dataColCount = tableData.value[0]?.length || 0;
+      // ✅ 关键：如果配置列数 < 数据列数，补充新列配置
+      if (baseColumns.length < dataColCount) {
+        const newColumns = [...baseColumns];
+        for (let i = baseColumns.length; i < dataColCount; i++) {
+          newColumns.push({
+            i,
+            readOnly: !isEditMode.value,
+            title: `列${i + 1}`,  // 新列默认名称
+            filter: true // 🔥 添加筛选配置
+          });
+        }
+        return newColumns.map((col, index) => ({
+          ...col,
+          index,  // 确保 data 索引正确
+          readOnly: !isEditMode.value,
+          filter: true // 🔥 添加筛选配置
+        }));
+      }
 
-    // 如果没有配置或列数不匹配，基于数据生成配置
-    if (!baseColumns || baseColumns.length === 0) {
-      return Array.from({ length: dataColCount }, (_, index) => ({
+      // 如果配置列数 > 数据列数，截断（但保留名称供后续使用）
+      if (baseColumns.length > dataColCount) {
+        return baseColumns.slice(0, dataColCount).map((col, index) => ({
+          ...col,
+          data: index,
+          readOnly: !isEditMode.value,
+          filter: true // 🔥 添加筛选配置
+        }));
+      }
+
+      // 正常情况：列数匹配
+      return baseColumns.map((col, index) => ({
+        ...col,
         data: index,
         readOnly: !isEditMode.value,
-        title: String.fromCharCode(65 + index) // A, B, C...
+        filter: true // 🔥 添加筛选配置
       }));
-    }
+    });
 
-    // ✅ 关键：如果配置列数 < 数据列数，补充新列配置
-    if (baseColumns.length < dataColCount) {
-      const newColumns = [...baseColumns];
-      for (let i = baseColumns.length; i < dataColCount; i++) {
-        newColumns.push({
-          i,
+  const computedColumns1111111 = computed(() => {
+      const baseColumns = columns.value;
+      const dataColCount = tableData.value[0]?.length || 0;
+
+      if (!baseColumns || baseColumns.length === 0) {
+        return Array.from({ length: dataColCount }, (_, index) => ({
+          data: index,
           readOnly: !isEditMode.value,
-          title: `列${i + 1}`  // 新列默认名称
-        });
+          title: String.fromCharCode(65 + index),
+          filter: {
+            condition: 'contains', // 明确指定筛选条件
+            placeholder: '筛选...'
+          }
+        }));
       }
-      return newColumns.map((col, index) => ({
-        ...col,
-        index,  // 确保 data 索引正确
-        readOnly: !isEditMode.value
-      }));
-    }
 
-    // 如果配置列数 > 数据列数，截断（但保留名称供后续使用）
-    if (baseColumns.length > dataColCount) {
-      return baseColumns.slice(0, dataColCount).map((col, index) => ({
+      // 确保筛选配置不被覆盖
+      return baseColumns.map((col, index) => ({
         ...col,
         data: index,
-        readOnly: !isEditMode.value
+        readOnly: !isEditMode.value,
+        filter: col.filter !== undefined ? col.filter : { // 保留原有配置或使用默认
+          condition: 'contains',
+          placeholder: '筛选...'
+        }
       }));
-    }
+    });
 
-    // 正常情况：列数匹配
-    return baseColumns.map((col, index) => ({
-      ...col,
-      data: index,
-      readOnly: !isEditMode.value
-    }));
-  });
+   // 替换现有的 computedColumns 计算属性
+    const computedColumns = computed(() => {
+      console.log('🔄🔄 计算列配置...')
+
+      const baseColumns = columns.value;
+      const dataColCount = tableData.value[0]?.length || 0;
+
+      // 如果没有配置或列数不匹配，基于数据生成配置
+      if (!baseColumns || baseColumns.length === 0) {
+        const newColumns = Array.from({ length: dataColCount }, (_, index) => ({
+          data: index,
+          readOnly: !isEditMode.value,
+          title: String.fromCharCode(65 + index), // A, B, C...
+          filter: true // ✅ 关键修改：使用布尔值启用筛选
+        }))
+        console.log('✅ 生成新列配置:', newColumns.length)
+        return newColumns
+      }
+
+      // 如果配置列数 < 数据列数，补充新列配置
+      if (baseColumns.length < dataColCount) {
+        console.log(`🔄 补充列配置: ${baseColumns.length} -> ${dataColCount}`)
+        const newColumns = [...baseColumns];
+        for (let i = baseColumns.length; i < dataColCount; i++) {
+          newColumns.push({
+            data: i,
+            readOnly: !isEditMode.value,
+            title: `列${i + 1}`,
+            filter: true // ✅ 关键修改：使用布尔值
+          });
+        }
+        return newColumns;
+      }
+
+      // 如果配置列数 > 数据列数，截断
+      if (baseColumns.length > dataColCount) {
+        console.log(`✂️ 截断列配置: ${baseColumns.length} -> ${dataColCount}`)
+        return baseColumns.slice(0, dataColCount).map((col, index) => ({
+          ...col,
+          data: index,
+          readOnly: !isEditMode.value,
+          filter: col.filter !== undefined ? col.filter : true // ✅ 关键修改：保留原有或使用默认
+        }));
+      }
+
+      // 正常情况：列数匹配
+      const finalColumns = baseColumns.map((col, index) => ({
+        ...col,
+        data: index,
+        readOnly: !isEditMode.value,
+        filter: col.filter !== undefined ? col.filter : true // ✅ 关键修改：保留原有或使用默认
+      }))
+
+      console.log('✅ 最终列配置:', finalColumns.length)
+      return finalColumns
+    })
+
 
   // 处理单元格修改的函数
   const handleCellChangeFromEdit = (cellInfo) => {
