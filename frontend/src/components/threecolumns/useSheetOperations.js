@@ -40,8 +40,94 @@ export function useSheetOperations() {
     return []
   }
 
+
+  // 智能切换处理 - 完整修复版
+const handleSmartToggle = async (
+    selectedSheet,
+    selectedPdf,
+    selectedExcelFile,
+    showFlatMode,
+    excelDataRef,
+    flatDataRef,
+    toggleFlatModeFn
+) => {
+    if (!selectedSheet || !selectedPdf) {
+        ElMessage.warning('请先选择表格')
+        return
+    }
+
+    try {
+        console.log('🔄🔄 用户手动切换模式...')
+
+        // 🔥🔥🔥 关键修复：检查是否为扁平化文件并确保数据加载
+        const isFlattenedFile = selectedExcelFile && /flattened_/i.test(selectedExcelFile)
+
+        console.log('🔍 切换前状态检查:', {
+            文件名: selectedExcelFile,
+            是否扁平化文件: isFlattenedFile,
+            当前模式: showFlatMode ? '扁平化' : '原始',
+            excelData长度: excelDataRef.value?.length || 0,
+            flatData长度: flatDataRef.value?.length || 0
+        })
+
+        if (isFlattenedFile) {
+            console.log('✅ 识别为扁平化文件')
+
+            // 🔥 关键：确保 flatData 有数据
+            if (flatDataRef.value.length === 0) {
+                console.log('📥 扁平化文件数据为空，需要加载数据')
+
+                if (excelDataRef.value && excelDataRef.value.length > 0) {
+                    // 深拷贝 excelData 到 flatData
+                    flatDataRef.value = JSON.parse(JSON.stringify(excelDataRef.value))
+                    console.log('✅ 数据复制完成:', flatDataRef.value.length, '行')
+                } else {
+                    console.warn('⚠️ excelData 为空，无法复制数据')
+                    ElMessage.warning('表格数据为空，无法切换模式')
+                    return
+                }
+            } else {
+                console.log('✅ flatData 已有数据，长度:', flatDataRef.value.length)
+            }
+        }
+
+        // 执行模式切换
+        await toggleFlatModeFn()
+
+        console.log('✅ 模式切换完成:', {
+            新模式: showFlatMode ? '扁平化' : '原始',
+            flatData长度: flatDataRef.value?.length || 0
+        })
+
+        // 延迟检查数据状态（可选）
+        setTimeout(() => {
+            const currentData = showFlatMode ? flatDataRef.value : excelDataRef.value
+
+            if (currentData && currentData.length > 0) {
+                console.log('🔍🔍 切换后数据状态检查...')
+                const isFlattenedData = checkIfFlattenedData(currentData)
+                console.log('📊📊 数据真实状态判断:', {
+                    数据特征: isFlattenedData ? '扁平化数据' : '原始数据',
+                    当前显示模式: showFlatMode ? '扁平化' : '原始',
+                    数据实际类型: isFlattenedData ? '扁平化' : '原始',
+                    状态一致: isFlattenedData === showFlatMode
+                })
+
+                if (isFlattenedData !== showFlatMode) {
+                    console.log('🔄 检测到状态不一致，但保持当前显示')
+                }
+            }
+        }, 300)
+
+    } catch (error) {
+        console.error('❌❌ 智能切换失败:', error)
+        ElMessage.error('切换模式失败')
+    }
+}
+
+
   // 智能切换处理
-  const handleSmartToggle = async (
+  const handleSmartToggle11111 = async (
       selectedSheet,
       selectedPdf,
       selectedExcelFile,
