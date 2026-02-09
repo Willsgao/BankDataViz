@@ -1188,7 +1188,8 @@ const toggleFlatMode000 = async () => {
     const wasFlatMode = showFlatMode.value
 
     // 扁平化文件特殊处理
-    const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
+    // const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
+    const isFlattenedFile = selectedExcelFile.value && /flattened_/i.test(selectedExcelFile.value)
     if (isFlattenedFile) {
       console.log('✅ 扁平化文件，只切换显示模式')
       showFlatMode.value = !wasFlatMode
@@ -1396,7 +1397,8 @@ const toggleFlatMode = async () => {
     const wasFlatMode = showFlatMode.value
 
     // 扁平化文件特殊处理
-    const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
+    // const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
+    const isFlattenedFile = selectedExcelFile.value && /flattened_/i.test(selectedExcelFile.value)
     if (isFlattenedFile) {
       console.log('✅ 扁平化文件，只切换显示模式')
       showFlatMode.value = !wasFlatMode
