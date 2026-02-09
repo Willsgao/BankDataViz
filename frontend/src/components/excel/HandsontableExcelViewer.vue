@@ -217,6 +217,7 @@ import useExcelSelection from './useExcelSelection.js'
 import useExcelViewerLogic from './useExcelViewerLogic.js'
 import useExcelViewerExpose from './useExcelViewerExpose.js'
 import { useSelectionSum } from './useSelectionSum.js'
+import { getApiUrl } from '@/utils/config'
 
 
 // 在现有的import语句后添加
@@ -527,7 +528,9 @@ const handleGlobalFlatten = async () => {
     }
 
     // 🔥 修正：pdf_id放在URL路径中
-    const response = await fetch(`/api/excel/global-flatten/${props.pdfId}`, {
+    // const response = await fetch(`/api/excel/global-flatten/${props.pdfId}`, {
+    const response = await fetch(getApiUrl(`/excel/global-flatten/${props.pdfId}`), {
+
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -584,7 +587,8 @@ const exportFinalFile = async () => {
       request_timestamp: Date.now()
     }
 
-    const response = await fetch('/api/excel/export-final-file', {
+    // const response = await fetch('/api/excel/export-final-file', {
+    const response = await fetch(getApiUrl('/excel/export-final-file'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestData)
