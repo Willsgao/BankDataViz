@@ -134,9 +134,137 @@ export default function useExcelTable(props) {
   }
 
   // ============ 事件监听 ============
-
-  // 配置事件监听（直接从原文件复制 setupEventListeners 函数）
   const setupEventListeners = () => {
+  const hot = getSafeHotInstance()
+  if (!hot) {
+    retryCount++
+    if (retryCount < MAX_RETRY_COUNT && isComponentActive.value) {
+      console.log(`❌❌ 表格实例未准备好，延迟重试 (${retryCount}/${MAX_RETRY_COUNT})`)
+      safeSetTimeout(() => {
+        if (isComponentActive.value) {
+          setupEventListeners()
+        }
+      }, 500)
+    } else {
+      console.error('❌❌ 表格实例初始化失败，停止重试')
+    }
+    return
+  }
+
+  try {
+    // 清除所有旧监听器
+    hot.removeHook('afterChange')
+    hot.removeHook('afterFilter')
+    hot.removeHook('afterDropdownMenuShow')
+    hot.removeHook('afterDropdownMenuHide')
+    hot.removeHook('beforeOnCellMouseDown')
+    hot.removeHook('afterOnCellMouseDown')
+    hot.removeHook('beforeSelection')
+  } catch (e) {
+    console.log('ℹℹ️ 清除旧监听时出错:', e.message)
+  }
+
+  // 🔥🔥🔥 核心修复：直接修改Handsontable的表头行为
+  try {
+    // 关键配置：禁用表头选择整列的功能
+    hot.updateSettings({
+      // 禁用表头选择功能
+      selectionMode: 'single', // 改为单格选择模式
+      selectionModeHighlights: false,
+      // 启用筛选
+      filters: true,
+      dropdownMenu: {
+        items: {
+          filter_by_value: {name: '按值筛选'},
+          filter_operators: {name: '筛选条件'},
+          filter_action_bar: {name: '筛选操作'}
+        }
+      },
+      // 禁用排序，避免冲突
+      columnSorting: false,
+      // 禁用其他可能冲突的功能
+      manualColumnResize: false,
+      manualRowResize: false
+    }, false)
+
+    console.log('✅✅ 已禁用表头选择功能，启用筛选')
+  } catch (error) {
+    console.error('❌❌ 配置更新失败:', error)
+  }
+
+  // 🔥 添加表头点击的精确控制
+  hot.addHook('afterOnCellMouseDown', function(event, coords, td) {
+    // 只处理表头点击
+    if (coords.row < 0) {
+      console.log('🎯🎯 表头被点击，阻止选择整列')
+
+      // 立即阻止事件传播，防止触发选择操作
+      event.stopImmediatePropagation()
+      event.preventDefault()
+
+      // 🔥 关键：手动触发筛选菜单
+      setTimeout(() => {
+        try {
+          // 获取筛选插件
+          const filterPlugin = hot.getPlugin('filters')
+          if (filterPlugin && filterPlugin.enabled) {
+            // 使用正确的方法打开筛选菜单
+            if (filterPlugin.openDropdown) {
+              filterPlugin.openDropdown(coords.col)
+            } else if (filterPlugin.open) {
+              filterPlugin.open(coords.col)
+            } else if (filterPlugin.showColumnFilter) {
+              filterPlugin.showColumnFilter(coords.col)
+            }
+            console.log('📋📋 筛选菜单已触发')
+          } else {
+            console.warn('⚠️ 筛选插件未找到或未启用')
+          }
+        } catch (menuError) {
+          console.warn('⚠️ 触发筛选菜单失败:', menuError)
+        }
+      }, 10)
+
+      return false // 完全阻止默认行为
+    }
+  })
+
+  // 🔥 完全阻止表头选择
+  hot.addHook('beforeSelection', function(currentRow, currentColumn, endRow, endColumn, selectionLayerLevel) {
+    // 如果开始或结束行是表头（row < 0），阻止选择
+    if (currentRow < 0 || endRow < 0) {
+      console.log('🚫🚫 阻止表头选择操作')
+      return false // 返回false阻止选择
+    }
+    return true // 允许正常单元格选择
+  })
+
+  // 其他监听器保持不变...
+  hot.addHook('afterChange', function(changes, source) {
+    safeAsyncOperation(() => {
+      window.__onDataChange?.(changes, source)
+    })
+  })
+
+  hot.addHook('afterFilter', function(conditionsStack) {
+    safeAsyncOperation(() => {
+      console.log('🔍🔍 筛选条件已应用')
+    })
+  })
+
+  hot.addHook('afterDropdownMenuShow', function() {
+    console.log('📋📋 下拉菜单显示')
+  })
+
+  hot.addHook('afterDropdownMenuHide', function() {
+    console.log('📋📋 下拉菜单隐藏')
+  })
+
+  retryCount = 0
+}
+
+
+  const setupEventListeners0000 = () => {
 
     const hot = getSafeHotInstance()
     if (!hot) {
