@@ -1126,7 +1126,7 @@ def export_final_file():
         print(f"查询结果: {file_info}")
 
         # 文件路径还是按照原先的逻辑（使用UUID）
-        final_file_name = f"flattened_整合_{file_uuid}.xlsx"
+        final_file_name = f"项目整合_{file_uuid}.xlsx"
         final_file_path = os.path.join(MAIN_ROOT, EXCEL_OUTPUT_ROOT, file_uuid, final_file_name)
 
         if os.path.exists(final_file_path):
