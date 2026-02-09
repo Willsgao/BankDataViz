@@ -1176,103 +1176,6 @@ const loadAllClassData = async (excelFileName) => {
 
 
 
-const toggleFlatMode000 = async () => {
-  console.log('🔄🔄 切换扁平化模式...')
-
-  if (!selectedSheet.value || !selectedPdf.value) {
-    ElMessage.warning('请先选择表格')
-    return
-  }
-
-  try {
-    const wasFlatMode = showFlatMode.value
-
-    // 扁平化文件特殊处理
-    // const isFlattenedFile = selectedExcelFile.value && selectedExcelFile.value.toLowerCase().includes('flattened_')
-    const isFlattenedFile = selectedExcelFile.value && /flattened_/i.test(selectedExcelFile.value)
-    if (isFlattenedFile) {
-      console.log('✅ 扁平化文件，只切换显示模式')
-      showFlatMode.value = !wasFlatMode
-      currentTableMode.value = showFlatMode.value ? 'flattened' : 'original'
-      if (window.currentTableMode) {
-        window.currentTableMode = currentTableMode.value
-      }
-      return
-    }
-
-    console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
-
-    if (!wasFlatMode) {
-      // 🔥🔥 切换到扁平化模式 - 强制使用实时数据
-      console.log('🔀🔀🔀🔀 强制切换到扁平化模式（绕过缓存）')
-
-      const pdfId = String(selectedPdf.value.id) // 修复数据类型
-      const excelFile = selectedExcelFile.value
-      const sheetName = selectedSheet.value.name
-
-      // 🔥🔥 关键修复：强制清除所有缓存
-      console.log('🧹🧹🧹🧹 强制清除所有缓存')
-
-      // 清除会话缓存
-      if (sessionCacheManager) {
-        sessionCacheManager.delete(pdfId, excelFile, sheetName)
-        console.log('✅ 清除会话缓存')
-      }
-
-      // 清除内存缓存
-      const cacheKey = `${pdfId}_${excelFile}_${sheetName}`
-      if (window.sheetDataCache) {
-        delete window.sheetDataCache[cacheKey]
-        console.log('✅ 清除内存缓存')
-      }
-
-      // 清除其他缓存
-      if (excelDataCache) {
-        if (excelDataCache.deleteFlattenedData) {
-          excelDataCache.deleteFlattenedData(pdfId, excelFile, sheetName)
-          console.log('✅ 清除excelDataCache缓存')
-        }
-      }
-
-      // 🔥🔥 强制设置空数据，确保重新生成
-      flatData.value = []
-      await nextTick() // 等待DOM更新
-
-      console.log('🎯🎯 强制使用实时数据生成...')
-
-      // 直接调用实时生成函数，不检查缓存
-      // await generateFlattenedDataWithRealTimeData(pdfId, excelFile, sheetName)
-      await callBackendFlattenAPI(pdfId, excelFile, sheetName)
-
-      console.log('✅✅ 实时数据生成完成')
-
-    } else {
-      // 切换回原始模式
-      console.log('🔀🔀🔀🔀 切换回原始模式')
-      sheetStateManager.setActiveContext(
-        selectedPdf.value.id,
-        selectedExcelFile.value,
-        selectedSheet.value.name,
-        'original'
-      )
-      showFlatMode.value = false
-      flatData.value = []
-
-      if (selectedSheet.value) {
-        await loadExcelData(selectedSheet.value.name, selectedExcelFile.value)
-      }
-      ElMessage.success('已切换回原始模式')
-    }
-
-  } catch (error) {
-    console.error('❌❌ 切换失败:', error)
-    ElMessage.error(`切换失败: ${error.message}`)
-    // 出错时回退到原始模式
-    showFlatMode.value = false
-    flatData.value = []
-  }
-}
-
 
 // 在 toggleFlatMode 函数之前添加这个函数
 const callBackendFlattenAPI = async (pdfId, excelFile, sheetName) => {
@@ -1407,7 +1310,7 @@ const toggleFlatMode = async () => {
       if (window.currentTableMode) {
         window.currentTableMode = showFlatMode.value ? 'flattened' : 'original' // ✅ 直接设置
       }
-      return
+      // return
     }
 
     console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
