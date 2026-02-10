@@ -1054,8 +1054,8 @@ def save_flattened_data():
 
 
 
-@file_bp.route('/api/excel/global-flatten/<pdf_id>', methods=['POST', 'OPTIONS'])
-def global_flatten(pdf_id):
+@file_bp.route('/api/excel/global-flatten00/<pdf_id>', methods=['POST', 'OPTIONS'])
+def global_flatten00(pdf_id):
     """整体扁平化处理 - 处理PDF对应的所有Excel文件的所有sheet，合并成一个大的扁平化表格"""
     if request.method == 'OPTIONS':
         response = make_response()
@@ -1079,14 +1079,19 @@ def global_flatten(pdf_id):
         print("🔄 获取PDF对应的Excel文件列表...")
         excel_files = excel_flatten_handler.global_flatten_from_excel_files(clean_file_id, excel_dir)
 
+        # 🔥 第二步：获取实际的扁平化数据
+        flattened_data = excel_flatten_handler.get_flattened_data(clean_file_id, excel_dir)
+        # 或者根据你的实际函数名来调用
 
         # 🔥 第五步：返回合并后的扁平化数据
         return jsonify({
             'success': True,
             'message': f'整体扁平化处理完成，合并 {len(excel_files)} 个Excel文件的所有sheet',
+            'data': flattened_data,  # ✅ 添加实际的扁平化数据
             'summary': {
                 'pdf_id': pdf_id,
                 'total_excel_files': len(excel_files),
+                'total_rows': len(flattened_data) if flattened_data else 0,
                 'processed_at': datetime.now().isoformat()
             }
         }), 200
@@ -1097,6 +1102,64 @@ def global_flatten(pdf_id):
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
 
+    # try:
+    #     # 🔥 第一步：根据pdf_id获取对应的所有Excel文件信息
+    #     print("🔄 获取PDF对应的Excel文件列表...")
+    #     excel_files = excel_flatten_handler.global_flatten_from_excel_files(clean_file_id, excel_dir)
+    #
+    #
+    #     # 🔥 第五步：返回合并后的扁平化数据
+    #     return jsonify({
+    #         'success': True,
+    #         'message': f'整体扁平化处理完成，合并 {len(excel_files)} 个Excel文件的所有sheet',
+    #         'summary': {
+    #             'pdf_id': pdf_id,
+    #             'total_excel_files': len(excel_files),
+    #             'processed_at': datetime.now().isoformat()
+    #         }
+    #     }), 200
+    #
+    # except Exception as e:
+    #     print(f"❌ 整体扁平化处理失败: {e}")
+    #     import traceback
+    #     traceback.print_exc()
+    #     return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
+
+
+@file_bp.route('/api/excel/global-flatten/<pdf_id>', methods=['POST', 'OPTIONS'])
+def global_flatten(pdf_id):
+    """整体扁平化处理 - 处理PDF对应的所有Excel文件的所有sheet，合并成一个大的扁平化表格"""
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
+
+    data = request.json
+    print(f"🔍🔍 获取Excel sheets请求 file_id: {pdf_id}")
+
+    # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
+    clean_file_id = excel_data_handler.get_correct_pdf_id(pdf_id, db)
+
+    # 2. 构建Excel文件目录路径
+    excel_dir = str(Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id)  # 🔥 使用清理后的ID
+    print(f"📁 clean_file_id Excel目录路径: {excel_dir}")
+
+    try:
+        # 🔥 第一步：调用整体扁平化处理
+        print("🔄 开始整体扁平化处理...")
+        result = excel_flatten_handler.global_flatten_from_excel_files(clean_file_id, excel_dir)
+
+        # 🔥 第二步：直接返回结果（现在结果中已经包含data字段）
+        print(f"📥 返回结果: success={result.get('success')}, data长度={len(result.get('data', []))}")
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"❌ 整体扁平化处理失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
 
 
 @file_bp.route('/api/excel/export-final-file', methods=['POST'])
@@ -1126,7 +1189,7 @@ def export_final_file():
         print(f"查询结果: {file_info}")
 
         # 文件路径还是按照原先的逻辑（使用UUID）
-        final_file_name = f"项目整合_{file_uuid}.xlsx"
+        final_file_name = f"flattened_整合_{file_uuid}.xlsx"
         final_file_path = os.path.join(MAIN_ROOT, EXCEL_OUTPUT_ROOT, file_uuid, final_file_name)
 
         if os.path.exists(final_file_path):
@@ -1167,6 +1230,7 @@ def export_final_file():
     except Exception as e:
         print(f"错误详情: {str(e)}")
         return {'success': False, 'error': str(e)}, 500
+
 
 
 @file_bp.route('/api/excel/download-final/<pdf_id>/<file_name>')

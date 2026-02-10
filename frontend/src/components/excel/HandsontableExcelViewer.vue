@@ -429,8 +429,6 @@ const generateNewColumnName = (firstRow, insertIndex) => {
 };
 
 
-
-
 // 3. 然后修改现有的 getContextMenuConfig 函数
 const getContextMenuConfig = computed(() => {
   return {
@@ -487,7 +485,6 @@ const getContextMenuConfig = computed(() => {
 
 
 
-
 // 清除选区
 const clearSelection = () => {
   console.log('🗑🗑️ 清除选区')
@@ -501,6 +498,28 @@ const clearSelection = () => {
     content: '',
     type: '文本'
   })
+}
+
+
+// 在接收数据的组件中
+const handleGlobalFlattenComplete = (eventData) => {
+  console.log('📥 接收到的数据:', {
+    数据长度: eventData.flattenedData?.length,
+    数据来源: '整体扁平化',
+    时间戳: new Date().toLocaleTimeString()
+  })
+
+  // 强制更新状态
+  if (eventData.flattenedData && eventData.flattenedData.length > 0) {
+    // 清空旧数据
+    flattenedData.value = []
+
+    // 下一帧再设置新数据，确保DOM更新
+    nextTick(() => {
+      flattenedData.value = eventData.flattenedData
+      console.log('✅ 数据已更新')
+    })
+  }
 }
 
 
@@ -527,10 +546,7 @@ const handleGlobalFlatten = async () => {
       request_timestamp: Date.now()
     }
 
-    // 🔥 修正：pdf_id放在URL路径中
-    // const response = await fetch(`/api/excel/global-flatten/${props.pdfId}`, {
     const response = await fetch(getApiUrl(`/excel/global-flatten/${props.pdfId}`), {
-
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -544,22 +560,32 @@ const handleGlobalFlatten = async () => {
 
     const result = await response.json()
     console.log('📥 整体扁平化API返回:', result)
+    console.log('🔍 返回数据结构检查:', {
+      成功: result.success,
+      长格式数据长度: result.long_format_data?.length || 0,
+      前端行数: result.rows?.length || 0,
+      源信息: result.source_info,
+      所有字段: Object.keys(result)
+    })
 
-    if (result.success && result.data) {
-      // 发射事件给父组件处理数据
+    if (result.success && result.long_format_data) {  // 🔥 修改：使用 long_format_data
+      // 发射事件给父组件处理数据 - 使用统一格式
       emit('global-flatten-complete', {
-        flattenedData: result.data,
-        pdfId: result.pdf_id,  // 使用返回的pdf_id确认
-        excelFile: props.excelFileName,
-        sheetName: props.sheetName,
+        flattenedData: result.long_format_data,  // 🔥 修改：使用 long_format_data
+        frontendRows: result.rows,               // 🔥 新增：前端格式数据
+        pdfId: result.pdf_id || props.pdfId,     // 使用返回的pdf_id确认
+        excelFile: result.source_info?.excel_file || props.excelFileName,
+        sheetName: result.source_info?.table_name || '整体扁平化数据',
+        sourceInfo: result.source_info,          // 🔥 新增：源信息
         fileInfo: result.file_info,
         processingInfo: {
-          originalRows: result.original_rows,
-          flattenedRows: result.flattened_rows
-        }
+          originalRows: result.stats?.original_rows || 0,
+          flattenedRows: result.stats?.converted_records || result.long_format_data.length
+        },
+        summary: result.summary                  // 🔥 新增：处理摘要
       })
 
-      ElMessage.success(`整体扁平化完成，生成 ${result.data.length} 行数据`)
+      ElMessage.success(`整体扁平化完成，生成 ${result.long_format_data.length} 行数据`)
     } else {
       throw new Error(result.error || '整体扁平化处理失败')
     }
@@ -569,6 +595,53 @@ const handleGlobalFlatten = async () => {
     ElMessage.error(`整体扁平化失败: ${error.message}`)
   } finally {
     globalFlattenLoading.value = false
+  }
+}
+
+
+// 统一的处理函数
+const handleGlobalFlattenedData = (flattenedData, sourceInfo) => {
+  try {
+    console.log('🔄🔄🔄🔄 处理整体扁平化数据', {
+      数据行数: flattenedData.length,
+      第一行样本: flattenedData[0],
+      源信息: sourceInfo
+    })
+
+    if (Array.isArray(flattenedData) && flattenedData.length > 0) {
+      // ✅ 正确方式：通过emit通知父组件更新
+      emit('update-flat-data', flattenedData)
+
+      // 如果有源信息，也一并传递
+      if (sourceInfo) {
+        console.log('✅ 同时更新源信息:', sourceInfo)
+        // 可以根据需要将源信息传递给父组件
+      }
+
+      console.log('✅ 已通知父组件更新扁平化数据', {
+        新数据行数: flattenedData.length
+      })
+    }
+
+    // 自动切换到扁平化模式
+    if (!props.showFlatMode) {
+      console.log('🔄🔄🔄🔄 自动切换到扁平化模式')
+      emit('toggle-flat-mode')
+    }
+
+    nextTick(() => {
+      if (flatViewer.value) {
+        const hotInstance = flatViewer.value.getSafeHotInstance?.()
+        if (hotInstance && !hotInstance.isDestroyed) {
+          hotInstance.render()
+          console.log('✅ 表格已刷新显示')
+        }
+      }
+    })
+
+  } catch (error) {
+    console.error('❌❌❌❌ 处理整体扁平化数据失败:', error)
+    ElMessage.error(`处理失败: ${error.message}`)
   }
 }
 

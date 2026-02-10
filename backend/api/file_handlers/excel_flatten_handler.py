@@ -593,7 +593,7 @@ class ExcelFlattenHandler:
         return False
 
 
-    def global_flatten_from_excel_files(self, file_id: str, excel_path) -> Dict[str, Any]:
+    def global_flatten_from_excel_files000(self, file_id: str, excel_path) -> Dict[str, Any]:
         """
         整体扁平化处理 - 添加详细调试
         """
@@ -711,7 +711,222 @@ class ExcelFlattenHandler:
             traceback.print_exc()
             return {"success": False, "error": f"处理失败: {str(e)}"}
 
+    def global_flatten_from_excel_files(self, file_id: str, excel_path) -> Dict[str, Any]:
+        """
+        整体扁平化处理 - 返回与excel_flatten_from_excel一致的格式
+        """
+        try:
+            print(f"🔥🔥🔥🔥🔥 开始整体扁平化处理 🔥🔥🔥🔥🔥🔥🔥")
 
+            # 1. 获取PDF文件信息
+            pdf_file_info = self.get_pdf_file_info(file_id)
+            bank_name = pdf_file_info.get("bank_name", "未知银行")
+            raw_filename = pdf_file_info.get("raw_filename", file_id)
+
+            print(f"🏦🏦🏦🏦 文件信息 - 银行: {bank_name}, 文件名: {raw_filename}")
+
+            # 2. 查找Excel文件
+            excel_files_info = self._find_excel_files_simple(excel_path, file_id)
+            if not excel_files_info:
+                return {
+                    "success": False,
+                    "error": f"未找到PDF {file_id} 对应的Excel文件",
+                    "long_format_data": [],  # 保持字段一致性
+                    "rows": [],
+                    "total_rows": 0
+                }
+
+            print(f"📊📊📊📊 找到 {len(excel_files_info)} 个Excel文件")
+
+            all_flattened_data = []
+            processed_sheets = []  # 记录处理成功的sheet
+            failed_sheets = []  # 记录处理失败的sheet
+
+            # 3. 处理每个Excel文件的每个sheet
+            for file_info in excel_files_info:
+                file_path = file_info['file_path']
+                file_name = file_info['file_name']
+
+                print(f"🎯🎯🎯🎯 处理Excel文件: {file_name}")
+
+                sheet_names = self.get_sheet_names_from_excel(file_path)
+                print(f"  📋📋📋📋 包含 {len(sheet_names)} 个sheet: {sheet_names}")
+
+                for sheet_name in sheet_names:
+                    print(f"    📄📄📄📄 处理sheet: {sheet_name}")
+
+                    try:
+                        # 读取sheet数据
+                        original_data = self.read_excel_sheet_data(file_path, sheet_name)
+                        if not original_data or len(original_data) < 2:
+                            print(f"    ⚠⚠⚠⚠⚠️ sheet {sheet_name} 数据不足，跳过")
+                            failed_sheets.append({
+                                'sheet': sheet_name,
+                                'file': file_name,
+                                'reason': '数据不足或为空'
+                            })
+                            continue
+
+                        print(f"    📈📈📈📈 读取到 {len(original_data)} 行原始数据")
+
+                        # 构建扁平化请求
+                        flatten_request = {
+                            'table_data': original_data,
+                            'source_info': {
+                                'pdf_id': file_id,
+                                'excel_file': file_name,
+                                'table_name': sheet_name,
+                                'bank_name': bank_name,
+                                'default_currency': '人民币',
+                                'default_unit': ''
+                            }
+                        }
+
+                        # 执行扁平化
+                        print(f"    🔥🔥🔥 调用excel_flatten_from_excel...")
+                        flatten_result = self.excel_flatten_from_excel(flatten_request)
+
+                        print(f"    🔍🔍🔍🔍 flatten_result结构: {list(flatten_result.keys())}")
+                        print(f"    🔍🔍🔍🔍 flatten_result.success: {flatten_result.get('success')}")
+
+                        if flatten_result.get('success'):
+                            print(f"    ✅ sheet {sheet_name} 扁平化成功")
+
+                            # 提取扁平化数据
+                            flattened_rows = self._extract_flattened_data_from_result(
+                                flatten_result=flatten_result,
+                                file_id=file_id,
+                                file_name=file_name,
+                                sheet_name=sheet_name,
+                                bank_name=bank_name,
+                                raw_filename=raw_filename
+                            )
+
+                            print(f"    🔍🔍🔍🔍 提取到 {len(flattened_rows)} 行数据")
+
+                            if flattened_rows:
+                                all_flattened_data.extend(flattened_rows)
+                                processed_sheets.append({
+                                    'sheet': sheet_name,
+                                    'file': file_name,
+                                    'rows': len(flattened_rows)
+                                })
+                                print(f"    ✅✅ 成功添加到总数据")
+                            else:
+                                print(f"    ⚠⚠⚠⚠⚠️ 未提取到数据")
+                                failed_sheets.append({
+                                    'sheet': sheet_name,
+                                    'file': file_name,
+                                    'reason': '提取数据为空'
+                                })
+                        else:
+                            error_msg = flatten_result.get('error', '未知错误')
+                            print(f"    ❌❌❌❌ 扁平化失败: {error_msg}")
+                            failed_sheets.append({
+                                'sheet': sheet_name,
+                                'file': file_name,
+                                'reason': f'扁平化失败: {error_msg}'
+                            })
+
+                    except Exception as e:
+                        error_msg = f"处理异常: {str(e)}"
+                        print(f"    ❌❌❌❌ {error_msg}")
+                        failed_sheets.append({
+                            'sheet': sheet_name,
+                            'file': file_name,
+                            'reason': error_msg
+                        })
+                        import traceback
+                        traceback.print_exc()
+
+            # 4. 检查结果
+            print(f"📊📊📊📊📊📊📊📊📊📊📊📊 最终数据统计: {len(all_flattened_data)} 行")
+            print(f"✅ 成功处理 {len(processed_sheets)} 个sheet")
+            print(f"❌❌ 失败 {len(failed_sheets)} 个sheet")
+
+            # 5. 保存文件
+            saved_result = None
+            if all_flattened_data:
+                print("💾💾💾💾 开始保存文件...")
+                saved_result = self.save_merged_flattened_data(
+                    pdf_id=file_id,
+                    flattened_data=all_flattened_data,
+                    excel_path=excel_path,
+                    bank_name=bank_name,
+                    source_pdf_name=raw_filename
+                )
+
+            # 6. 转换为前端格式（与excel_flatten_from_excel保持一致）
+            frontend_rows, field_names = self.convert_to_frontend_format(all_flattened_data)
+
+            # 7. 构建与excel_flatten_from_excel完全一致的返回格式
+            result = {
+                "success": True,
+                "rows": frontend_rows,
+                "total_rows": len(frontend_rows),
+                "total_columns": len(field_names) if all_flattened_data else 0,
+                "sheet_name": '整体扁平化数据',
+                "excel_file": saved_result.get('filename', '') if saved_result else '',
+                "pdf_id": file_id,
+                "has_dual_headers": True,
+                "data": all_flattened_data,
+                "long_format_data": all_flattened_data,  # ✅ 关键：使用一致的字段名
+                "source_info": {
+                    'pdf_id': file_id,
+                    'excel_file': saved_result.get('filename', '') if saved_result else '',
+                    'table_name': '整体扁平化数据',
+                    'bank_name': bank_name,
+                    'default_currency': '人民币',
+                    'default_unit': '',
+                    'raw_filename': raw_filename
+                },
+                "metadata": {},
+                "has_custom_metadata": False,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "stats": {
+                    "original_rows": len(all_flattened_data),
+                    "converted_records": len(all_flattened_data),
+                    "has_data": len(all_flattened_data) > 0
+                },
+                "file_info": saved_result,
+                "summary": {
+                    'pdf_id': file_id,
+                    'bank_name': bank_name,
+                    'raw_filename': raw_filename,
+                    'total_excel_files': len(excel_files_info),
+                    'total_sheets_processed': len(processed_sheets),
+                    'total_sheets_failed': len(failed_sheets),
+                    'total_rows': len(all_flattened_data),
+                    'processed_sheets': processed_sheets,
+                    'failed_sheets': failed_sheets,
+                    'processed_at': datetime.datetime.now().isoformat()
+                }
+            }
+
+            if not all_flattened_data:
+                result.update({
+                    "success": False,
+                    "error": "所有sheet处理失败，未生成数据",
+                    "rows": [],
+                    "long_format_data": [],
+                    "total_rows": 0,
+                    "total_columns": 0
+                })
+
+            print(f"✅✅✅✅ 整体扁平化处理完成，返回格式与excel_flatten_from_excel一致")
+            return result
+
+        except Exception as e:
+            print(f"❌❌❌❌❌❌❌❌ 处理失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": f"处理失败: {str(e)}",
+                "long_format_data": [],  # 保持字段一致性
+                "rows": [],
+                "total_rows": 0
+            }
 
 
     def convert_to_long_format(self, table_data: List[List[Any]], table_metadata: Dict[str, Any],
@@ -833,50 +1048,50 @@ class ExcelFlattenHandler:
                 "error": f"处理失败: {str(e)}"
             }
 
-
     def _extract_flattened_data_from_result(self, flatten_result: Dict[str, Any], file_id: str, file_name: str,
                                             sheet_name: str, bank_name: str = None, raw_filename: str = None) -> List[
         Dict]:
         """
-        从扁平化结果中提取有效的数据行 - 添加页号提取
+        从扁平化结果中提取有效的数据行 - 严格按指定字段返回
         """
         try:
             print(f"🔍🔍 开始提取数据: sheet={sheet_name}")
             flattened_data = []
 
-            # 🔥🔥🔥 提取页号：从sheet名称中提取数字部分
+            # 提取页号
             page_number = self._extract_page_number_from_sheet_name(sheet_name)
-            print(f"🔍 从sheet名称提取页号: '{sheet_name}' -> {page_number}")
 
-            # 方法1: 如果结果中有 long_format_data，直接使用
             if flatten_result.get('long_format_data'):
                 long_format_data = flatten_result['long_format_data']
                 print(f"✅ 找到long_format_data: {len(long_format_data)} 条记录")
 
                 for i, record in enumerate(long_format_data):
-                    # 深拷贝记录
-                    new_record = record.copy()
+                    # 🔥🔥🔥 严格按照指定字段构建记录
+                    new_record = {
+                        '银行名': bank_name or "未知银行",
+                        '表名': sheet_name,
+                        '页号': page_number,
+                        '主体': record.get('主体', ''),
+                        '纵向层级路径': record.get('纵向层级路径', ''),
+                        '横向层级路径': record.get('横向层级路径', ''),
+                        '数据类型': record.get('数据类型', ''),
+                        '币种': record.get('币种', ''),
+                        '单位': record.get('单位', ''),
+                        '报告期': record.get('报告期', ''),
+                        '数值': record.get('数值', ''),
+                        '行标记': record.get('行标记', '')
+                    }
 
-                    # 🔥🔥🔥 添加必要的字段
-                    new_record['表名'] = sheet_name  # 具体的sheet名称
-                    new_record['页号'] = page_number  # 从sheet名称提取的页号
-                    new_record['银行名'] = bank_name or "未知银行"
-
-                    # 添加系统信息
-                    new_record['_source_pdf_id'] = file_id
-                    new_record['_source_excel_file'] = file_name
-                    new_record['_source_sheet_name'] = sheet_name
-                    new_record['_flatten_timestamp'] = datetime.datetime.now().isoformat()
-
-                    if bank_name:
-                        new_record['_source_bank_name'] = bank_name
-                    if raw_filename:
-                        new_record['_source_raw_filename'] = raw_filename
+                    # 清理空值字段（可选）
+                    new_record = {k: v for k, v in new_record.items() if v is not None and v != ''}
 
                     flattened_data.append(new_record)
-                    print(f"✅ 处理记录 {i}: 表名={sheet_name}, 页号={page_number}")
 
-                print(f"✅ 从long_format_data提取 {len(flattened_data)} 条数据")
+                print(f"✅ 提取完成: {len(flattened_data)} 条数据")
+                if flattened_data:
+                    print(f"📊 字段列表: {list(flattened_data[0].keys())}")
+                    print(f"📊 示例数据: {flattened_data[0]}")
+
                 return flattened_data
 
             print("❌ 没有找到long_format_data")
@@ -887,6 +1102,7 @@ class ExcelFlattenHandler:
             import traceback
             traceback.print_exc()
             return []
+
 
     def _extract_page_number_from_sheet_name(self, sheet_name: str) -> int:
         """

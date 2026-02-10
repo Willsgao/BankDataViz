@@ -38,19 +38,22 @@
 
     <template #middle-bottom>
       <div class="table-list-container">
-        <!-- PDF名称显示区域 -->
-        <div v-if="selectedPdf" class="pdf-name-section compact">
-          <div class="pdf-name-content compact">
-            <el-tag type="info" size="small" class="pdf-name-tag compact">
-              <el-icon><Document /></el-icon>
-              {{ selectedPdf.filename || selectedPdf.name || '未命名文件' }}
-            </el-tag>
-          </div>
-        </div>
-
         <div class="section-header">
           <span class="section-title">表格名称列表</span>
-          <el-tag type="info" size="small">{{ tableCount }} 个表格</el-tag>
+          <el-tag type="info">{{ tableCount }} 个表格</el-tag>
+        </div>
+        <!-- 新增：选中的PDF名称显示 -->
+        <div v-if="selectedPdf" class="selected-pdf-info">
+          <div class="pdf-info-header">
+            <el-icon><Document /></el-icon>
+            <span class="pdf-info-label">当前PDF:</span>
+          </div>
+          <div class="pdf-name-display">
+            {{ selectedPdf.filename || selectedPdf.name || '未命名文件' }}
+          </div>
+          <el-tag v-if="selectedPdf.bank_name" size="small" type="info">
+            {{ selectedPdf.bank_name }}
+          </el-tag>
         </div>
 
         <div class="table-content">
@@ -58,39 +61,42 @@
             <el-icon class="is-loading"><Loading /></el-icon>
             加载表格列表中...
           </div>
-          <div v-else-if="displayedExcelFiles.length === 0" class="empty-state">
+          <div v-else-if="excelFiles.length === 0" class="empty-state">
             <p>暂无表格数据</p>
             <p class="tip">选中的PDF没有对应的Excel文件</p>
           </div>
           <div v-else class="excel-files-container">
-            <!-- 使用排序后的数据 -->
             <div
-              v-for="excelFile in displayedExcelFiles"
+              v-for="excelFile in excelFiles"
               :key="excelFile.excel_file"
               class="excel-file-item"
             >
               <div class="excel-file-header">
                 <el-icon><Document /></el-icon>
-                <span class="excel-file-name" :class="{ 'flattened-file': excelFile.excel_file.toLowerCase().includes('flattened_') }">
-                  {{ excelFile.excel_file }}
-                </span>
+                <span class="excel-file-name">{{ excelFile.excel_file }}</span>
                 <el-tag size="small" type="info">
                   {{ excelFile.total_sheets }} 个表
                 </el-tag>
               </div>
 
               <div class="sheet-items">
-                <!-- 这里显示的是已经智能排序后的sheets -->
-                <div
-                  v-for="sheet in excelFile.sheets"
-                  :key="`${excelFile.excel_file}-${sheet.name}`"
-                  class="sheet-item"
-                  @click="selectSheet(sheet, excelFile.excel_file)"
-                >
-                  <el-icon><Grid /></el-icon>
-                  <span class="sheet-name">{{ sheet.name }}</span>
+                  <div
+                    v-for="sheet in excelFile.sheets"
+                    :key="`${excelFile.excel_file}-${sheet.name}`"
+                    class="sheet-item"
+                    :class="{
+                      'active': selectedSheet &&
+                               selectedSheet.name === sheet.name &&
+                               selectedSheet.excel_file === excelFile.excel_file,
+                      'current-page': getPageFromSheetName(sheet.name) === currentPage
+                    }"
+                    @click="selectSheet(sheet, excelFile.excel_file)"
+                  >
+                    <el-icon><Grid /></el-icon>
+                    <span class="sheet-name">{{ sheet.name }}</span>
+                  </div>
                 </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -1181,100 +1187,6 @@ const loadAllClassData = async (excelFileName) => {
   )
 }
 
-
-
-// 完整的增强版排序逻辑
-const getEnhancedSortedExcelFiles = computed(() => {
-  if (!excelFiles.value || excelFiles.value.length === 0) return []
-
-  // 1. 对Excel文件进行排序
-  const sortedFiles = [...excelFiles.value].sort((a, b) => {
-    const aIsFlattened = a.excel_file.toLowerCase().includes('flattened_')
-    const bIsFlattened = b.excel_file.toLowerCase().includes('flattened_')
-
-    // flattened文件优先显示
-    if (aIsFlattened && !bIsFlattened) return -1
-    if (!aIsFlattened && bIsFlattened) return 1
-
-    // 如果都是flattened文件，按名称排序
-    if (aIsFlattened && bIsFlattened) {
-      return a.excel_file.localeCompare(b.excel_file)
-    }
-
-    // 都不是flattened文件，按名称排序
-    return a.excel_file.localeCompare(b.excel_file)
-  })
-
-  // 2. 对每个Excel文件中的sheets进行智能排序
-  return sortedFiles.map(file => ({
-    ...file,
-    sheets: [...(file.sheets || [])].sort((sheetA, sheetB) => {
-      // 提取sheet的排序信息
-      const aInfo = extractSheetSortInfo(sheetA.name)
-      const bInfo = extractSheetSortInfo(sheetB.name)
-
-      // 优先按页码排序
-      if (aInfo.pageNumber !== bInfo.pageNumber) {
-        return aInfo.pageNumber - bInfo.pageNumber
-      }
-
-      // 页码相同，按表序号排序
-      if (aInfo.tableIndex !== bInfo.tableIndex) {
-        return aInfo.tableIndex - bInfo.tableIndex
-      }
-
-      // 页码和表序号都相同，按名称排序
-      return sheetA.name.localeCompare(sheetB.name)
-    })
-  }))
-})
-
-// 辅助函数：提取sheet的排序信息
-const extractSheetSortInfo = (sheetName) => {
-  if (!sheetName) return { pageNumber: 9999, tableIndex: 9999 }
-
-  // 匹配格式：P100_1_T_名称 或 P100_1_名称
-  const standardMatch = sheetName.match(/P(\d+)_(\d+)(?:_T)?_(.+)/)
-  if (standardMatch) {
-    return {
-      pageNumber: parseInt(standardMatch[1]) || 9999,
-      tableIndex: parseInt(standardMatch[2]) || 9999,
-      tableName: standardMatch[3] || sheetName
-    }
-  }
-
-  // 匹配格式：P100_1
-  const simpleMatch = sheetName.match(/P(\d+)_(\d+)/)
-  if (simpleMatch) {
-    return {
-      pageNumber: parseInt(simpleMatch[1]) || 9999,
-      tableIndex: parseInt(simpleMatch[2]) || 9999,
-      tableName: sheetName
-    }
-  }
-
-  // 匹配格式：页100_表1
-  const chineseMatch = sheetName.match(/页(\d+)[_\-]表?(\d+)/)
-  if (chineseMatch) {
-    return {
-      pageNumber: parseInt(chineseMatch[1]) || 9999,
-      tableIndex: parseInt(chineseMatch[2]) || 9999,
-      tableName: sheetName
-    }
-  }
-
-  // 默认返回（用于无法解析的sheet名称）
-  return {
-    pageNumber: 9999,
-    tableIndex: 9999,
-    tableName: sheetName
-  }
-}
-
-// 在模板中使用排序后的数据
-const displayedExcelFiles = computed(() => {
-  return getEnhancedSortedExcelFiles.value
-})
 
 
 
@@ -4152,34 +4064,6 @@ const handleSearchInputCompatible = debounce((keyword) => {
 }, 300)
 
 
-// 在 computed 或 methods 中添加排序方法
-const getSortedExcelFiles = computed(() => {
-  if (!excelFiles.value || excelFiles.value.length === 0) return []
-
-  // 1. 先对Excel文件排序：flattened_xxx 优先，其他按名称排序
-  const sortedFiles = [...excelFiles.value].sort((a, b) => {
-    const aIsFlattened = a.excel_file.toLowerCase().includes('flattened_')
-    const bIsFlattened = b.excel_file.toLowerCase().includes('flattened_')
-
-    // flattened文件排在最前面
-    if (aIsFlattened && !bIsFlattened) return -1
-    if (!aIsFlattened && bIsFlattened) return 1
-
-    // 都是flattened或都不是flattened，按名称排序
-    return a.excel_file.localeCompare(b.excel_file)
-  })
-
-  // 2. 对每个Excel文件中的sheets进行排序
-  return sortedFiles.map(file => ({
-    ...file,
-    sheets: [...(file.sheets || [])].sort((sheetA, sheetB) => {
-      // 按sheet名称排序
-      return sheetA.name.localeCompare(sheetB.name)
-    })
-  }))
-})
-
-
 
 // 搜索版本控制
 const useNewSearch = ref(true) // 默认使用旧版本，可以逐步切换
@@ -5305,50 +5189,42 @@ if (typeof window !== 'undefined') {
   }
 }
 
-/* 紧凑版PDF名称显示区域样式 */
-.pdf-name-section.compact {
-  margin-bottom: 8px;
-  padding-bottom: 0;
-  border-bottom: none;
-}
 
-.pdf-name-content.compact {
-  padding: 4px 8px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  margin-top: 0;
+.selected-pdf-info {
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
   margin-bottom: 8px;
 }
 
-.pdf-name-tag.compact {
-  font-size: 12px;
-  padding: 2px 6px;
-  height: auto;
-  line-height: 1.2;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  background: #f0f2f5;
-  border: 1px solid #e4e7ed;
-}
-
-.pdf-name-tag.compact .el-icon {
-  font-size: 12px;
-}
-
-/* 恢复表格列表容器高度 */
-.table-list-container {
-  height: 100%;
+.pdf-info-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
-/* 确保表格内容区域充分利用剩余空间 */
+.pdf-info-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.pdf-name-display {
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 6px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* 确保表格内容区域高度正确 */
 .table-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
 }
 
 </style>
