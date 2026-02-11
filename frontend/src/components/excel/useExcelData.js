@@ -653,6 +653,65 @@ console.log('- 转换结果:', forceConverted)
         return dataCellCount >= 5; // 至少有5个数据交叉点
     };
 
+
+    // 在 HandsontableExcelViewer.vue 中修改
+    // 🔥🔥🔥 修改：将空格相关状态改为数值相关状态
+    // 🔥🔥🔥 修改：切换数值高亮显示
+    const toggleNumericCellsHighlight = () => {
+      showNumericCellsHighlight.value = !showNumericCellsHighlight.value
+
+      if (showNumericCellsHighlight.value) {
+        // 检测数值单元格
+        const numericData = detectNumericCells()
+        hasNumericCells.value = numericData.hasNumericCells
+        numericCellsStats.value = getNumericStats()
+
+        // 高亮显示数值单元格
+        highlightNumericCells()
+
+        ElMessage.success(`发现 ${numericData.totalNumericCells} 个数值单元格`)
+      } else {
+        // 清除高亮
+        clearNumericCellsHighlight()
+      }
+    }
+
+    // 🔥🔥🔥 新增：高亮数值单元格
+    const highlightNumericCells = () => {
+      const hot = getSafeHotInstance()
+      if (!hot || hot.isDestroyed) return
+
+      const { numericCells } = detectNumericCells()
+      const cellConfig = numericCells.map(cell => ({
+        row: cell.row,
+        col: cell.col,
+        className: 'numeric-cell-highlight'
+      }))
+
+      if (cellConfig.length > 0) {
+        hot.updateSettings({ cell: cellConfig }, false)
+        hot.render()
+        console.log('✅ 数值单元格高亮已应用')
+      }
+    }
+
+    // 🔥🔥🔥 新增：清除数值单元格高亮
+    const clearNumericCellsHighlight = () => {
+      const hot = getSafeHotInstance()
+      if (!hot || hot.isDestroyed) return
+
+      // 清除所有 numeric-cell-highlight 类
+      const currentCellConfig = hot.getSettings().cell || []
+      const filteredCellConfig = currentCellConfig.filter(cell =>
+        cell.className !== 'numeric-cell-highlight'
+      )
+
+      hot.updateSettings({ cell: filteredCellConfig }, false)
+      hot.render()
+      console.log('✅ 数值单元格高亮已清除')
+    }
+
+
     // 计算属性：当前表格类型
     const tableType = computed(() => {
         return detectTableType(tableData.value);
@@ -827,31 +886,6 @@ console.log('- 转换结果:', forceConverted)
     return firstItem?.__metadata?.has_dual_headers ? 1 : 0
   })
 
-  // 列配置 - 重要：这里需要传入 isEditMode
-  const columns00000 = computed(() => {
-      if (!tableData.value || tableData.value.length === 0) return []
-
-      const headers = tableData.value[0] || []
-
-      return [
-        // ✅ 第 0 列：左上角文字 + 纵向表头
-        {
-          data: 0,
-          title: '项目',
-          width: 180,
-          className: 'vertical-header-column',
-          readOnly: false
-        },
-        // ✅ 其余列：原来的横向表头
-        ...headers.slice(1).map((h, i) => ({
-          data: i + 1,
-          type: 'text',
-          title: h || `列${i + 2}`,
-          width: 150,
-          readOnly: true
-        }))
-      ]
-    })
 
   // 列配置 - 重要：这里需要传入 isEditMode
   const columns = computed(() => {
@@ -932,6 +966,154 @@ console.log('- 转换结果:', forceConverted)
     console.log('5. 数据区域起始:', `(1,1) = ${tableData.value[1]?.[1]}`)
   }
 
+
+  /**
+ * 检测数值单元格
+ */
+const detectNumericCells = () => {
+  if (!tableData.value || tableData.value.length === 0) {
+    return { hasNumericCells: false, totalNumericCells: 0, numericCells: [] }
+  }
+
+  console.log('🔍🔍 开始检测数值单元格...')
+  const numericCells = []
+
+  // 遍历所有单元格
+  for (let row = 0; row < tableData.value.length; row++) {
+    if (!tableData.value[row]) continue
+
+    for (let col = 0; col < tableData.value[row].length; col++) {
+      const cellValue = tableData.value[row][col]
+
+      if (isValidNumericValue(cellValue)) {
+        numericCells.push({
+          row,
+          col,
+          value: cellValue,
+          formattedValue: formatNumericValue(cellValue)
+        })
+      }
+    }
+  }
+
+  console.log('📊📊 数值单元格统计:', {
+    总数: numericCells.length,
+    样本: numericCells.slice(0, 5)
+  })
+
+  return {
+    hasNumericCells: numericCells.length > 0,
+    totalNumericCells: numericCells.length,
+    numericCells
+  }
+}
+
+/**
+ * 验证是否为有效的数值
+ */
+const isValidNumericValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return false
+  }
+
+  // 字符串类型处理
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+
+    // 空字符串
+    if (trimmed === '') return false
+
+    // 排除常见的非数值文本
+    const nonNumericPatterns = [
+      'null', 'NULL', 'Null',
+      'nan', 'NaN', 'NAN', 'Nan',
+      'none', 'None', 'NONE',
+      'n/a', 'N/A', 'na', 'NA',
+      '空', '空白', '空缺', '缺省',
+      'undefined', 'Undefined', 'UNDEFINED'
+    ]
+
+    if (nonNumericPatterns.includes(trimmed.toLowerCase())) {
+      return false
+    }
+
+    // 尝试转换为数字
+    const num = Number(trimmed)
+    return !isNaN(num) && isFinite(num)
+  }
+
+  // 数字类型
+  if (typeof value === 'number') {
+    return !isNaN(value) && isFinite(value)
+  }
+
+  return false
+}
+
+/**
+ * 获取数值统计信息
+ */
+const getNumericStats = () => {
+  const { numericCells } = detectNumericCells()
+
+  if (numericCells.length === 0) {
+    return {
+      count: 0,
+      sum: 0,
+      average: 0,
+      max: 0,
+      min: 0
+    }
+  }
+
+  const values = numericCells.map(cell => {
+    const num = typeof cell.value === 'string' ?
+                Number(cell.value.trim()) : cell.value
+    return num
+  }).filter(num => !isNaN(num) && isFinite(num))
+
+  if (values.length === 0) {
+    return {
+      count: 0,
+      sum: 0,
+      average: 0,
+      max: 0,
+      min: 0
+    }
+  }
+
+  const sum = values.reduce((acc, val) => acc + val, 0)
+  const average = sum / values.length
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+
+  return {
+    count: values.length,
+    sum: formatNumericValue(sum),
+    average: formatNumericValue(average),
+    max: formatNumericValue(max),
+    min: formatNumericValue(min)
+  }
+}
+
+/**
+ * 格式化数值
+ */
+const formatNumericValue = (value) => {
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    return value
+  }
+
+  // 如果是整数，直接返回
+  if (Number.isInteger(value)) {
+    return value.toString()
+  }
+
+  // 浮点数保留2位小数
+  return value.toFixed(2)
+}
+
+
   // 导出数据
   const exportData = () => {
     if (!tableData.value.length) return
@@ -992,6 +1174,14 @@ console.log('- 转换结果:', forceConverted)
     smartTip,
     checkRowMarkers,
     checkColumnMarkers,
-    checkCrossStructure
+    checkCrossStructure,
+
+    // 🔥🔥🔥 修改：将空格相关改为数值相关
+  detectNumericCells,           // 替换 detectEmptyCells
+  isValidNumericValue,          // 新增
+  getNumericStats,             // 新增
+  formatNumericValue,          // 新增
+  hasNumericCells: computed(() => detectNumericCells().hasNumericCells), // 替换 hasEmptyCells
+  numericCellsStats: getNumericStats(), // 替换 emptyCellsStats
   }
 }

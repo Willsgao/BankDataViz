@@ -364,6 +364,20 @@ const handleSelectionSumChanged = (data) => {
 }
 
 
+// 在 ExcelContent.vue 的 script 中添加
+const clearSelectionSum = () => {
+  console.log('🗑️ 清除选中区域求和显示')
+  selectionSumData.value = {
+    visible: true,
+    total: 0,
+    numericCount: 0,
+    totalCells: 0,
+    average: 0,
+    max: 0,
+    min: 0
+  }
+}
+
 const handleGlobalFlattenedData = (flattenedData) => {
   try {
     console.log('🔄🔄 处理整体扁平化数据', {

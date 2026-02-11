@@ -2,36 +2,59 @@
   <div class="handsontable-excel-viewer">
     <!-- 第一行：主控栏（保持不变） @click="exportFinalFile" -->
     <div class="main-toolbar">
+
+
       <div class="toolbar-section left-section">
-        <el-button
-          type="primary"
-          size="small"
-          @click="exportData"
-          :loading="exportFinalLoading"
-        >
-          <el-icon><Download /></el-icon>导出
-        </el-button>
+          <el-button
+            type="primary"
+            size="small"
+            @click="exportData"
+            :loading="exportFinalLoading"
+          >
+            <el-icon><Download /></el-icon>导出
+          </el-button>
 
-        <el-button
-          v-if="hasEmptyCells"
-          :type="showEmptyCellsHighlight ? 'primary' : ''"
-          size="small"
-          @click="toggleEmptyCellsHighlight"
-        >
-          <el-icon><View /></el-icon>{{ showEmptyCellsHighlight ? '隐藏空格' : '高亮空格' }}
-        </el-button>
 
-        <el-button
-        type="success"
-        size="small"
-        :disabled="!enableSaveButtons || saving"
-        @click="triggerSave"
-        :loading="saving"
-      >
-        <el-icon><Check /></el-icon>保存
-      </el-button>
 
-      </div>
+          <!-- 将原来的"高亮空格"按钮改为"高亮数值" -->
+            <el-button
+              v-if="hasNumericCells"
+              :type="showNumericCellsHighlight ? 'primary' : ''"
+              size="small"
+              @click="toggleNumericCellsHighlight"
+            >
+              <el-icon><View /></el-icon>{{ showNumericCellsHighlight ? '隐藏数据' : '高亮数据' }}
+            </el-button>
+
+
+
+          <!-- 保存按钮 -->
+          <el-button
+            type="success"
+            size="small"
+            :disabled="!enableSaveButtons || saving"
+            @click="triggerSave"
+            :loading="saving"
+          >
+            <el-icon><Check /></el-icon>保存
+          </el-button>
+
+          <!-- 🔥🔥🔥 新增：将编辑状态标签移动到这里（保存按钮后面） -->
+          <el-tooltip
+            :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
+            placement="bottom"
+          >
+            <el-tag
+              :type="hasChanges ? 'warning' : 'success'"
+              size="small"
+              class="status-tag edit-status-highlight"
+              :class="{ 'has-changes': hasChanges }"
+            >
+              <el-icon><Edit /></el-icon>
+              {{ hasChanges ? `已修改(${modifiedCellsCount})` : '编辑中' }}
+            </el-tag>
+          </el-tooltip>
+        </div>
 
       <div class="toolbar-section center-section" v-if="tableData.length > 0">
         <el-tag size="small" type="info" class="data-summary">
@@ -69,44 +92,7 @@
           整体扁平化
         </el-button>
 
-        <el-tooltip
-          :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
-          placement="bottom"
-        >
-          <el-tag
-            :type="hasChanges ? 'warning' : 'success'"
-            size="small"
-            class="status-tag"
-          >
-            <el-icon><Edit /></el-icon>
-            {{ hasChanges ? `已修改(${modifiedCellsCount})` : '编辑中' }}
-          </el-tag>
-        </el-tooltip>
       </div>
-    </div>
-
-    <!-- 新增：选中区域求和显示栏（放在第二行） -->
-    <div v-if="selectionSum.visible" class="selection-summary-bar">
-      <div class="sum-info">
-        <el-icon><DataAnalysis /></el-icon>
-        <span class="sum-label">选中区域求和:</span>
-        <span class="sum-value">{{ selectionSum.total }}</span>
-        <span class="sum-details">
-          ({{ selectionSum.numericCount }}/{{ selectionSum.totalCells }} 个数值)
-        </span>
-        <span v-if="selectionSum.numericCount > 1" class="sum-stats">
-          平均值: {{ selectionSum.average }} | 最大: {{ selectionSum.max }} | 最小: {{ selectionSum.min }}
-        </span>
-      </div>
-      <el-button
-        size="small"
-        type="info"
-        link
-        @click="clearSelectionSum"
-        title="清除求和显示"
-      >
-        <el-icon><Close /></el-icon>
-      </el-button>
     </div>
 
     <!-- 第三行：功能操作栏（原有逻辑保持不变） -->
@@ -206,7 +192,9 @@ import {
   Download, Edit, View, Grid, Menu, DataAnalysis,
   Close, Position, DataBoard
 } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+
+import { ElMessageBox, ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 
 // 导入组合式函数
@@ -521,6 +509,120 @@ const handleGlobalFlattenComplete = (eventData) => {
     })
   }
 }
+
+
+
+
+
+// 获取路由实例
+const router = useRouter()
+
+// 🔥🔥🔥 新增：离开页面提醒相关状态
+const hasUnsavedChanges = computed(() => hasChanges.value && modifiedCellsCount.value > 0)
+const isNavigatingAway = ref(false)
+
+// 🔥🔥🔥 新增：浏览器标签页关闭提醒
+const handleBeforeUnload = (event) => {
+  if (hasUnsavedChanges.value) {
+    event.preventDefault()
+    // 标准浏览器提示
+    event.returnValue = '您有未保存的修改，确定要离开吗？'
+    return '您有未保存的修改，确定要离开吗？'
+  }
+}
+
+// 🔥🔥🔥 新增：离开页面确认对话框
+const showLeaveConfirmation = () => {
+  return new Promise((resolve) => {
+    ElMessageBox({
+      title: '未保存的修改',
+      message: `您有 ${modifiedCellsCount.value} 个未保存的修改，确定要离开当前页面吗？`,
+      confirmButtonText: '立即保存',
+      cancelButtonText: '仍要离开',
+      type: 'warning',
+      showClose: true,
+      closeOnClickModal: false,
+      closeOnPressEscape: false,
+      beforeClose: async (action, instance, done) => {
+        if (action === 'confirm') {
+          // 立即保存
+          instance.confirmButtonLoading = true
+          instance.confirmButtonText = '保存中...'
+
+          try {
+            // 🔥🔥🔥 使用原有的保存逻辑
+            await triggerSave() // 调用原有的保存函数
+            done()
+            resolve(true) // 保存后允许离开
+          } catch (error) {
+            instance.confirmButtonLoading = false
+            instance.confirmButtonText = '立即保存'
+            ElMessage.error('保存失败: ' + error.message)
+            // 保存失败，不关闭对话框
+          }
+        } else if (action === 'cancel') {
+          // 不保存直接离开
+          done()
+          resolve(true)
+        } else {
+          // 点击关闭按钮，取消离开
+          done()
+          resolve(false)
+          ElMessage.info('已取消离开操作')
+        }
+      }
+    }).then(action => {
+      if (action === 'confirm' || action === 'cancel') {
+        resolve(true)
+      }
+    }).catch(() => {
+      resolve(false)
+    })
+  })
+}
+
+// 🔥🔥🔥 新增：Vue Router 导航守卫
+const setupNavigationGuard = () => {
+  const guard = router.beforeEach((to, from, next) => {
+    // 同一页面或没有未保存修改，直接放行
+    if (to.fullPath === from.fullPath || !hasUnsavedChanges.value || isNavigatingAway.value) {
+      next()
+      return
+    }
+
+    // 阻止导航，显示确认对话框
+    showLeaveConfirmation().then((canLeave) => {
+      if (canLeave) {
+        isNavigatingAway.value = true
+        next()
+      } else {
+        next(false)
+      }
+    })
+  })
+
+  return guard
+}
+
+// 🔥🔥🔥 新增：设置事件监听
+onMounted(() => {
+  // 监听浏览器标签页关闭/刷新
+  window.addEventListener('beforeunload', handleBeforeUnload)
+
+  // 设置 Vue Router 导航守卫
+  setupNavigationGuard()
+})
+
+onUnmounted(() => {
+  // 清理事件监听
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+
+  // 🔥🔥🔥 清理自动保存定时器
+  if (logic.cleanupAutoSave) {
+    logic.cleanupAutoSave()
+  }
+})
+
 
 
 // 前端调用时，需要将pdf_id放在URL路径中
@@ -940,9 +1042,252 @@ const getHotInstanceDirect = () => {
 }
 
 
+// 🔥🔥🔥🔥 修改：将空格相关状态改为数据高亮状态
+const showNumericCellsHighlight = ref(false)
+const numericCellsStats = ref({
+  count: 0,
+  sum: 0,
+  average: 0,
+  max: 0,
+  min: 0
+})
+
+// 🔥🔥🔥🔥 修改：切换数据高亮显示
+const toggleNumericCellsHighlight = () => {
+  showNumericCellsHighlight.value = !showNumericCellsHighlight.value
+
+  if (showNumericCellsHighlight.value) {
+    // 检测数据单元格
+    const numericData = detectNumericCells()
+    hasNumericCells.value = numericData.hasNumericCells
+    numericCellsStats.value = getNumericStats()
+
+    // 高亮显示数据单元格
+    highlightNumericCells()
+
+    ElMessage.success(`发现 ${numericData.totalNumericCells} 个数据单元格`)
+  } else {
+    // 清除高亮
+    clearNumericCellsHighlight()
+  }
+}
+
+// 在现有的响应式变量后添加（约第60行附近）
+const hasNumericCells = computed(() => {
+  if (!tableData.value || tableData.value.length === 0) return false
+
+  // 简化的数值单元格检测逻辑
+  for (let row = 0; row < tableData.value.length; row++) {
+    if (!tableData.value[row]) continue
+
+    for (let col = 0; col < tableData.value[row].length; col++) {
+      const value = tableData.value[row][col]
+
+      // 检测数值类型
+      if (typeof value === 'number' && !isNaN(value)) {
+        return true
+      }
+
+      // 检测可转换为数字的字符串
+      if (typeof value === 'string' && value.trim() !== '') {
+        const num = Number(value.trim())
+        if (!isNaN(num) && isFinite(num)) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+})
+
+// 🔥🔥🔥🔥 新增：高亮数据单元格
+const highlightNumericCells = () => {
+  const hot = getSafeHotInstance()
+  if (!hot || hot.isDestroyed) return
+
+  const { numericCells } = detectNumericCells()
+  const cellConfig = numericCells.map(cell => ({
+    row: cell.row,
+    col: cell.col,
+    className: 'numeric-cell-highlight'
+  }))
+
+  if (cellConfig.length > 0) {
+    hot.updateSettings({ cell: cellConfig }, false)
+    hot.render()
+    console.log('✅ 数据单元格高亮已应用')
+  }
+}
+
+// 🔥🔥🔥🔥 新增：清除数据单元格高亮
+const clearNumericCellsHighlight = () => {
+  const hot = getSafeHotInstance()
+  if (!hot || hot.isDestroyed) return
+
+  // 清除所有 numeric-cell-highlight 类
+  const currentCellConfig = hot.getSettings().cell || []
+  const filteredCellConfig = currentCellConfig.filter(cell =>
+    cell.className !== 'numeric-cell-highlight'
+  )
+
+  hot.updateSettings({ cell: filteredCellConfig }, false)
+  hot.render()
+  console.log('✅ 数据单元格高亮已清除')
+}
+
+
+// 1. 检测数值单元格函数（支持千位符、括号负数、负号等）
+const detectNumericCells = () => {
+  if (!tableData.value || tableData.value.length === 0) {
+    return { hasNumericCells: false, totalNumericCells: 0, numericCells: [] }
+  }
+
+  console.log('🔍🔍 开始检测数值单元格...')
+  const numericCells = []
+
+  // 数值解析函数（支持多种格式）
+  const parseNumericValue = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return null
+    }
+
+    // 如果是数字类型直接返回
+    if (typeof value === 'number') {
+      return !isNaN(value) && isFinite(value) ? value : null
+    }
+
+    // 字符串处理
+    if (typeof value === 'string') {
+      let str = value.trim()
+
+      if (str === '') return null
+
+      // 排除常见的非数值文本
+      const nonNumericPatterns = [
+        'null', 'NULL', 'Null', 'nan', 'NaN', 'NAN', 'Nan',
+        'none', 'None', 'NONE', 'n/a', 'N/A', 'na', 'NA',
+        '空', '空白', '空缺', '缺省', 'undefined', 'Undefined', 'UNDEFINED'
+      ]
+
+      if (nonNumericPatterns.includes(str.toLowerCase())) {
+        return null
+      }
+
+      // 处理括号表示的负数，如：(322) -> -322
+      if (str.startsWith('(') && str.endsWith(')')) {
+        str = '-' + str.slice(1, -1)
+      }
+
+      // 移除千位符（逗号）
+      str = str.replace(/,/g, '')
+
+      // 移除货币符号、空格等
+      str = str.replace(/[$\s¥€£]/g, '')
+
+      // 处理百分比（如果有）
+      let isPercentage = false
+      if (str.endsWith('%')) {
+        str = str.slice(0, -1)
+        isPercentage = true
+      }
+
+      // 尝试转换为数字
+      const num = Number(str)
+      if (!isNaN(num) && isFinite(num)) {
+        return isPercentage ? num / 100 : num
+      }
+    }
+
+    return null
+  }
+
+  // 遍历所有单元格
+  for (let row = 0; row < tableData.value.length; row++) {
+    if (!tableData.value[row]) continue
+
+    for (let col = 0; col < tableData.value[row].length; col++) {
+      const cellValue = tableData.value[row][col]
+      const numericValue = parseNumericValue(cellValue)
+
+      if (numericValue !== null) {
+        numericCells.push({
+          row,
+          col,
+          value: numericValue,
+          originalValue: cellValue,
+          formattedValue: formatNumericValue(numericValue)
+        })
+      }
+    }
+  }
+
+  console.log('📊📊 数值单元格统计（支持千位符、括号负数等）:', {
+    总数: numericCells.length,
+    样本: numericCells.slice(0, 5).map(cell => ({
+      原始值: cell.originalValue,
+      解析值: cell.value,
+      位置: `R${cell.row + 1}C${cell.col + 1}`
+    }))
+  })
+
+  return {
+    hasNumericCells: numericCells.length > 0,
+    totalNumericCells: numericCells.length,
+    numericCells
+  }
+}
+
+// 2. 获取数值统计信息函数
+const getNumericStats = () => {
+  const { numericCells } = detectNumericCells()
+
+  if (numericCells.length === 0) {
+    return {
+      count: 0,
+      sum: 0,
+      average: 0,
+      max: 0,
+      min: 0
+    }
+  }
+
+  const values = numericCells.map(cell => cell.value)
+  const sum = values.reduce((acc, val) => acc + val, 0)
+  const average = sum / values.length
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+
+  return {
+    count: values.length,
+    sum: formatNumericValue(sum),
+    average: formatNumericValue(average),
+    max: formatNumericValue(max),
+    min: formatNumericValue(min)
+  }
+}
+
+// 3. 数值格式化函数（需要同时添加）
+const formatNumericValue = (value) => {
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    return String(value)
+  }
+
+  // 整数直接返回
+  if (Number.isInteger(value)) {
+    return value.toLocaleString() // 添加千位分隔符
+  }
+
+  // 浮点数保留2位小数，并添加千位分隔符
+  return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+
+
 
 // 在现有代码之后添加求和功能
 const {
+  getFormattedValues,
+  formatNumber,
   selectionSum,
   calculateSelectionSum,
   clearSelectionSum,
@@ -1114,6 +1459,7 @@ const logic = useExcelViewerLogic(
 
 // 添加这3个关键方法
 defineExpose({
+  clearSelectionSum,
   waitForInstanceReady: (timeout = 5000) => hotController.waitForReady(timeout),
   getHotInstance: () => hotController.getInstance(),
   isInstanceReady: () => hotController.isReady(),
@@ -2086,6 +2432,58 @@ onMounted(() => {
   border-color: #ff9800 !important;
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ffffff"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>') !important;
   box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.3);
+}
+
+
+/* 数据单元格高亮样式 */
+:deep(.handsontable td.numeric-cell-highlight) {
+  background-color: #f0f9ff !important;
+  border: 2px solid #1890ff !important;
+  position: relative;
+}
+
+:deep(.handsontable td.numeric-cell-highlight::after) {
+  content: '数据';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 9px;
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.1);
+  padding: 0 2px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.edit-mode :deep(.handsontable td.numeric-cell-highlight) {
+  background-color: #e6f7ff !important;
+  border: 2px dotted #1890ff !important;
+}
+
+
+/* 数值单元格高亮样式 - 红色主题 */
+:deep(.handsontable td.numeric-cell-highlight) {
+  background-color: #fff2f0 !important;
+  border: 2px solid #ff4d4f !important;
+  position: relative;
+}
+
+:deep(.handsontable td.numeric-cell-highlight::after) {
+  content: '数据';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 9px;
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  padding: 0 2px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.edit-mode :deep(.handsontable td.numeric-cell-highlight) {
+  background-color: #ffece8 !important;
+  border: 2px dotted #ff4d4f !important;
 }
 
 
