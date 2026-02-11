@@ -158,7 +158,6 @@ export default function useExcelViewerLogic(
 
    // 替换现有的 computedColumns 计算属性
     const computedColumns = computed(() => {
-      console.log('🔄🔄 计算列配置...')
 
       const baseColumns = columns.value;
       const dataColCount = tableData.value[0]?.length || 0;
@@ -171,13 +170,12 @@ export default function useExcelViewerLogic(
           title: String.fromCharCode(65 + index), // A, B, C...
           filter: true // ✅ 关键修改：使用布尔值启用筛选
         }))
-        console.log('✅ 生成新列配置:', newColumns.length)
+
         return newColumns
       }
 
       // 如果配置列数 < 数据列数，补充新列配置
       if (baseColumns.length < dataColCount) {
-        console.log(`🔄 补充列配置: ${baseColumns.length} -> ${dataColCount}`)
         const newColumns = [...baseColumns];
         for (let i = baseColumns.length; i < dataColCount; i++) {
           newColumns.push({
@@ -192,7 +190,6 @@ export default function useExcelViewerLogic(
 
       // 如果配置列数 > 数据列数，截断
       if (baseColumns.length > dataColCount) {
-        console.log(`✂️ 截断列配置: ${baseColumns.length} -> ${dataColCount}`)
         return baseColumns.slice(0, dataColCount).map((col, index) => ({
           ...col,
           data: index,
@@ -209,7 +206,6 @@ export default function useExcelViewerLogic(
         filter: col.filter !== undefined ? col.filter : true // ✅ 关键修改：保留原有或使用默认
       }))
 
-      console.log('✅ 最终列配置:', finalColumns.length)
       return finalColumns
     })
 
@@ -1069,12 +1065,10 @@ export default function useExcelViewerLogic(
     const hot = hotTable.value?.hotInstance
     if (hot && !hot.isDestroyed) {
       window.__excelHotInstance = hot
-      console.log('⚡⚡ Handsontable 实例已主动暴露', hot)
 
       if (!hot._afterChangeBound) {
         hot._afterChangeBound = true
         hot.addHook('afterChange', onDataChange)
-        console.log('✅ afterChange 已永久补绑')
       }
     } else {
       setTimeout(tryExpose, 200)
@@ -1128,7 +1122,6 @@ export default function useExcelViewerLogic(
       setTimeout(() => {
         try {
           setupSelectionSumListener()
-          console.log('✅ 选中区域求和监听器已设置')
         } catch (error) {
           console.error('❌ 设置选中求和监听器失败:', error)
         }
@@ -1138,7 +1131,6 @@ export default function useExcelViewerLogic(
 
   // 🔥🔥 修改：增强的清理函数
   const enhancedCleanup = () => {
-    console.log('🧹 清理表格资源，包括求和功能...')
 
     // 原有的清理逻辑
     if (typeof cleanup === 'function') {
@@ -1148,7 +1140,6 @@ export default function useExcelViewerLogic(
     // 🔥🔥 新增：清理求和显示
     clearSelectionSum()
 
-    console.log('✅ 资源清理完成')
   }
 
   // 初始化

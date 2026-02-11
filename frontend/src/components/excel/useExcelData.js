@@ -80,18 +80,6 @@ export default function useExcelData(props) {
 
   // tableData 计算属性 - 修复版本
   const tableData = computed(() => {
-  console.log('🔄🔄 tableData computed 触发')
-
-  console.log('=== 🔥 tableData 计算属性开始 ===')
-
-  // 添加诊断代码
-  console.log('1. props.excelData 类型:', typeof props.excelData)
-  console.log('2. props.excelData 是数组:', Array.isArray(props.excelData))
-  if (props.excelData && Array.isArray(props.excelData)) {
-    console.log('3. props.excelData[0] 类型:', typeof props.excelData[0])
-    console.log('4. props.excelData[0] 是数组:', Array.isArray(props.excelData[0]))
-    console.log('5. props.excelData[0] 样本:', props.excelData[0])
-  }
 
   // 1. 检查数据是否存在
   if (!props.excelData) {
@@ -109,12 +97,6 @@ export default function useExcelData(props) {
     return []
   }
 
-  console.log('📊📊 接收到的原始数据:', {
-    长度: props.excelData.length,
-    第一个元素类型: typeof props.excelData[0],
-    第一个元素: props.excelData[0],
-    第一个元素的键: Object.keys(props.excelData[0] || {})
-  })
 
   const firstItem = props.excelData[0]
 
@@ -124,13 +106,6 @@ export default function useExcelData(props) {
 
     const metadata = firstItem.__metadata
     const dataRows = props.excelData.slice(1) // 跳过元数据
-
-    console.log('📋📋 元数据详情:', {
-      左上角: metadata.top_left_cell,
-      横向表头数: metadata.horizontal_headers?.length,
-      纵向表头数: metadata.vertical_headers?.length,
-      数据行数: dataRows.length
-    })
 
     // 关键修复：重新设计渲染逻辑
     const renderedTable = []
@@ -202,13 +177,6 @@ export default function useExcelData(props) {
     // 🔥🔥🔥🔥 关键修复：应用格式转换
     const finalData = convertObjectArrayToArray(renderedTable)
 
-    console.log('✅ 双表头数据转换检查:', {
-      转换前类型: Array.isArray(renderedTable[0]) ? '数组数组' : '对象数组',
-      转换后类型: Array.isArray(finalData[0]) ? '数组数组' : '对象数组',
-      转换前形状: `${renderedTable.length}行 × ${renderedTable[0]?.length || 0}列`,
-      转换后形状: `${finalData.length}行 × ${finalData[0]?.length || 0}列`
-    })
-
     // 🔥🔥🔥🔥 强制验证和修复数据格式
     const validatedData = (() => {
       if (!finalData || !Array.isArray(finalData)) {
@@ -243,47 +211,7 @@ export default function useExcelData(props) {
       console.error('❌❌ 无法识别的数据格式')
       return finalData
     })()
-
-    console.log('🎯🎯 双表头最终数据格式验证:', {
-      格式: Array.isArray(validatedData[0]) ? '数组数组 ✅' : '对象数组 ❌❌',
-      行数: validatedData.length,
-      列数: validatedData[0]?.length || 0,
-      支持列操作: Array.isArray(validatedData[0]) ? '是' : '否'
-    })
-
-    // 🔥🔥🔥🔥🔥 最终诊断
-    console.group('🔍🔍🔍 最终数据诊断')
-    console.log('1. 数据格式检查:', {
-      数据存在: !!validatedData,
-      是数组: Array.isArray(validatedData),
-      长度: validatedData?.length || 0,
-      第一行存在: !!validatedData?.[0],
-      第一行类型: typeof validatedData?.[0],
-      是数组数组: Array.isArray(validatedData?.[0]),
-      是对象: typeof validatedData?.[0] === 'object',
-      第一行样本: validatedData?.[0]
-    })
-
-    // 强制转换验证
-    // 在调用 forceArrayArrayFormat 的地方添加诊断
-console.log('🔥 调用 forceArrayArrayFormat 前:')
-console.log('- 输入数据:', finalData)
-console.log('- 输入数据[0] 类型:', typeof finalData?.[0])
-console.log('- 是数组数组:', Array.isArray(finalData?.[0]))
-
-const forceConverted = forceArrayArrayFormat(finalData)
-
-console.log('🔥 调用 forceArrayArrayFormat 后:')
-console.log('- 输出数据[0] 类型:', typeof forceConverted?.[0])
-console.log('- 是数组数组:', Array.isArray(forceConverted?.[0]))
-console.log('- 转换结果:', forceConverted)
-    console.log('2. 强制转换验证:', {
-      转换成功: Array.isArray(forceConverted?.[0]),
-      格式: Array.isArray(forceConverted?.[0]) ? '数组数组 ✅' : '对象数组 ❌',
-      行数: forceConverted.length,
-      列数: forceConverted[0]?.length || 0
-    })
-    console.groupEnd()
+    const forceConverted = forceArrayArrayFormat(finalData)
 
     return forceConverted
   }
@@ -355,29 +283,20 @@ console.log('- 转换结果:', forceConverted)
   // 🔥🔥🔥🔥 关键修复：应用格式转换
   const finalData = convertObjectArrayToArray(result)
 
-  console.log('✅ 单表头数据转换检查:', {
-    转换前类型: Array.isArray(result[0]) ? '数组数组' : '对象数组',
-    转换后类型: Array.isArray(finalData[0]) ? '数组数组' : '对象数组',
-    转换前形状: `${result.length}行 × ${result[0]?.length || 0}列`,
-    转换后形状: `${finalData.length}行 × ${finalData[0]?.length || 0}列`
-  })
 
   // 🔥🔥🔥🔥 强制验证和修复数据格式
   const validatedData = (() => {
     if (!finalData || !Array.isArray(finalData)) {
-      console.error('❌❌ 数据为空或不是数组')
       return []
     }
 
     // 强制转换为数组数组
     if (Array.isArray(finalData[0])) {
-      console.log('✅ 数据已经是数组数组格式')
       return finalData
     }
 
     // 如果是对象数组，强制转换
     if (typeof finalData[0] === 'object' && finalData[0] !== null) {
-      console.warn('⚠️ 检测到对象数组，强制转换为数组数组')
 
       try {
         const keys = Object.keys(finalData[0] || {})
@@ -385,7 +304,7 @@ console.log('- 转换结果:', forceConverted)
           keys, // 第一行是表头
           ...finalData.map(obj => keys.map(key => obj[key] ?? ''))
         ]
-        console.log('✅ 强制转换完成:', { 行数: converted.length, 列数: keys.length })
+
         return converted
       } catch (error) {
         console.error('❌❌ 强制转换失败:', error)
@@ -397,47 +316,7 @@ console.log('- 转换结果:', forceConverted)
     return finalData
   })()
 
-  console.log('🎯🎯 单表头最终数据格式验证:', {
-    格式: Array.isArray(validatedData[0]) ? '数组数组 ✅' : '对象数组 ❌❌',
-    行数: validatedData.length,
-    列数: validatedData[0]?.length || 0,
-    支持列操作: Array.isArray(validatedData[0]) ? '是' : '否'
-  })
-
-  // 🔥🔥🔥🔥🔥 最终诊断
-  console.group('🔍🔍🔍 最终数据诊断')
-  console.log('1. 数据格式检查:', {
-    数据存在: !!validatedData,
-    是数组: Array.isArray(validatedData),
-    长度: validatedData?.length || 0,
-    第一行存在: !!validatedData?.[0],
-    第一行类型: typeof validatedData?.[0],
-    是数组数组: Array.isArray(validatedData?.[0]),
-    是对象: typeof validatedData?.[0] === 'object',
-    第一行样本: validatedData?.[0]
-  })
-
-  // 强制转换验证
-  // 在调用 forceArrayArrayFormat 的地方添加诊断
-console.log('🔥 调用 forceArrayArrayFormat 前:')
-console.log('- 输入数据:', finalData)
-console.log('- 输入数据[0] 类型:', typeof finalData?.[0])
-console.log('- 是数组数组:', Array.isArray(finalData?.[0]))
-
-const forceConverted = forceArrayArrayFormat(finalData)
-
-console.log('🔥 调用 forceArrayArrayFormat 后:')
-console.log('- 输出数据[0] 类型:', typeof forceConverted?.[0])
-console.log('- 是数组数组:', Array.isArray(forceConverted?.[0]))
-console.log('- 转换结果:', forceConverted)
-
-  console.log('2. 强制转换验证:', {
-    转换成功: Array.isArray(forceConverted?.[0]),
-    格式: Array.isArray(forceConverted?.[0]) ? '数组数组 ✅' : '对象数组 ❌',
-    行数: forceConverted.length,
-    列数: forceConverted[0]?.length || 0
-  })
-  console.groupEnd()
+  const forceConverted = forceArrayArrayFormat(finalData)
 
   const finalDataToReturn = (() => {
       if (Array.isArray(forceConverted) && forceConverted.length > 0 && Array.isArray(forceConverted[0])) {
@@ -456,7 +335,6 @@ console.log('- 转换结果:', forceConverted)
       return forceConverted || [];
     })();
 
-    console.log('✅ 最终数据格式:', Array.isArray(finalDataToReturn[0]) ? '数组数组' : '对象数组');
     return finalDataToReturn;
 })
 

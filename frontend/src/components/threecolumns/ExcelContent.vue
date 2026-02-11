@@ -491,14 +491,6 @@ const handleSaveDraft = async () => {
 
 /* ===== 计算属性 ===== */
 const enableSaveButtons = computed(() => {
-  console.log('🔍🔍🔍🔍🔍🔍 enableSaveButtons 计算:', {
-    时间: new Date().toLocaleTimeString(),
-    有sheet: !!props.selectedSheet,
-    hasUnsavedChanges: props.hasUnsavedChanges,
-    actualHasUnsavedChanges: props.actualHasUnsavedChanges,
-    使用哪个: 'actualHasUnsavedChanges'
-  })
-
   const result = props.selectedSheet && props.actualHasUnsavedChanges
   console.log('✅ enableSaveButtons 结果:', result)
   return result
@@ -575,13 +567,6 @@ const goToNextSheet = async () => {
 /* ===== 核心修复：数据监听和刷新逻辑 ===== */
 // 🔥🔥 修复：只定义一次 watch
 watch(() => props.excelData, (newData, oldData) => {
-  console.log('🎯🎯 ExcelContent: 检测到数据变化', {
-    新数据长度: newData?.length,
-    旧数据长度: oldData?.length,
-    数据是否相同: newData === oldData,
-    时间戳: new Date().toLocaleTimeString()
-  })
-
   if (dataChangeTimer.value) {
     clearTimeout(dataChangeTimer.value)
   }
@@ -602,7 +587,6 @@ watch(() => props.excelData, (newData, oldData) => {
 // 🔥🔥 修复：只定义一次 watch
 watch(() => props.selectedSheet, (newSheet, oldSheet) => {
   if (newSheet?.name !== oldSheet?.name) {
-    console.log('📋📋 Sheet切换，重置数据加载状态')
     isDataLoaded.value = false
     tableDataVersion.value = 0
   }
@@ -668,7 +652,6 @@ const forceRefreshHandsontable = () => {
 
 /* ===== 生命周期 ===== */
 onMounted(() => {
-  console.log('🎯🎯 ExcelContent 组件挂载完成')
   retryCount = 0
   if (typeof window !== 'undefined') {
     window.$hasMod = computed(() => props.hasUnsavedChanges)
@@ -819,15 +802,6 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
     }, 50)
   }
 }, { immediate: true })
-
-
-// 在 setup() 函数中添加
-onMounted(() => {
-  // 监听数据加载完成事件
-  window.addEventListener('excel-data-loaded', (event) => {
-    console.log('🎯 收到数据加载完成事件', event.detail)
-  })
-})
 
 // 强制刷新表格显示
 const forceRefreshTables = () => {

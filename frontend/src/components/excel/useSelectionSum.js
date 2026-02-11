@@ -201,7 +201,6 @@ export const useSelectionSum = (getHotInstance) => {
         }
       })
 
-      console.log('✅ 选中区域求和监听器已设置')
     } catch (error) {
       console.error('❌ 设置选中监听器失败:', error)
     }

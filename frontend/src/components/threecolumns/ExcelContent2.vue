@@ -769,13 +769,6 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
 }, { immediate: true })
 
 
-// 在 setup() 函数中添加
-onMounted(() => {
-  // 监听数据加载完成事件
-  window.addEventListener('excel-data-loaded', (event) => {
-    console.log('🎯 收到数据加载完成事件', event.detail)
-  })
-})
 
 // 强制刷新表格显示
 const forceRefreshTables = () => {

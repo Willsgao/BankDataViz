@@ -245,10 +245,6 @@ if (typeof window !== 'undefined') {
   setInterval(() => {
     const currentState = window.currentHasChanges
     if (currentState !== lastGlobalState.value) {
-      console.log('🔄 全局状态变化，触发更新:', {
-        旧值: lastGlobalState.value,
-        新值: currentState
-      })
       lastGlobalState.value = currentState
       forceUpdateFlag.value++ // 🔥 强制触发重新计算
     }
@@ -261,10 +257,6 @@ const localSearchResults = ref([])
 // 修改为：
 if (typeof window !== 'undefined') {
   window.debugTP = () => {
-    console.log('🔍 ThreeColumnPage 调试:')
-    console.log('注入的 searchResults:', searchResults.value)
-    console.log('searchResults 长度:', searchResults.value.length)
-    console.log('本地的 localSearchResults:', localSearchResults.value)
 
     if (searchResults.value.length > 0) {
       console.log('第一个文件:', searchResults.value[0])
@@ -277,16 +269,9 @@ const actualHasUnsavedChanges = computed(() => {
   // 🔥 强制依赖响应式变量
   forceUpdateFlag.value
 
-  console.log('🔥🔥🔥 actualHasUnsavedChanges 被调用', {
-    时间: new Date().toLocaleTimeString(),
-    强制更新计数: forceUpdateFlag.value,
-    全局状态: window.currentHasChanges
-  })
-
   // 🔥 直接返回全局状态
   const result = typeof window !== 'undefined' ? window.currentHasChanges === true : false
 
-  console.log('🎯 计算结果:', result)
   return result
 })
 
@@ -294,11 +279,6 @@ const actualHasUnsavedChanges = computed(() => {
 
 // 专门用于导航切换的简单函数 - 放在 ThreeColumnPage.vue 的 setup 函数中
 const navigateToSheet = async (sheet, excelFile) => {
-  console.log('🧭🧭 专用导航函数: 切换到表格', {
-    表格名称: sheet?.name,
-    Excel文件: excelFile,
-    当前选中: selectedSheet.value?.name
-  })
 
   try {
     // 1. 安全检查
@@ -343,15 +323,9 @@ const navigateToSheet = async (sheet, excelFile) => {
       currentTableMode.value = 'original'
     }
 
-    console.log('✅ 专用导航完成', {
-      数据行数: excelData.value?.length || 0,
-      显示模式: showFlatMode.value ? '扁平化' : '原始'
-    })
-
     return { success: true, navigated: true }
 
   } catch (error) {
-    console.error('❌ 专用导航失败:', error)
 
     // 出错时恢复状态
     excelData.value = []
@@ -368,26 +342,15 @@ const navigateToSheet = async (sheet, excelFile) => {
 const handleNavigateSheet = async (navigationInfo) => {
   const { sheet, excelFile } = navigationInfo
 
-  console.log('🔄 处理导航事件，使用专用导航函数')
-
   try {
     // 使用专用导航函数，而不是复杂的 selectSheetOperation
     const result = await navigateToSheet(sheet, excelFile)
-
-    if (result.success) {
-      if (!result.skipped) {
-        console.log('✅ 导航处理完成')
-      }
-    } else {
-      console.error('❌ 导航处理失败:', result.error)
-    }
 
   } catch (error) {
     console.error('❌ 导航处理异常:', error)
     ElMessage.error('导航切换失败')
   }
 }
-
 
 
 // ----------------------------------------
@@ -487,10 +450,6 @@ const fallbackKeyMatch = (key, currentPdfId, currentExcelFile, currentSheetName,
 
     const matches = key.startsWith(expectedPrefix) || key.startsWith(simplePrefix);
 
-    if (matches) {
-      console.log(`🔧 备用匹配成功: key=${key.slice(0, 60)}...`);
-    }
-
     return matches;
   }
 
@@ -581,11 +540,7 @@ const registerRestoration = (pdfId, excelFile, sheetName, tableType, draftData) 
     attempts: 0
   })
 
-  console.log('📝 注册草稿恢复任务:', {
-    key,
-    draftKey,
-    修改数: JSON.parse(raw)?.modifications?.length || 0
-  })
+
   return true
 }
 
@@ -845,38 +800,6 @@ const saveToLocalDraftOnly = (tableType) => {
     console.error('❌❌ 保存到本地草稿也失败:', error);
   }
 };
-
-const autoSaveDraft000000000000 = () => {
-  if (!selectedPdf.value || !selectedSheet.value) return
-
-  const tableType = showFlatMode.value ? 'flattened' : 'original'
-  const draftKey = ExcelKey.getDraftKey(
-    selectedPdf.value.id,
-    selectedExcelFile.value,
-    selectedSheet.value.name,
-    tableType
-  )
-
-  // 获取完整表格数据
-  const hot = getActiveHotInstance()
-  if (!hot || hot.isDestroyed) return
-
-  const fullData = hot.getSourceData() || []
-  const modifications = Array.from(window.unsavedCells[tableType] || [])
-
-  if (modifications.length === 0 && fullData.length === 0) return
-
-  // 保存完整数据 + 修改记录
-  const draft = {
-    fullData,           // 新增：完整表格数据
-    modifications,      // 原有：修改记录
-    savedAt: Date.now(),
-    tableType
-  }
-
-  localStorage.setItem(draftKey, JSON.stringify(draft))
-  console.log('💾 缓存成功:', { 数据行数: fullData.length, 修改数: modifications.length })
-}
 
 
 let isRestoring = false
@@ -1908,7 +1831,6 @@ const convertToFlatDataWithRealTimeData = async (tableData, pdfId, excelFile, sh
     }
 
     const result = await response.json()
-    console.log('📥📥 扁平化API返回数据:', result)
 
     // 处理API响应
     if (result.success) {
@@ -2366,28 +2288,6 @@ const sessionCacheManager = {
 
 
 
-// 在 ThreeColumnPage.vue 的模板部分，检查 ExcelContent 组件的使用
-watch(() => actualHasUnsavedChanges.value, (newVal) => {
-  console.log('🚨 ThreeColumnPage -> ExcelContent: 传递 hasUnsavedChanges', {
-    值: newVal,
-    时间: new Date().toLocaleTimeString(),
-    类型: typeof newVal
-  })
-
-  // 验证传递给 ExcelContent 的值 - 修复这里的语法错误
-  console.log('📤 传递给 ExcelContent 的 props:', {
-    selectedSheet: selectedSheet.value?.name,
-    hasUnsavedChanges: newVal,
-    modifiedCellsCount: modifiedCellsCount.value
-  })
-}, { immediate: true })
-
-
-// 或者在 render 时检查
-onUpdated(() => {
-  console.log('🔄 ThreeColumnPage 更新，actualHasUnsavedChanges:', actualHasUnsavedChanges.value)
-})
-
 
 // 监听 ExcelContent 的 unsaved-changes-updated 事件
 const handleUnsavedChangesUpdated = (hasChanges) => {
@@ -2628,21 +2528,42 @@ const getHotInstanceWithCache = () => {
 /**
  * 更新修改单元格计数显示
  */
+ // 找到 updateModifiedCellsCount 函数并修复
 const updateModifiedCellsCount = () => {
-    const count = unsavedCells.value?.size || 0;
-    modifiedCellsCount.value = count;
-    hasUnsavedChanges.value = count > 0;
+  try {
+    // 🔥🔥🔥 修复：使用正确的变量名
+    const tableType = showFlatMode.value ? 'flattened' : 'original';
+    const count = window.unsavedCells?.[tableType]?.size || 0;
 
-    console.log('🔢 修改单元格计数更新:', {
-        未保存单元格数: count,
-        是否有未保存修改: hasUnsavedChanges.value
+    // 更新响应式变量
+    modifiedCellsCount.value = count;
+
+    // 🔥🔥🔥 修复：使用正确的变量名，不是 hasUnsavedChanges
+    const hasChangesValue = count > 0;
+
+    // 更新全局状态
+    window.currentHasChanges = hasChangesValue;
+    window.modifiedCellsCount = count;
+    window.unsavedCellsCount = count;
+
+    console.log('🔢🔢 修改单元格计数更新:', {
+      未保存单元格数: count,
+      是否有未保存修改: hasChangesValue
     });
 
     // 通知父组件
     if (typeof onUnsavedChangesUpdated === 'function') {
-        onUnsavedChangesUpdated(hasUnsavedChanges.value, count);
+      onUnsavedChangesUpdated(hasChangesValue, count);
     }
+
+    // 🔥🔥🔥 修复：触发强制更新
+    forceUnsavedUpdate.value++;
+
+  } catch (error) {
+    console.error('❌❌ 更新修改单元格计数失败:', error);
+  }
 };
+
 
 /**
  * 异步获取表格实例
@@ -2688,212 +2609,210 @@ const getHotInstanceAsync = async (retry = 0, maxRetry = 5) => {
 
 
 // useThreeColumnPage.js 中的 clearModificationStatesOnly 函数
+// 找到 clearModificationStatesOnly 函数，修复 hasUnsavedChanges 引用
 const clearModificationStatesOnly = async () => {
-    console.log('🧹🧹 清除修改状态，保留缓存数据...');
+  console.log('🧹🧹🧹🧹 清除修改状态，保留缓存数据...');
 
-    try {
-        if (!selectedPdf.value || !selectedExcelFile.value || !selectedSheet.value) {
-            console.warn('❌ 清除状态失败：缺少必要参数');
-            return;
-        }
-
-        const pdfId = selectedPdf.value.id;
-        const excelFile = selectedExcelFile.value;
-        const sheetName = selectedSheet.value.name;
-        const tableType = showFlatMode.value ? 'flattened' : 'original';
-
-        console.log('📋 清除参数:', { pdfId, excelFile, sheetName, tableType });
-
-        // 1. 清除全局修改状态
-        window.currentHasChanges = false;
-        window.modifiedCellsCount = 0;
-        window.unsavedCellsCount = 0;
-        console.log('✅ 全局修改状态已清除');
-
-        // 2. 安全地清除未保存单元格集合
-        if (window.unsavedCells) {
-            if (window.unsavedCells instanceof Set) {
-                window.unsavedCells.clear();
-                console.log('✅ Set 结构的 unsavedCells 已清空');
-            } else if (Array.isArray(window.unsavedCells)) {
-                window.unsavedCells.length = 0;
-                console.log('✅ Array 结构的 unsavedCells 已清空');
-            } else if (typeof window.unsavedCells === 'object') {
-                // 对象结构：{ original: Set, flattened: Set }
-                if (window.unsavedCells.original) {
-                    window.unsavedCells.original.clear();
-                    console.log('✅ original 表未保存单元格已清空');
-                }
-                if (window.unsavedCells.flattened) {
-                    window.unsavedCells.flattened.clear();
-                    console.log('✅ flattened 表未保存单元格已清空');
-                }
-            } else {
-                window.unsavedCells = new Set();
-                console.log('✅ 重新初始化 unsavedCells 为 Set');
-            }
-        } else {
-            window.unsavedCells = new Set();
-            console.log('✅ 初始化 unsavedCells 为 Set');
-        }
-
-        // 3. 清除本地存储的草稿
-        const draftKey = ExcelKey.getDraftKey ?
-            ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
-            `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
-
-        localStorage.removeItem(draftKey);
-        console.log('✅ 已清除本地存储草稿:', draftKey);
-
-        // 4. 清除索引
-        const indexKey = ExcelKey.getIndexKey ?
-            ExcelKey.getIndexKey(pdfId, excelFile) :
-            `excel_draft_index_${pdfId}_${excelFile}`;
-
-        const index = JSON.parse(localStorage.getItem(indexKey) || '[]');
-        const newIndex = index.filter(key => !key.includes(draftKey));
-        localStorage.setItem(indexKey, JSON.stringify(newIndex));
-        console.log('✅ 草稿索引已更新，新索引长度:', newIndex.length);
-
-        // 5. 清除 sheetStateManager 的状态
-        if (sheetStateManager) {
-            console.log('🔧 开始清除 sheetStateManager 状态...');
-
-            // 尝试不同的清除方法
-            const clearMethods = [
-                'clearModifications',
-                'clearUnsavedChanges',
-                'resetState',
-                'clearAllModifications'
-            ];
-
-            let cleared = false;
-            for (const method of clearMethods) {
-                if (typeof sheetStateManager[method] === 'function') {
-                    try {
-                        if (method === 'clearModifications' || method === 'clearUnsavedChanges') {
-                            sheetStateManager[method](tableType);
-                        } else {
-                            sheetStateManager[method]();
-                        }
-                        console.log(`✅ 使用 ${method} 清除状态成功`);
-                        cleared = true;
-                        break;
-                    } catch (e) {
-                        console.warn(`⚠️ ${method} 清除失败:`, e.message);
-                    }
-                }
-            }
-
-            if (!cleared) {
-                console.warn('⚠️ 所有清除方法都失败，尝试手动重置');
-                // 手动重置关键状态
-                if (sheetStateManager.modifiedCells) {
-                    sheetStateManager.modifiedCells.clear();
-                }
-                if (sheetStateManager.unsavedCells) {
-                    sheetStateManager.unsavedCells.clear();
-                }
-                if (sheetStateManager.modifiedCellsCount !== undefined) {
-                    sheetStateManager.modifiedCellsCount = 0;
-                }
-            }
-        } else {
-            console.warn('⚠️ sheetStateManager 不存在');
-        }
-
-        // 6. 清除最终保存锁定
-        if (sheetStateManager && sheetStateManager.clearLastFinalSavedCount) {
-            try {
-                // sheetStateManager.clearLastFinalSavedCount(tableType);
-                console.log('✅ 最终保存计数已清除');
-            } catch (e) {
-                console.warn('⚠️ 清除最终保存计数失败:', e.message);
-            }
-        }
-
-        // 7. 重置脏标记
-        sheetEverDirty.value = false;
-        console.log('✅ 脏标记已重置');
-
-        // 8. 清除响应式状态
-        if (unsavedCells.value && unsavedCells.value.clear) {
-            unsavedCells.value.clear();
-            console.log('✅ 响应式 unsavedCells 已清空');
-        }
-        if (historyCells.value && historyCells.value.clear) {
-            historyCells.value.clear();
-            console.log('✅ 响应式 historyCells 已清空');
-        }
-
-        // 9. 重置计数器
-        // unsavedCellsTick.value = 0;
-        // console.log('✅ 未保存单元格计数器已重置');
-
-        // 10. 更新修改单元格计数显示
-        updateModifiedCellsCount();
-        console.log('✅ 修改单元格计数显示已更新');
-
-        // 11. 🔥🔥 关键：保留缓存数据，不清除缓存
-        console.log('💾💾 保留缓存数据，只清除修改状态');
-
-        // 验证缓存数据是否还存在
-        let cachedData = null;
-        if (tableType === 'flattened') {
-            cachedData = excelDataCache.getFlattenedData ?
-                excelDataCache.getFlattenedData(pdfId, excelFile, sheetName) : null;
-        } else {
-            cachedData = excelDataCache.getOriginalData ?
-                excelDataCache.getOriginalData(pdfId, excelFile, sheetName) : null;
-        }
-
-        console.log('🔍 缓存数据验证:', {
-            缓存是否存在: !!cachedData,
-            缓存行数: cachedData?.length || 0,
-            缓存类型: tableType
-        });
-
-        // 12. 清除样式
-        const hot = getHotInstanceWithCache();
-        if (hot && !hot.isDestroyed) {
-            try {
-                // 清除所有单元格样式
-                hot.updateSettings({ cell: [] }, false);
-                hot.render();
-                console.log('✅ 表格样式已清除');
-            } catch (error) {
-                console.warn('⚠️ 清除表格样式失败:', error);
-            }
-        }
-
-        // 13. 清除缓存标记（可选，根据需求决定）
-        const cacheMarkKey = ExcelKey.getDraftKey ?
-            ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
-            `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
-
-        if (window.cacheMetadata && window.cacheMetadata[cacheMarkKey]) {
-            // 可以选择保留后端数据标记，只清除前端修改标记
-            if (window.cacheMetadata[cacheMarkKey]?.source === 'frontend_modified') {
-                delete window.cacheMetadata[cacheMarkKey];
-                console.log('✅ 前端修改缓存标记已清除');
-            } else {
-                console.log('💾 保留后端数据缓存标记:', window.cacheMetadata[cacheMarkKey]);
-            }
-        }
-
-        console.log('🎉🎉 修改状态清除完成，缓存数据保留');
-
-        // 触发更新
-        nextTick(() => {
-            updateModifiedCellsCount();
-            if (typeof onUnsavedChangesUpdated === 'function') {
-                onUnsavedChangesUpdated(false, 0);
-            }
-        });
-
-    } catch (error) {
-        console.error('❌❌ 清除修改状态失败:', error);
+  try {
+    if (!selectedPdf.value || !selectedExcelFile.value || !selectedSheet.value) {
+      console.warn('❌❌ 清除状态失败：缺少必要参数');
+      return;
     }
+
+    const pdfId = selectedPdf.value.id;
+    const excelFile = selectedExcelFile.value;
+    const sheetName = selectedSheet.value.name;
+    const tableType = showFlatMode.value ? 'flattened' : 'original';
+
+    console.log('📋📋 清除参数:', { pdfId, excelFile, sheetName, tableType });
+
+    // 1. 清除全局修改状态
+    window.currentHasChanges = false;
+    window.modifiedCellsCount = 0;
+    window.unsavedCellsCount = 0;
+    console.log('✅ 全局修改状态已清除');
+
+    // 2. 安全地清除未保存单元格集合
+    if (window.unsavedCells) {
+      if (window.unsavedCells instanceof Set) {
+        window.unsavedCells.clear();
+        console.log('✅ Set 结构的 unsavedCells 已清空');
+      } else if (Array.isArray(window.unsavedCells)) {
+        window.unsavedCells.length = 0;
+        console.log('✅ Array 结构的 unsavedCells 已清空');
+      } else if (typeof window.unsavedCells === 'object') {
+        // 对象结构：{ original: Set, flattened: Set }
+        if (window.unsavedCells.original) {
+          window.unsavedCells.original.clear();
+          console.log('✅ original 表未保存单元格已清空');
+        }
+        if (window.unsavedCells.flattened) {
+          window.unsavedCells.flattened.clear();
+          console.log('✅ flattened 表未保存单元格已清空');
+        }
+      } else {
+        window.unsavedCells = new Set();
+        console.log('✅ 重新初始化 unsavedCells 为 Set');
+      }
+    } else {
+      window.unsavedCells = new Set();
+      console.log('✅ 初始化 unsavedCells 为 Set');
+    }
+
+    // 3. 清除本地存储的草稿
+    const draftKey = ExcelKey.getDraftKey ?
+      ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
+      `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
+
+    localStorage.removeItem(draftKey);
+    console.log('✅ 已清除本地存储草稿:', draftKey);
+
+    // 4. 清除索引
+    const indexKey = ExcelKey.getIndexKey ?
+      ExcelKey.getIndexKey(pdfId, excelFile) :
+      `excel_draft_index_${pdfId}_${excelFile}`;
+
+    const index = JSON.parse(localStorage.getItem(indexKey) || '[]');
+    const newIndex = index.filter(key => !key.includes(draftKey));
+    localStorage.setItem(indexKey, JSON.stringify(newIndex));
+    console.log('✅ 草稿索引已更新，新索引长度:', newIndex.length);
+
+    // 5. 清除 sheetStateManager 的状态
+    if (sheetStateManager) {
+      console.log('🔧🔧 开始清除 sheetStateManager 状态...');
+
+      // 尝试不同的清除方法
+      const clearMethods = [
+        'clearModifications',
+        'clearUnsavedChanges',
+        'resetState',
+        'clearAllModifications'
+      ];
+
+      let cleared = false;
+      for (const method of clearMethods) {
+        if (typeof sheetStateManager[method] === 'function') {
+          try {
+            if (method === 'clearModifications' || method === 'clearUnsavedChanges') {
+              sheetStateManager[method](tableType);
+            } else {
+              sheetStateManager[method]();
+            }
+            console.log(`✅ 使用 ${method} 清除状态成功`);
+            cleared = true;
+            break;
+          } catch (e) {
+            console.warn(`⚠️ ${method} 清除失败:`, e.message);
+          }
+        }
+      }
+
+      if (!cleared) {
+        console.warn('⚠️ 所有清除方法都失败，尝试手动重置');
+        // 手动重置关键状态
+        if (sheetStateManager.modifiedCells) {
+          sheetStateManager.modifiedCells.clear();
+        }
+        if (sheetStateManager.unsavedCells) {
+          sheetStateManager.unsavedCells.clear();
+        }
+        if (sheetStateManager.modifiedCellsCount !== undefined) {
+          sheetStateManager.modifiedCellsCount = 0;
+        }
+      }
+    } else {
+      console.warn('⚠️ sheetStateManager 不存在');
+    }
+
+    // 6. 清除最终保存锁定
+    if (sheetStateManager && sheetStateManager.clearLastFinalSavedCount) {
+      try {
+        sheetStateManager.clearLastFinalSavedCount(tableType);
+        console.log('✅ 最终保存计数已清除');
+      } catch (e) {
+        console.warn('⚠️ 清除最终保存计数失败:', e.message);
+      }
+    }
+
+    // 7. 重置脏标记
+    sheetEverDirty.value = false;
+    console.log('✅ 脏标记已重置');
+
+    // 8. 清除响应式状态
+    if (unsavedCells.value && unsavedCells.value.clear) {
+      unsavedCells.value.clear();
+      console.log('✅ 响应式 unsavedCells 已清空');
+    }
+    if (historyCells.value && historyCells.value.clear) {
+      historyCells.value.clear();
+      console.log('✅ 响应式 historyCells 已清空');
+    }
+
+    // 9. 更新修改单元格计数显示 - 🔥🔥🔥 修复这里！
+    // 使用正确的变量名，而不是 hasUnsavedChanges
+    updateModifiedCellsCount(); // 调用现有的更新函数
+    console.log('✅ 修改单元格计数显示已更新');
+
+    // 10. 🔥🔥🔥 关键：保留缓存数据，不清除缓存
+    console.log('💾💾💾💾 保留缓存数据，只清除修改状态');
+
+    // 验证缓存数据是否还存在
+    let cachedData = null;
+    if (tableType === 'flattened') {
+      cachedData = excelDataCache.getFlattenedData ?
+        excelDataCache.getFlattenedData(pdfId, excelFile, sheetName) : null;
+    } else {
+      cachedData = excelDataCache.getOriginalData ?
+        excelDataCache.getOriginalData(pdfId, excelFile, sheetName) : null;
+    }
+
+    console.log('🔍🔍 缓存数据验证:', {
+      缓存是否存在: !!cachedData,
+      缓存行数: cachedData?.length || 0,
+      缓存类型: tableType
+    });
+
+    // 11. 清除样式
+    const hot = getHotInstanceWithCache();
+    if (hot && !hot.isDestroyed) {
+      try {
+        // 清除所有单元格样式
+        hot.updateSettings({ cell: [] }, false);
+        hot.render();
+        console.log('✅ 表格样式已清除');
+      } catch (error) {
+        console.warn('⚠️ 清除表格样式失败:', error);
+      }
+    }
+
+    // 12. 清除缓存标记（可选，根据需求决定）
+    const cacheMarkKey = ExcelKey.getDraftKey ?
+      ExcelKey.getDraftKey(pdfId, excelFile, sheetName, tableType) :
+      `excel_draft_${pdfId}_${excelFile}_${sheetName}_${tableType}`;
+
+    if (window.cacheMetadata && window.cacheMetadata[cacheMarkKey]) {
+      // 可以选择保留后端数据标记，只清除前端修改标记
+      if (window.cacheMetadata[cacheMarkKey]?.source === 'frontend_modified') {
+        delete window.cacheMetadata[cacheMarkKey];
+        console.log('✅ 前端修改缓存标记已清除');
+      } else {
+        console.log('💾💾 保留后端数据缓存标记:', window.cacheMetadata[cacheMarkKey]);
+      }
+    }
+
+    console.log('🎉🎉🎉🎉 修改状态清除完成，缓存数据保留');
+
+    // 触发更新
+    nextTick(() => {
+      updateModifiedCellsCount();
+      if (typeof onUnsavedChangesUpdated === 'function') {
+        onUnsavedChangesUpdated(false, 0);
+      }
+    });
+
+  } catch (error) {
+    console.error('❌❌❌❌ 清除修改状态失败:', error);
+  }
 };
 
 
@@ -3547,7 +3466,6 @@ const convertToFlatData_DEPRECATED  = async () => {
     }
 
     const result = await response.json()
-    console.log('📥 扁平化API返回数据:', result)
 
     // 步骤5：处理API响应
     if (result.success) {
@@ -3573,10 +3491,6 @@ const convertToFlatData_DEPRECATED  = async () => {
       }
 
       if (flattenedData.length > 0) {
-        console.log('✅ 接收到扁平化数据:', {
-          总行数: flattenedData.length,
-          第一行样本: flattenedData[0]
-        })
 
         // 保存到缓存
         excelDataCache.setFlattenedData(pdfId, excelFile, sheetName, flattenedData)
@@ -3628,8 +3542,6 @@ const convertToFlatData_DEPRECATED  = async () => {
     loadingFlat.value = false
   }
 }
-
-
 
 
 /**
@@ -4204,11 +4116,8 @@ watch(excelFiles, (newFiles) => {
   if (newFiles && newFiles.length > 0) {
     const maxPage = getMaxPageFromSheets(newFiles)
     totalPages.value = Math.max(maxPage, totalPages.value)
-    console.log(`📊 根据sheets计算总页数: ${totalPages.value}`)
   }
 })
-
-
 
 
 
@@ -4243,10 +4152,6 @@ watch(
 watch(
   () => showFlatMode.value,
   (newMode, oldMode) => {
-    console.log('🎯 扁平化模式切换:', {
-      从: oldMode ? '扁平化' : '原始',
-      到: newMode ? '扁平化' : '原始'
-    });
 
     // 延迟触发更新，确保DOM已更新
     nextTick(() => {
@@ -4261,7 +4166,6 @@ watch(
   () => selectedSheet.value,
   (newSheet, oldSheet) => {
     if (newSheet?.name !== oldSheet?.name) {
-      console.log('📋 Sheet切换，重置未保存状态');
       // 清空所有未保存状态
       if (window.unsavedCells) {
         window.unsavedCells.original?.clear();
@@ -4271,24 +4175,6 @@ watch(
     }
   }
 );
-
-
-
-// 在ThreeColumnPage.vue中添加调试
-watch(() => actualHasUnsavedChanges.value, (newVal, oldVal) => {
-  console.log('🔄🔄🔄 ThreeColumnPage actualHasUnsavedChanges 变化:', {
-    旧值: oldVal,
-    新值: newVal,
-    时间: new Date().toLocaleTimeString(),
-    传递给ExcelContent: newVal
-  })
-})
-
-// 检查模板中的传递
-console.log('🔍 检查传递给ExcelContent的props:', {
-  hasUnsavedChanges: actualHasUnsavedChanges.value,
-  actualHasUnsavedChanges: actualHasUnsavedChanges.value
-})
 
 
 // 新增：监听全局未保存单元格变化，实时刷新状态
@@ -4320,8 +4206,6 @@ const checkExcelContentProps = () => {
 
 // 在 ThreeColumnPage.vue 的 setup 中添加
 watch(searchResults, (newVal) => {
-  console.log('🔍 ThreeColumnPage searchResults 变化:', newVal)
-  console.log('数据长度:', newVal.length)
   if (newVal.length > 0) {
     console.log('第一个文件:', newVal[0])
   }
@@ -4333,13 +4217,11 @@ watch(searchResults, (newVal) => {
 // 1. 监听选中的sheet，联动PDF页码（新加）
 watch(() => selectedSheet.value, (newSheet, oldSheet) => {
   if (newSheet?.name !== oldSheet?.name) {
-    console.log('📋📋 Sheet切换，联动PDF页码');
 
     // 从sheet名称中提取页码
     const pageNum = getPageFromSheetName(newSheet?.name);
     if (pageNum && pageNum > 0) {
       currentPage.value = pageNum;
-      console.log(`🔄🔄 根据sheet名称更新PDF页码: ${pageNum}`);
     }
 
     // 清空所有未保存状态
@@ -4356,7 +4238,6 @@ watch(excelFiles, (newFiles) => {
   if (newFiles && newFiles.length > 0) {
     const maxPage = getMaxPageFromSheets(newFiles);
     totalPages.value = Math.max(maxPage, totalPages.value);
-    console.log(`📊📊 根据sheets计算总页数: ${totalPages.value}`);
   }
 }, { immediate: true });
 
@@ -4639,48 +4520,98 @@ onMounted(() => {
   window.showFlatMode = showFlatMode
   window.sheetStateManager = sheetStateManager
 
-  // ============ 4. 初始化全局自动保存函数 ============
-  window.triggerGlobalAutoSave = async () => {
-    console.log('🚀 [ThreeColumnPage] 执行全局自动保存到后台...')
 
-    // 检查必要的上下文
-    if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
-      console.log('⏸️ 无选中表格，跳过自动保存')
-      return { success: false, error: '未选择表格' }
-    }
+  // ===========4.===================
+  // 🔥🔥🔥 修改全局自动保存函数
+window.triggerGlobalAutoSave = async (saveDataFromEdit) => {
+  console.log('🚀🚀🚀🚀 [ThreeColumnPage] 执行全局自动保存...', {
+    来自useExcelEdit的数据: saveDataFromEdit,
+    当前选中表格: selectedSheet.value?.name
+  });
 
-    const tableType = showFlatMode.value ? 'flattened' : 'original'
-    const hasChanges = window.unsavedCells?.[tableType]?.size > 0
+  // 检查必要的上下文
+  if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
+    console.log('⏸⏸⏸️ 无选中表格，跳过自动保存');
+    return { success: false, error: '未选择表格' };
+  }
 
-    if (!hasChanges) {
-      console.log('⏸️ 无未保存修改，跳过自动保存')
-      return { success: false, error: '无未保存修改' }
-    }
+  const tableType = showFlatMode.value ? 'flattened' : 'original';
 
-    console.log(`💾 检测到 ${window.unsavedCells[tableType].size} 个未保存修改，开始自动保存...`)
+  // 🔥🔥🔥 修复：使用更可靠的检查方式
+  let hasChanges = false;
+  let unsavedCount = 0;
 
-    try {
-      // 调用修改后的 saveData 函数，传递 true 表示自动保存
-      const result = await saveData(true)
+  // 方法1：检查来自 useExcelEdit 的数据
+  if (saveDataFromEdit && saveDataFromEdit.modifications && saveDataFromEdit.modifications.length > 0) {
+    hasChanges = true;
+    unsavedCount = saveDataFromEdit.modifications.length;
+    console.log(`✅✅ 通过参数检测到 ${unsavedCount} 个修改`);
+  }
+  // 方法2：检查 sheetStateManager
+  else if (sheetStateManager) {
+    const context = sheetStateManager.getActiveContext();
+    if (context && context.pdfId === selectedPdf.value.id &&
+        context.excelFile === selectedExcelFile.value &&
+        context.sheetName === selectedSheet.value.name) {
 
-      if (result.success) {
-        console.log('✅ [ThreeColumnPage] 自动保存到后台成功')
-
-        // 同时保存到本地草稿作为备份
-        await saveToLocalDraft(tableType, true)
-
-        return { success: true, message: '自动保存成功' }
-      } else {
-        console.warn('⚠️ [ThreeColumnPage] 自动保存到后台失败，保存到本地草稿')
-        await saveToLocalDraft(tableType, false)
-        return { success: false, error: result.error }
-      }
-    } catch (error) {
-      console.error('❌ [ThreeColumnPage] 自动保存过程出错:', error)
-      await saveToLocalDraft(tableType, false)
-      return { success: false, error: error.message }
+      const stats = sheetStateManager.getModificationStats();
+      unsavedCount = stats.unsavedCount || 0;
+      hasChanges = unsavedCount > 0;
+      console.log(`✅✅ 通过sheetStateManager检测到 ${unsavedCount} 个修改`, stats);
     }
   }
+  // 方法3：检查全局状态
+  else if (window.currentHasChanges) {
+    hasChanges = true;
+    unsavedCount = window.modifiedCellsCount || 1; // 默认1个
+    console.log(`✅✅ 通过全局状态检测到修改`);
+  }
+  // 方法4：检查 window.unsavedCells（最后的手段）
+  else if (window.unsavedCells) {
+    const unsavedSet = window.unsavedCells[tableType];
+    unsavedCount = unsavedSet?.size || 0;
+    hasChanges = unsavedCount > 0;
+    console.log(`✅✅ 通过window.unsavedCells检测到 ${unsavedCount} 个修改`);
+  }
+
+  if (!hasChanges) {
+    console.log('⏸⏸⏸️ 无未保存修改，跳过自动保存', {
+      tableType,
+      saveDataFromEdit: !!saveDataFromEdit,
+      sheetStateManager: !!sheetStateManager,
+      windowCurrentHasChanges: window.currentHasChanges,
+      windowUnsavedCells: window.unsavedCells ? Object.keys(window.unsavedCells) : '不存在'
+    });
+    return { success: false, error: '无未保存修改' };
+  }
+
+  console.log(`💾💾 检测到 ${unsavedCount} 个未保存修改，开始自动保存...`);
+
+  try {
+    // 调用现有的保存逻辑，但标记为自动保存
+    const result = await saveData(true); // true 表示自动保存
+
+    if (result.success) {
+      console.log('✅✅✅✅ [ThreeColumnPage] 自动保存成功');
+
+      // 清除修改状态
+      await clearModificationStatesOnly();
+
+      return {
+        success: true,
+        message: '自动保存成功',
+        savedCount: unsavedCount
+      };
+    } else {
+      throw new Error(result.error || '保存失败');
+    }
+
+  } catch (error) {
+    console.error('❌❌❌❌ [ThreeColumnPage] 自动保存失败:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 
   // ============ 5. 本地草稿保存函数 ============
   window.saveToLocalDraft = async (tableType, backendSuccess = false) => {

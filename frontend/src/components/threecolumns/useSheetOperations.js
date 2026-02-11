@@ -519,7 +519,6 @@ const handleSmartToggle = async (
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Excel sheets API返回数据:', data)
         excelFilesRef.value = data.excel_files || []
         console.log('解析后的Excel文件列表:', excelFilesRef.value)
 

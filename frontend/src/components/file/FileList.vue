@@ -623,17 +623,13 @@ const handleScreenImages = async (pdfDiskName) => {
       })
     })
 
-    console.log('📊 原始响应状态:', response.status)
-
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
 
     const responseText = await response.text()
-    console.log('📊 原始响应文本:', responseText.substring(0, 500) + '...')
 
     const result = JSON.parse(responseText)
-    console.log('✅ 解析后的结果:', result)
 
     if (result.success) {
       const successMsg = `表格筛选完成: 共${result.total_images}张，有表格${result.has_table_count}张，无表格${result.no_table_count}张`
@@ -1439,8 +1435,6 @@ const handleParseTables = async (pdfDiskName) => {
     // 更详细的错误信息
     let errorMessage = '请求失败';
     if (error.response) {
-      console.error('响应状态:', error.response.status);
-      console.error('响应数据:', error.response.data);
       errorMessage = `请求失败 (${error.response.status}): ${error.response.data?.error || '未知错误'}`;
     } else if (error.request) {
       console.error('请求未收到响应:', error.request);

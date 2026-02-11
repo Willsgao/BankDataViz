@@ -151,10 +151,8 @@ export function useThreeColumnPage() {
 
    const loadFromAPI = async (fileId, excelFileName, sheetName) => {
       try {
-        console.log('🌐🌐 调用API加载数据:', { fileId, excelFileName, sheetName })
 
         const apiUrl = `/api/excel-data/${encodeURIComponent(fileId)}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(sheetName)}`
-        console.log('🔗 API URL:', apiUrl)
 
         const response = await fetch(apiUrl)
         console.log('📡 API响应状态:', response.status)
@@ -164,14 +162,6 @@ export function useThreeColumnPage() {
         }
 
         const result = await response.json()
-        console.log('📥 API返回数据:', {
-          success: result.success,
-          data类型: typeof result.data,
-          data是数组: Array.isArray(result.data),
-          data长度: Array.isArray(result.data) ? result.data.length : '非数组',
-          rows: result.rows,
-          cols: result.cols
-        })
 
         // 🔥🔥🔥 关键修复：确保返回的数据结构正确
         if (!result.success) {

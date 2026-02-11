@@ -46,20 +46,11 @@ export default function useExcelTable(props) {
       // 计算可用高度
       const availableHeight = Math.max(windowHeight - fixedHeights, 300)
 
-      console.log('📏 表格高度计算:', {
-        窗口高度: windowHeight,
-        固定高度: fixedHeights,
-        可用高度: availableHeight,
-        原计算高度: containerHeight.value
-      })
-
       return availableHeight
     })
 
 
   // ============ 实例安全函数 ============
-
-  // 检查实例是否有效（直接从原文件复制）
   // 修复：更严格的实例安全检查函数
     const isHotInstanceValid = () => {
       if (!hotTable.value?.hotInstance) {

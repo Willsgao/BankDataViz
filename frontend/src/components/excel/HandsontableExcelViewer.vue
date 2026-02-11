@@ -211,17 +211,6 @@ import { getApiUrl } from '@/utils/config'
 // 在现有的import语句后添加
 import Handsontable from 'handsontable';
 
-
-// 或者使用更安全的方式
-try {
-  // 检查插件是否已经存在
-  if (Handsontable.plugins.Alter) {
-    console.log('✅ Alter插件已自动注册');
-  }
-} catch (error) {
-  console.warn('⚠️ 插件检查失败:', error);
-}
-
 // 注册中文语言包
 try {
   registerLanguageDictionary(zhCN)
@@ -1599,30 +1588,11 @@ const onHotInit = () => {
     }
   }, 0)
 
-  console.log('🎯🎯 表格实例就绪，设置选中求和监听器')
   setTimeout(() => {
     setupSelectionSumListener()
   }, 100)
 }
 
-
-onMounted(() => {
-  console.log('🔧 强制注册Alter插件...')
-
-  // 方法1：检查并注册插件
-  if (Handsontable && Handsontable.plugins) {
-    console.log('✅ Handsontable插件系统已加载')
-    console.log('已注册的插件:', Object.keys(Handsontable.plugins))
-
-    // 检查Alter插件是否存在
-    if (!Handsontable.plugins.Alter) {
-      console.warn('⚠️ Alter插件未找到，尝试手动注册')
-      // 这里可以尝试手动注册，但通常不需要
-    } else {
-      console.log('✅ Alter插件已自动注册')
-    }
-  }
-})
 
 
 // 监听选中区域统计事件
