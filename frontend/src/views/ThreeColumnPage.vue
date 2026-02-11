@@ -936,96 +936,6 @@ const selectSheet = async (sheet, excelFileName) => {
 }
 
 
-//++++++++++++++++++++++++++++++++
-const selectSheet00000 = async (sheet, excelFileName) => {
-
-  // 🔥 强制重置为原始模式（与导航按钮保持一致）
-  showFlatMode.value = false
-  flatData.value = []
-  if (window.currentTableMode) {
-    window.currentTableMode = 'original'
-  }
-
-  try {
-    console.log('🎯🎯 选择Sheet:', sheet?.name)
-
-    if (!selectedPdf.value) {
-      ElMessage.error('请先选择PDF文件')
-      return { success: false }
-    }
-
-    // 1. 从sheet名称提取页码
-    const targetPage = getPageFromSheetName(sheet.name)
-    console.log('📄📄 目标页码:', targetPage)
-
-    // 2. 无刷新页面跳转逻辑
-    if (targetPage > 0 && targetPage !== currentPage.value) {
-      console.log('🔄🔄 需要跳转到页面:', targetPage)
-
-      let jumpSuccess = false
-
-      // 优先使用PDF.js的无刷新跳转
-      if (pdfPreviewRef.value && typeof pdfPreviewRef.value.jumpToPage === 'function') {
-        try {
-          console.log('🔄 尝试PDF.js无刷新跳转...')
-          jumpSuccess = await pdfPreviewRef.value.jumpToPage(targetPage)
-
-          if (jumpSuccess) {
-            console.log('✅ PDF.js无刷新跳转成功')
-          } else {
-            console.warn('⚠️ PDF.js跳转返回失败，但不使用会重新加载的备用方法')
-          }
-        } catch (error) {
-          console.error('❌❌ PDF.js跳转执行出错:', error)
-        }
-      } else {
-        console.warn('⚠️ PDF.js跳转方法不可用')
-      }
-
-      // 更新当前页码状态
-      currentPage.value = targetPage
-      console.log('✅ 页码状态已更新:', targetPage)
-
-      // 重要：不调用会重新加载PDF的备用方法
-      console.log('🚫 已禁用会重新加载PDF的备用跳转方法')
-    }
-
-    // 3. 调用sheet选择操作
-    let result
-    if (typeof selectSheetOperation === 'function') {
-      console.log('🔄 调用selectSheetOperation...')
-      result = await selectSheetOperation(
-        sheet,
-        excelFileName,
-        selectedPdf.value,
-        selectedSheet,
-        selectedExcelFile,
-        sheetStateManager,
-        excelData,
-        tableColumns,
-        flatData,
-        showFlatMode,
-        currentTableMode,
-        loadExcelData,
-        loadAllClassData
-      )
-    } else {
-      console.warn('⚠️ selectSheetOperation不存在，使用备用逻辑')
-      if (typeof loadExcelData === 'function') {
-        result = await loadExcelData(sheet.name, excelFileName)
-      } else {
-        result = { success: true }
-      }
-    }
-
-    return result || { success: true }
-
-  } catch (error) {
-    console.error('❌❌ selectSheet失败:', error)
-    ElMessage.error(`选择表格失败: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-}
 
 // 完全禁用会重新加载PDF的备用方法
 const jumpToPageFallback = (pageNumber) => {
@@ -1034,8 +944,6 @@ const jumpToPageFallback = (pageNumber) => {
   console.log('💡 提示：请确保PDF.js方案正常工作')
   return false
 }
-
-
 
 
 
@@ -4336,7 +4244,27 @@ watch(
   }
 );
 
+// 在ThreeColumnPage.vue的onMounted中添加
+onMounted(() => {
+  window.addEventListener('excel-list-refresh', async (event) => {
+    console.log('📥📥 收到中间栏刷新事件，强制刷新当前PDF')
 
+    const currentPdf = selectedPdf.value
+    if (currentPdf) {
+      console.log('🔄🔄🔄🔄 重新加载Excel文件列表')
+      const pdfId = currentPdf.id || currentPdf.disk_name
+      await loadExcelSheets(pdfId)
+      ElMessage.success('文件列表已刷新')
+    } else {
+      console.log('⏸⏸ 没有选中的PDF，跳过刷新')
+    }
+  })
+})
+
+// 清理事件监听
+onUnmounted(() => {
+  window.removeEventListener('excel-list-refresh')
+})
 
 // 在ThreeColumnPage.vue中添加调试
 watch(() => actualHasUnsavedChanges.value, (newVal, oldVal) => {

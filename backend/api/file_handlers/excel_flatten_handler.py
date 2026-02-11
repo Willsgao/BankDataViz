@@ -593,124 +593,6 @@ class ExcelFlattenHandler:
         return False
 
 
-    def global_flatten_from_excel_files000(self, file_id: str, excel_path) -> Dict[str, Any]:
-        """
-        整体扁平化处理 - 添加详细调试
-        """
-        try:
-            print(f"🔥🔥🔥🔥🔥 开始整体扁平化处理 🔥🔥🔥🔥🔥")
-
-            # 1. 获取PDF文件信息
-            pdf_file_info = self.get_pdf_file_info(file_id)
-            bank_name = pdf_file_info.get("bank_name", "未知银行")
-            raw_filename = pdf_file_info.get("raw_filename", file_id)
-
-            print(f"🏦 文件信息 - 银行: {bank_name}, 文件名: {raw_filename}")
-
-            # 2. 查找Excel文件
-            excel_files_info = self._find_excel_files_simple(excel_path, file_id)
-            if not excel_files_info:
-                return {"success": False, "error": f"未找到PDF {file_id} 对应的Excel文件"}
-
-            print(f"📊 找到 {len(excel_files_info)} 个Excel文件")
-
-            all_flattened_data = []
-
-            # 3. 处理每个Excel文件的每个sheet
-            for file_info in excel_files_info:
-                file_path = file_info['file_path']
-                file_name = file_info['file_name']
-
-                print(f"🎯 处理Excel文件: {file_name}")
-
-                sheet_names = self.get_sheet_names_from_excel(file_path)
-                print(f"  📋 包含 {len(sheet_names)} 个sheet: {sheet_names}")
-
-                for sheet_name in sheet_names:
-                    print(f"    📄 处理sheet: {sheet_name}")
-
-                    try:
-                        # 读取sheet数据
-                        original_data = self.read_excel_sheet_data(file_path, sheet_name)
-                        if not original_data or len(original_data) < 2:
-                            print(f"    ⚠️ sheet {sheet_name} 数据不足，跳过")
-                            continue
-
-                        print(f"    📈 读取到 {len(original_data)} 行原始数据")
-
-                        # 构建扁平化请求
-                        flatten_request = {
-                            'table_data': original_data,
-                            'source_info': {
-                                'pdf_id': file_id,
-                                'excel_file': file_name,
-                                'table_name': sheet_name,
-                                'bank_name': bank_name,
-                                'default_currency': '人民币',
-                                'default_unit': ''
-                            }
-                        }
-
-                        # 执行扁平化
-                        print(f"    🔥 调用excel_flatten_from_excel...")
-                        flatten_result = self.excel_flatten_from_excel(flatten_request)
-
-                        print(f"    🔍 flatten_result结构: {list(flatten_result.keys())}")
-                        print(f"    🔍 flatten_result.success: {flatten_result.get('success')}")
-
-                        if flatten_result.get('success'):
-                            print(f"    ✅ sheet {sheet_name} 扁平化成功")
-
-                            # 提取扁平化数据
-                            flattened_rows = self._extract_flattened_data_from_result(
-                                flatten_result=flatten_result,
-                                file_id=file_id,
-                                file_name=file_name,
-                                sheet_name=sheet_name,
-                                bank_name=bank_name,
-                                raw_filename=raw_filename
-                            )
-
-                            print(f"    🔍 提取到 {len(flattened_rows)} 行数据")
-
-                            if flattened_rows:
-                                all_flattened_data.extend(flattened_rows)
-                                print(f"    ✅✅ 成功添加到总数据")
-                            else:
-                                print(f"    ⚠️ 未提取到数据")
-                        else:
-                            error_msg = flatten_result.get('error', '未知错误')
-                            print(f"    ❌ 扁平化失败: {error_msg}")
-
-                    except Exception as e:
-                        print(f"    ❌ 处理异常: {e}")
-                        import traceback
-                        traceback.print_exc()
-
-            # 4. 检查结果
-            print(f"📊📊📊 最终数据统计: {len(all_flattened_data)} 行")
-
-            if not all_flattened_data:
-                return {"success": False, "error": "所有sheet处理失败，未生成数据"}
-
-            # 5. 保存文件
-            print("💾 开始保存文件...")
-            saved_result = self.save_merged_flattened_data(
-                pdf_id=file_id,
-                flattened_data=all_flattened_data,
-                excel_path=excel_path,
-                bank_name=bank_name,
-                source_pdf_name=raw_filename
-            )
-
-            return saved_result
-
-        except Exception as e:
-            print(f"❌❌ 处理失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return {"success": False, "error": f"处理失败: {str(e)}"}
-
     def global_flatten_from_excel_files(self, file_id: str, excel_path) -> Dict[str, Any]:
         """
         整体扁平化处理 - 返回与excel_flatten_from_excel一致的格式
@@ -1170,8 +1052,14 @@ class ExcelFlattenHandler:
             # 保存文件
             filename = f"{excel_path}/flattened_整合_{pdf_id}.xlsx"
 
+            raw_sheet = source_pdf_name.replace("pdf", "").replace(".", "")
+            print("*************raw_sheet:", raw_sheet)
+            timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M")
+            sheet_name = f"{raw_sheet}_{timestamp}"
+            print("**********************sheet_name:", sheet_name)
+
             # 🔥🔥🔥 关键：使用中文字段名作为表头
-            df.to_excel(filename, index=False, header=True, engine='openpyxl')
+            df.to_excel(filename, index=False, header=True, engine='openpyxl', sheet_name=sheet_name)
 
             print(f"✅✅ 文件保存成功! 表头已保留")
             return {

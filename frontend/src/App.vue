@@ -23,51 +23,54 @@
         </el-button-group>
       </div>
 
-      <!-- 搜索框 -->
-      <div class="search-box">
-        <el-input
-          v-model="searchState.keyword"
-          placeholder="搜索PDF文件名称..."
-          clearable
-          size="small"
-          style="width: 300px;"
-          @input="handleSearch"
-          @clear="handleSearchClear"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-      </div>
+      <!-- 右侧：搜索框和用户信息 -->
+      <div class="top-nav-right">
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <el-input
+            v-model="searchState.keyword"
+            placeholder="搜索PDF文件名称..."
+            clearable
+            size="small"
+            style="width: 300px;"
+            @input="handleSearch"
+            @clear="handleSearchClear"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
 
-      <!-- 右侧：用户信息和登出 -->
-      <div class="user-info" v-if="isLoggedIn">
-        <el-dropdown @command="handleUserCommand">
-          <div class="user-avatar">
-            <el-avatar size="small">
-              {{ userInitial }}
-            </el-avatar>
-            <span class="username">{{ username }}</span>
-            <el-icon><ArrowDown /></el-icon>
-          </div>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item disabled>
-                <span style="color: #909399;">
-                  {{ userRoleName }}
-                </span>
-              </el-dropdown-item>
-              <el-dropdown-item divided command="logout">
-                退出登录
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-      <div class="login-prompt" v-else>
-        <el-button type="text" @click="$router.push('/login')" size="small">
-          请先登录
-        </el-button>
+        <!-- 用户信息和登出 -->
+        <div class="user-info" v-if="isLoggedIn">
+          <el-dropdown @command="handleUserCommand">
+            <div class="user-avatar">
+              <el-avatar size="small">
+                {{ userInitial }}
+              </el-avatar>
+              <span class="username">{{ username }}</span>
+              <el-icon><ArrowDown /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item disabled>
+                  <span style="color: #909399;">
+                    {{ userRoleName }}
+                  </span>
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout">
+                  退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+        <div class="login-prompt" v-else>
+          <el-button type="text" @click="$router.push('/login')" size="small">
+            请先登录
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -93,14 +96,12 @@ const searchKeyword = ref('')
 const username = ref('')
 const userRole = ref('')
 
-
 // 使用 reactive 对象包装搜索相关状态
 const searchState = reactive({
   keyword: '',
   results: [],
   isSearching: false
 })
-
 
 // 计算属性
 const isLoggedIn = computed(() => {
@@ -124,7 +125,6 @@ const updateUserInfo = () => {
   username.value = localStorage.getItem('username') || ''
   userRole.value = localStorage.getItem('user_role') || ''
 }
-
 
 onMounted(() => {
   updateUserInfo()
@@ -178,8 +178,8 @@ const handleLogout = () => {
     updateUserInfo()
 
     // 清除搜索状态
-    searchResults.value = []
-    searchKeyword.value = ''
+    searchState.results = []
+    searchState.keyword = ''
 
     ElMessage.success('已退出登录')
 
@@ -190,22 +190,20 @@ const handleLogout = () => {
   })
 }
 
-
-
 // 修改 handleSearch 函数
 const handleSearch = async () => {
   if (!searchState.keyword.trim()) {
     searchState.results = []
-    console.log('🔍 搜索关键词为空，清空结果')
+    console.log('🔍🔍 搜索关键词为空，清空结果')
     return
   }
 
-  console.log(`🔍🔍 App.vue 搜索: '${searchState.keyword}'`)
+  console.log(`🔍🔍🔍🔍 App.vue 搜索: '${searchState.keyword}'`)
   searchState.isSearching = true
 
   try {
     const apiUrl = `/search-pdf-compatible?keyword=${encodeURIComponent(searchState.keyword)}&limit=100`
-    console.log('🔗 请求URL:', apiUrl)
+    console.log('🔗🔗 请求URL:', apiUrl)
 
     const response = await fetch(getApiUrl(apiUrl))
 
@@ -215,12 +213,12 @@ const handleSearch = async () => {
 
     const result = await response.json()
 
-    // 🔥🔥🔥 添加这两行调试代码
-    console.log('📥📥📥 后端返回完整数据:', result)
-    console.log('📊 files数组内容:', result.files)
-    // 🔥🔥🔥 到这里为止
+    // 🔥🔥🔥🔥 添加这两行调试代码
+    console.log('📥📥📥📥📥📥 后端返回完整数据:', result)
+    console.log('📊📊 files数组内容:', result.files)
+    // 🔥🔥🔥🔥 到这里为止
 
-    console.log('📥 后端返回:', {
+    console.log('📥📥 后端返回:', {
       文件数: result.files ? result.files.length : 0,
       总数量: result.count
     })
@@ -229,33 +227,26 @@ const handleSearch = async () => {
       searchState.results = result.files
       console.log(`✅ App.vue 搜索完成，找到 ${searchState.results.length} 个文件`)
 
-      // 🔥 添加这行：检查第一个文件
+      // 🔥🔥 添加这行：检查第一个文件
       if (searchState.results.length > 0) {
-        console.log('📊 第一个文件数据:', searchState.results[0])
+        console.log('📊📊 第一个文件数据:', searchState.results[0])
       }
     } else {
       searchState.results = []
     }
 
   } catch (error) {
-    console.error('❌❌ App.vue 搜索失败:', error)
+    console.error('❌❌❌❌ App.vue 搜索失败:', error)
     searchState.results = []
   } finally {
     searchState.isSearching = false
 
-    // 🔥🔥🔥 在这里添加你的调试代码
-    console.log('🔍 App.vue 搜索完成，检查数据传递:')
+    // 🔥🔥🔥🔥 在这里添加你的调试代码
+    console.log('🔍🔍 App.vue 搜索完成，检查数据传递:')
     console.log('searchState.results:', searchState.results)
     console.log('searchState.results 长度:', searchState.results.length)
   }
 }
-
-
-
-// 在 provide 语句后添加：
-console.log('🔍 App.vue 提供给子组件的数据:')
-console.log('searchResults:', searchState.results)
-console.log('isSearching:', searchState.isSearching)
 
 const handleSearch111 = async () => {
   if (!searchKeyword.value.trim()) {
@@ -282,9 +273,8 @@ const handleSearch111 = async () => {
 
 const handleSearchClear = () => {
   searchState.results = []  // 使用 searchState.results
-  console.log('🔍🔍 清除搜索结果')
+  console.log('🔍🔍🔍🔍 清除搜索结果')
 }
-
 
 // 把更新函数提供给后代组件
 provide('reloadUserInfo', updateUserInfo)
@@ -295,19 +285,16 @@ provide('handleSearchClear', handleSearchClear)
 provide('searchResults', toRef(searchState, 'results'))
 provide('isSearching', toRef(searchState, 'isSearching'))
 
-
 // 在 App.vue 的 provide 语句后添加
-console.log('🔍🔍 App.vue provide 的数据:', {
+console.log('🔍🔍🔍🔍 App.vue provide 的数据:', {
   searchResults: searchState.results,
   isSearching: searchState.isSearching,
   resultsLength: searchState.results.length
 })
 
-
 onMounted(() => {
-  console.log('🚀 ThreeColumnPage 组件已挂载')
+  console.log('🚀🚀 ThreeColumnPage 组件已挂载')
 })
-
 
 // 监听localStorage变化（用于跨标签页同步）
 window.addEventListener('storage', (e) => {
@@ -341,6 +328,14 @@ window.addEventListener('storage', (e) => {
 
 .layout-switcher {
   /* 保持原有样式 */
+}
+
+/* 新增：右侧容器 */
+.top-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: auto; /* 关键：让整个右侧容器靠右 */
 }
 
 .search-box {
@@ -394,5 +389,4 @@ window.addEventListener('storage', (e) => {
   border: 2px solid #1890ff !important;
   position: relative;
 }
-
 </style>

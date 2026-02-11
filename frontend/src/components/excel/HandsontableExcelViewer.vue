@@ -1,15 +1,15 @@
 <template>
   <div class="handsontable-excel-viewer">
-    <!-- 第一行：主控栏（保持不变） -->
+    <!-- 第一行：主控栏（保持不变） @click="exportFinalFile" -->
     <div class="main-toolbar">
       <div class="toolbar-section left-section">
         <el-button
           type="primary"
           size="small"
-          @click="exportFinalFile"
+          @click="exportData"
           :loading="exportFinalLoading"
         >
-          <el-icon><Download /></el-icon>最终导出
+          <el-icon><Download /></el-icon>导出
         </el-button>
 
         <el-button
@@ -585,6 +585,13 @@ const handleGlobalFlatten = async () => {
         summary: result.summary                  // 🔥 新增：处理摘要
       })
 
+      // 🔥🔥🔥 关键修复：使用正确的PDF ID
+      console.log('🔄🔄🔄🔄 扁平化完成，触发中间栏刷新')
+
+      // 使用扁平化返回的PDF ID，而不是props.pdfId
+      const actualPdfId = result.pdf_id || props.pdfId
+      await triggerMiddleColumnRefresh(actualPdfId)
+
       ElMessage.success(`整体扁平化完成，生成 ${result.long_format_data.length} 行数据`)
     } else {
       throw new Error(result.error || '整体扁平化处理失败')
@@ -598,6 +605,36 @@ const handleGlobalFlatten = async () => {
   }
 }
 
+
+// 🔥🔥🔥 修改：接收正确的pdfId参数
+const triggerMiddleColumnRefresh = async (pdfId) => {
+  try {
+    console.log('🔄🔄🔄🔄 开始刷新中间栏Excel文件列表', { pdfId })
+
+    // 方法1：通过事件总线通知父组件刷新
+    if (typeof window !== 'undefined') {
+      // 使用传入的正确pdfId
+      window.dispatchEvent(new CustomEvent('excel-list-refresh', {
+        detail: {
+          pdfId: pdfId, // 🔥 使用正确的ID
+          timestamp: Date.now(),
+          source: 'global-flatten'
+        }
+      }))
+    }
+
+    // 方法2：直接调用父组件的刷新方法（如果可用）
+    if (window.$parent && window.$parent.loadExcelSheets) {
+      console.log('🔄🔄 直接重新加载Excel文件列表', { pdfId })
+      await window.$parent.loadExcelSheets(pdfId)
+    }
+
+    console.log('✅✅ 中间栏刷新触发完成')
+
+  } catch (error) {
+    console.warn('⚠️⚠️ 刷新中间栏时出错:', error)
+  }
+}
 
 // 统一的处理函数
 const handleGlobalFlattenedData = (flattenedData, sourceInfo) => {
