@@ -8,12 +8,11 @@
           <el-button
             type="primary"
             size="small"
-            @click="exportData"
+            @click="handleExport"
             :loading="exportFinalLoading"
           >
             <el-icon><Download /></el-icon>导出
           </el-button>
-
 
 
           <!-- 将原来的"高亮空格"按钮改为"高亮数值" -->
@@ -182,7 +181,8 @@
 
 <script setup>
 import { registerLanguageDictionary, zhCN } from 'handsontable/i18n'
-import { ref, computed, defineEmits, defineProps, nextTick, onMounted, onUnmounted, defineExpose, watch } from 'vue'
+import { ref, computed, defineEmits, defineProps, nextTick, onMounted,
+onUnmounted, defineExpose, watch, inject, reactive } from 'vue'
 
 import { HotTable } from '@handsontable/vue3'
 // import 'handsontable/dist/handsontable.full.min.css'  // 使用最新样式
@@ -237,7 +237,7 @@ const computedColHeaders = computed(() => {
 // ============ 新增：选区处理 ============
 const selectedRange = ref(null)
 const selectedCellsCount = ref(0)
-
+const excelContentSearchState = inject('excelContentSearchState')
 
 
 // 添加选区事件处理
@@ -307,6 +307,17 @@ const handleSelection = (startRow, startCol, endRow, endCol) => {
 
   console.log('📤📤 发射选区信息完成')
 }
+
+
+// 🔥🔥🔥 新增：Excel内容搜索高亮状态
+const highlightState = reactive({
+  keyword: '',
+  matchedSheets: [],        // 匹配的sheet表名
+  matchedCells: [],         // 匹配的单元格 {row, col, value, sheetName}
+  isActive: false,
+  matchCount: 0,
+  lastSearchTime: 0
+})
 
 
 // 1. 先添加辅助函数（放在文件顶部或合适位置）
@@ -1273,6 +1284,7 @@ const formatNumericValue = (value) => {
 
 
 
+
 // 在现有代码之后添加求和功能
 const {
   getFormattedValues,
@@ -1375,7 +1387,10 @@ const {
   exportData,
   detectEmptyCells,
   hasEmptyCells,
-  emptyCellsStats
+  emptyCellsStats,
+  exportToCSVWithBOM,
+  smartExport,
+  exportToExcel
 } = useExcelData(props)
 
 // 编辑功能
@@ -1592,6 +1607,250 @@ const onHotInit = () => {
     setupSelectionSumListener()
   }, 100)
 }
+
+// 在 HandsontableExcelViewer.vue 中添加处理函数
+// 🔥🔥🔥 修改：处理导出的响应
+const handleExport = async () => {
+  try {
+    console.log('🎯🎯 开始导出前的页面状态')
+
+    const result = await smartExport('excel')
+
+    // 🔥🔥🔥 处理文件不存在的情况
+    if (result && !result.success && result.file_exists === false) {
+      // 文件不存在，显示提示信息，但不报错
+      console.log('ℹ️ 文件不存在，显示提示信息')
+      if (result.message) {
+        ElMessage.warning(result.message)
+      }
+      return
+    }
+
+    // 正常成功情况
+    if (result && result.success) {
+      ElMessage.success('Excel文件导出成功')
+    }
+
+  } catch (error) {
+    // 🔥🔥🔥 修复：只在真实错误时显示错误
+    if (error.message !== 'cancel' && !error.message.includes('取消')) {
+      console.error('❌❌ 导出过程出错:', error)
+      ElMessage.error(`导出失败: ${error.message}`)
+    }
+  }
+}
+
+const handleExport000000000 = async () => {
+  try {
+    console.log('🎯🎯 开始导出前的页面状态:', {
+      当前URL: window.location.href,
+      表格数据行数: tableData.value.length,
+      修改单元格数: modifiedCellsCount.value
+    })
+
+    await smartExport('excel')
+
+    // 导出完成后检查页面状态
+    setTimeout(() => {
+      console.log('✅✅ 导出完成后的页面状态:', {
+        当前URL: window.location.href, // 应该保持不变
+        表格数据: tableData.value.length, // 应该保持不变
+        编辑状态: hasChanges.value // 应该保持不变
+      })
+    }, 1000)
+
+  } catch (error) {
+    console.error('导出失败:', error)
+  }
+}
+
+
+// 在现有的函数后添加（约第200行附近）
+// 🔥🔥🔥 新增：执行Excel内容搜索高亮
+const performExcelContentSearch = (keyword) => {
+  console.log('🎯 执行Excel内容搜索高亮:', keyword)
+
+  if (!keyword) {
+    clearExcelContentHighlight()
+    return
+  }
+
+  highlightState.keyword = keyword
+  highlightState.isActive = true
+  highlightState.lastSearchTime = Date.now()
+
+  try {
+    // 1. 高亮Sheet表名
+    highlightSheetNames(keyword)
+
+    // 2. 高亮当前Sheet的前两列内容
+    highlightCurrentSheetContent(keyword)
+
+    // 3. 更新匹配统计
+    updateMatchCount()
+
+  } catch (error) {
+    console.error('❌ Excel内容搜索高亮失败:', error)
+  }
+}
+
+// 🔥🔥🔥 新增：高亮Sheet表名
+const highlightSheetNames = (keyword) => {
+  if (!keyword || !props.sheetNames || !Array.isArray(props.sheetNames)) {
+    highlightState.matchedSheets = []
+    return
+  }
+
+  const lowerKeyword = keyword.toLowerCase()
+  const matchedSheets = props.sheetNames.filter(sheetName =>
+    sheetName && sheetName.toLowerCase().includes(lowerKeyword)
+  )
+
+  highlightState.matchedSheets = matchedSheets
+
+  console.log('📋 Sheet表名高亮结果:', {
+    关键词: keyword,
+    匹配表名数: matchedSheets.length,
+    匹配表名: matchedSheets
+  })
+}
+
+// 🔥🔥🔥 新增：高亮当前Sheet的前两列内容
+const highlightCurrentSheetContent = (keyword) => {
+  if (!keyword || !tableData.value || tableData.value.length === 0) {
+    highlightState.matchedCells = []
+    updateCellsHighlight()
+    return
+  }
+
+  const lowerKeyword = keyword.toLowerCase()
+  const matches = []
+
+  // 只搜索前两列（索引0和1）
+  for (let row = 0; row < tableData.value.length; row++) {
+    for (let col = 0; col < 2; col++) { // 只搜索前两列
+      if (col >= tableData.value[row]?.length) continue
+
+      const cellValue = tableData.value[row][col]
+      if (cellValue && String(cellValue).toLowerCase().includes(lowerKeyword)) {
+        matches.push({
+          row: row,
+          col: col,
+          value: cellValue,
+          sheetName: props.sheetName,
+          matchType: 'content'
+        })
+      }
+    }
+  }
+
+  highlightState.matchedCells = matches
+
+  console.log('🔍 单元格高亮结果:', {
+    关键词: keyword,
+    匹配单元格数: matches.length,
+    搜索范围: '前两列'
+  })
+
+  // 更新单元格高亮样式
+  updateCellsHighlight()
+}
+
+// 🔥🔥🔥 新增：更新单元格高亮样式
+const updateCellsHighlight = () => {
+  const hot = getSafeHotInstance()
+  if (!hot || hot.isDestroyed) {
+    console.warn('⚠️ Handsontable实例不可用，无法更新高亮')
+    return
+  }
+
+  // 清除旧的高亮样式
+  const currentCellConfig = hot.getSettings().cell || []
+  const filteredCellConfig = currentCellConfig.filter(cell =>
+    cell.className !== 'excel-content-highlight'
+  )
+
+  // 添加新的高亮样式
+  const newCellConfig = [
+    ...filteredCellConfig,
+    ...highlightState.matchedCells.map(cell => ({
+      row: cell.row,
+      col: cell.col,
+      className: 'excel-content-highlight'
+    }))
+  ]
+
+  hot.updateSettings({ cell: newCellConfig }, false)
+  hot.render()
+
+  console.log('🎨 单元格高亮样式已更新:', {
+    高亮单元格数: highlightState.matchedCells.length
+  })
+}
+
+// 🔥🔥🔥 新增：更新匹配统计
+const updateMatchCount = () => {
+  const totalMatches = highlightState.matchedSheets.length + highlightState.matchedCells.length
+  highlightState.matchCount = totalMatches
+
+  // 更新全局搜索状态
+  if (excelContentSearchState) {
+    excelContentSearchState.matchCount = totalMatches
+  }
+
+  console.log('📊 匹配统计:', {
+    表名匹配数: highlightState.matchedSheets.length,
+    单元格匹配数: highlightState.matchedCells.length,
+    总匹配数: totalMatches
+  })
+}
+
+// 🔥🔥🔥 新增：清空高亮
+const clearExcelContentHighlight = () => {
+  highlightState.keyword = ''
+  highlightState.matchedSheets = []
+  highlightState.matchedCells = []
+  highlightState.isActive = false
+  highlightState.matchCount = 0
+
+  // 清除单元格高亮样式
+  const hot = getSafeHotInstance()
+  if (hot && !hot.isDestroyed) {
+    const currentCellConfig = hot.getSettings().cell || []
+    const filteredCellConfig = currentCellConfig.filter(cell =>
+      cell.className !== 'excel-content-highlight'
+    )
+    hot.updateSettings({ cell: filteredCellConfig }, false)
+    hot.render()
+  }
+
+  // 更新全局状态
+  if (excelContentSearchState) {
+    excelContentSearchState.matchCount = 0
+    excelContentSearchState.active = false
+  }
+
+  console.log('🧹 Excel内容高亮已清除')
+}
+
+
+
+// 在现有的 watch 后添加
+watch(() => excelContentSearchState?.keyword, (newKeyword, oldKeyword) => {
+  console.log('🔍 Excel内容搜索关键词变化:', {
+    新关键词: newKeyword,
+    旧关键词: oldKeyword
+  })
+
+  if (newKeyword !== oldKeyword) {
+    if (newKeyword && newKeyword.trim()) {
+      performExcelContentSearch(newKeyword.trim())
+    } else {
+      clearExcelContentHighlight()
+    }
+  }
+}, { immediate: true })
+
 
 
 
@@ -2454,6 +2713,28 @@ onMounted(() => {
 .edit-mode :deep(.handsontable td.numeric-cell-highlight) {
   background-color: #ffece8 !important;
   border: 2px dotted #ff4d4f !important;
+}
+
+
+/* 在现有的样式后添加（文件末尾） */
+/* 🔥🔥🔥 新增：Excel内容高亮样式 */
+:deep(.excel-content-highlight) {
+  background: linear-gradient(135deg, #fff566 0%, #ffec3d 100%) !important;
+  border: 2px solid #faad14 !important;
+  box-shadow: 0 2px 8px rgba(250, 173, 20, 0.3) !important;
+  position: relative;
+  z-index: 100;
+  font-weight: 600;
+  color: #d48806 !important;
+}
+
+:deep(.excel-content-highlight)::after {
+  content: '🔍';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 10px;
+  opacity: 0.8;
 }
 
 

@@ -1,32 +1,31 @@
-<!-- frontend/src/App.vue -->
 <template>
   <div id="app">
     <!-- 顶部导航栏 -->
     <div class="top-nav">
-      <!-- 布局切换 -->
-      <div class="layout-switcher">
-        <el-button-group>
-          <el-button
-            :type="$route.name === 'TwoColumn' ? 'primary' : ''"
-            @click="goToTwoColumn"
-            size="small"
-          >
-            两栏布局
-          </el-button>
-          <el-button
-            :type="$route.name === 'ThreeColumn' ? 'primary' : ''"
-            @click="$router.push('/three-column')"
-            size="small"
-          >
-            三栏布局
-          </el-button>
-        </el-button-group>
-      </div>
+      <!-- 左侧区域：布局切换 + PDF 搜索 -->
+      <div class="left-section">
+        <!-- 布局切换按钮 -->
+        <div class="layout-switcher">
+          <el-button-group>
+            <el-button
+              :type="$route.name === 'TwoColumn' ? 'primary' : ''"
+              @click="goToTwoColumn"
+              size="small"
+            >
+              两栏布局
+            </el-button>
+            <el-button
+              :type="$route.name === 'ThreeColumn' ? 'primary' : ''"
+              @click="$router.push('/three-column')"
+              size="small"
+            >
+              三栏布局
+            </el-button>
+          </el-button-group>
+        </div>
 
-      <!-- 右侧：搜索框和用户信息 -->
-      <div class="top-nav-right">
-        <!-- 搜索框 -->
-        <div class="search-box">
+        <!-- PDF 文件搜索框（左侧） -->
+        <div class="search-box pdf-search">
           <el-input
             v-model="searchState.keyword"
             placeholder="搜索PDF文件名称..."
@@ -41,8 +40,37 @@
             </template>
           </el-input>
         </div>
+      </div>
 
-        <!-- 用户信息和登出 -->
+      <!-- 右侧区域：Excel 搜索 + 用户信息 -->
+      <div class="right-section">
+        <!-- Excel 内容搜索框（右侧） -->
+        <div class="search-box excel-content-search">
+          <el-input
+            v-model="excelContentSearchState.keyword"
+            placeholder="搜索Excel内容（表名/前两列）..."
+            clearable
+            size="small"
+            style="width: 280px;"
+            @input="handleExcelContentSearch"
+            @clear="handleExcelContentSearchClear"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+            <template #suffix>
+              <el-tooltip
+                effect="dark"
+                content="搜索当前表格的表名和前两列内容"
+                placement="top"
+              >
+                <el-icon><InfoFilled /></el-icon>
+              </el-tooltip>
+            </template>
+          </el-input>
+        </div>
+
+        <!-- 用户信息 -->
         <div class="user-info" v-if="isLoggedIn">
           <el-dropdown @command="handleUserCommand">
             <div class="user-avatar">
@@ -83,24 +111,32 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown } from '@element-plus/icons-vue'
+import { Search, ArrowDown, InfoFilled } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
-const searchKeyword = ref('')
 
 // 用户信息
 const username = ref('')
 const userRole = ref('')
 
-// 使用 reactive 对象包装搜索相关状态
+// PDF搜索状态
 const searchState = reactive({
   keyword: '',
   results: [],
   isSearching: false
+})
+
+// Excel内容搜索状态
+const excelContentSearchState = reactive({
+  keyword: '',
+  isSearching: false,
+  lastSearchTime: 0,
+  matchCount: 0,
+  active: false
 })
 
 // 计算属性
@@ -180,6 +216,9 @@ const handleLogout = () => {
     // 清除搜索状态
     searchState.results = []
     searchState.keyword = ''
+    excelContentSearchState.keyword = ''
+    excelContentSearchState.matchCount = 0
+    excelContentSearchState.active = false
 
     ElMessage.success('已退出登录')
 
@@ -190,20 +229,55 @@ const handleLogout = () => {
   })
 }
 
-// 修改 handleSearch 函数
-const handleSearch = async () => {
-  if (!searchState.keyword.trim()) {
-    searchState.results = []
-    console.log('🔍🔍 搜索关键词为空，清空结果')
+// Excel内容搜索处理
+const handleExcelContentSearch = () => {
+  const keyword = excelContentSearchState.keyword.trim()
+
+  if (!keyword) {
+    // 清空搜索时，重置状态
+    excelContentSearchState.isSearching = false
+    excelContentSearchState.matchCount = 0
+    excelContentSearchState.active = false
+    excelContentSearchState.lastSearchTime = Date.now()
+    console.log('🔍 Excel内容搜索：清空搜索条件')
     return
   }
 
-  console.log(`🔍🔍🔍🔍 App.vue 搜索: '${searchState.keyword}'`)
+  console.log(`🔍 Excel内容搜索: '${keyword}'`)
+  excelContentSearchState.isSearching = true
+  excelContentSearchState.active = true
+  excelContentSearchState.lastSearchTime = Date.now()
+
+  // 搜索逻辑在子组件中实现，这里只触发状态变化
+  setTimeout(() => {
+    excelContentSearchState.isSearching = false
+  }, 300)
+}
+
+// 清空Excel内容搜索
+const handleExcelContentSearchClear = () => {
+  excelContentSearchState.keyword = ''
+  excelContentSearchState.isSearching = false
+  excelContentSearchState.matchCount = 0
+  excelContentSearchState.active = false
+  excelContentSearchState.lastSearchTime = Date.now()
+  console.log('🔍 Excel内容搜索：清空搜索条件')
+}
+
+// PDF搜索函数
+const handleSearch = async () => {
+  if (!searchState.keyword.trim()) {
+    searchState.results = []
+    console.log('🔍🔍🔍🔍 搜索关键词为空，清空结果')
+    return
+  }
+
+  console.log(`🔍🔍🔍🔍🔍🔍🔍🔍 App.vue 搜索: '${searchState.keyword}'`)
   searchState.isSearching = true
 
   try {
     const apiUrl = `/search-pdf-compatible?keyword=${encodeURIComponent(searchState.keyword)}&limit=100`
-    console.log('🔗🔗 请求URL:', apiUrl)
+    console.log('🔗🔗🔗🔗 请求URL:', apiUrl)
 
     const response = await fetch(getApiUrl(apiUrl))
 
@@ -213,12 +287,7 @@ const handleSearch = async () => {
 
     const result = await response.json()
 
-    // 🔥🔥🔥🔥 添加这两行调试代码
-    console.log('📥📥📥📥📥📥 后端返回完整数据:', result)
-    console.log('📊📊 files数组内容:', result.files)
-    // 🔥🔥🔥🔥 到这里为止
-
-    console.log('📥📥 后端返回:', {
+    console.log('📥📥📥📥 后端返回:', {
       文件数: result.files ? result.files.length : 0,
       总数量: result.count
     })
@@ -227,73 +296,52 @@ const handleSearch = async () => {
       searchState.results = result.files
       console.log(`✅ App.vue 搜索完成，找到 ${searchState.results.length} 个文件`)
 
-      // 🔥🔥 添加这行：检查第一个文件
       if (searchState.results.length > 0) {
-        console.log('📊📊 第一个文件数据:', searchState.results[0])
+        console.log('📊📊📊📊 第一个文件数据:', searchState.results[0])
       }
     } else {
       searchState.results = []
     }
 
   } catch (error) {
-    console.error('❌❌❌❌ App.vue 搜索失败:', error)
+    console.error('❌❌❌❌❌❌❌❌ App.vue 搜索失败:', error)
     searchState.results = []
   } finally {
     searchState.isSearching = false
 
-    // 🔥🔥🔥🔥 在这里添加你的调试代码
-    console.log('🔍🔍 App.vue 搜索完成，检查数据传递:')
+    console.log('🔍🔍🔍🔍 App.vue 搜索完成，检查数据传递:')
     console.log('searchState.results:', searchState.results)
     console.log('searchState.results 长度:', searchState.results.length)
   }
 }
 
-const handleSearch111 = async () => {
-  if (!searchKeyword.value.trim()) {
-    searchResults.value = []
-    return
-  }
-
-  isSearching.value = true
-  try {
-    const response = await fetch(getApiUrl(`/search-pdf?keyword=${encodeURIComponent(searchKeyword.value)}`))
-    if (response.ok) {
-      const data = await response.json()
-      searchResults.value = data.files || []
-    } else {
-      searchResults.value = []
-    }
-  } catch (error) {
-    console.error('搜索失败:', error)
-    searchResults.value = []
-  } finally {
-    isSearching.value = false
-  }
-}
-
 const handleSearchClear = () => {
-  searchState.results = []  // 使用 searchState.results
-  console.log('🔍🔍🔍🔍 清除搜索结果')
+  searchState.results = []
+  console.log('🔍🔍🔍🔍🔍🔍🔍🔍 清除搜索结果')
 }
 
-// 把更新函数提供给后代组件
-provide('reloadUserInfo', updateUserInfo)
+// 把搜索状态提供给后代组件
 provide('searchState', searchState)
 provide('handleSearch', handleSearch)
 provide('handleSearchClear', handleSearchClear)
-
 provide('searchResults', toRef(searchState, 'results'))
 provide('isSearching', toRef(searchState, 'isSearching'))
 
-// 在 App.vue 的 provide 语句后添加
-console.log('🔍🔍🔍🔍 App.vue provide 的数据:', {
+// 把Excel内容搜索状态提供给后代组件
+provide('excelContentSearchState', excelContentSearchState)
+provide('handleExcelContentSearch', handleExcelContentSearch)
+provide('handleExcelContentSearchClear', handleExcelContentSearchClear)
+
+// 在App.vue的provide语句后添加调试信息
+console.log('🔍🔍🔍🔍🔍🔍🔍🔍 App.vue provide 的数据:', {
   searchResults: searchState.results,
   isSearching: searchState.isSearching,
-  resultsLength: searchState.results.length
+  resultsLength: searchState.results.length,
+  excelContentSearchState: excelContentSearchState
 })
 
 onMounted(() => {
-  console.log('🚀🚀 ThreeColumnPage 组件已挂载')
+  console.log('🚀🚀🚀🚀 App.vue 组件已挂载')
 })
 
 // 监听localStorage变化（用于跨标签页同步）
@@ -326,21 +374,44 @@ window.addEventListener('storage', (e) => {
   z-index: 1000;
 }
 
-.layout-switcher {
-  /* 保持原有样式 */
-}
-
-/* 新增：右侧容器 */
-.top-nav-right {
+/* 左侧区域：布局切换 + PDF 搜索 */
+.left-section {
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-left: auto; /* 关键：让整个右侧容器靠右 */
 }
 
+.layout-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 右侧区域：Excel 搜索 + 用户信息 */
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* 搜索框样式 */
 .search-box {
   display: flex;
   align-items: center;
+}
+
+.search-box.excel-content-search {
+  position: relative;
+}
+
+/* 高亮状态指示器 */
+.search-box.excel-content-search .el-input__wrapper {
+  transition: all 0.3s ease;
+}
+
+.search-box.excel-content-search:has(.el-input__wrapper:focus-within) {
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  border-radius: 4px;
 }
 
 .user-info, .login-prompt {
@@ -376,14 +447,13 @@ window.addEventListener('storage', (e) => {
   overflow: auto;
 }
 
-/* 在 frontend/src/App.vue 的 <style> 标签中 */
+/* 空单元格高亮样式 */
 .empty-cell-highlight {
-  background-color: #e6f7ff !important;  /* 淡蓝色背景 */
-  border: 2px solid #1890ff !important;  /* 蓝色边框 */
+  background-color: #e6f7ff !important;
+  border: 2px solid #1890ff !important;
   box-shadow: 0 0 6px rgba(24, 144, 255, 0.3) !important;
 }
 
-/* 如果需要更明显的效果 */
 .handsontable td.empty-cell-highlight {
   background-color: #e6f7ff !important;
   border: 2px solid #1890ff !important;

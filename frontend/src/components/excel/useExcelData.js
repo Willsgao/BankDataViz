@@ -532,8 +532,6 @@ export default function useExcelData(props) {
     };
 
 
-    // 在 HandsontableExcelViewer.vue 中修改
-    // 🔥🔥🔥 修改：将空格相关状态改为数值相关状态
     // 🔥🔥🔥 修改：切换数值高亮显示
     const toggleNumericCellsHighlight = () => {
       showNumericCellsHighlight.value = !showNumericCellsHighlight.value
@@ -845,187 +843,533 @@ export default function useExcelData(props) {
   }
 
 
-  /**
- * 检测数值单元格
- */
-const detectNumericCells = () => {
-  if (!tableData.value || tableData.value.length === 0) {
-    return { hasNumericCells: false, totalNumericCells: 0, numericCells: [] }
+  // 🔥🔥🔥 修改：增强的导出数据函数
+const exportData = (format = 'csv') => {
+  if (!tableData.value.length) {
+    console.warn('⚠️ 没有数据可导出')
+    return
   }
 
-  console.log('🔍🔍 开始检测数值单元格...')
-  const numericCells = []
+  try {
+    console.log('💾💾💾💾 开始导出数据，格式:', format)
 
-  // 遍历所有单元格
-  for (let row = 0; row < tableData.value.length; row++) {
-    if (!tableData.value[row]) continue
-
-    for (let col = 0; col < tableData.value[row].length; col++) {
-      const cellValue = tableData.value[row][col]
-
-      if (isValidNumericValue(cellValue)) {
-        numericCells.push({
-          row,
-          col,
-          value: cellValue,
-          formattedValue: formatNumericValue(cellValue)
-        })
-      }
+    if (format === 'csv') {
+      exportToCSVWithBOM()
+    } else {
+      exportToExcel()
     }
-  }
 
-  console.log('📊📊 数值单元格统计:', {
-    总数: numericCells.length,
-    样本: numericCells.slice(0, 5)
-  })
-
-  return {
-    hasNumericCells: numericCells.length > 0,
-    totalNumericCells: numericCells.length,
-    numericCells
+  } catch (error) {
+    console.error('❌❌ 导出数据失败:', error)
+    // 显示错误消息
+    if (window.__showMessage) {
+      window.__showMessage('导出数据失败: ' + error.message, 'error')
+    }
   }
 }
 
-/**
- * 验证是否为有效的数值
- */
-const isValidNumericValue = (value) => {
-  if (value === null || value === undefined || value === '') {
-    return false
+
+
+// 🔥 前端Excel导出函数（解决Office乱码问题）- 保持原函数名
+const exportToExcel = async () => {
+  try {
+    console.log('📤📤 前端生成Excel文件（解决Office乱码）...')
+
+    // 检查数据
+    if (!tableData.value || tableData.value.length === 0) {
+      throw new Error('没有数据可导出')
+    }
+
+    // 动态导入xlsx库
+    let XLSX
+    try {
+      XLSX = await import('xlsx')
+      console.log('✅ xlsx库加载成功')
+    } catch (error) {
+      console.error('❌ xlsx库加载失败:', error)
+      throw new Error('Excel生成库加载失败，请检查xlsx安装')
+    }
+
+    // 准备数据（与CSV导出完全一致）
+    const data = tableData.value.map(row =>
+      row.map(cell => {
+        if (cell === null || cell === undefined || cell === '') {
+          return ''
+        }
+        return String(cell)
+      })
+    )
+
+    console.log('📊 导出数据统计:', {
+      行数: data.length,
+      列数: data[0]?.length || 0,
+      样本数据: data.slice(0, 2) // 显示前两行样本
+    })
+
+    // 创建工作表
+    const worksheet = XLSX.utils.aoa_to_sheet(data)
+
+    // 创建工作簿
+    const workbook = XLSX.utils.book_new()
+    const sheetName = props.sheetName || 'Sheet1'
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+
+    // 生成Excel二进制数据
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: 'xlsx',
+      type: 'array',
+      bookSST: false  // 简化文件，不启用字符串共享
+    })
+
+    // 创建Blob并下载
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    })
+
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+
+    // 生成文件名
+    const timestamp = new Date().toLocaleDateString('zh-CN').replace(/\//g, '')
+    const fileName = `${props.sheetName || '表格数据'}_${timestamp}.xlsx`
+    link.download = fileName
+
+    // 触发下载
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // 清理URL
+    setTimeout(() => URL.revokeObjectURL(url), 100)
+
+    console.log('✅✅ 前端Excel导出成功', {
+      文件名: fileName,
+      文件大小: `${(blob.size / 1024).toFixed(2)} KB`,
+      数据行数: data.length,
+      数据列数: data[0]?.length || 0
+    })
+
+    // 显示成功消息
+    if (typeof ElMessage !== 'undefined') {
+      ElMessage.success('Excel文件导出成功（解决Office乱码）')
+    }
+
+    return {
+      success: true,
+      message: 'Excel文件导出成功',
+      fileName: fileName,
+      fileSize: blob.size,
+      format: 'xlsx',
+      generatedBy: 'frontend'
+    }
+
+  } catch (error) {
+    console.error('❌❌ 前端Excel导出失败:', error)
+
+    // 显示错误消息
+    if (typeof ElMessage !== 'undefined') {
+      ElMessage.error(`Excel导出失败: ${error.message}`)
+    }
+
+    throw error
   }
+}
 
-  // 字符串类型处理
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
+// 🔥 智能导出函数保持不变
+const smartExport = async (format = 'excel') => {
+  console.log('🎯🎯 智能导出被调用，格式:', format)
 
-    // 空字符串
-    if (trimmed === '') return false
+  try {
+    // 检查数据
+    if (!tableData.value || tableData.value.length === 0) {
+      throw new Error('没有数据可导出')
+    }
 
-    // 排除常见的非数值文本
-    const nonNumericPatterns = [
-      'null', 'NULL', 'Null',
-      'nan', 'NaN', 'NAN', 'Nan',
-      'none', 'None', 'NONE',
-      'n/a', 'N/A', 'na', 'NA',
-      '空', '空白', '空缺', '缺省',
-      'undefined', 'Undefined', 'UNDEFINED'
-    ]
+    let result
 
-    if (nonNumericPatterns.includes(trimmed.toLowerCase())) {
+    if (format === 'csv') {
+      // CSV导出（保持原有逻辑）
+      console.log('📊 使用CSV格式导出')
+      result = await exportToCSVWithBOM()
+    } else {
+      // Excel导出（使用新的前端生成方案）
+      console.log('📊 使用Excel格式导出（解决Office乱码）')
+      result = await exportToExcel()  // 🔥 保持原函数名
+    }
+
+    console.log('✅✅ 导出完成:', {
+      格式: format,
+      文件名: result.fileName,
+      文件大小: result.fileSize
+    })
+
+    return result
+
+  } catch (error) {
+    console.error('❌❌ 导出失败:', error)
+    throw error
+  }
+}
+
+
+
+    /**
+     * 检测数值单元格
+     */
+    const detectNumericCells = () => {
+      if (!tableData.value || tableData.value.length === 0) {
+        return { hasNumericCells: false, totalNumericCells: 0, numericCells: [] }
+      }
+
+      console.log('🔍🔍 开始检测数值单元格...')
+      const numericCells = []
+
+      // 遍历所有单元格
+      for (let row = 0; row < tableData.value.length; row++) {
+        if (!tableData.value[row]) continue
+
+        for (let col = 0; col < tableData.value[row].length; col++) {
+          const cellValue = tableData.value[row][col]
+
+          if (isValidNumericValue(cellValue)) {
+            numericCells.push({
+              row,
+              col,
+              value: cellValue,
+              formattedValue: formatNumericValue(cellValue)
+            })
+          }
+        }
+      }
+
+      console.log('📊📊 数值单元格统计:', {
+        总数: numericCells.length,
+        样本: numericCells.slice(0, 5)
+      })
+
+      return {
+        hasNumericCells: numericCells.length > 0,
+        totalNumericCells: numericCells.length,
+        numericCells
+      }
+    }
+
+    /**
+     * 验证是否为有效的数值
+     */
+    const isValidNumericValue = (value) => {
+      if (value === null || value === undefined || value === '') {
+        return false
+      }
+
+      // 字符串类型处理
+      if (typeof value === 'string') {
+        const trimmed = value.trim()
+
+        // 空字符串
+        if (trimmed === '') return false
+
+        // 排除常见的非数值文本
+        const nonNumericPatterns = [
+          'null', 'NULL', 'Null',
+          'nan', 'NaN', 'NAN', 'Nan',
+          'none', 'None', 'NONE',
+          'n/a', 'N/A', 'na', 'NA',
+          '空', '空白', '空缺', '缺省',
+          'undefined', 'Undefined', 'UNDEFINED'
+        ]
+
+        if (nonNumericPatterns.includes(trimmed.toLowerCase())) {
+          return false
+        }
+
+        // 尝试转换为数字
+        const num = Number(trimmed)
+        return !isNaN(num) && isFinite(num)
+      }
+
+      // 数字类型
+      if (typeof value === 'number') {
+        return !isNaN(value) && isFinite(value)
+      }
+
       return false
     }
 
-    // 尝试转换为数字
-    const num = Number(trimmed)
-    return !isNaN(num) && isFinite(num)
-  }
+    /**
+     * 获取数值统计信息
+     */
+    const getNumericStats = () => {
+      const { numericCells } = detectNumericCells()
 
-  // 数字类型
-  if (typeof value === 'number') {
-    return !isNaN(value) && isFinite(value)
-  }
-
-  return false
-}
-
-/**
- * 获取数值统计信息
- */
-const getNumericStats = () => {
-  const { numericCells } = detectNumericCells()
-
-  if (numericCells.length === 0) {
-    return {
-      count: 0,
-      sum: 0,
-      average: 0,
-      max: 0,
-      min: 0
-    }
-  }
-
-  const values = numericCells.map(cell => {
-    const num = typeof cell.value === 'string' ?
-                Number(cell.value.trim()) : cell.value
-    return num
-  }).filter(num => !isNaN(num) && isFinite(num))
-
-  if (values.length === 0) {
-    return {
-      count: 0,
-      sum: 0,
-      average: 0,
-      max: 0,
-      min: 0
-    }
-  }
-
-  const sum = values.reduce((acc, val) => acc + val, 0)
-  const average = sum / values.length
-  const max = Math.max(...values)
-  const min = Math.min(...values)
-
-  return {
-    count: values.length,
-    sum: formatNumericValue(sum),
-    average: formatNumericValue(average),
-    max: formatNumericValue(max),
-    min: formatNumericValue(min)
-  }
-}
-
-/**
- * 格式化数值
- */
-const formatNumericValue = (value) => {
-  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
-    return value
-  }
-
-  // 如果是整数，直接返回
-  if (Number.isInteger(value)) {
-    return value.toString()
-  }
-
-  // 浮点数保留2位小数
-  return value.toFixed(2)
-}
-
-
-  // 导出数据
-  const exportData = () => {
-    if (!tableData.value.length) return
-
-    try {
-      const headers = tableData.value[0]
-      const csvContent = [
-        headers.join(','),
-        ...tableData.value.slice(1).map(row => row.join(','))
-      ].join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-
-      link.setAttribute('href', url)
-      link.setAttribute('download', `${props.sheetName || 'data'}.csv`)
-      link.style.visibility = 'hidden'
-
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // 消息提示通过回调或事件触发
-      if (window.__showMessage) {
-        window.__showMessage('数据导出成功', 'success')
+      if (numericCells.length === 0) {
+        return {
+          count: 0,
+          sum: 0,
+          average: 0,
+          max: 0,
+          min: 0
+        }
       }
-    } catch (error) {
-      console.error('导出数据失败:', error)
-      if (window.__showMessage) {
-        window.__showMessage('导出数据失败', 'error')
+
+      const values = numericCells.map(cell => {
+        const num = typeof cell.value === 'string' ?
+                    Number(cell.value.trim()) : cell.value
+        return num
+      }).filter(num => !isNaN(num) && isFinite(num))
+
+      if (values.length === 0) {
+        return {
+          count: 0,
+          sum: 0,
+          average: 0,
+          max: 0,
+          min: 0
+        }
+      }
+
+      const sum = values.reduce((acc, val) => acc + val, 0)
+      const average = sum / values.length
+      const max = Math.max(...values)
+      const min = Math.min(...values)
+
+      return {
+        count: values.length,
+        sum: formatNumericValue(sum),
+        average: formatNumericValue(average),
+        max: formatNumericValue(max),
+        min: formatNumericValue(min)
       }
     }
-  }
+
+    /**
+     * 格式化数值
+     */
+    const formatNumericValue = (value) => {
+      if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+        return value
+      }
+
+      // 如果是整数，直接返回
+      if (Number.isInteger(value)) {
+        return value.toString()
+      }
+
+      // 浮点数保留2位小数
+      return value.toFixed(2)
+    }
+
+
+
+        // 🔥🔥🔥 完整版：导出带BOM头的CSV文件
+    const exportToCSVWithBOM = () => {
+      console.log('📤📤 生成带BOM头的CSV文件...')
+
+      try {
+        // 1. 验证数据
+        if (!tableData.value || tableData.value.length === 0) {
+          throw new Error('没有数据可导出')
+        }
+
+        console.log('📊📊 导出数据统计:', {
+          行数: tableData.value.length,
+          列数: tableData.value[0]?.length || 0,
+          第一行样本: tableData.value[0]?.slice(0, 3)
+        })
+
+        // 2. 生成CSV内容
+        const csvContent = generateCSVContent()
+        if (!csvContent) {
+          throw new Error('生成CSV内容失败')
+        }
+
+        // 3. 🔥🔥🔥 关键：添加UTF-8 BOM头
+        const BOM = '\uFEFF' // UTF-8 BOM字符
+        const csvWithBOM = BOM + csvContent
+
+        // 4. 🔍🔍 验证BOM是否正确添加
+        console.log('🔍🔍 BOM验证结果:', {
+          'BOM字符Unicode码': csvWithBOM.charCodeAt(0),
+          'BOM字符十六进制': '\\u' + csvWithBOM.charCodeAt(0).toString(16).toUpperCase(),
+          'BOM存在': csvWithBOM.charCodeAt(0) === 65279,
+          '文件大小': new Blob([csvWithBOM]).size + ' bytes',
+          'BOM大小': new Blob([BOM]).size + ' bytes'
+        })
+
+        // 5. 创建Blob，指定UTF-8编码
+        const blob = new Blob([csvWithBOM], {
+          type: 'text/csv;charset=utf-8;'
+        })
+
+        // 6. 创建下载链接
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+
+        link.setAttribute('href', url)
+
+        // 7. 生成文件名
+        const timestamp = new Date().toLocaleDateString('zh-CN').replace(/\//g, '')
+        const fileName = `${props.sheetName || '表格数据'}_${timestamp}.csv`
+        link.setAttribute('download', fileName)
+        link.style.visibility = 'hidden'
+
+        // 8. 触发下载
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // 9. 清理URL
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 100)
+
+        console.log('✅✅ CSV导出成功:', {
+          文件名: fileName,
+          文件大小: blob.size + ' bytes',
+          下载时间: new Date().toLocaleTimeString()
+        })
+
+        // 10. 显示成功消息
+        if (window.__showMessage) {
+          window.__showMessage('CSV文件导出成功', 'success')
+        }
+
+        // 11. 🔥🔥🔥 返回导出结果用于验证
+        return {
+          success: true,
+          fileName: fileName,
+          fileSize: blob.size,
+          hasBOM: csvWithBOM.charCodeAt(0) === 65279,
+          bomHex: 'EF BB BF',
+          downloadUrl: url,
+          timestamp: Date.now()
+        }
+
+      } catch (error) {
+        console.error('❌❌ CSV导出失败:', error)
+
+        // 显示错误消息
+        if (window.__showMessage) {
+          window.__showMessage('CSV导出失败: ' + error.message, 'error')
+        }
+
+        // 🔥🔥🔥 返回错误结果
+        return {
+          success: false,
+          error: error.message,
+          timestamp: Date.now()
+        }
+      }
+    }
+
+    // 🔥🔥🔥 辅助函数：生成CSV内容（处理特殊字符）
+    const generateCSVContent = () => {
+      if (!tableData.value || tableData.value.length === 0) {
+        console.warn('⚠️ 没有数据可生成CSV')
+        return ''
+      }
+
+      console.log('🔄🔄 生成CSV内容...')
+
+      try {
+        const csvRows = []
+
+        // 处理每一行数据
+        tableData.value.forEach((row, rowIndex) => {
+          const formattedRow = row.map((cell, colIndex) => {
+            return formatCSVValue(cell, rowIndex, colIndex)
+          })
+          csvRows.push(formattedRow.join(','))
+        })
+
+        const csvContent = csvRows.join('\n')
+
+        console.log('📄📄 CSV内容生成完成:', {
+          总行数: csvRows.length,
+          文件大小: new Blob([csvContent]).size + ' bytes',
+          样本预览: csvContent.substring(0, 200) + (csvContent.length > 200 ? '...' : '')
+        })
+
+        return csvContent
+
+      } catch (error) {
+        console.error('❌❌ 生成CSV内容失败:', error)
+        throw error
+      }
+    }
+
+    // 🔥🔥🔥 辅助函数：格式化CSV单元格值
+    const formatCSVValue = (value, rowIndex, colIndex) => {
+      // 处理空值
+      if (value === null || value === undefined || value === '') {
+        return ''
+      }
+
+      const strValue = String(value)
+
+      // 检查是否需要引号包裹（包含逗号、换行、引号等特殊字符）
+      const needsQuotes = /[",\n\r]/.test(strValue) || strValue.trim() !== strValue
+
+      if (needsQuotes) {
+        // 转义引号：将 " 替换为 ""
+        const escapedValue = strValue.replace(/"/g, '""')
+        return `"${escapedValue}"`
+      }
+
+      return strValue
+    }
+
+    // 🔥🔥🔥 新增：快速验证函数（在控制台运行）
+    const verifyCSVExport = async () => {
+      console.log('🧪🧪 开始验证CSV导出功能...')
+
+      try {
+        // 创建测试数据
+        const testData = [
+          ['姓名', '年龄', '城市', '备注'],
+          ['张三', '25', '北京', '正常数据'],
+          ['李四', '30', '上海', '包含,逗号'],
+          ['王五', '28', '广州', '包含"引号"测试'],
+          ['赵六', '35', '深圳', '包含\n换行符']
+        ]
+
+        // 临时替换数据
+        const originalData = tableData.value
+        tableData.value = testData
+
+        const result = await exportToCSVWithBOM()
+
+        // 恢复原数据
+        tableData.value = originalData
+
+        console.log('🎯🎯 CSV导出验证结果:', result)
+
+        if (result.success) {
+          console.log('✅✅ 验证通过！文件包含BOM头，应该兼容Office和WPS')
+          console.log('💡💡 请用Excel和WPS分别打开测试文件，检查中文显示是否正常')
+        } else {
+          console.error('❌❌ 验证失败:', result.error)
+        }
+
+        return result
+
+      } catch (error) {
+        console.error('❌❌ 验证过程出错:', error)
+        return {
+          success: false,
+          error: error.message
+        }
+      }
+    }
+
+    // 🔥🔥🔥 暴露验证函数到全局（开发环境使用）
+    if (process.env.NODE_ENV === 'development') {
+      window.verifyCSVExport = verifyCSVExport
+      console.log('🔧🔧 CSV验证函数已暴露: window.verifyCSVExport()')
+    }
+
+
 
   return {
     // computed
@@ -1044,6 +1388,10 @@ const formatNumericValue = (value) => {
     // methods
     verifyTableStructure,
     exportData,
+    smartExport,          // 🔥🔥🔥 新增：智能导出函数
+    exportToCSVWithBOM,   // 🔥🔥🔥 新增：带BOM的CSV导出
+    exportToExcel,        // 🔥🔥🔥 新增：Excel导出
+    verifyCSVExport,      // 🔥🔥🔥 新增：验证函数
 
     // 新增智能判断相关导出
     detectTableType,

@@ -1506,7 +1506,7 @@ class TableReconstructor:
         print(f"✅ Excel保存完成: {output_file}")
         return True
 
-    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
+    def step9_save_to_excel_optimized000(self, tables_data, output_file, table_names, metadata_list=None):
         """
         保存到 Excel（优化版）- 增加元数据支持
         强制使用外部传入的 table_names，不再自己拼名字
@@ -1602,31 +1602,59 @@ class TableReconstructor:
         print(f"✅ Excel保存完成: {output_file}")
         return True
 
-    def step9_save_to_excel_optimized000000(self, tables_data, output_file, table_names, metadata_list=None):
-        """
-        保存到 Excel（优化版）- 保持旧版数据结构，元数据放在数据末尾
-        """
+    def step9_save_to_excel_optimized(self, tables_data, output_file, table_names, metadata_list=None):
         from openpyxl import Workbook
         from pathlib import Path
 
         wb = Workbook()
         wb.remove(wb.active)
 
-        print(f"📊📊 开始保存Excel到: {output_file}")
+        print(f"📊📊📊📊 开始保存Excel到: {output_file}")
 
         for idx, (table, name) in enumerate(zip(tables_data, table_names)):
             ws = wb.create_sheet(title=name)
 
-            # 保存表格数据
-            for r, row in enumerate(table, 1):
-                for c, val in enumerate(row, 1):
+            print(f"处理表格: {name}")
+
+            # 🔥🔥🔥🔥 只处理第2行（索引为1，因为第1行是表头）
+            filtered_table = table.copy()  # 先复制整个表格
+
+            # 检查是否有第2行
+            if len(table) >= 2:
+                second_row = table[1]  # 第2行（索引1）
+
+                # 检查第2行的行标记
+                row_marker = self._extract_row_marker(second_row)
+
+                print("second_row::::", second_row)
+
+                print(">>>>>>>>>>>>row_marker>>>>>>>>>>>>>>", row_marker)
+
+                # 如果行标记是0或'0'，删除第2行
+                if str(row_marker).strip() in ['0', '0']:
+                    print(f"  ⏭️ 删除第2行：行标记为0")
+                    del filtered_table[1]  # 删除第2行
+                else:
+                    print(f"  ✅ 保留第2行：行标记为{row_marker}")
+            else:
+                print(f"  ℹ️  表格行数不足，跳过第2行检查")
+
+            # 写入过滤后的数据
+            for r, row in enumerate(filtered_table, 1):
+                # 第1列：插入"项目0"（表头行）或空值（数据行）
+                if r == 1:
+                    ws.cell(row=r, column=1, value="项目0")
+                else:
+                    ws.cell(row=r, column=1, value="")
+
+                # 原有数据从第2列开始写入
+                for c, val in enumerate(row, 2):
                     ws.cell(row=r, column=c, value=val)
 
-            # 保存元数据到表格末尾（保持旧版格式）
+            # ========== 保存元数据到表格末尾 ==========
             if metadata_list and idx < len(metadata_list):
                 metadata = metadata_list[idx]
-
-                data_row_count = len(table)
+                data_row_count = len(filtered_table)
                 metadata_start_row = data_row_count + 2
 
                 if any(metadata.values()):
@@ -1660,12 +1688,26 @@ class TableReconstructor:
 
                     ws.cell(row=metadata_start_row + row_offset, column=1, value="")
 
-            Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-            wb.save(output_file)
-            wb.close()
+            print(f"  📊 最终表格行数: {len(filtered_table)}行")
+
+        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        wb.save(output_file)
+        wb.close()
 
         print(f"✅ Excel保存完成: {output_file}")
         return True
+
+    def _extract_row_marker(self, row):
+        """
+        从行数据中提取行标记
+        根据你的数据结构，行标记可能在特定位置
+        """
+        if not row or len(row) == 0:
+            return None
+
+        last_val = row[-1]
+        return last_val
+
 
     def _extract_page_number_from_image_path(self, image_path):
         """

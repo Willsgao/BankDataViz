@@ -6,9 +6,12 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 import App from './App.vue'
 import router from './router'
-import { initConfig } from '@/utils/config'
+import { initConfig, getApiUrl } from '@/utils/config'
 import { updateApiBaseUrl } from '@/api/index'
 
+
+// 设置为全局函数
+window.getApiUrl = getApiUrl
 
 // ✅ 全局历史修改池（最先初始化）
 window.historyCells = new Set()

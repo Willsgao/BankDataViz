@@ -193,10 +193,12 @@ import HandsontableExcelViewer from '@/components/excel/HandsontableExcelViewer.
 import {
   DataAnalysis, Document, Check, Refresh, Timer, Grid, Loading, ArrowLeft, ArrowRight
 } from '@element-plus/icons-vue'
-import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSheetOperations  } from './useSheetOperations.js'
 
+// 在setup函数开始处添加
+const excelContentSearchState = inject('excelContentSearchState')
 const sheetOperations = useSheetOperations()
 const { handleSmartToggle, checkIfFlattenedData  } = sheetOperations
 
