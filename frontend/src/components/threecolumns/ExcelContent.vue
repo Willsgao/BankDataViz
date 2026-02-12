@@ -202,6 +202,9 @@ const excelContentSearchState = inject('excelContentSearchState')
 const sheetOperations = useSheetOperations()
 const { handleSmartToggle, checkIfFlattenedData  } = sheetOperations
 
+const performExcelContentSearch = inject('performExcelContentSearch')
+
+
 /* ===== 模板变量 ===== */
 const emptyCount = ref(0)
 const stats = ref({
@@ -567,8 +570,16 @@ const goToNextSheet = async () => {
 }
 
 /* ===== 核心修复：数据监听和刷新逻辑 ===== */
-// 🔥🔥 修复：只定义一次 watch
+// 在第一个 watch 中添加调试
 watch(() => props.excelData, (newData, oldData) => {
+  console.log('📊📊 ExcelContent: excelData 变化', {
+    新数据长度: newData?.length,
+    旧数据长度: oldData?.length,
+    时间: new Date().toLocaleTimeString(),
+    当前sheet: props.selectedSheet?.name,
+    数据样本: newData?.slice(0, 2) // 查看前两行数据
+  })
+
   if (dataChangeTimer.value) {
     clearTimeout(dataChangeTimer.value)
   }
@@ -576,6 +587,7 @@ watch(() => props.excelData, (newData, oldData) => {
   if (newData && newData.length > 0) {
     isDataLoaded.value = true
     tableDataVersion.value++
+    console.log('✅ 数据就绪，准备刷新表格')
 
     dataChangeTimer.value = setTimeout(() => {
       forceRefreshHandsontable()
@@ -805,6 +817,28 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
   }
 }, { immediate: true })
 
+
+// 在ExcelContent.vue的watch中添加
+watch(() => props.excelData, (newData, oldData) => {
+  console.log('📊 ExcelContent: excelData变化', {
+    新数据长度: newData?.length,
+    旧数据长度: oldData?.length,
+    时间: new Date().toLocaleTimeString(),
+    当前sheet: props.selectedSheet?.name
+  })
+
+  if (newData && newData.length > 0) {
+    console.log('✅ 数据已就绪，准备刷新表格')
+
+    // 强制刷新Handsontable
+    setTimeout(() => {
+      forceRefreshHandsontable()
+    }, 300)
+  } else {
+    console.log('📭 数据为空，等待数据加载')
+  }
+}, { deep: true, immediate: true })
+
 // 强制刷新表格显示
 const forceRefreshTables = () => {
   console.log('🔄 强制刷新表格显示')
@@ -820,6 +854,22 @@ const forceRefreshTables = () => {
   if (hotInstance && !hotInstance.isDestroyed) {
     hotInstance.render()
     console.log('✅ 表格已刷新显示')
+  }
+}
+
+
+// 在 ExcelContent.vue 中添加搜索路由函数
+const routeSearchToCorrectViewer = (keyword) => {
+  console.log('🔄 路由搜索请求到正确的组件:', keyword)
+
+  // 优先使用当前显示模式的组件
+  const targetViewer = showFlatMode.value ? flatViewer.value : originalViewer.value
+
+  if (targetViewer && targetViewer.performSearch) {
+    console.log('✅ 路由到正确组件:', showFlatMode.value ? '扁平化' : '原始')
+    targetViewer.performSearch(keyword)
+  } else {
+    console.error('❌ 目标组件不可用')
   }
 }
 
@@ -861,6 +911,64 @@ if (typeof window !== 'undefined') {
 }
 
 
+// 在 ExcelContent.vue 中添加对全局搜索状态的监听
+onMounted(() => {
+  console.log('🚀 ExcelContent 组件挂载，开始监听搜索状态')
+
+  // 监听搜索事件
+  window.addEventListener('excel-content-search', handleExcelSearchEvent)
+
+  // 主动检查当前的搜索状态并立即应用
+  checkAndApplyCurrentSearch()
+})
+
+// 检查并应用当前搜索状态
+const checkAndApplyCurrentSearch = () => {
+  // 获取全局的搜索状态（假设存储在 window 或通过 provide/inject）
+  const currentSearchKeyword = window.excelContentSearchState?.keyword ||
+                               excelContentSearchState?.keyword
+
+  if (currentSearchKeyword && currentSearchKeyword.trim()) {
+    console.log('🔍 发现现有搜索关键词，立即应用:', currentSearchKeyword)
+    highlightCurrentSheetContent(currentSearchKeyword)
+  }
+}
+
+// 增强事件处理函数
+const handleExcelSearchEvent = (event) => {
+  const { keyword } = event.detail
+  console.log('📥 ExcelContent 收到搜索事件，立即执行高亮:', keyword)
+
+  // 立即执行，不延迟
+  highlightCurrentSheetContent(keyword)
+}
+
+// 在 ExcelContent.vue 的 watch 中添加
+watch(() => props.excelData, (newData, oldData) => {
+  console.log('📊📊 ExcelContent 数据变化:', {
+    新数据长度: newData?.length,
+    旧数据长度: oldData?.length,
+    当前sheet: props.selectedSheet?.name,
+    时间: new Date().toLocaleTimeString()
+  })
+
+  if (newData && newData.length > 0) {
+    console.log('✅ 数据已就绪，准备传递给子组件')
+
+    // 立即检查子组件状态
+    nextTick(() => {
+      const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+      if (viewer) {
+        console.log('🔍 子组件状态检查:', {
+          组件类型: props.showFlatMode ? '扁平化' : '原始',
+          组件存在: !!viewer,
+          props数据长度: viewer.props?.excelData?.length
+        })
+      }
+    })
+  }
+}, { deep: true, immediate: true })
+
 // 在 ExcelContent.vue 的 onMounted 中添加
 onMounted(() => {
   console.log('🚀 ExcelContent 组件挂载，开始监听统计事件')
@@ -878,6 +986,21 @@ onMounted(() => {
     window.removeEventListener('selection-sum-changed', handleSelectionSum)
     console.log('🧹 ExcelContent 清理统计事件监听')
   })
+})
+
+
+// 在组件挂载后设置全局搜索函数
+onMounted(() => {
+  if (performExcelContentSearch) {
+    // 设置全局函数供 App.vue 调用
+    window.performExcelSearch = performExcelContentSearch
+    console.log('✅ 全局搜索函数已设置')
+  }
+})
+
+// 在组件卸载时清理
+onUnmounted(() => {
+  delete window.performExcelSearch
 })
 
 </script>

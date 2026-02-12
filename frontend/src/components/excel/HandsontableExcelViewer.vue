@@ -211,6 +211,19 @@ import { getApiUrl } from '@/utils/config'
 // 在现有的import语句后添加
 import Handsontable from 'handsontable';
 
+
+// 在组件顶部添加这些变量定义
+const dataChangeTimer = ref(null)
+
+// 🔥 在 script setup 顶部添加变量定义
+let retryCount = 0
+let searchRetryCount = 0  // 新增这行
+let searchLock = false
+const MAX_RETRIES = 3
+const MAX_SEARCH_RETRIES = 5  // 新增这行
+
+
+
 // 注册中文语言包
 try {
   registerLanguageDictionary(zhCN)
@@ -604,24 +617,6 @@ const setupNavigationGuard = () => {
   return guard
 }
 
-// 🔥🔥🔥 新增：设置事件监听
-onMounted(() => {
-  // 监听浏览器标签页关闭/刷新
-  window.addEventListener('beforeunload', handleBeforeUnload)
-
-  // 设置 Vue Router 导航守卫
-  setupNavigationGuard()
-})
-
-onUnmounted(() => {
-  // 清理事件监听
-  window.removeEventListener('beforeunload', handleBeforeUnload)
-
-  // 🔥🔥🔥 清理自动保存定时器
-  if (logic.cleanupAutoSave) {
-    logic.cleanupAutoSave()
-  }
-})
 
 
 
@@ -941,6 +936,7 @@ class HotInstanceController {
 const hotController = new HotInstanceController()
 const hotInstanceRef = ref(null)
 
+
 // ============ Props & Emits ============
 const emit = defineEmits([
   'cell-changed',
@@ -951,8 +947,17 @@ const emit = defineEmits([
   'global-flatten-complete',
   'cell-selected',
   'save-data',
-  'selection-sum-changed'
+  'selection-sum-changed',
+  // 🔥🔥🔥 新增：Excel内容搜索和高亮相关事件
+  'highlight-sheets',                    // 高亮Sheet表名事件
+  'excel-content-highlight-cleared',     // 清除高亮事件
+  'excel-content-search-changed',        // 搜索关键词变化事件
+  'update-flat-data',                    // 更新扁平化数据事件
+  'toggle-flat-mode',                    // 切换扁平化模式事件
+  'unsaved-changes-updated',            // 未保存更改更新事件
+  'navigate-sheet'                      // 导航到指定Sheet事件
 ])
+
 
 const props = defineProps({
   excelData: {
@@ -1300,57 +1305,6 @@ watch(selectionSum, (newVal) => {
 }, { deep: true })
 
 
-onMounted(() => {
-  // 确保Handsontable已加载
-  if (typeof Handsontable === 'undefined') {
-    console.error('❌ Handsontable未加载')
-    return
-  }
-
-  // 强制注册Alter插件
-  if (!Handsontable.plugins.Alter) {
-    console.log('🔥 强制注册Alter插件...')
-
-    Handsontable.plugins.Alter = function(hotInstance) {
-      this.hot = hotInstance;
-      this.enabled = true;
-    };
-
-    Handsontable.plugins.Alter.prototype.isEnabled = function() {
-      return this.enabled;
-    };
-
-    Handsontable.plugins.Alter.prototype.enablePlugin = function() {
-      if (this.enabled) {
-        return;
-      }
-      this.enabled = true;
-    };
-
-    Handsontable.plugins.Alter.prototype.disablePlugin = function() {
-      this.enabled = false;
-    };
-
-    Handsontable.plugins.Alter.prototype.alter = function(action, index, amount, source, keepEmptyRows) {
-      if (!this.enabled) {
-        return;
-      }
-
-      const dataMap = this.hot.getDataMap();
-      const result = dataMap.createCol(index, amount, source);
-
-      if (result) {
-        this.hot.forceFullRender();
-        this.hot.view.adjustElementsSize(true);
-      }
-
-      return result;
-    };
-
-    console.log('✅ Alter插件已强制注册')
-  }
-})
-
 
 // 获取增强版实例（兼容原有逻辑）
 const getEnhancedHotInstance = () => {
@@ -1467,6 +1421,15 @@ defineExpose({
   waitForInstanceReady: (timeout = 5000) => hotController.waitForReady(timeout),
   getHotInstance: () => hotController.getInstance(),
   isInstanceReady: () => hotController.isReady(),
+  performSearch: (keyword) => {
+    console.log('🎯 组件内部搜索方法被调用:', keyword)
+    if (typeof highlightCurrentSheetContent === 'function') {
+      highlightCurrentSheetContent(keyword)
+    }
+  },
+  clearSearch: () => {
+    clearExcelContentHighlight()
+  }
 })
 
 // 保留原有的 useExcelViewerExpose 调用（不要删除）
@@ -1517,13 +1480,6 @@ const {
   onFilter
 } = logic
 
-// 组件销毁时清理
-onUnmounted(() => {
-  hotController.destroy()
-  if (window.__excelHotInstance === hotInstanceRef.value) {
-    window.__excelHotInstance = null
-  }
-})
 
 
 
@@ -1665,34 +1621,72 @@ const handleExport000000000 = async () => {
 }
 
 
-// 在现有的函数后添加（约第200行附近）
-// 🔥🔥🔥 新增：执行Excel内容搜索高亮
-const performExcelContentSearch = (keyword) => {
-  console.log('🎯 执行Excel内容搜索高亮:', keyword)
-
-  if (!keyword) {
-    clearExcelContentHighlight()
-    return
-  }
-
-  highlightState.keyword = keyword
-  highlightState.isActive = true
-  highlightState.lastSearchTime = Date.now()
+// 🔥🔥🔥 优化：清空高亮
+const clearExcelContentHighlight = () => {
+  console.log('🧹🧹 开始清除Excel内容高亮...')
 
   try {
-    // 1. 高亮Sheet表名
-    highlightSheetNames(keyword)
+    // 1. 清除本地高亮状态
+    highlightState.keyword = ''
+    highlightState.matchedSheets = []
+    highlightState.matchedCells = []
+    highlightState.isActive = false
+    highlightState.matchCount = 0
+    highlightState.lastSearchTime = 0
 
-    // 2. 高亮当前Sheet的前两列内容
-    highlightCurrentSheetContent(keyword)
+    // 2. 清除单元格高亮样式
+    const clearHighlightStyles = () => {
+      const hot = getSafeHotInstance()
+      if (!hot || hot.isDestroyed) {
+        console.warn('⚠️ Handsontable实例不可用，延迟重试清除...')
+        setTimeout(clearHighlightStyles, 100)
+        return
+      }
 
-    // 3. 更新匹配统计
-    updateMatchCount()
+      try {
+        const currentSettings = hot.getSettings()
+        const currentCellConfig = currentSettings.cell || []
+
+        // 过滤掉所有高亮相关的样式
+        const filteredCellConfig = currentCellConfig.filter(cell =>
+          !cell.className ||
+          (cell.className !== 'excel-content-highlight' &&
+           !cell.className.includes('excel-content-highlight'))
+        )
+
+        hot.updateSettings({ cell: filteredCellConfig }, false)
+        hot.render()
+
+        console.log('✅ 单元格高亮样式已清除')
+      } catch (styleError) {
+        console.error('❌ 清除高亮样式失败:', styleError)
+      }
+    }
+
+    // 立即执行清除
+    clearHighlightStyles()
+
+    // 3. 更新全局搜索状态
+    if (excelContentSearchState) {
+      excelContentSearchState.matchCount = 0
+      excelContentSearchState.active = false
+      excelContentSearchState.keyword = '' // 确保关键词也清空
+      console.log('✅ 全局搜索状态已更新')
+    }
+
+    // 4. 发射清除事件（如果需要通知其他组件）
+    emit('excel-content-highlight-cleared', {
+      timestamp: Date.now(),
+      sheetName: props.sheetName
+    })
+
+    console.log('🧹🧹 Excel内容高亮清除完成')
 
   } catch (error) {
-    console.error('❌ Excel内容搜索高亮失败:', error)
+    console.error('❌❌ 清除Excel内容高亮时发生错误:', error)
   }
 }
+
 
 // 🔥🔥🔥 新增：高亮Sheet表名
 const highlightSheetNames = (keyword) => {
@@ -1715,78 +1709,7 @@ const highlightSheetNames = (keyword) => {
   })
 }
 
-// 🔥🔥🔥 新增：高亮当前Sheet的前两列内容
-const highlightCurrentSheetContent = (keyword) => {
-  if (!keyword || !tableData.value || tableData.value.length === 0) {
-    highlightState.matchedCells = []
-    updateCellsHighlight()
-    return
-  }
 
-  const lowerKeyword = keyword.toLowerCase()
-  const matches = []
-
-  // 只搜索前两列（索引0和1）
-  for (let row = 0; row < tableData.value.length; row++) {
-    for (let col = 0; col < 2; col++) { // 只搜索前两列
-      if (col >= tableData.value[row]?.length) continue
-
-      const cellValue = tableData.value[row][col]
-      if (cellValue && String(cellValue).toLowerCase().includes(lowerKeyword)) {
-        matches.push({
-          row: row,
-          col: col,
-          value: cellValue,
-          sheetName: props.sheetName,
-          matchType: 'content'
-        })
-      }
-    }
-  }
-
-  highlightState.matchedCells = matches
-
-  console.log('🔍 单元格高亮结果:', {
-    关键词: keyword,
-    匹配单元格数: matches.length,
-    搜索范围: '前两列'
-  })
-
-  // 更新单元格高亮样式
-  updateCellsHighlight()
-}
-
-// 🔥🔥🔥 新增：更新单元格高亮样式
-const updateCellsHighlight = () => {
-  const hot = getSafeHotInstance()
-  if (!hot || hot.isDestroyed) {
-    console.warn('⚠️ Handsontable实例不可用，无法更新高亮')
-    return
-  }
-
-  // 清除旧的高亮样式
-  const currentCellConfig = hot.getSettings().cell || []
-  const filteredCellConfig = currentCellConfig.filter(cell =>
-    cell.className !== 'excel-content-highlight'
-  )
-
-  // 添加新的高亮样式
-  const newCellConfig = [
-    ...filteredCellConfig,
-    ...highlightState.matchedCells.map(cell => ({
-      row: cell.row,
-      col: cell.col,
-      className: 'excel-content-highlight'
-    }))
-  ]
-
-  hot.updateSettings({ cell: newCellConfig }, false)
-  hot.render()
-
-  console.log('🎨 单元格高亮样式已更新:', {
-    高亮单元格数: highlightState.matchedCells.length
-  })
-}
 
 // 🔥🔥🔥 新增：更新匹配统计
 const updateMatchCount = () => {
@@ -1805,70 +1728,508 @@ const updateMatchCount = () => {
   })
 }
 
-// 🔥🔥🔥 新增：清空高亮
-const clearExcelContentHighlight = () => {
-  highlightState.keyword = ''
-  highlightState.matchedSheets = []
-  highlightState.matchedCells = []
-  highlightState.isActive = false
-  highlightState.matchCount = 0
 
-  // 清除单元格高亮样式
-  const hot = getSafeHotInstance()
-  if (hot && !hot.isDestroyed) {
-    const currentCellConfig = hot.getSettings().cell || []
-    const filteredCellConfig = currentCellConfig.filter(cell =>
-      cell.className !== 'excel-content-highlight'
-    )
-    hot.updateSettings({ cell: filteredCellConfig }, false)
-    hot.render()
+
+// 🔥🔥🔥 修复：更新单元格高亮样式（增加重试机制）
+const updateCellsHighlight = () => {
+  let retryCount = 0
+  const maxRetries = 5
+
+  const tryUpdateHighlight = () => {
+    const hot = getSafeHotInstance()
+
+    if (!hot || hot.isDestroyed) {
+      if (retryCount < maxRetries) {
+        retryCount++
+        console.log(`🔄 Handsontable实例未就绪，重试 ${retryCount}/${maxRetries}...`)
+        setTimeout(tryUpdateHighlight, 300)
+      } else {
+        console.warn('⚠️ Handsontable实例最终不可用，跳过高亮更新')
+      }
+      return
+    }
+
+    try {
+      // 清除所有现有高亮
+      const currentSettings = hot.getSettings()
+      let cellConfig = currentSettings.cell || []
+
+      // 过滤掉所有高亮类
+      cellConfig = cellConfig.filter(item => {
+        if (!item.className) return true
+        return !item.className.includes('excel-content-highlight-cell')
+      })
+
+      // 添加新的高亮
+      highlightState.matchedCells.forEach(cell => {
+        cellConfig.push({
+          row: cell.row,
+          col: cell.col,
+          className: 'excel-content-highlight-cell'
+        })
+      })
+
+      // 批量更新设置
+      hot.updateSettings({
+        cell: cellConfig
+      }, false)
+
+      // 强制重新渲染
+      setTimeout(() => {
+        hot.render()
+        console.log('🎨🎨 高亮样式已成功应用:', {
+          高亮单元格数: highlightState.matchedCells.length,
+          配置总数: cellConfig.length,
+          重试次数: retryCount
+        })
+      }, 100)
+
+    } catch (error) {
+      console.error('❌ 更新高亮样式失败:', error)
+    }
   }
 
-  // 更新全局状态
-  if (excelContentSearchState) {
-    excelContentSearchState.matchCount = 0
-    excelContentSearchState.active = false
-  }
-
-  console.log('🧹 Excel内容高亮已清除')
+  tryUpdateHighlight()
 }
 
 
 
-// 在现有的 watch 后添加
-watch(() => excelContentSearchState?.keyword, (newKeyword, oldKeyword) => {
-  console.log('🔍 Excel内容搜索关键词变化:', {
-    新关键词: newKeyword,
-    旧关键词: oldKeyword
+// 🔥🔥🔥 修复：高亮当前Sheet的前两列内容（增加数据缓存）
+let cachedTableData = null
+let dataReadyCheckCount = 0
+const MAX_DATA_READY_CHECKS = 10
+
+
+const highlightCurrentSheetContent = (keyword) => {
+  console.log('🔍🔍🔍 开始高亮搜索:', {
+    关键词: keyword,
+    当前sheet: props.sheetName,
+    props数据长度: props.excelData?.length,
+    当前时间: new Date().toLocaleTimeString()
   })
 
-  if (newKeyword !== oldKeyword) {
-    if (newKeyword && newKeyword.trim()) {
-      performExcelContentSearch(newKeyword.trim())
-    } else {
-      clearExcelContentHighlight()
+  if (!keyword) {
+    highlightState.matchedCells = []
+    updateCellsHighlight()
+    return
+  }
+
+  // 🔥 修复：检查数据源，优先使用props数据
+  let tableData = props.excelData
+
+  // 如果props数据为空，尝试从Handsontable实例获取
+  if ((!tableData || tableData.length === 0) && getSafeHotInstance()) {
+    const hot = getSafeHotInstance()
+    try {
+      tableData = hot.getSourceData()
+      console.log('🔄 从Handsontable实例获取数据，长度:', tableData?.length)
+    } catch (error) {
+      console.warn('⚠️ 从Handsontable获取数据失败:', error)
     }
   }
-}, { immediate: true })
 
-
-
-
-// 监听选中区域统计事件
-onMounted(() => {
-  const handleSelectionSumChanged = (event) => {
-    console.log('📥 HandsontableExcelViewer 收到统计事件:', event.detail)
-    // 转发给父组件 ExcelContent
-    emit('selection-sum-changed', event.detail)
+  // 数据有效性检查
+  if (!tableData || !Array.isArray(tableData) || tableData.length === 0) {
+    console.error('❌ 所有数据源都为空，无法搜索:', {
+      props数据长度: props.excelData?.length,
+      hot实例数据长度: getSafeHotInstance()?.getSourceData?.()?.length,
+      hot实例状态: getSafeHotInstance() ? '可用' : '不可用'
+    })
+    highlightState.matchedCells = []
+    updateCellsHighlight()
+    return
   }
 
-  window.addEventListener('selection-sum-changed', handleSelectionSumChanged)
+  console.log('✅ 使用有效数据进行搜索，数据长度:', tableData.length)
 
-  // 清理事件监听
-  onUnmounted(() => {
-    window.removeEventListener('selection-sum-changed', handleSelectionSumChanged)
+  const lowerKeyword = keyword.toLowerCase()
+  const matches = []
+
+  // 搜索逻辑
+  for (let row = 0; row < tableData.length; row++) {
+    const rowData = tableData[row]
+    if (!rowData || !Array.isArray(rowData)) continue
+
+    // 检查第一列
+    if (rowData[0] && String(rowData[0]).toLowerCase().includes(lowerKeyword)) {
+      matches.push({
+        row: row,
+        col: 0,
+        value: rowData[0],
+        matchType: 'content'
+      })
+    }
+
+    // 检查第二列
+    if (rowData[1] && String(rowData[1]).toLowerCase().includes(lowerKeyword)) {
+      matches.push({
+        row: row,
+        col: 1,
+        value: rowData[1],
+        matchType: 'content'
+      })
+    }
+  }
+
+  highlightState.matchedCells = matches
+  console.log('✅ 搜索完成，匹配数:', matches.length)
+  updateCellsHighlight()
+}
+
+
+// 提取搜索逻辑到单独函数
+const executeSearchWithData = (keyword, tableData) => {
+  console.log('🎯 执行搜索，数据长度:', tableData.length)
+
+  const lowerKeyword = keyword.toLowerCase()
+  const matches = []
+
+  for (let row = 0; row < tableData.length; row++) {
+    const rowData = tableData[row]
+    if (!rowData || !Array.isArray(rowData)) continue
+
+    if (rowData[0] && String(rowData[0]).toLowerCase().includes(lowerKeyword)) {
+      matches.push({
+        row: row,
+        col: 0,
+        value: rowData[0],
+        matchType: 'content'
+      })
+    }
+
+    if (rowData[1] && String(rowData[1]).toLowerCase().includes(lowerKeyword)) {
+      matches.push({
+        row: row,
+        col: 1,
+        value: rowData[1],
+        matchType: 'content'
+      })
+    }
+  }
+
+  highlightState.matchedCells = matches
+  console.log('✅ 搜索完成，匹配数:', matches.length)
+  updateCellsHighlight()
+}
+
+
+
+// 🔥🔥🔥 新增：从备选源获取数据
+const getTableDataFromAlternativeSource = () => {
+  console.log('🔄 尝试从备选源获取数据...')
+
+  // 方法1：从HotTable实例获取
+  const hot = getSafeHotInstance()
+  if (hot && !hot.isDestroyed) {
+    try {
+      const hotData = hot.getSourceData()
+      if (hotData && hotData.length > 0) {
+        console.log('✅ 从HotTable实例获取数据成功')
+        return hotData
+      }
+    } catch (error) {
+      console.warn('⚠️ 从HotTable获取数据失败:', error)
+    }
+  }
+
+  // 方法2：从tableData.value获取（如果存在）
+  if (tableData.value && tableData.value.length > 0) {
+    console.log('✅ 从tableData.value获取数据成功')
+    return tableData.value
+  }
+
+  // 方法3：从全局变量获取
+  if (window.currentTableData) {
+    console.log('✅ 从全局变量获取数据成功')
+    return window.currentTableData
+  }
+
+  console.warn('❌ 所有备选数据源都为空')
+  return null
+}
+
+
+// 使用 ref 确保响应式
+const isDataLoaded = ref(false) // 确保这个变量存在且可访问
+
+const performExcelContentSearch = (keyword) => {
+  if (performExcelContentSearch.debounceTimer) {
+    clearTimeout(performExcelContentSearch.debounceTimer)
+  }
+
+  performExcelContentSearch.debounceTimer = setTimeout(() => {
+    console.log('🎯🎯 执行Excel内容搜索高亮:', keyword, {
+      数据就绪: isDataLoaded.value, // 使用 .value
+      数据长度: props.excelData?.length,
+      重试次数: searchRetryCount.value // 使用 .value
+    })
+
+    if (!keyword) {
+      clearExcelContentHighlight()
+      searchRetryCount.value = 0
+      return
+    }
+
+    // 修复：使用 .value 访问
+    if (searchRetryCount.value >= MAX_SEARCH_RETRIES) {
+      console.log('🚫 达到最大重试次数，停止搜索')
+      searchRetryCount.value = 0
+      return
+    }
+
+    // 修复：添加更明确的数据检查
+    const hasValidData = props.excelData &&
+                        Array.isArray(props.excelData) &&
+                        props.excelData.length > 0
+
+    if (!isDataLoaded.value || !hasValidData) {
+      searchRetryCount.value++
+      console.log(`⏳ 数据未就绪，延迟搜索 (${searchRetryCount.value}/${MAX_SEARCH_RETRIES})`)
+
+      // 添加最大重试限制检查
+      if (searchRetryCount.value < MAX_SEARCH_RETRIES) {
+        setTimeout(() => {
+          performExcelContentSearch(keyword)
+        }, 500)
+      } else {
+        console.log('❌ 达到最大重试次数，停止搜索')
+        searchRetryCount.value = 0
+      }
+      return
+    }
+
+    // 数据就绪，执行搜索
+    searchRetryCount.value = 0
+
+    highlightState.keyword = keyword
+    highlightState.isActive = true
+    highlightState.lastSearchTime = Date.now()
+
+    try {
+      highlightSheetNames(keyword)
+      highlightCurrentSheetContent(keyword)
+      updateMatchCount()
+      console.log('✅✅ 搜索高亮流程完成')
+    } catch (error) {
+      console.error('❌ Excel内容搜索高亮失败:', error)
+    }
+  }, 300)
+}
+
+
+const safeSearch = (keyword) => {
+  // 检查搜索锁
+  if (searchLock) {
+    console.log('🔒 搜索被锁定，跳过重复执行')
+    return
+  }
+
+  // 检查重试次数
+  if (retryCount >= MAX_RETRIES) {
+    console.log('🚫 达到最大重试次数，停止搜索')
+    searchLock = false
+    retryCount = 0
+    return
+  }
+
+  // 检查数据是否就绪
+  if (!props.excelData || props.excelData.length === 0) {
+    searchLock = true
+    retryCount++
+    console.log(`⏳ 数据未就绪，等待重试 (${retryCount}/${MAX_RETRIES})`)
+
+    setTimeout(() => {
+      searchLock = false
+      safeSearch(keyword)
+    }, 1000) // 1秒后重试
+
+    return
+  }
+
+  // 数据就绪，执行实际搜索
+  retryCount = 0
+  performActualSearch(keyword)
+}
+
+const performActualSearch = (keyword) => {
+  console.log('✅ 数据就绪，执行实际搜索:', keyword)
+
+  try {
+    highlightState.keyword = keyword
+    highlightState.isActive = true
+    highlightState.lastSearchTime = Date.now()
+
+    highlightSheetNames(keyword)
+    highlightCurrentSheetContent(keyword)
+    updateMatchCount()
+
+    console.log('✅✅ 搜索高亮完成')
+
+  } catch (error) {
+    console.error('❌ 搜索失败:', error)
+  }
+}
+
+// 然后在监听器中修改为：
+watch(() => props.excelData, (newData) => {
+  console.log('📊 表格数据变化:', {
+    新数据长度: newData?.length,
+    时间: new Date().toLocaleTimeString()
   })
+
+  if (newData && newData.length > 0) {
+    // ✅ 使用正确的变量名
+    searchRetryCount = 0
+    searchLock = false
+
+    if (highlightState.keyword && highlightState.isActive) {
+      console.log('🔄 数据加载完成，重新执行搜索:', highlightState.keyword)
+      setTimeout(() => {
+        performActualSearch(highlightState.keyword)
+      }, 100)
+    }
+  }
+}, { deep: true, immediate: true })
+
+// 防抖函数保留（其他代码可能用到）
+function debounce(func, wait) {
+  let timeout
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout)
+      func(...args)
+    }
+    clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
+
+
+// HandsontableExcelViewer.vue 中的完整 onMounted 钩子
+// 替换 onMounted 中的全局函数设置逻辑
+onMounted(() => {
+  console.log('🚀 HandsontableExcelViewer 组件挂载:', {
+    组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
+    数据长度: props.excelData?.length,
+    时间: new Date().toLocaleTimeString()
+  })
+
+  // 监听 Excel 内容搜索事件
+  window.addEventListener('excel-content-search', (event) => {
+    const { keyword } = event.detail
+    console.log('📥 HandsontableExcelViewer 收到搜索事件:', keyword)
+    highlightCurrentSheetContent(keyword)
+  })
+
+
+  // 🔥 关键修复：只在有数据的组件中设置全局函数
+  if (props.excelData && props.excelData.length > 0) {
+    console.log('✅ 当前组件有数据，设置全局搜索函数')
+
+    window.performExcelSearch = (keyword) => {
+      console.log('🎯 搜索路由到有数据的组件:', {
+        关键词: keyword,
+        组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
+        数据长度: props.excelData.length,
+        时间: new Date().toLocaleTimeString()
+      })
+
+      // 只调用实际存在的函数
+      if (typeof highlightCurrentSheetContent === 'function') {
+        highlightCurrentSheetContent(keyword)
+      } else {
+        console.error('❌ highlightCurrentSheetContent 函数未定义')
+      }
+    }
+    console.log('✅ 全局搜索函数已设置（有数据组件）')
+  } else {
+    console.log('⏭️ 当前组件无数据，不设置全局搜索函数')
+
+    // 清除可能存在的无效函数
+    if (window.performExcelSearch) {
+      delete window.performExcelSearch
+      console.log('🧹 清除无效的全局搜索函数')
+    }
+  }
 })
+
+
+// 合并所有 onUnmounted 逻辑到一个钩子中
+onUnmounted(() => {
+  console.log('🧹 HandsontableExcelViewer 组件卸载，开始清理所有资源')
+
+  // 1. 安全地清理事件监听器
+  try {
+    window.removeEventListener('beforeunload', handleBeforeUnload)
+  } catch (e) {
+    console.warn('⚠️ 清理beforeunload事件监听器失败:', e)
+  }
+
+  // 2. 安全地清理选中区域统计事件监听器
+  if (typeof handleSelectionSumChanged === 'function') {
+    try {
+      window.removeEventListener('selection-sum-changed', handleSelectionSumChanged)
+    } catch (e) {
+      console.warn('⚠️ 清理selection-sum-changed事件监听器失败:', e)
+    }
+  } else {
+    console.log('ℹ️ handleSelectionSumChanged函数未定义，跳过清理')
+  }
+
+  // 3. 清理自动保存定时器
+  if (logic && logic.cleanupAutoSave) {
+    logic.cleanupAutoSave()
+    console.log('✅ 自动保存定时器已清理')
+  }
+
+  // 4. 销毁 Handsontable 控制器
+  if (hotController && typeof hotController.destroy === 'function') {
+    hotController.destroy()
+    console.log('✅ Handsontable 控制器已销毁')
+  }
+
+  // 5. 清理全局实例引用
+  if (window.__excelHotInstance === hotInstanceRef?.value) {
+    window.__excelHotInstance = null
+    console.log('✅ 全局实例引用已清理')
+  }
+
+  // 6. 清理全局函数
+  if (typeof window !== 'undefined') {
+    const globalFunctions = [
+      'performExcelSearch',
+      'testHandsontableSearch',
+      'getHandsontableState',
+      'testSelection',
+      'verifyCSVExport'
+    ]
+
+    globalFunctions.forEach(funcName => {
+      if (window[funcName]) {
+        delete window[funcName]
+        console.log(`🧹 全局函数 ${funcName} 已清理`)
+      }
+    })
+  }
+
+  // 7. 安全地清理其他定时器（修复：添加存在性检查）
+  if (dataChangeTimer && dataChangeTimer.value) {
+    clearTimeout(dataChangeTimer.value)
+    dataChangeTimer.value = null
+    console.log('✅ 数据变化定时器已清理')
+  } else {
+    console.log('ℹ️ dataChangeTimer未定义或为空，跳过清理')
+  }
+
+  // 8. 清理 Vue Router 导航守卫（如果 setupNavigationGuard 返回了清理函数）
+  if (typeof cleanupNavigationGuard === 'function') {
+    cleanupNavigationGuard()
+    console.log('✅ 导航守卫已清理')
+  }
+
+  console.log('✅ 所有资源清理完成')
+})
+
 
 </script>
 
@@ -2737,6 +3098,132 @@ onMounted(() => {
   opacity: 0.8;
 }
 
+
+/* Sheet表名高亮样式 */
+.sheet-name.highlighted {
+  background-color: #fff566;
+  color: #000;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+/* 表格单元格高亮样式 */
+.excel-content-highlight {
+  background-color: #fffb8f !important;
+  color: #000 !important;
+  font-weight: 600;
+}
+
+/* 搜索匹配统计提示 */
+.search-match-count {
+  background: #409eff;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+
+/* 确保高亮样式生效 */
+.handsontable .excel-content-highlight {
+  background-color: #fffb8f !important;
+  color: #000 !important;
+  font-weight: 600;
+  position: relative;
+}
+
+.handsontable .excel-content-highlight::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  border: 2px solid #ffc53d !important;
+  pointer-events: none;
+}
+
+
+/* 高对比度红色版本 */
+.handsontable .excel-content-highlight-cell {
+  background-color: #ff4444 !important;        /* 鲜艳的红色 */
+  color: #ffffff !important;                    /* 白色文字增强可读性 */
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);      /* 文字阴影 */
+  box-shadow: inset 0 0 0 3px #ff0000 !important; /* 更粗的红色边框 */
+  border-radius: 2px;                          /* 圆角效果 */
+}
+
+/* 脉动动画效果 */
+@keyframes red-highlight-pulse {
+  0% {
+    background-color: #ff4444;
+    box-shadow: inset 0 0 0 3px #ff0000;
+  }
+  50% {
+    background-color: #ff0000; /* 更深的红色 */
+    box-shadow: inset 0 0 0 3px #cc0000;
+  }
+  100% {
+    background-color: #ff4444;
+    box-shadow: inset 0 0 0 3px #ff0000;
+  }
+}
+
+
+/* 🔥 确保高亮样式优先级最高 */
+.handsontable .excel-content-highlight-cell {
+  background-color: #ffcccc !important;
+  color: #000 !important;
+  font-weight: 700;
+  border: 2px solid #ff4444 !important;
+  position: relative;
+  z-index: 1000 !important; /* 确保在最上层 */
+}
+
+/* 为高亮单元格添加动画 */
+.handsontable .excel-content-highlight-cell::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid #ff0000 !important;
+  animation: highlight-border 1.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+@keyframes highlight-border {
+  0%, 100% { border-color: #ff0000; }
+  50% { border-color: #ff6666; }
+}
+
+/* 修复：Excel内容搜索高亮样式 */
+:deep(.handsontable .excel-content-highlight-cell) {
+  background-color: #fffb8f !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+  border: 2px solid #ffc53d !important;
+  box-shadow: 0 0 6px rgba(255, 197, 61, 0.5) !important;
+  z-index: 1000 !important;
+  position: relative !important;
+}
+
+/* 确保在编辑模式下也能显示 */
+:deep(.edit-mode .handsontable .excel-content-highlight-cell) {
+  background-color: #fff566 !important;
+  border: 2px dashed #faad14 !important;
+}
+
+/* 检查是否缺少对应的 CSS 样式 */
+:deep(.handsontable td.excel-content-highlight-cell) {
+  background-color: #fff566 !important;
+  border: 2px solid #ffec3d !important;
+}
 
 </style>
 

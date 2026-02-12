@@ -117,6 +117,7 @@
           :actual-has-unsaved-changes="actualHasUnsavedChanges"
           :is-dev="isDev"
           :sorted-sheets="getSortedSheets"
+          @highlight-sheets="handleHighlightSheets"
           @toggle-flat-mode="toggleFlatMode"
           @save-data="saveData"
           @restore-unsaved-data="restoreUnsavedData"
@@ -131,8 +132,6 @@
 
   </ThreeColumnLayout>
 </template>
-
-
 
 
 <script setup>
@@ -171,9 +170,6 @@ import cacheDebug from '@/utils/CacheDebugCenter';
 
 // 新增：用于强制触发计算属性更新的响应式变量
 const forceUnsavedUpdate = ref(0);
-// 新增：记录当前PDF+Sheet的唯一标识（避免切换时状态混淆）
-
-
 const sheetEverDirty = ref(false)
 
 
@@ -274,6 +270,35 @@ const actualHasUnsavedChanges = computed(() => {
 
   return result
 })
+
+// 在 ThreeColumnPage.vue 的 script 中添加
+const highlightMatchedSheets = (keyword) => {
+  if (!keyword) return displayedExcelFiles.value;
+
+  const lowerKeyword = keyword.toLowerCase();
+  return displayedExcelFiles.value.map(excelFile => ({
+    ...excelFile,
+    sheets: excelFile.sheets?.map(sheet => ({
+      ...sheet,
+      isHighlighted: sheet.name.toLowerCase().includes(lowerKeyword)
+    })) || []
+  }));
+};
+
+// 监听高亮事件
+const handleHighlightSheets = (keyword) => {
+  highlightedSheetsKeyword.value = keyword;
+};
+
+// 监听来自 App.vue 的搜索事件
+const handleExcelContentSearch = (searchData) => {
+  console.log('📥 ThreeColumnPage 收到搜索事件:', searchData)
+
+  // 传递给 HandsontableExcelViewer
+  if (excelViewerRef.value) {
+    excelViewerRef.value.handleExternalSearch(searchData.keyword)
+  }
+}
 
 
 
