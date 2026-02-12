@@ -231,27 +231,6 @@ const handleLogout = () => {
   })
 }
 
-// 提供搜索函数给所有子组件（保留这个版本）
-// 修改 provide 中的函数（第 262-265 行）
-provide('performExcelContentSearch', (keyword) => {
-  console.log('🎯 执行Excel内容搜索:', keyword)
-
-  // 通过全局事件通知子组件执行实际的搜索逻辑
-  window.dispatchEvent(new CustomEvent('excel-content-search', {
-    detail: { keyword }
-  }))
-
-  // 或者如果子组件已注册全局函数，直接调用
-  if (window.highlightSheetNames && typeof window.highlightSheetNames === 'function') {
-    window.highlightSheetNames(keyword)
-  }
-  if (window.highlightCurrentSheetContent && typeof window.highlightCurrentSheetContent === 'function') {
-    window.highlightCurrentSheetContent(keyword)
-  }
-  if (window.updateMatchCount && typeof window.updateMatchCount === 'function') {
-    window.updateMatchCount()
-  }
-})
 
 
 const handleExcelContentSearch = () => {
@@ -339,17 +318,259 @@ const handleExcelContentSearch = () => {
   }, 300)
 }
 
-// 清空Excel内容搜索
+
+// 在 App.vue 的 script setup 中修正高亮函数
+
+// 直接DOM操作高亮Sheet名称（精确匹配表格名）
+const highlightSheetNamesDirectly = (keyword) => {
+  const lowerKeyword = keyword.toLowerCase()
+  sheetHighlightState.matchedSheets.clear()
+
+  let matchCount = 0
+  const allMatches = new Set()
+
+  // 更精确的选择器，只针对表格名称元素
+  const sheetNameSelectors = [
+    // 表格名称特有的选择器
+    '.sheet-name',
+    '.table-name',
+    '.excel-sheet-name',
+    '.pdf-sheet-name',
+    '[class*="sheet-name"]',
+    '[class*="table-name"]',
+    '.el-tree-node__label', // 但需要进一步过滤
+    '.el-collapse-item__label' // 但需要进一步过滤
+  ]
+
+  console.log('🔍 开始搜索表格名称:', keyword)
+
+  // 方法1：精确匹配表格名称元素
+  sheetNameSelectors.forEach(selector => {
+    try {
+      const elements = document.querySelectorAll(selector)
+      elements.forEach(element => {
+        const text = element.textContent?.toLowerCase()?.trim() || ''
+        const innerText = element.innerText?.toLowerCase()?.trim() || ''
+
+        // 精确检查：文本内容必须包含关键词
+        if (text.includes(lowerKeyword) || innerText.includes(lowerKeyword)) {
+          // 进一步验证：这确实是一个表格名称（包含sheet/表等关键词）
+          const isLikelySheetName = text.includes('sheet') ||
+                                   text.includes('表') ||
+                                   text.includes('p0') || // 常见的表格前缀
+                                   text.match(/[pP]\d+/) // P开头的数字编号
+
+          if (isLikelySheetName) {
+            // 添加高亮样式
+            element.classList.add('excel-sheet-highlight')
+            element.style.setProperty('background-color', '#fff566', 'important')
+            element.style.setProperty('color', '#000', 'important')
+            element.style.setProperty('font-weight', 'bold', 'important')
+            element.style.setProperty('border', '2px solid #ffc53d', 'important')
+            element.style.borderRadius = '4px'
+            element.style.padding = '2px 6px'
+            element.style.margin = '2px 0'
+            element.style.display = 'inline-block'
+
+            // 记录匹配的表格名称
+            const sheetName = element.textContent?.trim() || element.innerText?.trim()
+            if (sheetName) {
+              allMatches.add(sheetName)
+              console.log('✅ 找到匹配的表格名称:', sheetName)
+            }
+            matchCount++
+          }
+        } else {
+          // 清除不匹配元素的高亮
+          element.classList.remove('excel-sheet-highlight')
+          element.style.removeProperty('background-color')
+          element.style.removeProperty('color')
+          element.style.removeProperty('font-weight')
+          element.style.removeProperty('border')
+        }
+      })
+    } catch (error) {
+      console.warn('⚠️ 处理选择器时出错:', selector, error)
+    }
+  })
+
+  // 方法2：智能搜索包含表格关键词的元素
+  if (matchCount === 0) {
+    console.log('🔄 尝试智能搜索表格名称...')
+
+    // 搜索包含表格特征的关键词
+    const sheetKeywords = ['sheet', '表', '表格', '报表', 'P0', 'P1', 'P2', 'P3']
+    const allTextElements = document.querySelectorAll('*')
+
+    allTextElements.forEach(element => {
+      if (element.children.length === 0) { // 只处理叶子文本节点
+        const text = element.textContent?.toLowerCase()?.trim() || ''
+
+        if (text && text.includes(lowerKeyword)) {
+          // 检查是否包含表格特征关键词
+          const hasSheetKeyword = sheetKeywords.some(keyword =>
+            text.includes(keyword.toLowerCase())
+          )
+
+          if (hasSheetKeyword) {
+            // 找到父级容器元素进行高亮
+            let highlightElement = element
+            // 向上查找合适的容器元素（避免高亮单个文本节点）
+            while (highlightElement.parentElement &&
+                   highlightElement.parentElement.children.length === 1) {
+              highlightElement = highlightElement.parentElement
+            }
+
+            highlightElement.classList.add('excel-sheet-highlight')
+            highlightElement.style.setProperty('background-color', '#fff566', 'important')
+            highlightElement.style.setProperty('color', '#000', 'important')
+            highlightElement.style.setProperty('font-weight', 'bold', 'important')
+            highlightElement.style.setProperty('border', '2px solid #ffc53d', 'important')
+            highlightElement.style.borderRadius = '4px'
+            highlightElement.style.padding = '2px 6px'
+            highlightElement.style.margin = '2px 0'
+            highlightElement.style.display = 'inline-block'
+
+            const sheetName = highlightElement.textContent?.trim()
+            if (sheetName) {
+              allMatches.add(sheetName)
+              console.log('✅ 智能找到匹配的表格名称:', sheetName)
+            }
+            matchCount++
+          }
+        }
+      }
+    })
+  }
+
+  sheetHighlightState.matchedSheets = allMatches
+
+  // 清理其他可能误高亮的元素
+  cleanupFalseHighlights(lowerKeyword)
+
+  console.log('✅ 表格名称高亮完成:', {
+    关键词: keyword,
+    匹配表格数: matchCount,
+    匹配的表格名称: Array.from(allMatches)
+  })
+}
+
+// 清理误高亮的元素
+const cleanupFalseHighlights = (keyword) => {
+  const allHighlighted = document.querySelectorAll('.excel-sheet-highlight')
+  allHighlighted.forEach(element => {
+    const text = element.textContent?.toLowerCase()?.trim() || ''
+    if (!text.includes(keyword)) {
+      element.classList.remove('excel-sheet-highlight')
+      element.style.removeProperty('background-color')
+      element.style.removeProperty('color')
+      element.style.removeProperty('font-weight')
+      element.style.removeProperty('border')
+    }
+  })
+}
+
+// 增强的清除函数
+const clearSheetHighlights = () => {
+  const elements = document.querySelectorAll('.excel-sheet-highlight')
+  elements.forEach(element => {
+    element.classList.remove('excel-sheet-highlight')
+    element.style.removeProperty('background-color')
+    element.style.removeProperty('color')
+    element.style.removeProperty('font-weight')
+    element.style.removeProperty('border')
+    element.style.removeProperty('border-radius')
+    element.style.removeProperty('padding')
+    element.style.removeProperty('margin')
+    element.style.removeProperty('display')
+  })
+
+  console.log('🧹 清除所有表格名称高亮')
+}
+
+// Sheet名称高亮相关状态
+const sheetHighlightState = reactive({
+  keyword: '',
+  matchedSheets: new Set(),
+  isHighlighting: false
+})
+
+// 修改 performExcelContentSearch 函数
+provide('performExcelContentSearch', (keyword) => {
+  console.log('🎯 执行Excel内容搜索:', keyword)
+
+  // 1. 高亮Sheet名称（中间栏）
+  highlightSheetNames(keyword)
+
+  // 2. 通过全局事件高亮Sheet内容（右侧栏）
+  window.dispatchEvent(new CustomEvent('excel-content-search', {
+    detail: { keyword }
+  }))
+
+  // 3. 更新匹配计数
+  updateMatchCount(keyword)
+})
+
+// 实现Sheet名称高亮函数
+const highlightSheetNames = (keyword) => {
+  const searchKeyword = keyword?.trim() || ''
+
+  if (!searchKeyword) {
+    // 清空搜索时清除高亮
+    clearSheetHighlights()
+    sheetHighlightState.keyword = ''
+    sheetHighlightState.matchedSheets.clear()
+    sheetHighlightState.isHighlighting = false
+    console.log('🔍 Sheet名称高亮：清空搜索条件')
+    return
+  }
+
+  console.log('🔍 高亮Sheet名称:', searchKeyword)
+  sheetHighlightState.keyword = searchKeyword
+  sheetHighlightState.isHighlighting = true
+
+  // 延迟执行以避免阻塞UI
+  setTimeout(() => {
+    highlightSheetNamesDirectly(searchKeyword)
+    sheetHighlightState.isHighlighting = false
+  }, 50)
+}
+
+
+// 更新匹配计数
+const updateMatchCount = (keyword) => {
+  if (!keyword) {
+    excelContentSearchState.matchCount = 0
+    return
+  }
+
+  // 计算总匹配数：Sheet名称匹配数 + 内容匹配数（通过事件获取）
+  const sheetMatchCount = sheetHighlightState.matchedSheets.size
+  console.log('📊 更新匹配计数:', {
+    Sheet名称匹配数: sheetMatchCount,
+    关键词: keyword
+  })
+
+  // 这里可以结合后续从子组件获取的内容匹配数
+  excelContentSearchState.matchCount = sheetMatchCount
+}
+
+// 监听搜索清空事件
 const handleExcelContentSearchClear = () => {
   excelContentSearchState.keyword = ''
   excelContentSearchState.isSearching = false
   excelContentSearchState.matchCount = 0
   excelContentSearchState.active = false
   excelContentSearchState.lastSearchTime = Date.now()
+
+  // 清除Sheet高亮
+  clearSheetHighlights()
+  sheetHighlightState.matchedSheets.clear()
+  sheetHighlightState.keyword = ''
+  sheetHighlightState.isHighlighting = false
+
   console.log('🔍 Excel内容搜索：清空搜索条件')
 }
-
-
 
 
 
