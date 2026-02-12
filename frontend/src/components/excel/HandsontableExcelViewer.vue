@@ -2105,8 +2105,28 @@ function debounce(func, wait) {
 }
 
 
-// HandsontableExcelViewer.vue 中的完整 onMounted 钩子
-// 替换 onMounted 中的全局函数设置逻辑
+onMounted(() => {
+  // 监听搜索事件
+  window.addEventListener('excel-content-search', handleExcelSearchEvent)
+})
+
+onUnmounted(() => {
+  // 清理事件监听器
+  window.removeEventListener('excel-content-search', handleExcelSearchEvent)
+})
+
+const handleExcelSearchEvent = (event) => {
+  const { keyword } = event.detail
+  console.log('📡 收到搜索事件:', keyword)
+
+  // 调用本地搜索函数
+  highlightSheetNames(keyword)
+  highlightCurrentSheetContent(keyword)
+  updateMatchCount()
+}
+
+
+// HandsontableExcelViewer.vue 中的完整 onMounted 钩子（修复版）
 onMounted(() => {
   console.log('🚀 HandsontableExcelViewer 组件挂载:', {
     组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
@@ -2114,114 +2134,133 @@ onMounted(() => {
     时间: new Date().toLocaleTimeString()
   })
 
-  // 监听 Excel 内容搜索事件
-  window.addEventListener('excel-content-search', (event) => {
+  // 🔥 修复1：使用具名函数，便于后续清理
+  const handleExcelSearchEvent = (event) => {
     const { keyword } = event.detail
     console.log('📥 HandsontableExcelViewer 收到搜索事件:', keyword)
-    highlightCurrentSheetContent(keyword)
-  })
 
+    // 🔥 修复2：添加函数存在性检查
+    if (typeof highlightCurrentSheetContent === 'function') {
+      highlightCurrentSheetContent(keyword)
+    } else {
+      console.error('❌ highlightCurrentSheetContent 函数未定义')
+    }
+  }
 
-  // 🔥 关键修复：只在有数据的组件中设置全局函数
+  // 监听 Excel 内容搜索事件
+  window.addEventListener('excel-content-search', handleExcelSearchEvent)
+
+  // 🔥 修复3：改进全局函数设置逻辑
   if (props.excelData && props.excelData.length > 0) {
     console.log('✅ 当前组件有数据，设置全局搜索函数')
 
-    window.performExcelSearch = (keyword) => {
-      console.log('🎯 搜索路由到有数据的组件:', {
-        关键词: keyword,
-        组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
-        数据长度: props.excelData.length,
-        时间: new Date().toLocaleTimeString()
-      })
+    // 先检查是否已有有效的搜索函数
+    const existingSearchFunc = window.performExcelSearch
+    const shouldSetNewFunc = !existingSearchFunc ||
+                           (existingSearchFunc._componentDataLength === 0) ||
+                           (props.excelData.length > existingSearchFunc._componentDataLength)
 
-      // 只调用实际存在的函数
-      if (typeof highlightCurrentSheetContent === 'function') {
-        highlightCurrentSheetContent(keyword)
-      } else {
-        console.error('❌ highlightCurrentSheetContent 函数未定义')
+    if (shouldSetNewFunc) {
+      window.performExcelSearch = (keyword) => {
+        console.log('🎯 搜索路由到有数据的组件:', {
+          关键词: keyword,
+          组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
+          数据长度: props.excelData.length,
+          时间: new Date().toLocaleTimeString()
+        })
+
+        if (typeof highlightCurrentSheetContent === 'function') {
+          highlightCurrentSheetContent(keyword)
+        } else {
+          console.error('❌ highlightCurrentSheetContent 函数未定义')
+          // 降级处理：发射事件
+          window.dispatchEvent(new CustomEvent('excel-content-search', {
+            detail: { keyword }
+          }))
+        }
       }
+
+      // 标记函数来源和数据信息
+      window.performExcelSearch._componentName = props.sheetName
+      window.performExcelSearch._componentDataLength = props.excelData.length
+      window.performExcelSearch._setTime = Date.now()
+
+      console.log('✅ 全局搜索函数已设置（有数据组件）', {
+        组件: props.sheetName,
+        数据长度: props.excelData.length
+      })
+    } else {
+      console.log('⏭️ 已有更优的搜索函数，跳过设置', {
+        当前组件数据长度: props.excelData.length,
+        现有函数数据长度: existingSearchFunc._componentDataLength
+      })
     }
-    console.log('✅ 全局搜索函数已设置（有数据组件）')
   } else {
     console.log('⏭️ 当前组件无数据，不设置全局搜索函数')
 
-    // 清除可能存在的无效函数
-    if (window.performExcelSearch) {
+    // 只有当前组件设置了全局函数时才清理
+    if (window.performExcelSearch?._componentName === props.sheetName) {
       delete window.performExcelSearch
-      console.log('🧹 清除无效的全局搜索函数')
+      console.log('🧹 清除本组件设置的全局搜索函数')
     }
   }
 })
 
-
-// 合并所有 onUnmounted 逻辑到一个钩子中
+// 合并所有 onUnmounted 逻辑到一个钩子中（修复版）
 onUnmounted(() => {
   console.log('🧹 HandsontableExcelViewer 组件卸载，开始清理所有资源')
 
-  // 1. 安全地清理事件监听器
+  // 1. 安全地清理事件监听器（使用具名函数）
+  try {
+    window.removeEventListener('excel-content-search', handleExcelSearchEvent)
+  } catch (e) {
+    console.warn('⚠️ 清理excel-content-search事件监听器失败:', e)
+  }
+
+  // 2. 清理其他事件监听器
   try {
     window.removeEventListener('beforeunload', handleBeforeUnload)
   } catch (e) {
     console.warn('⚠️ 清理beforeunload事件监听器失败:', e)
   }
 
-  // 2. 安全地清理选中区域统计事件监听器
+  // 3. 安全地清理选中区域统计事件监听器
   if (typeof handleSelectionSumChanged === 'function') {
     try {
       window.removeEventListener('selection-sum-changed', handleSelectionSumChanged)
     } catch (e) {
       console.warn('⚠️ 清理selection-sum-changed事件监听器失败:', e)
     }
-  } else {
-    console.log('ℹ️ handleSelectionSumChanged函数未定义，跳过清理')
   }
 
-  // 3. 清理自动保存定时器
+  // 4. 清理全局函数（只清理本组件设置的）
+  if (typeof window !== 'undefined' && window.performExcelSearch?._componentName === props.sheetName) {
+    delete window.performExcelSearch
+    console.log('🧹 清理本组件设置的全局搜索函数')
+  }
+
+  // 5. 清理其他资源（原有逻辑保持不变）
   if (logic && logic.cleanupAutoSave) {
     logic.cleanupAutoSave()
     console.log('✅ 自动保存定时器已清理')
   }
 
-  // 4. 销毁 Handsontable 控制器
   if (hotController && typeof hotController.destroy === 'function') {
     hotController.destroy()
     console.log('✅ Handsontable 控制器已销毁')
   }
 
-  // 5. 清理全局实例引用
   if (window.__excelHotInstance === hotInstanceRef?.value) {
     window.__excelHotInstance = null
     console.log('✅ 全局实例引用已清理')
   }
 
-  // 6. 清理全局函数
-  if (typeof window !== 'undefined') {
-    const globalFunctions = [
-      'performExcelSearch',
-      'testHandsontableSearch',
-      'getHandsontableState',
-      'testSelection',
-      'verifyCSVExport'
-    ]
-
-    globalFunctions.forEach(funcName => {
-      if (window[funcName]) {
-        delete window[funcName]
-        console.log(`🧹 全局函数 ${funcName} 已清理`)
-      }
-    })
-  }
-
-  // 7. 安全地清理其他定时器（修复：添加存在性检查）
   if (dataChangeTimer && dataChangeTimer.value) {
     clearTimeout(dataChangeTimer.value)
     dataChangeTimer.value = null
     console.log('✅ 数据变化定时器已清理')
-  } else {
-    console.log('ℹ️ dataChangeTimer未定义或为空，跳过清理')
   }
 
-  // 8. 清理 Vue Router 导航守卫（如果 setupNavigationGuard 返回了清理函数）
   if (typeof cleanupNavigationGuard === 'function') {
     cleanupNavigationGuard()
     console.log('✅ 导航守卫已清理')

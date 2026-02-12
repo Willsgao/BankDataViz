@@ -5,8 +5,8 @@
       <div class="header-main">
         <div class="header-left">
           <h3>表格</h3>
-          <div v-if="selectedSheet" class="header-info">
-            <el-tag type="primary">{{ selectedSheet.name }}</el-tag>
+          <div v-if="selectedSheet?.name" class="header-info">
+            <el-tag type="primary">{{ selectedSheet?.name }}</el-tag>
           </div>
         </div>
 
@@ -383,6 +383,26 @@ const clearSelectionSum = () => {
   }
 }
 
+
+const highlightCurrentSheetContent = (keyword) => {
+  console.log('🔍 ExcelContent 执行搜索高亮:', keyword)
+
+  // 根据当前显示模式选择正确的组件引用
+  const targetViewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+
+  // 修复：使用正确的组件引用
+  if (targetViewer && typeof targetViewer.highlightCurrentSheetContent === 'function') {
+    targetViewer.highlightCurrentSheetContent(keyword)
+  } else {
+    console.warn('⚠️ 无法执行搜索：Handsontable 实例不可用', {
+      当前模式: props.showFlatMode ? '扁平化' : '原始',
+      组件存在: !!targetViewer,
+      搜索方法存在: targetViewer?.highlightCurrentSheetContent ? '是' : '否'
+    })
+  }
+}
+
+
 const handleGlobalFlattenedData = (flattenedData) => {
   try {
     console.log('🔄🔄 处理整体扁平化数据', {
@@ -685,7 +705,8 @@ defineExpose({
   flatViewer,
   forceRefreshTable: forceRefreshHandsontable,
   getDataVersion: () => tableDataVersion.value,
-  isDataLoaded: () => isDataLoaded.value
+  isDataLoaded: () => isDataLoaded.value,
+  // highlightCurrentSheetContent
 })
 
 // 保留原有的其他函数和逻辑

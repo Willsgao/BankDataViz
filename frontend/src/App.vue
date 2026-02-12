@@ -139,6 +139,8 @@ const excelContentSearchState = reactive({
   active: false
 })
 
+
+
 // 计算属性
 const isLoggedIn = computed(() => {
   return !!localStorage.getItem('token')
@@ -229,12 +231,33 @@ const handleLogout = () => {
   })
 }
 
-// Excel内容搜索处理
+// 提供搜索函数给所有子组件（保留这个版本）
+// 修改 provide 中的函数（第 262-265 行）
+provide('performExcelContentSearch', (keyword) => {
+  console.log('🎯 执行Excel内容搜索:', keyword)
+
+  // 通过全局事件通知子组件执行实际的搜索逻辑
+  window.dispatchEvent(new CustomEvent('excel-content-search', {
+    detail: { keyword }
+  }))
+
+  // 或者如果子组件已注册全局函数，直接调用
+  if (window.highlightSheetNames && typeof window.highlightSheetNames === 'function') {
+    window.highlightSheetNames(keyword)
+  }
+  if (window.highlightCurrentSheetContent && typeof window.highlightCurrentSheetContent === 'function') {
+    window.highlightCurrentSheetContent(keyword)
+  }
+  if (window.updateMatchCount && typeof window.updateMatchCount === 'function') {
+    window.updateMatchCount()
+  }
+})
+
+
 const handleExcelContentSearch = () => {
   const keyword = excelContentSearchState.keyword.trim()
 
   if (!keyword) {
-    // 清空搜索时，重置状态
     excelContentSearchState.isSearching = false
     excelContentSearchState.matchCount = 0
     excelContentSearchState.active = false
@@ -248,7 +271,69 @@ const handleExcelContentSearch = () => {
   excelContentSearchState.active = true
   excelContentSearchState.lastSearchTime = Date.now()
 
-  // 搜索逻辑在子组件中实现，这里只触发状态变化
+  // 增强的路由逻辑
+  const enhancedRouteSearch = () => {
+    console.log('🔄 开始增强路由搜索...')
+
+    // 方法1：查找所有可能的组件
+    const viewers = document.querySelectorAll('[class*="handsontable"]')
+    console.log(`找到 ${viewers.length} 个可能的组件`)
+
+    let routed = false
+
+    for (const viewer of viewers) {
+      const vueInstance = viewer.__vue__ || viewer.__vueParentComponent
+      if (vueInstance && vueInstance.props?.excelData?.length > 0) {
+        console.log('✅ 找到有数据的组件:', {
+          组件类型: vueInstance.props.sheetName,
+          数据长度: vueInstance.props.excelData.length
+        })
+
+        // 优先尝试 performSearch 方法
+        if (vueInstance.performSearch) {
+          console.log('🎯 调用组件的 performSearch 方法')
+          vueInstance.performSearch(keyword)
+          routed = true
+          break
+        }
+
+        // 备用方案：直接调用高亮函数
+        if (vueInstance.highlightCurrentSheetContent) {
+          console.log('🔄 直接调用高亮函数')
+          vueInstance.highlightCurrentSheetContent(keyword)
+          routed = true
+          break
+        }
+      }
+    }
+
+    return routed
+  }
+
+  // 方法2：检查全局搜索函数
+  const useGlobalSearch = () => {
+    if (window.performExcelSearch) {
+      console.log('🚀 使用全局搜索函数')
+      window.performExcelSearch(keyword)
+      return true
+    }
+    return false
+  }
+
+  // 方法3：最后尝试通过事件发射
+  const useEventEmit = () => {
+    console.log('📡 通过事件发射搜索请求')
+    window.dispatchEvent(new CustomEvent('excel-content-search', {
+      detail: { keyword }
+    }))
+    return true
+  }
+
+  // 按优先级执行搜索策略
+  if (!enhancedRouteSearch() && !useGlobalSearch()) {
+    useEventEmit()
+  }
+
   setTimeout(() => {
     excelContentSearchState.isSearching = false
   }, 300)
@@ -263,6 +348,10 @@ const handleExcelContentSearchClear = () => {
   excelContentSearchState.lastSearchTime = Date.now()
   console.log('🔍 Excel内容搜索：清空搜索条件')
 }
+
+
+
+
 
 // PDF搜索函数
 const handleSearch = async () => {
@@ -331,14 +420,6 @@ provide('isSearching', toRef(searchState, 'isSearching'))
 provide('excelContentSearchState', excelContentSearchState)
 provide('handleExcelContentSearch', handleExcelContentSearch)
 provide('handleExcelContentSearchClear', handleExcelContentSearchClear)
-
-// 在App.vue的provide语句后添加调试信息
-console.log('🔍🔍🔍🔍🔍🔍🔍🔍 App.vue provide 的数据:', {
-  searchResults: searchState.results,
-  isSearching: searchState.isSearching,
-  resultsLength: searchState.results.length,
-  excelContentSearchState: excelContentSearchState
-})
 
 onMounted(() => {
   console.log('🚀🚀🚀🚀 App.vue 组件已挂载')
