@@ -38,6 +38,7 @@
 
     <template #middle-bottom>
       <div class="table-list-container">
+
         <!-- PDF名称显示区域 -->
         <div v-if="selectedPdf" class="pdf-name-section compact">
           <div class="pdf-name-content compact">

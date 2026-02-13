@@ -89,17 +89,25 @@
           </div>
         </div>
 
+      <!-- 中间栏右侧拖拽条 -->
+      <div
+        v-if="!isMiddleCollapsed"
+        class="resize-handle resize-handle-right"
+        @mousedown="startResize('middle-right', $event)"
+        :title="'调整中间栏宽度 (当前: ' + currentWidths.middle + 'px)'"
+      ></div>
     </div>
 
     <!-- 右侧：Excel内容滚动区域 -->
-    <div class="right-panel" ref="rightPanel" :style="{ flex: '1 1 auto' }">
-
+    <div class="right-panel" ref="rightPanel" :style="{ flex: '1 1 auto', minWidth: `${currentWidths.right}px` }">
       <div class="scroll-content">
         <slot name="right"></slot>
       </div>
+
     </div>
   </div>
 </template>
+
 
 
 
