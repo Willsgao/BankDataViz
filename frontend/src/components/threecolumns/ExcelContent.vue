@@ -441,44 +441,6 @@ const handleGlobalFlattenedData = (flattenedData) => {
   }
 }
 
-const handleGlobalFlattenedData0000 = (flattenedData) => {
-  try {
-    console.log('🔄🔄 处理整体扁平化数据', {
-      数据行数: flattenedData.length,
-      第一行样本: flattenedData[0]
-    })
-
-    if (Array.isArray(flattenedData) && flattenedData.length > 0) {
-      props.flatData.length = 0
-      flattenedData.forEach(row => {
-        props.flatData.push(row)
-      })
-
-      console.log('✅ 扁平化数据已更新', {
-        新数据行数: props.flatData.length
-      })
-    }
-
-    if (!props.showFlatMode) {
-      console.log('🔄🔄 自动切换到扁平化模式')
-      emit('toggle-flat-mode')
-    }
-
-    nextTick(() => {
-      if (flatViewer.value) {
-        const hotInstance = flatViewer.value.getSafeHotInstance?.()
-        if (hotInstance && !hotInstance.isDestroyed) {
-          hotInstance.render()
-          console.log('✅ 表格已刷新显示')
-        }
-      }
-    })
-
-  } catch (error) {
-    console.error('❌❌ 处理整体扁平化数据失败:', error)
-    ElMessage.error('处理扁平化数据失败')
-  }
-}
 
 /* ===== 保存相关函数 ===== */
 const triggerSave = () => {
