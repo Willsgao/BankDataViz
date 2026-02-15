@@ -1057,6 +1057,7 @@ class ExcelFlattenHandler:
             timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M")
             sheet_name = f"{raw_sheet}_{timestamp}"
             print("**********************sheet_name:", sheet_name)
+            sheet_name = sheet_name[-30:]
 
             # 🔥🔥🔥 关键：使用中文字段名作为表头
             df.to_excel(filename, index=False, header=True, engine='openpyxl', sheet_name=sheet_name)
