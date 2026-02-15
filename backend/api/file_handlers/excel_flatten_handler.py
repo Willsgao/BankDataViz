@@ -2,11 +2,10 @@
 Excel扁平化处理器 - 重构自file.py中的Excel扁平化相关功能
 """
 
+import re
 import glob
 import datetime
 from typing import Dict, Any, List
-from flask import jsonify
-import traceback
 
 
 class ExcelFlattenHandler:
@@ -1054,6 +1053,7 @@ class ExcelFlattenHandler:
 
             raw_sheet = source_pdf_name.replace("pdf", "").replace(".", "")
             print("*************raw_sheet:", raw_sheet)
+            raw_sheet = re.sub(r'_\d+$', '', raw_sheet)
             timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M")
             sheet_name = f"{raw_sheet}_{timestamp}"
             print("**********************sheet_name:", sheet_name)
