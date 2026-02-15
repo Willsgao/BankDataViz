@@ -1053,7 +1053,9 @@ class ExcelFlattenHandler:
 
             raw_sheet = source_pdf_name.replace("pdf", "").replace(".", "")
             print("*************raw_sheet:", raw_sheet)
-            raw_sheet = re.sub(r'_\d+$', '', raw_sheet)
+            if len(raw_sheet) > 20:
+                raw_sheet = re.sub(r'[^\u4e00-\u9fff]', '', raw_sheet)
+
             timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M")
             sheet_name = f"{raw_sheet}_{timestamp}"
             print("**********************sheet_name:", sheet_name)
