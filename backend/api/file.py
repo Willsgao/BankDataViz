@@ -606,7 +606,8 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
             print(f"✅ 成功读取sheet '{sheet_name}'，数据形状: {len(data)}行 x {len(data[0]) if data else 0}列")
 
             # 🔥🔥🔥 提取元数据
-            metadata = {}
+            valid_keys = ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id", "entity"]
+            metadata = {key: "" for key in valid_keys}
             clean_data = []
 
             for row in data:
@@ -624,7 +625,6 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
                         value = value.strip()
 
                         # 只收集已知的元数据字段
-                        valid_keys = ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id"]
                         if key in valid_keys:
                             metadata[key] = value
                             print(f"✅ 找到元数据: {key} = {value}")
@@ -635,6 +635,162 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
                     clean_data.append(row)
 
             print(f"📋 提取的元数据: {metadata}")
+
+            result = {
+                "success": True,
+                "data": clean_data,  # 返回清理后的数据
+                "rows": len(clean_data),
+                "cols": len(clean_data[0]) if clean_data else 0,
+                "sheet_name": sheet_name,
+                "excel_file": excel_file_name,
+                "metadata": metadata,  # 🔥 返回提取的元数据
+                "has_custom_metadata": bool(metadata),  # 🔥 标记是否有元数据
+                "file_path": str(excel_path)
+            }
+
+            # 🔥🔥🔥 返回前端期望的格式
+            return jsonify(result)
+
+        except Exception as e:
+            print(f"❌ 读取Excel文件失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"success": False, "error": f"读取Excel文件失败: {str(e)}"}), 500
+
+    except Exception as e:
+        print(f"❌❌❌ 获取Excel数据API失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": "获取Excel数据失败"}), 500
+
+
+@file_bp.get('/api/excel-data111111/<file_id>/<path:excel_file_name>/<sheet_name>')
+def get_excel_data_api111111(file_id, excel_file_name, sheet_name):
+    """
+    提供Excel数据API接口 - 修复路径问题
+    """
+    try:
+        print(f"🎯🎯🎯 收到Excel数据API请求: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
+
+        # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
+        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
+
+        print("clean_file_idclean_file_id:", clean_file_id)
+
+        # 1. 构建Excel文件路径
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+        excel_path = excel_dir / excel_file_name
+
+        print(f"📁 Excel文件路径: {excel_path}")
+
+        if not excel_path.exists():
+            print(f"❌ Excel文件不存在: {excel_path}")
+
+            # 🔥🔥🔥 备选方案1：尝试使用原始file_id
+            if clean_file_id != file_id:
+                alt_excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
+                alt_excel_path = alt_excel_dir / excel_file_name
+                print(f"🔍🔍 尝试备选路径1: {alt_excel_path}")
+
+                if alt_excel_path.exists():
+                    excel_dir = alt_excel_dir
+                    excel_path = alt_excel_path
+                    clean_file_id = file_id
+                    print(f"✅ 使用备选路径1: {excel_path}")
+                else:
+                    # 🔥🔥🔥 备选方案2：如果是数字ID，查询数据库获取UUID
+                    if clean_file_id.isdigit():
+                        print(f"🔍🔍 尝试备选方案2: 数字ID查询数据库 {clean_file_id}")
+                        conn = db.connect()
+                        if conn:
+                            c = conn.cursor()
+                            c.execute("SELECT filename FROM files WHERE id = ? AND deleted = 0", (clean_file_id,))
+                            row = c.fetchone()
+                            conn.close()
+
+                            if row:
+                                real_uuid = row["filename"].split('.')[0] if '.' in row["filename"] else row["filename"]
+                                print(f"✅ 找到数据库对应UUID: {real_uuid}")
+
+                                alt_excel_dir2 = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / real_uuid
+                                alt_excel_path2 = alt_excel_dir2 / excel_file_name
+                                print(f"🔍🔍 尝试数据库路径: {alt_excel_path2}")
+
+                                if alt_excel_path2.exists():
+                                    excel_dir = alt_excel_dir2
+                                    excel_path = alt_excel_path2
+                                    clean_file_id = real_uuid
+                                    print(f"✅ 使用数据库路径: {excel_path}")
+                                else:
+                                    return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+                            else:
+                                return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+                        else:
+                            return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+                    else:
+                        return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+            else:
+                return jsonify({"success": False, "error": "Excel文件不存在"}), 404
+
+        print(f"✅ Excel文件存在: {excel_path}")
+
+        # 2. 读取Excel文件
+        try:
+            import pandas as pd
+            print("🎯 直接读取Excel文件数据")
+
+            # 读取指定的sheet
+            df = pd.read_excel(
+                excel_path,
+                sheet_name=sheet_name,
+                header=None,  # 不自动识别表头
+                dtype=str  # 全部读取为字符串
+            )
+
+            # 将NaN替换为空字符串
+            df = df.fillna('')
+
+            # 🔥🔥🔥 转换为二维列表
+            data = df.values.tolist()
+
+            print(f"✅ 成功读取sheet '{sheet_name}'，数据形状: {len(data)}行 x {len(data[0]) if data else 0}列")
+
+            # 🔥🔥🔥 提取元数据
+            # 🔥🔥🔥 关键修改1：初始化包含所有valid_keys字段的元数据字典
+            valid_keys = ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id", "entity"]
+            metadata = {key: "" for key in valid_keys}  # 🔥 所有字段初始为空字符串
+
+            clean_data = []
+
+            for row in data:
+                if not row or not row[0]:
+                    clean_data.append(row)
+                    continue
+
+                first_cell = str(row[0]).strip()
+
+                # 查找包含冒号的行作为元数据
+                if ":" in first_cell:
+                    try:
+                        key, value = first_cell.split(":", 1)
+                        key = key.strip().lower()
+                        value = value.strip()
+
+                        # 🔥🔥🔥 关键修改2：如果是有效键，更新元数据字典
+                        if key in valid_keys:
+                            metadata[key] = value
+                            print(f"✅ 找到并设置元数据: {key} = {value}")
+                        clean_data.append(row)
+                    except:
+                        clean_data.append(row)
+                else:
+                    clean_data.append(row)
+
+            # 🔥 打印所有元数据字段的状态
+            print(f"📋 元数据最终状态:")
+            for key in valid_keys:
+                value = metadata.get(key, "")
+                print(f"  {key}: '{value}'")
 
             result = {
                 "success": True,

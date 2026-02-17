@@ -1219,7 +1219,150 @@ const displayedExcelFiles = computed(() => {
 
 
 // 在 toggleFlatMode 函数之前添加这个函数
+// 在 toggleFlatMode 函数之前添加这个函数
 const callBackendFlattenAPI = async (pdfId, excelFile, sheetName) => {
+  console.log('🎯🎯 调用后端扁平化API...')
+
+  try {
+    // 获取当前表格数据
+    const hotInstance = getActiveHotInstance()
+    if (!hotInstance || hotInstance.isDestroyed) {
+      throw new Error('无法获取有效的表格实例')
+    }
+
+    const currentTableData = hotInstance.getSourceData()
+    console.log('📊📊 实时表格数据:', {
+      行数: currentTableData?.length || 0
+    })
+
+    if (!currentTableData || currentTableData.length === 0) {
+      throw new Error('表格数据为空')
+    }
+
+    // 重建二维表格
+    const tableData = rebuildTwoDimensionalTable(currentTableData)
+    if (!tableData || tableData.length === 0) {
+      throw new Error('无法重建二维表格数据')
+    }
+
+    // 准备API请求
+    const requestData = {
+      table_data: tableData,
+      table_metadata: {
+        name: sheetName,
+        pdf_id: pdfId,
+        excel_file: excelFile
+      },
+      marks_info: {
+        row_marks: [],
+        col_marks: [],
+        timestamp: Date.now()
+      }
+    }
+
+    console.log('📤📤 发送实时API请求...')
+    const response = await fetch(getApiUrl('/excel-flatten'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`API请求失败: HTTP ${response.status} - ${errorText}`)
+    }
+
+    const result = await response.json()
+    console.log('📥📥 API响应:', result)
+
+    if (result.success) {
+      let flattenedData = []
+
+      // 解析响应数据
+      if (result.rows && Array.isArray(result.rows)) {
+        flattenedData = result.rows
+        console.log('🔍 从 rows 字段获取数据:', result.rows.length)
+      } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
+        flattenedData = result.long_format_data
+        console.log('🔍 从 long_format_data 字段获取数据:', result.long_format_data.length)
+      } else if (result.data && Array.isArray(result.data)) {
+        flattenedData = result.data
+        console.log('🔍 从 data 字段获取数据:', result.data.length)
+      } else if (Array.isArray(result)) {
+        flattenedData = result
+        console.log('🔍 从 result 直接获取数据:', result.length)
+      } else {
+        // 尝试查找响应中的第一个数组字段
+        for (const key in result) {
+          if (Array.isArray(result[key])) {  // ✅ 修改：不检查长度
+            flattenedData = result[key]
+            console.log('🔍 从 ' + key + ' 字段获取数据:', result[key].length)
+            break
+          }
+        }
+      }
+
+      if (flattenedData.length > 0) {
+        console.log('✅ 实时数据生成成功:', {
+          数据行数: flattenedData.length
+        })
+
+        // 更新数据
+        flatData.value = flattenedData
+        showFlatMode.value = true
+
+        // 设置窗口状态
+        if (window.currentTableMode) {
+          window.currentTableMode = 'flattened'
+        }
+
+        ElMessage.success(`扁平化数据生成成功（${flattenedData.length}行）`)
+        return flattenedData
+      } else {
+        // ✅ 修复：API 成功但返回空数据，是正常情况
+        console.log('📭 API 处理成功，但返回了空数据')
+        console.log('🔍 可能的原因分析:')
+        console.log('  1. 表格中没有有效的数据行')
+        console.log('  2. 数据格式不符合转换要求')
+        console.log('  3. 所有数据行都被过滤掉了')
+
+        // 前端提示用户
+        ElMessage.warning({
+          message: '表格已处理完成，但未找到可转换的数据',
+          duration: 3000
+        })
+
+        // 返回空数组，而不是抛出错误
+        return []
+      }
+    } else {
+      // ❌ API 返回失败状态，才应该抛出错误
+      console.error('❌ API 返回失败状态:', result)
+      throw new Error(result.error || result.message || 'API处理失败')
+    }
+
+  } catch (error) {
+    console.error('❌❌ 实时数据生成失败:', error)
+
+    // 根据错误类型显示不同的提示
+    if (error.message.includes('表格数据为空')) {
+      ElMessage.warning('当前表格为空，请先加载数据')
+    } else if (error.message.includes('API请求失败')) {
+      ElMessage.error('API请求失败，请检查网络连接')
+    } else if (error.message.includes('无法获取有效的表格实例')) {
+      ElMessage.warning('无法获取表格实例，请确保表格已正确加载')
+    } else {
+      ElMessage.error(`扁平化失败: ${error.message}`)
+    }
+
+    throw error
+  }
+}
+
+
+const callBackendFlattenAPI000 = async (pdfId, excelFile, sheetName) => {
   console.log('🎯🎯 调用后端扁平化API...')
 
   try {
