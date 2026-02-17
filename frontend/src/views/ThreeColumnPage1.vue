@@ -86,19 +86,16 @@
                   v-for="sheet in excelFile.sheets"
                   :key="`${excelFile.excel_file}-${sheet.name}`"
                   class="sheet-item"
-                  :class="{ 'active': isSheetSelected(sheet, excelFile.excel_file) }"
                   @click="selectSheet(sheet, excelFile.excel_file)"
                 >
                   <el-icon><Grid /></el-icon>
                   <span class="sheet-name">{{ sheet.name }}</span>
                 </div>
-
-
               </div>
 
 
 
-
+              
             </div>
           </div>
         </div>
@@ -257,6 +254,7 @@ if (typeof window !== 'undefined') {
 
 
 const localSearchResults = ref([])
+// 添加全局调试函数
 // 修改为：
 if (typeof window !== 'undefined') {
   window.debugTP = () => {
@@ -276,13 +274,6 @@ const actualHasUnsavedChanges = computed(() => {
   const result = typeof window !== 'undefined' ? window.currentHasChanges === true : false
 
   return result
-})
-
-
-// 判断当前sheet是否被选中
-const isSheetSelected = computed(() => (sheet, excelFile) => {
-  return selectedSheet.value?.name === sheet.name &&
-         selectedExcelFile.value === excelFile
 })
 
 // 在 ThreeColumnPage.vue 的 script 中添加
@@ -5378,17 +5369,6 @@ if (typeof window !== 'undefined') {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-
-.sheet-item.active {
-  background-color: #ecf5ff;
-  border-color: #409eff;
-  color: #409eff;
-  font-weight: 500;
-}
-
-.sheet-item.active .el-icon {
-  color: #409eff;
 }
 
 </style>
