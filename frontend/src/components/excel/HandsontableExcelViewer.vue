@@ -1547,8 +1547,6 @@ const onHotInit = () => {
         columnSorting: false  // ✅ 修改这里：禁用排序功能
       }, false)
 
-      console.log('✅ 筛选下拉菜单已配置（排序已禁用）')
-
       // 检查当前配置
       const settings = hot.getSettings()
 
@@ -1689,8 +1687,6 @@ const clearExcelContentHighlight = () => {
       timestamp: Date.now(),
       sheetName: props.sheetName
     })
-
-    console.log('🧹🧹 Excel内容高亮清除完成')
 
   } catch (error) {
     console.error('❌❌ 清除Excel内容高亮时发生错误:', error)

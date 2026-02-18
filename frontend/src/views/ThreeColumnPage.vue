@@ -4804,7 +4804,12 @@ window.triggerGlobalAutoSave = async (saveDataFromEdit) => {
     console.log('🧹 ThreeColumnPage 卸载，清理所有资源...')
 
     // 移除事件监听器
-    window.removeEventListener('excel-list-refresh')
+    if (window._excelListRefreshHandler) {
+        window.removeEventListener('excel-list-refresh', window._excelListRefreshHandler)
+        console.log('✅ excel-list-refresh 事件监听器已移除')
+      } else {
+        console.log('⚠️ 未找到事件监听器处理函数引用，跳过移除')
+      }
 
     // 清除定时器
     if (window.autoSaveTimer) {
@@ -4841,12 +4846,17 @@ onUnmounted(() => {
   }
 
   // 2. 移除事件监听器
-  try {
-    window.removeEventListener('excel-list-refresh')
-    console.log('✅ 事件监听器已移除')
-  } catch (error) {
-    console.warn('⚠️ 移除事件监听器失败:', error)
-  }
+    try {
+      // 🔥 修改：使用 window._excelListRefreshHandler 作为第二个参数
+      if (window._excelListRefreshHandler) {
+        window.removeEventListener('excel-list-refresh', window._excelListRefreshHandler)
+        console.log('✅ excel-list-refresh 事件监听器已移除')
+      } else {
+        console.log('⚠️ 未找到事件监听器处理函数引用，跳过移除')
+      }
+    } catch (error) {
+      console.warn('⚠️ 移除事件监听器失败:', error)
+    }
 
   // 3. 清除所有定时器
   try {

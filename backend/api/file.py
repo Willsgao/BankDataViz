@@ -247,7 +247,6 @@ def search_pdf():
         return jsonify({"error": "搜索失败"}), 500
 
 
-
 @file_bp.get('/api/file-by-id/<file_id>')
 def get_file_by_id(file_id):
     try:
@@ -981,11 +980,6 @@ def save_flattened_data():
         return response
 
     data = request.json
-    print("******************** 保存扁平化数据到独立文件 ******************")
-    # print(data)
-    print(data['flattened_data'])
-
-
 
     try:
         # 🔥🔥 验证输入数据
@@ -1002,11 +996,6 @@ def save_flattened_data():
 
         print(f"💾 保存扁平化数据:")
         print(f"  PDF ID: {pdf_id}")
-        print(f"  原文件: {original_excel_file}")
-        print(f"  Sheet: {sheet_name}")
-        print(f"  表格类型: {table_type}")
-        print(f"  扁平化数据类型: {type(flattened_data)}")
-        print(f"  扁平化数据行数: {len(flattened_data) if flattened_data else 0}")
 
         # 🔥🔥 第一步：直接保存前端数据，不做任何处理
         print("🔄🔄 直接保存前端数据，保持原样...")
@@ -1049,78 +1038,6 @@ def save_flattened_data():
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'扁平化数据保存失败: {str(e)}'}), 500
 
-
-
-@file_bp.route('/api/excel/global-flatten00/<pdf_id>', methods=['POST', 'OPTIONS'])
-def global_flatten00(pdf_id):
-    """整体扁平化处理 - 处理PDF对应的所有Excel文件的所有sheet，合并成一个大的扁平化表格"""
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        return response
-
-    data = request.json
-    print(f"🔍🔍 获取Excel sheets请求 file_id: {pdf_id}")
-
-    # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
-    clean_file_id = excel_data_handler.get_correct_pdf_id(pdf_id, db)
-
-    # 2. 构建Excel文件目录路径
-    excel_dir = str(Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id)  # 🔥 使用清理后的ID
-    print(f"📁 clean_file_id Excel目录路径: {excel_dir}")
-
-    try:
-        # 🔥 第一步：根据pdf_id获取对应的所有Excel文件信息
-        print("🔄 获取PDF对应的Excel文件列表...")
-        excel_files = excel_flatten_handler.global_flatten_from_excel_files(clean_file_id, excel_dir)
-
-        # 🔥 第二步：获取实际的扁平化数据
-        flattened_data = excel_flatten_handler.get_flattened_data(clean_file_id, excel_dir)
-        # 或者根据你的实际函数名来调用
-
-        # 🔥 第五步：返回合并后的扁平化数据
-        return jsonify({
-            'success': True,
-            'message': f'整体扁平化处理完成，合并 {len(excel_files)} 个Excel文件的所有sheet',
-            'data': flattened_data,  # ✅ 添加实际的扁平化数据
-            'summary': {
-                'pdf_id': pdf_id,
-                'total_excel_files': len(excel_files),
-                'total_rows': len(flattened_data) if flattened_data else 0,
-                'processed_at': datetime.now().isoformat()
-            }
-        }), 200
-
-    except Exception as e:
-        print(f"❌ 整体扁平化处理失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
-
-    # try:
-    #     # 🔥 第一步：根据pdf_id获取对应的所有Excel文件信息
-    #     print("🔄 获取PDF对应的Excel文件列表...")
-    #     excel_files = excel_flatten_handler.global_flatten_from_excel_files(clean_file_id, excel_dir)
-    #
-    #
-    #     # 🔥 第五步：返回合并后的扁平化数据
-    #     return jsonify({
-    #         'success': True,
-    #         'message': f'整体扁平化处理完成，合并 {len(excel_files)} 个Excel文件的所有sheet',
-    #         'summary': {
-    #             'pdf_id': pdf_id,
-    #             'total_excel_files': len(excel_files),
-    #             'processed_at': datetime.now().isoformat()
-    #         }
-    #     }), 200
-    #
-    # except Exception as e:
-    #     print(f"❌ 整体扁平化处理失败: {e}")
-    #     import traceback
-    #     traceback.print_exc()
-    #     return jsonify({'success': False, 'error': f'整体扁平化处理失败: {str(e)}'}), 500
 
 
 @file_bp.route('/api/excel/global-flatten/<pdf_id>', methods=['POST', 'OPTIONS'])
@@ -1180,10 +1097,6 @@ def export_final_file():
 
         file_info = cursor.fetchone()
         conn.close()
-
-        print(f"=== 数据库查询结果 ===")
-        print(f"查询条件 (UUID): {file_uuid}")
-        print(f"查询结果: {file_info}")
 
         # 文件路径还是按照原先的逻辑（使用UUID）
         final_file_name = f"flattened_整合_{file_uuid}.xlsx"
@@ -1900,9 +1813,6 @@ def save_final_excel_original(data):
         sheet_name = data['sheet_name']
         table_type = data['table_type']
         table_data = data['data']
-
-        print(f"💾 保存数据: PDF={pdf_id}, 文件={excel_file}, Sheet={sheet_name}, 类型={table_type}")
-        print(f"📊 接收数据: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
 
         # 根据表类型选择保存方式
         if table_type == 'original':
