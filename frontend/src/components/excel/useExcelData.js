@@ -12,13 +12,6 @@ const convertObjectArrayToArray = (inputData) => {
     return []
   }
 
-  console.log('🔍 convertObjectArrayToArray 输入检查:', {
-    输入类型: typeof inputData[0],
-    是数组数组: Array.isArray(inputData[0]),
-    是对象: typeof inputData[0] === 'object',
-    第一行样本: inputData[0]
-  })
-
   // 如果已经是数组数组，直接返回（但需要验证格式）
   if (Array.isArray(inputData[0])) {
     console.log('✅ convertObjectArrayToArray: 输入已经是数组数组格式')
@@ -26,7 +19,6 @@ const convertObjectArrayToArray = (inputData) => {
     // 验证数组数组格式是否正确
     const isValidArrayArray = inputData.every(row => Array.isArray(row))
     if (isValidArrayArray) {
-      console.log('✅ 数组数组格式验证通过')
       return inputData
     } else {
       console.warn('⚠️ 数组数组格式验证失败，尝试修复')
@@ -35,7 +27,6 @@ const convertObjectArrayToArray = (inputData) => {
 
   // 如果是对象数组，转换为数组数组
   if (typeof inputData[0] === 'object' && inputData[0] !== null) {
-    console.log('🔄 convertObjectArrayToArray: 将对象数组转换为数组数组')
 
     try {
       const keys = Object.keys(inputData[0] || {})
@@ -43,7 +34,6 @@ const convertObjectArrayToArray = (inputData) => {
 
       // 第一行是列名
       result.push(keys)
-      console.log('📋 提取的列名:', keys)
 
       // 后续行是数据
       inputData.forEach((obj, index) => {
@@ -56,13 +46,6 @@ const convertObjectArrayToArray = (inputData) => {
           return String(value)
         })
         result.push(row)
-      })
-
-      console.log('✅ convertObjectArrayToArray: 转换完成', {
-        原数据行数: inputData.length,
-        转换后行数: result.length,
-        列数: keys.length,
-        转换后格式: Array.isArray(result[0]) ? '数组数组' : '其他'
       })
 
       return result
@@ -134,7 +117,6 @@ export default function useExcelData(props) {
     }
 
     renderedTable.push(firstRow)
-    console.log('📊📊 第一行构建完成:', firstRow)
 
     // 3. 构建数据行：纵向表头 + 数据
     const dataRowsOnly = dataRows.filter(row => row?.__is_data_row)
@@ -200,7 +182,6 @@ export default function useExcelData(props) {
             keys, // 第一行是表头
             ...finalData.map(obj => keys.map(key => obj[key] ?? ''))
           ]
-          console.log('✅ 强制转换完成:', { 行数: converted.length, 列数: keys.length })
           return converted
         } catch (error) {
           console.error('❌❌ 强制转换失败:', error)
@@ -217,15 +198,11 @@ export default function useExcelData(props) {
   }
 
   // 3. 单表头逻辑
-  console.log('📊📊 单表头模式')
-
-  // 获取表头
   let headers = []
 
   // 首先检查是否有 __orderedHeaders
   if (firstItem.__orderedHeaders && Array.isArray(firstItem.__orderedHeaders)) {
     headers = firstItem.__orderedHeaders
-    console.log('📊📊 使用 __orderedHeaders:', headers)
   } else {
     // 提取非 __ 开头的属性作为表头
     const allKeys = Object.keys(firstItem || {})
@@ -234,7 +211,6 @@ export default function useExcelData(props) {
 
   // 如果还是没有表头，创建默认表头
   if (!headers.length) {
-    console.warn('⚠️ 未找到表头，使用默认表头')
 
     // 计算数据中的最大列数
     let maxColumns = 0
@@ -324,7 +300,6 @@ export default function useExcelData(props) {
       }
 
       if (Array.isArray(forceConverted) && forceConverted.length > 0 && typeof forceConverted[0] === 'object') {
-        console.log('🔥 强制转换对象数组为数组数组');
         const keys = Object.keys(forceConverted[0] || {});
         return [
           keys,
@@ -349,12 +324,7 @@ export default function useExcelData(props) {
       // 🔍 添加深度验证
       if (Array.isArray(data[0])) {
         const allRowsAreArrays = data.every(row => Array.isArray(row))
-        console.log('✅ 数据验证:', {
-          是数组数组: true,
-          所有行都是数组: allRowsAreArrays,
-          行数: data.length,
-          列数: data[0]?.length || 0
-        })
+
         return allRowsAreArrays ? data : []
       }
 
@@ -367,11 +337,7 @@ export default function useExcelData(props) {
             keys, // 表头行
             ...data.map(row => keys.map(key => String(row[key] ?? '')))
           ]
-          console.log('✅ 转换结果:', {
-            行数: converted.length,
-            列数: keys.length,
-            第一行样本: converted[0]
-          })
+
           return converted
         } catch (e) {
           console.error('❌ 转换失败:', e)
@@ -398,19 +364,14 @@ export default function useExcelData(props) {
             };
         }
 
-        console.log('🔍🔍 开始智能判断表格类型...');
-
         // 1. 检查行标记（A列）
         const hasRowMarkers = checkRowMarkers(data);
-        console.log('   - 行标记检测:', hasRowMarkers);
 
         // 2. 检查列标记（首行）
         const hasColumnMarkers = checkColumnMarkers(data);
-        console.log('   - 列标记检测:', hasColumnMarkers);
 
         // 3. 检查交叉结构
         const hasCrossStructure = checkCrossStructure(data);
-        console.log('   - 交叉结构检测:', hasCrossStructure);
 
         // 判断逻辑
         let result;
@@ -446,7 +407,6 @@ export default function useExcelData(props) {
             };
         }
 
-        console.log('✅ 智能判断完成:', result);
         return result;
     };
 
@@ -584,7 +544,6 @@ export default function useExcelData(props) {
 
       hot.updateSettings({ cell: filteredCellConfig }, false)
       hot.render()
-      console.log('✅ 数值单元格高亮已清除')
     }
 
 
@@ -691,14 +650,6 @@ export default function useExcelData(props) {
           }
         }
       }
-
-      console.log('📊 空白单元格统计:', {
-        总数: emptyCells.size,
-        样本: Array.from(emptyCells).slice(0, 10).map(key => {
-          const [r, c] = key.split(',').map(Number)
-          return { row: r, col: c, value: tableData.value[r]?.[c] }
-        })
-      })
 
       return emptyCells
     })
@@ -827,19 +778,6 @@ export default function useExcelData(props) {
   // 验证表格结构
   const verifyTableStructure = () => {
     if (!hasDualHeaders.value || !tableData.value.length) return
-
-    console.log('🔍 验证表格结构:')
-    console.log('1. 表格维度:', {
-      总行数: tableData.value.length,
-      总列数: tableData.value[0].length,
-      固定行数: fixedRowsTop.value,
-      固定列数: fixedColumnsLeft.value
-    })
-
-    console.log('2. 左上角单元格:', tableData.value[0][0])
-    console.log('3. 横向表头行:', tableData.value[0].slice(1, 4))
-    console.log('4. 纵向表头列:', tableData.value.slice(1, 4).map(row => row[0]))
-    console.log('5. 数据区域起始:', `(1,1) = ${tableData.value[1]?.[1]}`)
   }
 
 
@@ -873,7 +811,6 @@ const exportData = (format = 'csv') => {
 // 🔥 前端Excel导出函数（解决Office乱码问题）- 保持原函数名
 const exportToExcel = async () => {
   try {
-    console.log('📤📤 前端生成Excel文件（解决Office乱码）...')
 
     // 检查数据
     if (!tableData.value || tableData.value.length === 0) {
@@ -899,12 +836,6 @@ const exportToExcel = async () => {
         return String(cell)
       })
     )
-
-    console.log('📊 导出数据统计:', {
-      行数: data.length,
-      列数: data[0]?.length || 0,
-      样本数据: data.slice(0, 2) // 显示前两行样本
-    })
 
     // 创建工作表
     const worksheet = XLSX.utils.aoa_to_sheet(data)
@@ -942,13 +873,6 @@ const exportToExcel = async () => {
 
     // 清理URL
     setTimeout(() => URL.revokeObjectURL(url), 100)
-
-    console.log('✅✅ 前端Excel导出成功', {
-      文件名: fileName,
-      文件大小: `${(blob.size / 1024).toFixed(2)} KB`,
-      数据行数: data.length,
-      数据列数: data[0]?.length || 0
-    })
 
     // 显示成功消息
     if (typeof ElMessage !== 'undefined') {
@@ -998,12 +922,6 @@ const smartExport = async (format = 'excel') => {
       result = await exportToExcel()  // 🔥 保持原函数名
     }
 
-    console.log('✅✅ 导出完成:', {
-      格式: format,
-      文件名: result.fileName,
-      文件大小: result.fileSize
-    })
-
     return result
 
   } catch (error) {
@@ -1011,8 +929,6 @@ const smartExport = async (format = 'excel') => {
     throw error
   }
 }
-
-
 
     /**
      * 检测数值单元格
@@ -1042,11 +958,6 @@ const smartExport = async (format = 'excel') => {
           }
         }
       }
-
-      console.log('📊📊 数值单元格统计:', {
-        总数: numericCells.length,
-        样本: numericCells.slice(0, 5)
-      })
 
       return {
         hasNumericCells: numericCells.length > 0,
@@ -1172,12 +1083,6 @@ const smartExport = async (format = 'excel') => {
           throw new Error('没有数据可导出')
         }
 
-        console.log('📊📊 导出数据统计:', {
-          行数: tableData.value.length,
-          列数: tableData.value[0]?.length || 0,
-          第一行样本: tableData.value[0]?.slice(0, 3)
-        })
-
         // 2. 生成CSV内容
         const csvContent = generateCSVContent()
         if (!csvContent) {
@@ -1187,15 +1092,6 @@ const smartExport = async (format = 'excel') => {
         // 3. 🔥🔥🔥 关键：添加UTF-8 BOM头
         const BOM = '\uFEFF' // UTF-8 BOM字符
         const csvWithBOM = BOM + csvContent
-
-        // 4. 🔍🔍 验证BOM是否正确添加
-        console.log('🔍🔍 BOM验证结果:', {
-          'BOM字符Unicode码': csvWithBOM.charCodeAt(0),
-          'BOM字符十六进制': '\\u' + csvWithBOM.charCodeAt(0).toString(16).toUpperCase(),
-          'BOM存在': csvWithBOM.charCodeAt(0) === 65279,
-          '文件大小': new Blob([csvWithBOM]).size + ' bytes',
-          'BOM大小': new Blob([BOM]).size + ' bytes'
-        })
 
         // 5. 创建Blob，指定UTF-8编码
         const blob = new Blob([csvWithBOM], {
@@ -1223,12 +1119,6 @@ const smartExport = async (format = 'excel') => {
         setTimeout(() => {
           URL.revokeObjectURL(url)
         }, 100)
-
-        console.log('✅✅ CSV导出成功:', {
-          文件名: fileName,
-          文件大小: blob.size + ' bytes',
-          下载时间: new Date().toLocaleTimeString()
-        })
 
         // 10. 显示成功消息
         if (window.__showMessage) {
@@ -1270,8 +1160,6 @@ const smartExport = async (format = 'excel') => {
         return ''
       }
 
-      console.log('🔄🔄 生成CSV内容...')
-
       try {
         const csvRows = []
 
@@ -1284,12 +1172,6 @@ const smartExport = async (format = 'excel') => {
         })
 
         const csvContent = csvRows.join('\n')
-
-        console.log('📄📄 CSV内容生成完成:', {
-          总行数: csvRows.length,
-          文件大小: new Blob([csvContent]).size + ' bytes',
-          样本预览: csvContent.substring(0, 200) + (csvContent.length > 200 ? '...' : '')
-        })
 
         return csvContent
 
@@ -1343,11 +1225,8 @@ const smartExport = async (format = 'excel') => {
         // 恢复原数据
         tableData.value = originalData
 
-        console.log('🎯🎯 CSV导出验证结果:', result)
-
         if (result.success) {
           console.log('✅✅ 验证通过！文件包含BOM头，应该兼容Office和WPS')
-          console.log('💡💡 请用Excel和WPS分别打开测试文件，检查中文显示是否正常')
         } else {
           console.error('❌❌ 验证失败:', result.error)
         }

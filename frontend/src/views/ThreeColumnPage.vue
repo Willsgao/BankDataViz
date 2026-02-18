@@ -349,7 +349,6 @@ const navigateToSheet = async (sheet, excelFile) => {
     await nextTick()
 
     // 5. 直接调用数据加载，绕过复杂逻辑
-    console.log('🎯 直接加载表格数据...')
     const result = await loadExcelData(sheet.name, excelFile, true) // true=强制刷新
 
     if (!result.success) {
@@ -392,7 +391,6 @@ const handleNavigateSheet = async (navigationInfo) => {
 }
 
 
-// ----------------------------------------
 // 获取排序后的sheet列表
 const getSortedSheets = computed(() => {
   if (!excelFiles.value || excelFiles.value.length === 0) return []
@@ -476,9 +474,6 @@ const currentPageInfo = computed(() => {
 })
 
 
-
-
-
 // 🔥 新增：备用匹配函数
 const fallbackKeyMatch = (key, currentPdfId, currentExcelFile, currentSheetName, tableType) => {
   // 方法2：使用前缀匹配（修复版）
@@ -536,12 +531,9 @@ const currentData = computed(() =>
 
 const isDev = ref(process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev')
 
-
-
 // 工具函数：不读取响应式数据，仅传参
 const safeRefreshExcelContent = (hasUnsaved /* 布尔值 */) => {
   if (hasUnsaved) {
-    console.log('⏸️ 编辑模式中，跳过 ExcelContent 强制刷新')
     return
   }
   excelContentKey.value++
@@ -578,7 +570,6 @@ const registerRestoration = (pdfId, excelFile, sheetName, tableType, draftData) 
     registeredAt: Date.now(),
     attempts: 0
   })
-
 
   return true
 }
@@ -1361,118 +1352,7 @@ const callBackendFlattenAPI = async (pdfId, excelFile, sheetName) => {
 }
 
 
-const callBackendFlattenAPI000 = async (pdfId, excelFile, sheetName) => {
-  console.log('🎯🎯 调用后端扁平化API...')
-
-  try {
-    // 获取当前表格数据
-    const hotInstance = getActiveHotInstance()
-    if (!hotInstance || hotInstance.isDestroyed) {
-      throw new Error('无法获取有效的表格实例')
-    }
-
-    const currentTableData = hotInstance.getSourceData()
-    console.log('📊📊 实时表格数据:', {
-      行数: currentTableData?.length || 0
-    })
-
-    if (!currentTableData || currentTableData.length === 0) {
-      throw new Error('表格数据为空')
-    }
-
-    // 重建二维表格
-    const tableData = rebuildTwoDimensionalTable(currentTableData)
-    if (!tableData || tableData.length === 0) {
-      throw new Error('无法重建二维表格数据')
-    }
-
-    // 准备API请求
-    const requestData = {
-      table_data: tableData,
-      table_metadata: {
-        name: sheetName,
-        pdf_id: pdfId,
-        excel_file: excelFile
-      },
-      marks_info: {
-        row_marks: [],
-        col_marks: [],
-        timestamp: Date.now()
-      }
-    }
-
-    console.log('📤📤 发送实时API请求...')
-    const response = await fetch(getApiUrl('/excel-flatten'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`API请求失败: HTTP ${response.status} - ${errorText}`)
-    }
-
-    const result = await response.json()
-    console.log('📥📥 API响应:', result)
-
-    if (result.success) {
-      let flattenedData = []
-
-      // 解析响应数据
-      if (result.rows && Array.isArray(result.rows)) {
-        flattenedData = result.rows
-      } else if (result.long_format_data && Array.isArray(result.long_format_data)) {
-        flattenedData = result.long_format_data
-      } else if (result.data && Array.isArray(result.data)) {
-        flattenedData = result.data
-      } else if (Array.isArray(result)) {
-        flattenedData = result
-      } else {
-        // 尝试查找响应中的第一个数组字段
-        for (const key in result) {
-          if (Array.isArray(result[key]) && result[key].length > 0) {
-            flattenedData = result[key]
-            break
-          }
-        }
-      }
-
-      if (flattenedData.length > 0) {
-        console.log('✅ 实时数据生成成功:', {
-          数据行数: flattenedData.length
-        })
-
-        // 更新数据
-        flatData.value = flattenedData
-        showFlatMode.value = true
-
-        // 设置窗口状态
-        if (window.currentTableMode) {
-          window.currentTableMode = 'flattened'
-        }
-
-        ElMessage.success(`扁平化数据生成成功（${flattenedData.length}行）`)
-        return flattenedData
-      } else {
-        throw new Error('API返回空数据')
-      }
-    } else {
-      throw new Error(result.error || result.message || 'API处理失败')
-    }
-
-  } catch (error) {
-    console.error('❌❌ 实时数据生成失败:', error)
-    ElMessage.error(`扁平化失败: ${error.message}`)
-    throw error
-  }
-}
-
-
 const toggleFlatMode = async () => {
-  console.log('🔄🔄 切换扁平化模式...')
 
   if (!selectedSheet.value || !selectedPdf.value) {
     ElMessage.warning('请先选择表格')
@@ -1489,25 +1369,18 @@ const toggleFlatMode = async () => {
       console.log('✅ 扁平化文件，只切换显示模式')
       showFlatMode.value = !wasFlatMode
       // 🔥🔥 修复：移除不存在的 currentTableMode 引用
-      // currentTableMode.value = showFlatMode.value ? 'flattened' : 'original' // ❌ 删除这行
       if (window.currentTableMode) {
         window.currentTableMode = showFlatMode.value ? 'flattened' : 'original' // ✅ 直接设置
       }
       // return
     }
 
-    console.log('🔄🔄 非扁平化文件，执行正常切换逻辑')
-
     if (!wasFlatMode) {
       // 🔥🔥 切换到扁平化模式 - 强制使用实时数据
-      console.log('🔀🔀🔀🔀 强制切换到扁平化模式（绕过缓存）')
 
       const pdfId = String(selectedPdf.value.id) // 修复数据类型
       const excelFile = selectedExcelFile.value
       const sheetName = selectedSheet.value.name
-
-      // 🔥🔥 关键修复：强制清除所有缓存
-      console.log('🧹🧹🧹🧹 强制清除所有缓存')
 
       // 清除会话缓存
       if (sessionCacheManager) {
@@ -1534,18 +1407,13 @@ const toggleFlatMode = async () => {
       flatData.value = []
       await nextTick() // 等待DOM更新
 
-      console.log('🎯🎯 强制使用实时数据生成...')
-
       // 直接调用实时生成函数，不检查缓存
-      // await generateFlattenedDataWithRealTimeData(pdfId, excelFile, sheetName)
       await callBackendFlattenAPI(pdfId, excelFile, sheetName)
 
       // 🔥🔥 修复：设置窗口状态
       if (window.currentTableMode) {
         window.currentTableMode = 'flattened'
       }
-
-      console.log('✅✅ 实时数据生成完成')
 
     } else {
       // 切换回原始模式
@@ -3902,59 +3770,6 @@ const searchPdfFilesCompatible = async (keyword = '') => {
     isSearching.value = false
   }
 }
-
-
-
-
-const searchPdfFilesCompatible111 = async (keyword = '') => {
-  try {
-    isSearching.value = true
-    console.log(`🔍🔍 新版本搜索PDF: '${keyword}'`)
-
-    // 🔥🔥 关键修复：使用正确的API路径
-    const apiUrl = `/search-pdf-compatible?keyword=${encodeURIComponent(keyword)}&limit=100`
-
-    console.log('🔗 请求URL:', apiUrl)
-
-    const response = await fetch(getApiUrl(apiUrl))
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const result = await response.json()
-
-    console.log('📥 后端返回:', {
-      文件数: result.files ? result.files.length : 0,
-      总数量: result.count
-    })
-
-    if (result.files) {
-      searchResults.value = result.files
-      console.log(`✅ 新版本搜索完成，找到 ${searchResults.value.length} 个文件`)
-
-      // 调试：打印第一个文件的数据格式
-      if (searchResults.value.length > 0) {
-        console.log('📊 搜索返回的数据格式:', {
-          id: searchResults.value[0].id,
-          file_id: searchResults.value[0].file_id,
-          filename: searchResults.value[0].filename,
-          disk_name: searchResults.value[0].disk_name
-        })
-      }
-    } else {
-      searchResults.value = []
-      console.log('⚠️ 新版本搜索返回空结果')
-    }
-
-  } catch (error) {
-    console.error('❌❌ 新版本搜索失败:', error)
-    searchResults.value = []
-  } finally {
-    isSearching.value = false
-  }
-}
-
 
 
 // 🔥🔥 防抖函数（保持不变）

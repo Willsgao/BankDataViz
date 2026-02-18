@@ -337,21 +337,17 @@ const handleCellSelected = (cell) => {
     }
   }
 
-  console.log('✅ 更新后的currentCell:', currentCell.value)
 }
 
 const handleInstanceReady = (instanceInfo) => {
-  console.log('📡📡 ExcelContent: 收到实例就绪事件', instanceInfo)
   emit('instance-ready', instanceInfo)
 }
 
 const handleCellChanged = (cellInfo) => {
-  console.log('📝📝 [ExcelContent] 单元格修改:', cellInfo)
   emit('cell-changed', cellInfo)
 }
 
 const handleDataChanged = (changeInfo) => {
-  console.log('📊📊 [ExcelContent] 数据修改汇总:', changeInfo)
   emit('data-changed', changeInfo)
 }
 
@@ -360,7 +356,6 @@ const handleEditStatusChanged = (status) => {
 }
 
 const handleGlobalFlattenComplete = (eventData) => {
-  console.log('📥📥 ExcelContent: 接收整体扁平化数据', eventData)
   handleGlobalFlattenedData(eventData.flattenedData)
 }
 
@@ -369,7 +364,6 @@ const handleGlobalFlattenComplete = (eventData) => {
 const mergingData = ref(false)
 
 const canMergeData = computed(() => {
-  console.log('🔍 合并按钮状态检查:')
 
   // 基本条件检查
   if (!props.selectedSheet || !props.selectedExcelFile) {
@@ -417,10 +411,6 @@ const handleMergeData = async () => {
   const previousSheet = allSheets.value[currentSheetIndex.value - 1]
 
   console.log('=== 阶段2: Sheet信息检查 ===')
-  console.log('  - currentSheetIndex:', currentSheetIndex.value)
-  console.log('  - allSheets长度:', allSheets.value?.length)
-  console.log('  - currentSheet:', currentSheet)
-  console.log('  - previousSheet:', previousSheet)
 
   if (!currentSheet || !previousSheet) {
     console.error('❌ 无法找到相关表格')
@@ -428,15 +418,10 @@ const handleMergeData = async () => {
     return
   }
 
-  console.log('  - currentSheet.name:', currentSheet.name)
-  console.log('  - previousSheet.name:', previousSheet.name)
-
   const currentPageNum = extractPageNumber(currentSheet.name)
   const previousPageNum = extractPageNumber(previousSheet.name)
 
   console.log('=== 阶段3: 页号解析检查 ===')
-  console.log('  - currentPageNum:', currentPageNum)
-  console.log('  - previousPageNum:', previousPageNum)
 
   if (currentPageNum === null || previousPageNum === null) {
     console.error('❌ 无法解析页号')
@@ -451,8 +436,6 @@ const handleMergeData = async () => {
   }
 
   console.log('=== 阶段4: 格式验证检查 ===')
-  console.log('  - previousSheet包含_T_?:', previousSheet.name.includes('_T_'))
-  console.log('  - currentSheet包含_1_?:', currentSheet.name.includes('_1_'))
 
   if (!previousSheet.name.includes('_T_')) {
     console.error('❌ 前一页不是_T_结尾:', previousSheet.name)
@@ -467,18 +450,10 @@ const handleMergeData = async () => {
     return
   }
 
-  console.log('✅ 所有验证条件通过，准备显示弹窗')
-
   // 🔥 修复1：简化弹窗内容，移除HTML格式
   console.log('=== 阶段5: 弹窗显示 ===')
-  console.log('尝试显示Element Plus确认弹窗...')
 
   try {
-    // 测试Element Plus是否正常加载
-    console.log('Element Plus检查:', {
-      ElMessageBox: typeof ElMessageBox,
-      ElMessageBoxConfirm: typeof ElMessageBox.confirm
-    })
 
     // 如果测试弹窗成功，显示真正的合并确认弹窗
     const confirmResult = await ElMessageBox.confirm(
@@ -518,7 +493,6 @@ const handleMergeData = async () => {
 
     if (error === 'cancel' || error === 2 || error === false) {
       console.log('🔍 弹窗被用户取消 (代码:', error, ')')
-      console.log('用户取消了合并操作')
     } else if (error && error.message) {
       console.error('🔍 JavaScript错误:', error.message)
       console.error('错误堆栈:', error.stack)
@@ -542,8 +516,6 @@ const handleMergeData = async () => {
     }
     return
   }
-
-  console.log('✅✅ 所有验证和弹窗通过，开始合并逻辑')
 
   // 如果所有验证通过，继续执行合并逻辑
   mergingData.value = true
@@ -580,12 +552,6 @@ const handleMergeData = async () => {
         deleteSourceSheet: true
       }
     }
-
-    console.log('🔄 发送合并数据请求:', {
-      sourceSheet: currentSheet.name,
-      targetSheet: previousSheet.name,
-      数据行数: mergeRequest.currentData.length
-    })
 
     // 调用后端合并接口
     console.log('📡 调用后端API: /api/excel/merge-sheets')
@@ -715,421 +681,9 @@ const handleMergeData = async () => {
     })
 
   } finally {
-    console.log('🏁 合并流程结束，清理状态')
     mergingData.value = false
   }
 }
-
-
-// 处理合并数据的函数
-const handleMergeData11111 = async () => {
-  console.log('🔄 开始合并数据流程...')
-
-  // 重新进行详细验证
-  if (!hasPreviousSheet.value || !props.selectedSheet || !props.selectedExcelFile) {
-    ElMessage.warning('请先选择表格')
-    return
-  }
-
-  const currentSheet = allSheets.value[currentSheetIndex.value]
-  const previousSheet = allSheets.value[currentSheetIndex.value - 1]
-
-  if (!currentSheet || !previousSheet) {
-    ElMessage.warning('无法找到相关表格')
-    return
-  }
-
-  const currentPageNum = extractPageNumber(currentSheet.name)
-  const previousPageNum = extractPageNumber(previousSheet.name)
-
-  if (currentPageNum === null || previousPageNum === null) {
-    ElMessage.warning('无法解析页号')
-    return
-  }
-
-  if (currentPageNum - previousPageNum !== 1) {
-    ElMessage.warning(`页号不连续：当前页${currentPageNum}，前一页${previousPageNum}`)
-    return
-  }
-
-  if (!previousSheet.name.includes('_T_')) {
-    ElMessage.warning(`前一页"${previousSheet.name}"不是_T_结尾的表格`)
-    return
-  }
-
-  // 🔥 添加确认弹窗
-  try {
-    await ElMessageBox.confirm(
-      `
-      <div style="margin-bottom: 10px; font-weight: bold;">合并数据确认</div>
-      <div style="margin-bottom: 8px; color: #666;">将当前表格数据合并到前一个表格中。</div>
-      <div style="margin-bottom: 8px; color: #666;"><b>操作说明：</b></div>
-      <ul style="padding-left: 20px; margin: 8px 0; color: #666;">
-        <li>将 <b>${currentSheet.name}</b> 的数据合并到 <b>${previousSheet.name}</b></li>
-        <li><span style="color: #f56c6c; font-weight: bold;">⚠️ 合并成功后，当前表格 "${currentSheet.name}" 将被删除</span></li>
-        <li>合并操作不可撤销，请确认数据正确性</li>
-      </ul>
-      <div style="color: #e6a23c; font-weight: bold;">
-        ⚠️ 确认要继续合并吗？
-      </div>
-      `,
-      '合并数据确认',
-      {
-        confirmButtonText: '确认合并',
-        cancelButtonText: '取消',
-        type: 'warning',
-        dangerouslyUseHTMLString: true,
-        customClass: 'merge-confirm-dialog',
-        showClose: true,
-        closeOnClickModal: false,
-        closeOnPressEscape: true,
-        center: false
-      }
-    )
-  } catch (cancel) {
-    // 用户点击了取消
-    console.log('用户取消了合并操作')
-    return
-  }
-
-  // 如果所有验证通过，继续执行合并逻辑
-  mergingData.value = true
-
-  try {
-    // 🔥 关键修复：使用props中的selectedExcelFile
-    const mergeRequest = {
-      sourceSheet: {
-        name: currentSheet.name,
-        excelFile: props.selectedExcelFile,
-        pdfId: props.selectedPdf?.id || (props.selectedPdf ? String(props.selectedPdf.id) : null)
-      },
-      targetSheet: {
-        name: previousSheet.name,
-        excelFile: props.selectedExcelFile,
-        pdfId: props.selectedPdf?.id || (props.selectedPdf ? String(props.selectedPdf.id) : null)
-      },
-      // 包含当前表格数据
-      currentData: props.excelData || [],
-      metadata: {
-        isContinuousPages: true,
-        currentPage: currentPageNum,
-        previousPage: previousPageNum,
-        deleteSourceSheet: true  // 🔥 新增标记，告知后端需要删除源sheet
-      }
-    }
-
-    console.log('🔄 发送合并数据请求:')
-    console.log('完整请求数据:', JSON.stringify(mergeRequest, null, 2))
-
-    // 调用后端合并接口
-    const response = await fetch('/api/excel/merge-sheets', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mergeRequest)
-    })
-
-    // 检查响应状态
-    console.log('📡 服务器响应状态:', response.status, response.statusText)
-
-    if (!response.ok) {
-      // 尝试获取详细的错误信息
-      let errorData = {}
-      try {
-        errorData = await response.json()
-      } catch (parseError) {
-        console.error('❌ 无法解析错误响应:', parseError)
-      }
-
-      // 用户友好的错误提示
-      const userFriendlyMessages = {
-        400: '请求格式错误，请检查数据格式',
-        404: '目标表格不存在',
-        500: '服务器内部错误，请稍后重试',
-        403: '无权限执行此操作'
-      }
-
-      let errorMessage = errorData.error || userFriendlyMessages[response.status] || `合并失败: 服务器错误 (HTTP ${response.status})`
-
-      // 解析具体的验证错误，提供用户友好的提示
-      if (response.status === 400) {
-        if (errorMessage.includes('缺少必要字段')) {
-          errorMessage = '数据不完整，请刷新页面后重试'
-        } else if (errorMessage.includes('必须包含"_1_"')) {
-          errorMessage = '当前表格不是以"_1_"结尾，无法合并'
-        } else if (errorMessage.includes('必须包含"_T_"')) {
-          errorMessage = '前一页表格不是以"_T_"结尾，无法合并'
-        } else if (errorMessage.includes('页号不连续')) {
-          errorMessage = '表格页号不连续，无法合并'
-        } else if (errorMessage.includes('列数不一致')) {
-          errorMessage = '表格结构不一致，无法合并'
-        } else if (errorMessage.includes('表头不匹配')) {
-          errorMessage = '表格表头不一致，无法合并'
-        } else if (errorMessage.includes('数据为空')) {
-          errorMessage = '表格数据为空，无法合并'
-        }
-      }
-
-      console.error('❌ 合并失败:', errorMessage, '技术详情:', errorData)
-      throw new Error(errorMessage)
-    }
-
-    const result = await response.json()
-
-    if (result.success) {
-      ElMessage.success({
-        message: '数据合并成功，当前表格已删除',
-        duration: 5000,
-        showClose: true
-      })
-
-      // 合并成功后，刷新数据或跳转到前一页
-      emit('navigate-sheet', {
-        sheet: previousSheet,
-        excelFile: props.selectedExcelFile
-      })
-
-      // 🔥 如果后端已删除当前sheet，可以通知父组件刷新sheet列表
-      emit('sheet-deleted', {
-        deletedSheet: currentSheet.name,
-        targetSheet: previousSheet.name
-      })
-
-    } else {
-      // 处理服务器返回的业务逻辑错误
-      let errorMessage = result.error || '合并失败'
-
-      // 将技术错误转换为用户友好的提示
-      if (errorMessage.includes('缺少必要字段')) {
-        errorMessage = '数据不完整，请刷新页面后重试'
-      } else if (errorMessage.includes('必须包含"_1_"')) {
-        errorMessage = '当前表格不是以"_1_"结尾，无法合并'
-      } else if (errorMessage.includes('必须包含"_T_"')) {
-        errorMessage = '前一页表格不是以"_T_"结尾，无法合并'
-      } else if (errorMessage.includes('页号不连续')) {
-        errorMessage = '表格页号不连续，无法合并'
-      } else if (errorMessage.includes('列数不一致')) {
-        errorMessage = '表格结构不一致，无法合并'
-      } else if (errorMessage.includes('表头不匹配')) {
-        errorMessage = '表格表头不一致，无法合并'
-      } else if (errorMessage.includes('数据为空')) {
-        errorMessage = '表格数据为空，无法合并'
-      } else if (errorMessage.includes('Excel文件不存在')) {
-        errorMessage = '目标表格文件不存在，请检查文件路径'
-      } else if (errorMessage.includes('获取目标sheet数据失败')) {
-        errorMessage = '无法读取目标表格数据，请确认表格存在且可访问'
-      } else if (errorMessage.includes('保存合并数据失败')) {
-        errorMessage = '保存合并结果失败，请稍后重试'
-      } else if (errorMessage.includes('删除当前sheet失败')) {
-        errorMessage = '合并成功但删除当前表格失败，请手动清理'
-      }
-
-      console.error('❌ 合并失败:', errorMessage, '技术详情:', result)
-      throw new Error(errorMessage)
-    }
-
-  } catch (error) {
-    console.error('❌ 合并数据失败:', error)
-
-    // 用户友好的错误提示弹窗
-    ElMessage.error({
-      message: error.message || '合并数据失败，请稍后重试',
-      duration: 5000,
-      showClose: true,
-      grouping: true,
-      type: 'error',
-      offset: 40
-    })
-
-  } finally {
-    mergingData.value = false
-  }
-}
-
-
-// 处理合并数据的函数
-const handleMergeData0000 = async () => {
-  console.log('🔄 开始合并数据流程...')
-
-  // 重新进行详细验证
-  if (!hasPreviousSheet.value || !props.selectedSheet || !props.selectedExcelFile) {
-    ElMessage.warning('请先选择表格')
-    return
-  }
-
-  const currentSheet = allSheets.value[currentSheetIndex.value]
-  const previousSheet = allSheets.value[currentSheetIndex.value - 1]
-
-  if (!currentSheet || !previousSheet) {
-    ElMessage.warning('无法找到相关表格')
-    return
-  }
-
-  const currentPageNum = extractPageNumber(currentSheet.name)
-  const previousPageNum = extractPageNumber(previousSheet.name)
-
-  if (currentPageNum === null || previousPageNum === null) {
-    ElMessage.warning('无法解析页号')
-    return
-  }
-
-  if (currentPageNum - previousPageNum !== 1) {
-    ElMessage.warning(`页号不连续：当前页${currentPageNum}，前一页${previousPageNum}`)
-    return
-  }
-
-  if (!previousSheet.name.includes('_T_')) {
-    ElMessage.warning(`前一页"${previousSheet.name}"不是_T_结尾的表格`)
-    return
-  }
-
-  // 如果所有验证通过，继续执行合并逻辑
-  mergingData.value = true
-
-  try {
-    // 🔥 关键修复：使用props中的selectedExcelFile
-    const mergeRequest = {
-      sourceSheet: {
-        name: currentSheet.name,
-        excelFile: props.selectedExcelFile,
-        pdfId: props.selectedPdf?.id || (props.selectedPdf ? String(props.selectedPdf.id) : null)
-      },
-      targetSheet: {
-        name: previousSheet.name,
-        excelFile: props.selectedExcelFile,
-        pdfId: props.selectedPdf?.id || (props.selectedPdf ? String(props.selectedPdf.id) : null)
-      },
-      // 包含当前表格数据
-      currentData: props.excelData || [],
-      metadata: {
-        isContinuousPages: true,
-        currentPage: currentPageNum,
-        previousPage: previousPageNum
-      }
-    }
-
-    console.log('🔄 发送合并数据请求:')
-    console.log('完整请求数据:', JSON.stringify(mergeRequest, null, 2))
-
-    // 调用后端合并接口
-    const response = await fetch('/api/excel/merge-sheets', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mergeRequest)
-    })
-
-    // 检查响应状态
-    console.log('📡 服务器响应状态:', response.status, response.statusText)
-
-    if (!response.ok) {
-      // 尝试获取详细的错误信息
-      let errorData = {}
-      try {
-        errorData = await response.json()
-      } catch (parseError) {
-        console.error('❌ 无法解析错误响应:', parseError)
-      }
-
-      // 🔥 用户友好的错误提示
-      const userFriendlyMessages = {
-        400: '请求格式错误，请检查数据格式',
-        404: '目标表格不存在',
-        500: '服务器内部错误，请稍后重试',
-        403: '无权限执行此操作'
-      }
-
-      let errorMessage = errorData.error || userFriendlyMessages[response.status] || `合并失败: 服务器错误 (HTTP ${response.status})`
-
-      // 🔥 解析具体的验证错误，提供用户友好的提示
-      if (response.status === 400) {
-        if (errorMessage.includes('缺少必要字段')) {
-          errorMessage = '数据不完整，请刷新页面后重试'
-        } else if (errorMessage.includes('必须包含"_1_"')) {
-          errorMessage = '当前表格不是以"_1_"结尾，无法合并'
-        } else if (errorMessage.includes('必须包含"_T_"')) {
-          errorMessage = '前一页表格不是以"_T_"结尾，无法合并'
-        } else if (errorMessage.includes('页号不连续')) {
-          errorMessage = '表格页号不连续，无法合并'
-        } else if (errorMessage.includes('列数不一致')) {
-          errorMessage = '表格结构不一致，无法合并'
-        } else if (errorMessage.includes('表头不匹配')) {
-          errorMessage = '表格表头不一致，无法合并'
-        } else if (errorMessage.includes('数据为空')) {
-          errorMessage = '表格数据为空，无法合并'
-        }
-      }
-
-      console.error('❌ 合并失败:', errorMessage, '技术详情:', errorData)
-      throw new Error(errorMessage)
-    }
-
-    const result = await response.json()
-
-    if (result.success) {
-      ElMessage.success({
-        message: '数据合并成功',
-        duration: 3000,
-        showClose: true
-      })
-
-      // 合并成功后，刷新数据或跳转到前一页
-      emit('navigate-sheet', {
-        sheet: previousSheet,
-        excelFile: props.selectedExcelFile
-      })
-    } else {
-      // 🔥 处理服务器返回的业务逻辑错误
-      let errorMessage = result.error || '合并失败'
-
-      // 将技术错误转换为用户友好的提示
-      if (errorMessage.includes('缺少必要字段')) {
-        errorMessage = '数据不完整，请刷新页面后重试'
-      } else if (errorMessage.includes('必须包含"_1_"')) {
-        errorMessage = '当前表格不是以"_1_"结尾，无法合并'
-      } else if (errorMessage.includes('必须包含"_T_"')) {
-        errorMessage = '前一页表格不是以"_T_"结尾，无法合并'
-      } else if (errorMessage.includes('页号不连续')) {
-        errorMessage = '表格页号不连续，无法合并'
-      } else if (errorMessage.includes('列数不一致')) {
-        errorMessage = '表格结构不一致，无法合并'
-      } else if (errorMessage.includes('表头不匹配')) {
-        errorMessage = '表格表头不一致，无法合并'
-      } else if (errorMessage.includes('数据为空')) {
-        errorMessage = '表格数据为空，无法合并'
-      } else if (errorMessage.includes('Excel文件不存在')) {
-        errorMessage = '目标表格文件不存在，请检查文件路径'
-      } else if (errorMessage.includes('获取目标sheet数据失败')) {
-        errorMessage = '无法读取目标表格数据，请确认表格存在且可访问'
-      } else if (errorMessage.includes('保存合并数据失败')) {
-        errorMessage = '保存合并结果失败，请稍后重试'
-      }
-
-      console.error('❌ 合并失败:', errorMessage, '技术详情:', result)
-      throw new Error(errorMessage)
-    }
-
-  } catch (error) {
-    console.error('❌ 合并数据失败:', error)
-
-    // 🔥 用户友好的错误提示弹窗
-    ElMessage.error({
-      message: error.message || '合并数据失败，请稍后重试',
-      duration: 5000,  // 显示5秒
-      showClose: true,  // 显示关闭按钮
-      grouping: true,   // 合并重复消息
-      type: 'error',
-      offset: 40,  // 距离顶部偏移
-      dangerouslyUseHTMLString: false
-    })
-
-  } finally {
-    mergingData.value = false
-  }
-}
-
 
 // 增强版的页号提取函数
 const extractPageNumber = (sheetName) => {
@@ -1196,33 +750,20 @@ const highlightCurrentSheetContent = (keyword) => {
   if (targetViewer && typeof targetViewer.highlightCurrentSheetContent === 'function') {
     targetViewer.highlightCurrentSheetContent(keyword)
   } else {
-    console.warn('⚠️ 无法执行搜索：Handsontable 实例不可用', {
-      当前模式: props.showFlatMode ? '扁平化' : '原始',
-      组件存在: !!targetViewer,
-      搜索方法存在: targetViewer?.highlightCurrentSheetContent ? '是' : '否'
-    })
+
   }
 }
 
 const handleGlobalFlattenedData = (flattenedData) => {
   try {
-    console.log('🔄🔄 处理整体扁平化数据', {
-      数据行数: flattenedData.length,
-      第一行样本: flattenedData[0]
-    })
 
     if (Array.isArray(flattenedData) && flattenedData.length > 0) {
-
       // ✅ 正确方式：通过emit通知父组件更新
       emit('update-flat-data', flattenedData)
 
-      console.log('✅ 已通知父组件更新扁平化数据', {
-        新数据行数: flattenedData.length
-      })
     }
 
     if (!props.showFlatMode) {
-      console.log('🔄🔄 自动切换到扁平化模式')
       emit('toggle-flat-mode')
     }
 
@@ -1245,7 +786,6 @@ const handleGlobalFlattenedData = (flattenedData) => {
 
 /* ===== 保存相关函数 ===== */
 const triggerSave = () => {
-  console.log('💾💾 ExcelContent: 保存按钮点击')
   emit('save-data')
 }
 
@@ -1266,7 +806,6 @@ const handleSaveDraft = async () => {
     localStorage.setItem(key, JSON.stringify(draft))
 
     const back = JSON.parse(localStorage.getItem(key))
-    console.log('【草稿验证】', key, back)
 
     ElMessage.success('草稿已保存')
   } catch (e) {
@@ -1280,18 +819,12 @@ const handleSaveDraft = async () => {
 /* ===== 计算属性 ===== */
 const enableSaveButtons = computed(() => {
   const result = props.selectedSheet && props.actualHasUnsavedChanges
-  console.log('✅ enableSaveButtons 结果:', result)
   return result
 })
 
 
 // 应该修改为：
 const allSheets = computed(() => {
-  console.log('📊 allSheets计算属性执行:')
-  console.log('- props.sortedSheets:', props.sortedSheets)
-  console.log('- 类型:', typeof props.sortedSheets)
-  console.log('- 长度:', props.sortedSheets?.length)
-  console.log('- 前3项:', props.sortedSheets?.slice(0, 3))
 
   if (!props.sortedSheets) {
     console.warn('⚠️ sortedSheets为null/undefined')
@@ -1309,13 +842,8 @@ const allSheets = computed(() => {
 
 const currentSheetIndex = computed(() => {
   console.log('🔍 currentSheetIndex计算属性执行:')
-  console.log('- props.selectedSheet:', props.selectedSheet?.name)
-  console.log('- props.selectedExcelFile:', props.selectedExcelFile)
-  console.log('- allSheets.value长度:', allSheets.value?.length)
-  console.log('- allSheets前3项详细信息:', allSheets.value?.slice(0, 3))
 
   if (!props.selectedSheet || !props.selectedExcelFile) {
-    console.log('❌ 缺少必要参数，返回-1')
     return -1
   }
 
@@ -1330,19 +858,9 @@ const currentSheetIndex = computed(() => {
     const match = sheet.name === props.selectedSheet.name &&
                  sheetExcelFile === props.selectedExcelFile
 
-    if (match) {
-      console.log('✅ 找到匹配的sheet:', {
-        当前sheet: props.selectedSheet.name,
-        列表sheet: sheet.name,
-        当前excelFile: props.selectedExcelFile,
-        列表excelFile: sheetExcelFile,
-        列表对象: sheet
-      })
-    }
     return match
   })
 
-  console.log(`📊 搜索结果: 索引 ${index}${index === -1 ? ' (未找到)' : ''}`)
   return index
 })
 
@@ -1408,13 +926,6 @@ const goToNextSheet = async () => {
 /* ===== 核心修复：数据监听和刷新逻辑 ===== */
 // 在第一个 watch 中添加调试
 watch(() => props.excelData, (newData, oldData) => {
-  console.log('📊📊 ExcelContent: excelData 变化', {
-    新数据长度: newData?.length,
-    旧数据长度: oldData?.length,
-    时间: new Date().toLocaleTimeString(),
-    当前sheet: props.selectedSheet?.name,
-    数据样本: newData?.slice(0, 2) // 查看前两行数据
-  })
 
   if (dataChangeTimer.value) {
     clearTimeout(dataChangeTimer.value)
@@ -1423,14 +934,12 @@ watch(() => props.excelData, (newData, oldData) => {
   if (newData && newData.length > 0) {
     isDataLoaded.value = true
     tableDataVersion.value++
-    console.log('✅ 数据就绪，准备刷新表格')
 
     dataChangeTimer.value = setTimeout(() => {
       forceRefreshHandsontable()
     }, 300)
   } else {
     isDataLoaded.value = false
-    console.log('📭📭 数据为空，不进行刷新')
   }
 }, { deep: true, immediate: true })
 
@@ -1455,7 +964,6 @@ const forceRefreshHandsontable = () => {
 
       // 🔥 关键修复：先检查再增加
       if (retryCount >= MAX_RETRY_COUNT) {
-        console.log('⏹️⏹️ 达到最大重试次数，停止重试')
         retryCount = 0 // 重置计数器
         return
       }
@@ -1483,7 +991,6 @@ const forceRefreshHandsontable = () => {
       return
     }
 
-    console.log('✅ 获取到Handsontable实例，开始刷新...')
     hotInstance.render()
     hotInstance.updateSettings({}, false)
 
@@ -1521,8 +1028,7 @@ defineExpose({
   flatViewer,
   forceRefreshTable: forceRefreshHandsontable,
   getDataVersion: () => tableDataVersion.value,
-  isDataLoaded: () => isDataLoaded.value,
-  // highlightCurrentSheetContent
+  isDataLoaded: () => isDataLoaded.value
 })
 
 // 保留原有的其他函数和逻辑
@@ -1641,11 +1147,6 @@ watch(() => props.selectedSheet, () => {
 })
 
 watch(() => props.showFlatMode, (newMode, oldMode) => {
-  console.log('🔄🔄 ExcelContent: 扁平化模式变化', {
-    旧模式: oldMode,
-    新模式: newMode,
-    当前sheet: props.selectedSheet?.name
-  })
 
   if (props.selectedSheet) {
     setTimeout(() => {
@@ -1657,15 +1158,8 @@ watch(() => props.showFlatMode, (newMode, oldMode) => {
 
 // 在ExcelContent.vue的watch中添加
 watch(() => props.excelData, (newData, oldData) => {
-  console.log('📊 ExcelContent: excelData变化', {
-    新数据长度: newData?.length,
-    旧数据长度: oldData?.length,
-    时间: new Date().toLocaleTimeString(),
-    当前sheet: props.selectedSheet?.name
-  })
 
   if (newData && newData.length > 0) {
-    console.log('✅ 数据已就绪，准备刷新表格')
 
     // 强制刷新Handsontable
     setTimeout(() => {
@@ -1678,11 +1172,9 @@ watch(() => props.excelData, (newData, oldData) => {
 
 // 强制刷新表格显示
 const forceRefreshTables = () => {
-  console.log('🔄 强制刷新表格显示')
 
   const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
   if (!viewer) {
-    console.log('⏳ 表格视图未就绪，稍后重试')
     setTimeout(forceRefreshTables, 100)
     return
   }
@@ -1690,20 +1182,17 @@ const forceRefreshTables = () => {
   const hotInstance = viewer.getSafeHotInstance?.()
   if (hotInstance && !hotInstance.isDestroyed) {
     hotInstance.render()
-    console.log('✅ 表格已刷新显示')
   }
 }
 
 
 // 在 ExcelContent.vue 中添加搜索路由函数
 const routeSearchToCorrectViewer = (keyword) => {
-  console.log('🔄 路由搜索请求到正确的组件:', keyword)
 
   // 优先使用当前显示模式的组件
   const targetViewer = showFlatMode.value ? flatViewer.value : originalViewer.value
 
   if (targetViewer && targetViewer.performSearch) {
-    console.log('✅ 路由到正确组件:', showFlatMode.value ? '扁平化' : '原始')
     targetViewer.performSearch(keyword)
   } else {
     console.error('❌ 目标组件不可用')
@@ -1712,20 +1201,14 @@ const routeSearchToCorrectViewer = (keyword) => {
 
 
 const checkSaveButtons = () => {
-  console.group('🔍🔍 ExcelContent 保存按钮状态检查')
   const noSheet = !props.selectedSheet
   const noChanges = !enableSaveButtons.value
   const shouldDisable = noSheet || noChanges
-  console.log('   - 按钮应该禁用?', shouldDisable)
 
   setTimeout(() => {
     const saveButtons = document.querySelectorAll('.save-buttons .el-button')
     saveButtons.forEach((btn, idx) => {
-      console.log(`   按钮${idx + 1}:`, {
-        文本: btn.textContent,
-        是否禁用: btn.disabled,
-        类名: btn.className
-      })
+
     })
   }, 100)
 
@@ -1750,7 +1233,6 @@ if (typeof window !== 'undefined') {
 
 // 在 ExcelContent.vue 中添加对全局搜索状态的监听
 onMounted(() => {
-  console.log('🚀 ExcelContent 组件挂载，开始监听搜索状态')
 
   // 监听搜索事件
   window.addEventListener('excel-content-search', handleExcelSearchEvent)
@@ -1766,7 +1248,6 @@ const checkAndApplyCurrentSearch = () => {
                                excelContentSearchState?.keyword
 
   if (currentSearchKeyword && currentSearchKeyword.trim()) {
-    console.log('🔍 发现现有搜索关键词，立即应用:', currentSearchKeyword)
     highlightCurrentSheetContent(currentSearchKeyword)
   }
 }
@@ -1774,7 +1255,6 @@ const checkAndApplyCurrentSearch = () => {
 // 增强事件处理函数
 const handleExcelSearchEvent = (event) => {
   const { keyword } = event.detail
-  console.log('📥 ExcelContent 收到搜索事件，立即执行高亮:', keyword)
 
   // 立即执行，不延迟
   highlightCurrentSheetContent(keyword)
@@ -1782,24 +1262,15 @@ const handleExcelSearchEvent = (event) => {
 
 // 在 ExcelContent.vue 的 watch 中添加
 watch(() => props.excelData, (newData, oldData) => {
-  console.log('📊📊 ExcelContent 数据变化:', {
-    新数据长度: newData?.length,
-    旧数据长度: oldData?.length,
-    当前sheet: props.selectedSheet?.name,
-    时间: new Date().toLocaleTimeString()
-  })
 
   if (newData && newData.length > 0) {
-    console.log('✅ 数据已就绪，准备传递给子组件')
 
     // 立即检查子组件状态
     nextTick(() => {
       const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
       if (viewer) {
         console.log('🔍 子组件状态检查:', {
-          组件类型: props.showFlatMode ? '扁平化' : '原始',
-          组件存在: !!viewer,
-          props数据长度: viewer.props?.excelData?.length
+          组件类型: props.showFlatMode ? '扁平化' : '原始'
         })
       }
     })
@@ -1810,26 +1281,14 @@ watch(() => props.excelData, (newData, oldData) => {
 // 在canMergeData计算属性后面添加调试代码
 watch(() => canMergeData.value, (canMerge) => {
   console.group('🔍 合并数据按钮状态分析')
-  console.log('✅ 当前状态:')
-  console.log('- 是否有前一页:', hasPreviousSheet.value)
-  console.log('- 当前选中的Sheet:', props.selectedSheet?.name)
-  console.log('- 当前Excel文件:', props.selectedExcelFile)
 
   if (hasPreviousSheet.value && props.selectedSheet) {
     const currentSheet = allSheets.value[currentSheetIndex.value]
     const previousSheet = allSheets.value[currentSheetIndex.value - 1]
 
-    console.log('- 当前页Sheet:', currentSheet?.name)
-    console.log('- 前一页Sheet:', previousSheet?.name)
-
     if (currentSheet && previousSheet) {
       const currentPageNum = extractPageNumber(currentSheet.name)
       const previousPageNum = extractPageNumber(previousSheet.name)
-
-      console.log('- 当前页号:', currentPageNum)
-      console.log('- 前一页号:', previousPageNum)
-      console.log('- 页号差:', currentPageNum - previousPageNum)
-      console.log('- 前一页是否包含_T_:', previousSheet.name.includes('_T_'))
     }
   }
   console.groupEnd()
@@ -1837,11 +1296,9 @@ watch(() => canMergeData.value, (canMerge) => {
 
 // 在 ExcelContent.vue 的 onMounted 中添加
 onMounted(() => {
-  console.log('🚀 ExcelContent 组件挂载，开始监听统计事件')
 
   // 监听选中区域统计事件
   const handleSelectionSum = (event) => {
-    console.log('📥 ExcelContent 收到统计事件:', event.detail)
     selectionSumData.value = event.detail
   }
 
@@ -1850,17 +1307,14 @@ onMounted(() => {
   // 清理事件监听
   onUnmounted(() => {
     window.removeEventListener('selection-sum-changed', handleSelectionSum)
-    console.log('🧹 ExcelContent 清理统计事件监听')
   })
 })
-
 
 // 在组件挂载后设置全局搜索函数
 onMounted(() => {
   if (performExcelContentSearch) {
     // 设置全局函数供 App.vue 调用
     window.performExcelSearch = performExcelContentSearch
-    console.log('✅ 全局搜索函数已设置')
   }
 })
 

@@ -172,7 +172,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       }
     };
 
-
    // 新增：供外部一次性写入历史
    const fillHistoryCells = (keys) => {
   historyCells.value = new Set(keys)         // 直接替换
@@ -189,27 +188,15 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       // 更新 hasChanges 状态
       const newHasChanges = unsavedCount > 0
       if (newHasChanges !== hasChanges.value) {
-        console.log('🔄 hasChanges 状态变化:', {
-          旧值: hasChanges.value,
-          新值: newHasChanges,
-          未保存数: unsavedCount,
-          总修改数: totalCount
-        })
+
         hasChanges.value = newHasChanges
       }
 
       // ===== 立即刷样式（最稳点）=====
       const hot = getHotInstanceWithCache()
-      console.log('🔥 updateModifiedCellsCount 里实例检查', {
-        hotExist: !!hot,
-        destroyed: hot?.isDestroyed,
-        未保存数: unsavedCount,
-        总修改数: totalCount
-      })
 
       if (hot && !hot.isDestroyed) {
         updateModifiedCellsStyle()
-        console.log('✅ updateModifiedCellsCount 里已调用 updateModifiedCellsStyle')
       } else {
         console.warn('⚠️ 实例无效，跳过样式更新')
       }
@@ -221,11 +208,7 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         window.unsavedCellsCount = unsavedCount
         // 🔥 关键：暴露 unsavedCells 集合本身
         window.unsavedCells = unsavedCells.value  // 添加这一行
-        console.log('🌐 全局状态已更新:', {
-          currentHasChanges: window.currentHasChanges,
-          unsavedCount: window.unsavedCellsCount,
-          集合大小: window.unsavedCells?.size || 0
-        })
+
       }
     }
 
@@ -233,12 +216,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
   const RETRY_DELAY = 200
   // useExcelEdit.js - 增强类型检查
   const updateModifiedCellsStyle = async (retry = 0) => {
-      console.log('🎨🎨 进入刷样式函数', {
-        saved: savedCells.value.size,
-        unsaved: unsavedCells.value.size,
-        history: historyCells.value.size,
-        retry
-      })
 
       const hot = getHotInstanceWithCache()
       if (!hot || hot.isDestroyed) {
@@ -297,11 +274,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       if (cellConfig.length) hot.updateSettings({ cell: cellConfig }, false)
       hot.render()
 
-      console.log('✅ 样式更新完成', {
-        未保存单元格数: unsavedCells.value.size,
-        历史单元格数: historyCells.value.size,
-        样式规则数: cellConfig.length
-      })
     }
 
   const collectModifiedData = () => {
@@ -340,8 +312,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     modifiedCellsCount.value = count
     hasChanges.value = count > 0
 
-    console.log('🔄🔄 更新修改状态:', { hasChanges: hasChanges.value, count: count })
-
     // 🔥🔥🔥 安全使用 emit
     try {
       if (emit && typeof emit === 'function') {
@@ -357,7 +327,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
     }
   }
 
-
     // 🔥🔥🔥 新增：清理定时器函数
     const cleanupAutoSave = () => {
       if (autoSaveTimer) {
@@ -365,9 +334,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         autoSaveTimer = null
       }
     }
-
-
-    // ============ 自动保存相关函数 ============
 
     /**
      * 触发自动保存（5秒后）
@@ -378,7 +344,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       // 清除可能存在的旧定时器
       if (window.autoSaveTimer) {
         clearTimeout(window.autoSaveTimer)
-        console.log('🔄 清除旧定时器')
       }
 
       // 设置新的定时器，5秒后触发全局自动保存
@@ -388,7 +353,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         if (typeof window !== 'undefined' && window.triggerGlobalAutoSave) {
           try {
             window.triggerGlobalAutoSave()
-            console.log('✅ [useExcelEdit] 已成功触发全局自动保存函数')
           } catch (error) {
             console.error('❌ [useExcelEdit] 触发全局自动保存失败:', error)
             // 备用方案：尝试执行本地自动保存
@@ -422,8 +386,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
           return
         }
 
-        console.log(`💾 [useExcelEdit] 备用自动保存: ${modifiedCellsCount.value} 个修改`)
-
         // 这里可以添加简单的本地保存逻辑
         // 但由于我们主要使用全局保存，这里只记录日志
         console.log('📝 [useExcelEdit] 备用自动保存完成（仅记录）')
@@ -439,11 +401,9 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
      * 数据变化处理函数
      */
      const onDataChange = (changes, source) => {
-      console.log('🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯🎯 onDataChange 被执行', changes, source);
 
       // ✅ 忽略 loadData 和 restore 操作（这是正常的）
       if (!changes || source === 'loadData' || source === 'restore') {
-        console.log('⏭⏭⏭⏭⏭⏭⏭⏭⏭️ 忽略非用户修改操作:', source);
         return;
       }
 
@@ -458,7 +418,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       // 🔥🔥🔥🔥🔥 修复：获取表格实例，但不进行数据转换
       const hot = getHotInstanceWithCache();
       if (!hot || hot.isDestroyed) {
-        console.warn('❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌ 无法获取表格实例，跳过处理');
         return;
       }
 
@@ -544,13 +503,10 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
       // 清除可能存在的旧定时器
       if (autoSaveTimer) {
         clearTimeout(autoSaveTimer);
-        console.log('🔄🔄🔄🔄🔄🔄🔄🔄 清除旧定时器');
       }
 
       // 设置新的定时器，5秒后触发自动保存
       autoSaveTimer = setTimeout(() => {
-        console.log('🎯🎯🎯🎯🎯🎯🎯🎯 [useExcelEdit] 5秒定时到达，触发自动保存');
-
         // 执行自动保存
         performAutoSave();
       }, 5000); // 5秒后执行
@@ -576,7 +532,6 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
 
     // 🔥🔥🔥 修改 performAutoSave 函数
 const performAutoSave = async () => {
-  console.log('🔧🔧🔧🔧 [useExcelEdit] 执行自动保存逻辑...');
 
   try {
     // 🔥🔥🔥 修复：使用 getHotInstanceWithCache() 而不是 hotInstance
@@ -588,13 +543,10 @@ const performAutoSave = async () => {
 
     // 检查是否有修改需要保存
     if (!hasChanges.value || unsavedCells.value.size === 0) {
-      console.log('📭📭📭📭 无修改需要保存');
       return { success: true, message: '无修改需要保存' };
     }
 
     // 🔥🔥🔥 修复：正确收集修改数据
-    console.log(`📊📊📊📊 [useExcelEdit] 开始收集修改数据，未保存单元格数: ${unsavedCells.value.size}`);
-
     const changesToSave = [];
     const currentPdfId = window.currentPdfId || '';
     const currentExcelFile = window.currentExcelFile || '';
@@ -605,13 +557,11 @@ const performAutoSave = async () => {
     for (const cellKey of unsavedCells.value) {
       const parsed = ExcelKey.parseCellKey(cellKey);
       if (!parsed) {
-        console.warn('❌❌ 解析单元格键失败:', cellKey);
         continue;
       }
 
       const { row, col } = parsed;
       if (row === undefined || col === undefined || row < 0 || col < 0) {
-        console.warn('❌❌ 非法行列坐标:', { cellKey, parsed });
         continue;
       }
 
@@ -624,22 +574,17 @@ const performAutoSave = async () => {
           cellKey,
           isSaved: false
         });
-        console.log(`✅ 收集单元格修改: [${row},${col}] = "${value}"`);
       } catch (error) {
         console.warn(`⚠️ 获取单元格数据失败 [${row},${col}]:`, error);
       }
     }
 
-    console.log(`📊📊📊📊 [useExcelEdit] 成功收集 ${changesToSave.length} 个修改`);
-
     if (changesToSave.length === 0) {
-      console.log('📭📭📭📭 无修改需要保存');
       return { success: true, message: '无修改需要保存' };
     }
 
     // 🔥🔥🔥 关键：调用全局自动保存函数
     if (typeof window.triggerGlobalAutoSave === 'function') {
-      console.log('🚀🚀🚀🚀 调用全局自动保存函数...');
 
       // 准备保存数据
       const saveData = {
@@ -656,11 +601,6 @@ const performAutoSave = async () => {
       const result = await window.triggerGlobalAutoSave(saveData);
 
       if (result && result.success) {
-        console.log('✅✅✅✅ [useExcelEdit] 自动保存成功', {
-          success: true,
-          message: `成功保存 ${changesToSave.length} 个修改`,
-          savedCount: changesToSave.length
-        });
 
         // 标记为已保存
         markSavedCells(changesToSave.map(item => item.cellKey));
@@ -675,7 +615,6 @@ const performAutoSave = async () => {
       }
     } else {
       // 备用方案：直接标记为已保存（前端状态）
-      console.log('🔧🔧🔧🔧 使用备用保存方案（仅标记前端状态）');
       markSavedCells(changesToSave.map(item => item.cellKey));
 
       return {
@@ -686,7 +625,6 @@ const performAutoSave = async () => {
     }
 
   } catch (error) {
-    console.error('❌❌❌❌ [useExcelEdit] 自动保存失败:', error);
 
     // 安全地处理错误消息
     if (typeof ElMessage !== 'undefined' && ElMessage.error) {
@@ -700,7 +638,6 @@ const performAutoSave = async () => {
     return { success: false, error: error.message };
   }
 };
-
 
     // 原有的 handleSingleCellChange 函数保持不变
     const handleSingleCellChange = (row, col, oldValue, newValue, source) => {
@@ -721,12 +658,10 @@ const performAutoSave = async () => {
           lastModified: Date.now(),
           saveStatus: 'unsaved'
         }
-        console.log(`📝 记录新修改: [${row},${col}]`)
       } else {
         // 更新现有修改
         modifiedCells.value[cellKey].newValue = newValue
         modifiedCells.value[cellKey].lastModified = Date.now()
-        console.log(`✏️ 更新修改: [${row},${col}]`)
       }
 
       // 添加到未保存集合
@@ -738,7 +673,6 @@ const performAutoSave = async () => {
 
       // ============ 公共方法 ============
       const toggleEditMode = (onSuccess) => {
-          console.log('🔄 toggleEditMode 被调用，当前状态:', isEditMode.value, '回调:', typeof onSuccess);
 
           const hot = getHotInstanceWithCache();
           if (!hot || !validateHotInstance(hot)) {
@@ -776,7 +710,6 @@ const performAutoSave = async () => {
             setTimeout(() => {
               if (hot && !hot.isDestroyed) {
                 hot.render();
-                console.log('📋 表格只读状态已同步:', { 编辑模式: isEditMode.value, 表格只读: newReadOnly });
               }
             }, 50);
           } catch (e) {
@@ -813,8 +746,6 @@ const performAutoSave = async () => {
           }
         }
 
-
-
     /* 把单元格标成红色（仅未保存的） */
     const markModifiedCellsRed = () => {
       const hot = getHotInstanceWithCache()
@@ -842,10 +773,7 @@ const performAutoSave = async () => {
       if (cellMeta.length) hot.updateSettings({ cell: cellMeta }, false)
       hot.render()
 
-      console.log('🔴🔴 红色标记完成，标记单元格数:', cellMeta.length)
     }
-
-
 
    // 确保 updateTableReadOnly 函数存在
    const updateTableReadOnly = () => {
@@ -856,10 +784,6 @@ const performAutoSave = async () => {
     }
 
     try {
-      console.log('📋 更新表格只读状态:', {
-        编辑模式: isEditMode.value,
-        当前只读状态: hot.getSettings().readOnly
-      })
 
       // 更新所有列的 readOnly 设置
       const columns = hot.getSettings().columns
@@ -879,18 +803,10 @@ const performAutoSave = async () => {
         readOnly: !isEditMode.value
       }, false)
 
-      console.log('📋 表格只读状态更新:', {
-        编辑模式: isEditMode.value,
-        表格只读: !isEditMode.value
-      })
-
       // 延迟强制重新渲染，确保状态生效
       setTimeout(() => {
         if (hot && !hot.isDestroyed) {
           hot.render()
-          console.log('✅ 表格只读状态更新完成:', {
-            新状态: hot.getSettings().readOnly
-          })
         }
       }, 100)
 
@@ -904,7 +820,6 @@ const performAutoSave = async () => {
       if (!hasChanges.value || saving.value) return
 
       saving.value = true
-      console.log('💾💾💾💾 开始保存修改...')
 
       try {
         const modifiedData = collectModifiedData()
@@ -916,7 +831,6 @@ const performAutoSave = async () => {
 
         // ✅ 保存成功后：清除未保存集合，但保留历史记录
         const savedKeys = Array.from(unsavedCells.value)
-        // unsavedCells.value.clear()
 
         // 将已保存的单元格移到历史池
         savedKeys.forEach(key => {
@@ -953,11 +867,6 @@ const performAutoSave = async () => {
         window.unsavedCellsCount = 0
         window.unsavedCells = new Set()
 
-        console.log('✅ 保存完成，缓存已清除', {
-          保存单元格数: savedKeys.length,
-          历史池数量: historyCells.value.size
-        })
-
         return {
           success: true,
           message: `成功保存 ${unsavedCount} 个修改`,
@@ -971,7 +880,6 @@ const performAutoSave = async () => {
       }
     }
 
-
     // ✅✅✅ 修复后的完整函数
     const restoreUnsavedFromIndexedDB = async () => {
       try {
@@ -980,8 +888,6 @@ const performAutoSave = async () => {
           console.warn('⚠️ IndexedDB 工具不可用，跳过恢复');
           return;
         }
-
-        console.log('🔄🔄 从IndexedDB恢复未保存数据...');
 
         // 🔧 修复：使用正确的存储名称和键
         const tableType = window.currentTableType || 'original';
@@ -1002,8 +908,6 @@ const performAutoSave = async () => {
             console.log('📭 IndexedDB中无未保存数据');
             return;
           }
-
-          console.log(`📦📦 从IndexedDB恢复 ${draftData.modifications?.length || 0} 个未保存单元格`);
 
           if (draftData.modifications && draftData.modifications.length > 0) {
             // 应用恢复逻辑
@@ -1061,7 +965,6 @@ const performAutoSave = async () => {
       updateModifiedCellsCount();
       updateModifiedCellsStyle();
 
-      console.log('✅ 恢复数据应用完成');
     };
 
 
@@ -1162,7 +1065,6 @@ const performAutoSave = async () => {
   const checkInstanceHealth = () => {
   const hot = getHotInstanceWithCache()
   if (!hot) {
-    // console.log('❌ 实例健康检查：实例不存在')  // ❌ 减少日志
     return { healthy: false, reason: '实例不存在' }
   }
 

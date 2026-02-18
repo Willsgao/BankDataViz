@@ -62,25 +62,14 @@ const handleSmartToggle = async (
         // 🔥🔥🔥 关键修复：检查是否为扁平化文件并确保数据加载
         const isFlattenedFile = selectedExcelFile && /flattened_/i.test(selectedExcelFile)
 
-        console.log('🔍 切换前状态检查:', {
-            文件名: selectedExcelFile,
-            是否扁平化文件: isFlattenedFile,
-            当前模式: showFlatMode ? '扁平化' : '原始',
-            excelData长度: excelDataRef.value?.length || 0,
-            flatData长度: flatDataRef.value?.length || 0
-        })
-
         if (isFlattenedFile) {
-            console.log('✅ 识别为扁平化文件')
 
             // 🔥 关键：确保 flatData 有数据
             if (flatDataRef.value.length === 0) {
-                console.log('📥 扁平化文件数据为空，需要加载数据')
 
                 if (excelDataRef.value && excelDataRef.value.length > 0) {
                     // 深拷贝 excelData 到 flatData
                     flatDataRef.value = JSON.parse(JSON.stringify(excelDataRef.value))
-                    console.log('✅ 数据复制完成:', flatDataRef.value.length, '行')
                 } else {
                     console.warn('⚠️ excelData 为空，无法复制数据')
                     ElMessage.warning('表格数据为空，无法切换模式')
@@ -94,28 +83,13 @@ const handleSmartToggle = async (
         // 执行模式切换
         await toggleFlatModeFn()
 
-        console.log('✅ 模式切换完成:', {
-            新模式: showFlatMode ? '扁平化' : '原始',
-            flatData长度: flatDataRef.value?.length || 0
-        })
-
         // 延迟检查数据状态（可选）
         setTimeout(() => {
             const currentData = showFlatMode ? flatDataRef.value : excelDataRef.value
 
             if (currentData && currentData.length > 0) {
-                console.log('🔍🔍 切换后数据状态检查...')
                 const isFlattenedData = checkIfFlattenedData(currentData)
-                console.log('📊📊 数据真实状态判断:', {
-                    数据特征: isFlattenedData ? '扁平化数据' : '原始数据',
-                    当前显示模式: showFlatMode ? '扁平化' : '原始',
-                    数据实际类型: isFlattenedData ? '扁平化' : '原始',
-                    状态一致: isFlattenedData === showFlatMode
-                })
 
-                if (isFlattenedData !== showFlatMode) {
-                    console.log('🔄 检测到状态不一致，但保持当前显示')
-                }
             }
         }, 300)
 
@@ -150,19 +124,8 @@ const handleSmartToggle = async (
           const currentData = showFlatMode ? flatDataRef.value : excelDataRef.value
 
           if (currentData && currentData.length > 0) {
-            console.log('🔍🔍 切换后检查数据真实状态...')
             const isFlattenedData = checkIfFlattenedData(currentData)
-            console.log('📊📊 数据真实状态判断:', {
-              数据特征: isFlattenedData ? '扁平化数据' : '原始数据',
-              当前按钮状态: showFlatMode ? '二维化' : '扁平化',  // 修复：去掉 .value
-              应该的按钮状态: isFlattenedData ? '二维化' : '扁平化'
-            })
 
-            if (isFlattenedData !== showFlatMode) {  // 修复：去掉 .value
-              console.log('🔄🔄 状态不一致，自动纠正按钮状态')
-            } else {
-              console.log('✅ 状态一致，保持当前按钮状态')
-            }
           }
         }, 500)
       } catch (error) {
@@ -170,46 +133,6 @@ const handleSmartToggle = async (
       }
     }
 
-  const handleSmartToggle0000 = async (
-    selectedSheet,
-    selectedPdf,
-    selectedExcelFile,
-    showFlatModeRef,
-    excelDataRef,
-    flatDataRef,
-    toggleFlatModeFn
-  ) => {
-    if (!selectedSheet || !selectedPdf) {
-      ElMessage.warning('请先选择表格')
-      return
-    }
-
-    try {
-      console.log('🔄🔄 用户手动切换模式...')
-      await toggleFlatModeFn()
-
-      setTimeout(() => {
-        const currentData = showFlatModeRef.value ? flatDataRef.value : excelDataRef.value
-        if (currentData && currentData.length > 0) {
-          console.log('🔍🔍 切换后检查数据真实状态...')
-          const isFlattenedData = checkIfFlattenedData(currentData)
-          console.log('📊📊 数据真实状态判断:', {
-            数据特征: isFlattenedData ? '扁平化数据' : '原始数据',
-            当前按钮状态: showFlatModeRef.value ? '二维化' : '扁平化',
-            应该的按钮状态: isFlattenedData ? '二维化' : '扁平化'
-          })
-
-          if (isFlattenedData !== showFlatModeRef.value) {
-            console.log('🔄🔄 状态不一致，自动纠正按钮状态')
-          } else {
-            console.log('✅ 状态一致，保持当前按钮状态')
-          }
-        }
-      }, 500)
-    } catch (error) {
-      console.error('❌❌ 智能切换失败:', error)
-    }
-  }
 
   // 检查扁平化缓存
   const checkFlattenedCache = (pdfId, excelFile, sheetName) => {
@@ -227,7 +150,6 @@ const handleSmartToggle = async (
       return false
     }
   }
-
 
 
   // 切换扁平化模式
@@ -344,11 +266,6 @@ const handleSmartToggle = async (
       excelDataCache,
       dataManager
     ) => {
-      console.log('🔄🔄🔄🔄🔄🔄🔄🔄 选择sheet - 强制从后台读取数据:', {
-        sheet名称: sheet?.name,
-        excel文件: excelFileName,
-        当前PDF: selectedPdf?.id
-      })
 
       // 参数验证
       if (!selectedSheetRef || !selectedExcelFileRef || !sheetStateManager) {
@@ -370,14 +287,11 @@ const handleSmartToggle = async (
 
         if (currentTableModeRef && typeof currentTableModeRef.value !== 'undefined') {
           currentTableModeRef.value = 'original'
-          console.log('✅ currentTableModeRef 设置为: original')
         }
 
         if (typeof window !== 'undefined') {
           window.currentTableMode = 'original'
-          console.log('✅ window.currentTableMode 设置为: original')
         }
-        console.log('✅ 状态重置完成')
 
         // 2. 状态管理器上下文
         console.log('🔄🔄🔄🔄🔄🔄🔄🔄 设置状态管理器上下文...')
@@ -387,60 +301,46 @@ const handleSmartToggle = async (
           sheet.name,
           'original'
         )
-        console.log('✅ 上下文设置完成')
 
         // 3. 清除缓存
         const pdfId = selectedPdf.id
-        console.log('🧹🧹🧹🧹🧹🧹🧹🧹 强制清除缓存，确保从后台读取最新数据')
 
         if (excelDataCache && excelDataCache.deleteOriginalData) {
           excelDataCache.deleteOriginalData(pdfId, excelFileName, sheet.name)
-          console.log('✅ 清除原始数据缓存')
         }
         if (excelDataCache && excelDataCache.deleteFlattenedData) {
           excelDataCache.deleteFlattenedData(pdfId, excelFileName, sheet.name)
-          console.log('✅ 清除扁平化数据缓存')
         }
 
         const cacheKey = `${pdfId}_${excelFileName}_${sheet.name}`
         if (window.sheetDataCache) {
           delete window.sheetDataCache[cacheKey]
-          console.log('✅ 清除内存缓存')
         }
 
         if (dataManager && dataManager.indexedDBManager) {
           try {
             await dataManager.indexedDBManager.deleteOriginalCache(pdfId, excelFileName, sheet.name)
             await dataManager.indexedDBManager.deleteFlattenedCache(pdfId, excelFileName, sheet.name)
-            console.log('✅ 清除 IndexedDB 缓存')
           } catch (error) {
             console.warn('⚠️ 清除IndexedDB缓存失败:', error)
           }
         }
 
         // 4. 加载数据
-        console.log('🎯🎯🎯🎯🎯🎯🎯🎯 直接从后台加载数据...')
         if (loadingExcelRef) {
           loadingExcelRef.value = true
         }
 
         try {
           if (sheet.name === '目录') {
-            console.log('📁📁📁📁📁📁📁📁 加载目录数据...')
             await loadAllClassDataFn(excelFileName)
           } else {
-            console.log('📊📊📊📊📊📊📊📊 加载普通表格数据...')
             const loadResult = await loadExcelDataFn(sheet.name, excelFileName, true)
 
             if (!loadResult.success) {
               throw new Error(loadResult.error || '加载数据失败')
             }
 
-            console.log('✅ 后台数据加载完成:', {
-              数据行数: excelDataRef.value?.length || 0,
-              扁平化数据行数: flatDataRef.value?.length || 0,
-              来源: loadResult.fromCache ? '缓存' : 'API'
-            })
           }
 
           sheetStateManager.setData('original', excelDataRef.value)
@@ -449,9 +349,6 @@ const handleSmartToggle = async (
             loadingExcelRef.value = false
           }
         }
-
-        // 5. 🔥🔥 关键修复：彻底禁用智能判断，直接强制设置为原始模式
-        console.log('🚫🚫🚫🚫 彻底禁用智能判断，强制设置为原始模式')
 
         // 强制设置为原始模式
         showFlatModeRef.value = false
@@ -467,14 +364,6 @@ const handleSmartToggle = async (
           flatDataRef.value = []
         }
 
-        console.log('✅✅ 强制设置为原始模式完成', {
-          显示模式: showFlatModeRef.value ? '扁平化' : '原始',
-          当前表模式: currentTableModeRef?.value || 'unknown',
-          窗口表模式: window.currentTableMode || 'unknown',
-          扁平化数据长度: flatDataRef.value?.length || 0
-        })
-
-        console.log('✅✅✅ selectSheet 完成')
         return { success: true, source: 'api' }
 
       } catch (error) {
@@ -509,32 +398,25 @@ const handleSmartToggle = async (
     loadingSheetsRef,
     selectSheetFn
   ) => {
-    console.log('开始加载Excel sheets，PDF ID:', pdfId)
     loadingSheetsRef.value = true
     excelFilesRef.value = []
 
     try {
       const response = await fetch(getApiUrl(`/excel-sheets/${pdfId}`))
-      console.log('Excel sheets API响应状态:', response.status)
 
       if (response.ok) {
         const data = await response.json()
         excelFilesRef.value = data.excel_files || []
-        console.log('解析后的Excel文件列表:', excelFilesRef.value)
 
         if (excelFilesRef.value.length > 0 && excelFilesRef.value[0].sheets.length > 0) {
           const firstFile = excelFilesRef.value[0]
           const firstSheet = firstFile.sheets[0]
-          console.log('默认选中第一个sheet:', firstSheet, '来自文件:', firstFile.excel_file)
           await selectSheetFn(firstSheet, firstFile.excel_file)
         } else {
-          console.log('没有找到Excel sheets或sheets为空')
           ElMessage.info('该PDF没有对应的表格数据')
         }
       } else {
-        console.log('Excel sheets API请求失败，状态码:', response.status)
         const errorText = await response.text()
-        console.log('错误响应:', errorText)
         excelFilesRef.value = []
         ElMessage.warning('该PDF没有对应的Excel文件')
       }
@@ -570,8 +452,6 @@ const handleSmartToggle = async (
         sheetName: row.sheet_name,
         tableName: row.table_name
       })).filter(item => item.sheetName && item.sheetName !== '目录')
-
-      console.log('发现班级sheets:', classSheets)
 
       const classDataPromises = classSheets.map(async (classItem) => {
         try {
@@ -642,26 +522,17 @@ const handleSmartToggle = async (
       return '扁平化'
     }
     const isFlattenedData = checkIfFlattenedData(excelData)
-    console.log('🎯🎯 按钮文本判断:', {
-      数据行数: excelData.length,
-      数据特征: isFlattenedData ? '扁平化数据' : '原始数据',
-      按钮文本: isFlattenedData ? '二维化' : '扁平化'
-    })
+
     return isFlattenedData ? '二维化' : '扁平化'
   }
 
   // 智能设置表格模式
   const autoSetTableMode = (tableData, sheetName, showFlatModeRef, currentTableModeRef) => {
     if (!tableData || tableData.length === 0) return
-    console.log('🔍🔍 智能设置显示模式...')
+
     const isFlattenedData = checkIfFlattenedData(tableData)
-    console.log('🎯🎯 正确判断:', {
-      数据特征: isFlattenedData ? '扁平化数据' : '原始数据',
-      应该显示: isFlattenedData ? '二维化' : '扁平化',
-      当前显示: showFlatModeRef.value ? '二维化' : '扁平化'
-    })
+
     if (isFlattenedData !== showFlatModeRef.value) {
-      console.log('🔄🔄 纠正按钮状态')
       showFlatModeRef.value = isFlattenedData
     } else {
       console.log('✅ 按钮状态正确，无需纠正')

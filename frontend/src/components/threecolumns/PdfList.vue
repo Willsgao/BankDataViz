@@ -52,25 +52,17 @@ const props = defineProps({
   selectedPdf: Object
 })
 
-// 在 props 定义后添加
-console.log('🔍🔍 PdfList 接收的 props:', {
-  searchResults: props.searchResults,
-  isSearching: props.isSearching
-})
-
 defineEmits(['toggle-middle', 'select-pdf'])
 
 // 调试代码 - 现在可以正确使用 props
 onMounted(() => {
   console.log('🔍 PdfList 组件挂载')
-  console.log('初始 searchResults:', props.searchResults)
 })
 
 watch(() => props.searchResults, (newVal) => {
   console.log('🔍 PdfList 接收到搜索结果:', newVal)
   if (newVal && newVal.length > 0) {
-    console.log('🔍 第一个PDF的字段:', Object.keys(newVal[0]))
-    console.log('🔍 第一个PDF的数据:', newVal[0])
+    console.log('🔍 第一个PDF的字段:')
   }
 }, { immediate: true })
 

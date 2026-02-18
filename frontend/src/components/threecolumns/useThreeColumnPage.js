@@ -151,7 +151,6 @@ export function useThreeColumnPage() {
 
    const loadFromAPI = async (fileId, excelFileName, sheetName) => {
       try {
-
         const apiUrl = `/api/excel-data/${encodeURIComponent(fileId)}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(sheetName)}`
 
         const response = await fetch(apiUrl)
@@ -195,13 +194,10 @@ export function useThreeColumnPage() {
    */
    const loadExcelData = async (sheetName, excelFileName, forceRefresh = false) => {
       try {
-        console.log('🔍🔍 开始加载Excel数据')
 
         // 🔥🔥🔥 关键修复1：强制清空旧数据，触发响应式更新
         excelData.value = [] // 立即清空
         await new Promise(resolve => setTimeout(resolve, 0)) // 微任务延迟，确保清空完成
-
-        console.log('✅ 旧数据已清空，开始API加载')
 
         // 调用API获取数据
         const result = await loadFromAPI(selectedPdf.value?.id, excelFileName, sheetName)
@@ -218,9 +214,6 @@ export function useThreeColumnPage() {
           tableData = result.data.rows
         }
 
-        console.log(`✅ 获取到表格数据: ${tableData.length}行`)
-
-        // 🔥🔥🔥 关键修复3：强制响应式更新（三重保险）
         // 方法1：使用新数组引用
         excelData.value = [...tableData]
 
@@ -259,7 +252,6 @@ export function useThreeColumnPage() {
    */
   const generateTableColumns = (data) => {
     if (!data || data.length === 0) {
-      console.log('没有数据，清空表格列')
       tableColumns.value = []
       return []
     }

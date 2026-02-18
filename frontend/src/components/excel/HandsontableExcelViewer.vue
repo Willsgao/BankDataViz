@@ -255,13 +255,6 @@ const excelContentSearchState = inject('excelContentSearchState')
 
 // 添加选区事件处理
 const handleSelection = (startRow, startCol, endRow, endCol) => {
-  console.log('🎯🎯🎯🎯 选区选择事件被触发:', {
-    startRow,
-    startCol,
-    endRow,
-    endCol,
-    时间: new Date().toLocaleTimeString()
-  })
 
   // 检查是否是有效的选区（不是单个单元格）
   const isSingleCell = (startRow === endRow && startCol === endCol)
@@ -296,12 +289,6 @@ const handleSelection = (startRow, startCol, endRow, endCol) => {
   }
 
   selectedCellsCount.value = totalCells
-
-  console.log('📊📊 选区统计:', {
-    行数: rowCount,
-    列数: colCount,
-    总单元格数: totalCells
-  })
 
   // 发射选区信息给父组件
   emit('cell-selected', {
@@ -406,7 +393,6 @@ const handleInsertColumn = async (colIndex) => {
     // 5. 使用 loadData 更新数据（不触发 afterChange 的修改标记）
     hot.loadData(newData);
 
-    console.log('✅ 插入列完成，新列数:', Object.keys(newData[0]).length);
     ElMessage.success(`已插入新列 "${newColName}"`);
 
   } catch (error) {
@@ -501,14 +487,8 @@ const clearSelection = () => {
   })
 }
 
-
 // 在接收数据的组件中
 const handleGlobalFlattenComplete = (eventData) => {
-  console.log('📥 接收到的数据:', {
-    数据长度: eventData.flattenedData?.length,
-    数据来源: '整体扁平化',
-    时间戳: new Date().toLocaleTimeString()
-  })
 
   // 强制更新状态
   if (eventData.flattenedData && eventData.flattenedData.length > 0) {
@@ -630,11 +610,6 @@ const handleGlobalFlatten = async () => {
   globalFlattenLoading.value = true
 
   try {
-    console.log('🔄 开始整体扁平化处理', {
-      pdfId: props.pdfId,
-      excelFileName: props.excelFileName,
-      sheetName: props.sheetName
-    })
 
     // 构建请求数据（注意：pdf_id现在放在URL路径中）
     const requestData = {
@@ -657,13 +632,6 @@ const handleGlobalFlatten = async () => {
 
     const result = await response.json()
     console.log('📥 整体扁平化API返回:', result)
-    console.log('🔍 返回数据结构检查:', {
-      成功: result.success,
-      长格式数据长度: result.long_format_data?.length || 0,
-      前端行数: result.rows?.length || 0,
-      源信息: result.source_info,
-      所有字段: Object.keys(result)
-    })
 
     if (result.success && result.long_format_data) {  // 🔥 修改：使用 long_format_data
       // 发射事件给父组件处理数据 - 使用统一格式
@@ -681,9 +649,6 @@ const handleGlobalFlatten = async () => {
         },
         summary: result.summary                  // 🔥 新增：处理摘要
       })
-
-      // 🔥🔥🔥 关键修复：使用正确的PDF ID
-      console.log('🔄🔄🔄🔄 扁平化完成，触发中间栏刷新')
 
       // 使用扁平化返回的PDF ID，而不是props.pdfId
       const actualPdfId = result.pdf_id || props.pdfId
@@ -726,8 +691,6 @@ const triggerMiddleColumnRefresh = async (pdfId) => {
       await window.$parent.loadExcelSheets(pdfId)
     }
 
-    console.log('✅✅ 中间栏刷新触发完成')
-
   } catch (error) {
     console.warn('⚠️⚠️ 刷新中间栏时出错:', error)
   }
@@ -736,12 +699,6 @@ const triggerMiddleColumnRefresh = async (pdfId) => {
 // 统一的处理函数
 const handleGlobalFlattenedData = (flattenedData, sourceInfo) => {
   try {
-    console.log('🔄🔄🔄🔄 处理整体扁平化数据', {
-      数据行数: flattenedData.length,
-      第一行样本: flattenedData[0],
-      源信息: sourceInfo
-    })
-
     if (Array.isArray(flattenedData) && flattenedData.length > 0) {
       // ✅ 正确方式：通过emit通知父组件更新
       emit('update-flat-data', flattenedData)
@@ -850,10 +807,6 @@ class HotInstanceController {
     // 解决所有等待者
     this.resolveWaiters()
 
-    console.log('🎯 HotInstanceController: 实例已设置', {
-      行数: hot.countRows?.(),
-      列数: hot.countCols?.()
-    })
   }
 
   waitForReady(timeout = 5000) {
@@ -1226,15 +1179,6 @@ const detectNumericCells = () => {
     }
   }
 
-  console.log('📊📊 数值单元格统计（支持千位符、括号负数等）:', {
-    总数: numericCells.length,
-    样本: numericCells.slice(0, 5).map(cell => ({
-      原始值: cell.originalValue,
-      解析值: cell.value,
-      位置: `R${cell.row + 1}C${cell.col + 1}`
-    }))
-  })
-
   return {
     hasNumericCells: numericCells.length > 0,
     totalNumericCells: numericCells.length,
@@ -1596,30 +1540,6 @@ const handleExport = async () => {
   }
 }
 
-const handleExport000000000 = async () => {
-  try {
-    console.log('🎯🎯 开始导出前的页面状态:', {
-      当前URL: window.location.href,
-      表格数据行数: tableData.value.length,
-      修改单元格数: modifiedCellsCount.value
-    })
-
-    await smartExport('excel')
-
-    // 导出完成后检查页面状态
-    setTimeout(() => {
-      console.log('✅✅ 导出完成后的页面状态:', {
-        当前URL: window.location.href, // 应该保持不变
-        表格数据: tableData.value.length, // 应该保持不变
-        编辑状态: hasChanges.value // 应该保持不变
-      })
-    }, 1000)
-
-  } catch (error) {
-    console.error('导出失败:', error)
-  }
-}
-
 
 // 🔥🔥🔥 优化：清空高亮
 const clearExcelContentHighlight = () => {
@@ -1916,7 +1836,6 @@ const executeSearchWithData = (keyword, tableData) => {
 
 // 🔥🔥🔥 新增：从备选源获取数据
 const getTableDataFromAlternativeSource = () => {
-  console.log('🔄 尝试从备选源获取数据...')
 
   // 方法1：从HotTable实例获取
   const hot = getSafeHotInstance()
@@ -1958,11 +1877,6 @@ const performExcelContentSearch = (keyword) => {
   }
 
   performExcelContentSearch.debounceTimer = setTimeout(() => {
-    console.log('🎯🎯 执行Excel内容搜索高亮:', keyword, {
-      数据就绪: isDataLoaded.value, // 使用 .value
-      数据长度: props.excelData?.length,
-      重试次数: searchRetryCount.value // 使用 .value
-    })
 
     if (!keyword) {
       clearExcelContentHighlight()
@@ -1984,7 +1898,6 @@ const performExcelContentSearch = (keyword) => {
 
     if (!isDataLoaded.value || !hasValidData) {
       searchRetryCount.value++
-      console.log(`⏳ 数据未就绪，延迟搜索 (${searchRetryCount.value}/${MAX_SEARCH_RETRIES})`)
 
       // 添加最大重试限制检查
       if (searchRetryCount.value < MAX_SEARCH_RETRIES) {
@@ -2009,7 +1922,6 @@ const performExcelContentSearch = (keyword) => {
       highlightSheetNames(keyword)
       highlightCurrentSheetContent(keyword)
       updateMatchCount()
-      console.log('✅✅ 搜索高亮流程完成')
     } catch (error) {
       console.error('❌ Excel内容搜索高亮失败:', error)
     }
@@ -2020,13 +1932,11 @@ const performExcelContentSearch = (keyword) => {
 const safeSearch = (keyword) => {
   // 检查搜索锁
   if (searchLock) {
-    console.log('🔒 搜索被锁定，跳过重复执行')
     return
   }
 
   // 检查重试次数
   if (retryCount >= MAX_RETRIES) {
-    console.log('🚫 达到最大重试次数，停止搜索')
     searchLock = false
     retryCount = 0
     return
@@ -2036,7 +1946,6 @@ const safeSearch = (keyword) => {
   if (!props.excelData || props.excelData.length === 0) {
     searchLock = true
     retryCount++
-    console.log(`⏳ 数据未就绪，等待重试 (${retryCount}/${MAX_RETRIES})`)
 
     setTimeout(() => {
       searchLock = false
@@ -2052,7 +1961,6 @@ const safeSearch = (keyword) => {
 }
 
 const performActualSearch = (keyword) => {
-  console.log('✅ 数据就绪，执行实际搜索:', keyword)
 
   try {
     highlightState.keyword = keyword
@@ -2063,8 +1971,6 @@ const performActualSearch = (keyword) => {
     highlightCurrentSheetContent(keyword)
     updateMatchCount()
 
-    console.log('✅✅ 搜索高亮完成')
-
   } catch (error) {
     console.error('❌ 搜索失败:', error)
   }
@@ -2072,10 +1978,6 @@ const performActualSearch = (keyword) => {
 
 // 然后在监听器中修改为：
 watch(() => props.excelData, (newData) => {
-  console.log('📊 表格数据变化:', {
-    新数据长度: newData?.length,
-    时间: new Date().toLocaleTimeString()
-  })
 
   if (newData && newData.length > 0) {
     // ✅ 使用正确的变量名
@@ -2117,7 +2019,6 @@ onUnmounted(() => {
 
 const handleExcelSearchEvent = (event) => {
   const { keyword } = event.detail
-  console.log('📡 收到搜索事件:', keyword)
 
   // 调用本地搜索函数
   highlightSheetNames(keyword)
@@ -2128,16 +2029,10 @@ const handleExcelSearchEvent = (event) => {
 
 // HandsontableExcelViewer.vue 中的完整 onMounted 钩子（修复版）
 onMounted(() => {
-  console.log('🚀 HandsontableExcelViewer 组件挂载:', {
-    组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
-    数据长度: props.excelData?.length,
-    时间: new Date().toLocaleTimeString()
-  })
 
   // 🔥 修复1：使用具名函数，便于后续清理
   const handleExcelSearchEvent = (event) => {
     const { keyword } = event.detail
-    console.log('📥 HandsontableExcelViewer 收到搜索事件:', keyword)
 
     // 🔥 修复2：添加函数存在性检查
     if (typeof highlightCurrentSheetContent === 'function') {
@@ -2152,7 +2047,6 @@ onMounted(() => {
 
   // 🔥 修复3：改进全局函数设置逻辑
   if (props.excelData && props.excelData.length > 0) {
-    console.log('✅ 当前组件有数据，设置全局搜索函数')
 
     // 先检查是否已有有效的搜索函数
     const existingSearchFunc = window.performExcelSearch
@@ -2162,12 +2056,6 @@ onMounted(() => {
 
     if (shouldSetNewFunc) {
       window.performExcelSearch = (keyword) => {
-        console.log('🎯 搜索路由到有数据的组件:', {
-          关键词: keyword,
-          组件类型: props.sheetName.includes('扁平化') ? '扁平化' : '原始',
-          数据长度: props.excelData.length,
-          时间: new Date().toLocaleTimeString()
-        })
 
         if (typeof highlightCurrentSheetContent === 'function') {
           highlightCurrentSheetContent(keyword)
@@ -2185,10 +2073,6 @@ onMounted(() => {
       window.performExcelSearch._componentDataLength = props.excelData.length
       window.performExcelSearch._setTime = Date.now()
 
-      console.log('✅ 全局搜索函数已设置（有数据组件）', {
-        组件: props.sheetName,
-        数据长度: props.excelData.length
-      })
     } else {
       console.log('⏭️ 已有更优的搜索函数，跳过设置', {
         当前组件数据长度: props.excelData.length,
@@ -2196,19 +2080,16 @@ onMounted(() => {
       })
     }
   } else {
-    console.log('⏭️ 当前组件无数据，不设置全局搜索函数')
 
     // 只有当前组件设置了全局函数时才清理
     if (window.performExcelSearch?._componentName === props.sheetName) {
       delete window.performExcelSearch
-      console.log('🧹 清除本组件设置的全局搜索函数')
     }
   }
 })
 
 // 合并所有 onUnmounted 逻辑到一个钩子中（修复版）
 onUnmounted(() => {
-  console.log('🧹 HandsontableExcelViewer 组件卸载，开始清理所有资源')
 
   // 1. 安全地清理事件监听器（使用具名函数）
   try {
@@ -2236,34 +2117,28 @@ onUnmounted(() => {
   // 4. 清理全局函数（只清理本组件设置的）
   if (typeof window !== 'undefined' && window.performExcelSearch?._componentName === props.sheetName) {
     delete window.performExcelSearch
-    console.log('🧹 清理本组件设置的全局搜索函数')
   }
 
   // 5. 清理其他资源（原有逻辑保持不变）
   if (logic && logic.cleanupAutoSave) {
     logic.cleanupAutoSave()
-    console.log('✅ 自动保存定时器已清理')
   }
 
   if (hotController && typeof hotController.destroy === 'function') {
     hotController.destroy()
-    console.log('✅ Handsontable 控制器已销毁')
   }
 
   if (window.__excelHotInstance === hotInstanceRef?.value) {
     window.__excelHotInstance = null
-    console.log('✅ 全局实例引用已清理')
   }
 
   if (dataChangeTimer && dataChangeTimer.value) {
     clearTimeout(dataChangeTimer.value)
     dataChangeTimer.value = null
-    console.log('✅ 数据变化定时器已清理')
   }
 
   if (typeof cleanupNavigationGuard === 'function') {
     cleanupNavigationGuard()
-    console.log('✅ 导航守卫已清理')
   }
 
   console.log('✅ 所有资源清理完成')
