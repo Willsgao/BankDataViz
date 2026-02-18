@@ -664,161 +664,6 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
         return jsonify({"success": False, "error": "获取Excel数据失败"}), 500
 
 
-@file_bp.get('/api/excel-data111111/<file_id>/<path:excel_file_name>/<sheet_name>')
-def get_excel_data_api111111(file_id, excel_file_name, sheet_name):
-    """
-    提供Excel数据API接口 - 修复路径问题
-    """
-    try:
-        print(f"🎯🎯🎯 收到Excel数据API请求: file_id={file_id}, excel_file={excel_file_name}, sheet={sheet_name}")
-
-        # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
-        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
-
-        print("clean_file_idclean_file_id:", clean_file_id)
-
-        # 1. 构建Excel文件路径
-        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
-        excel_path = excel_dir / excel_file_name
-
-        print(f"📁 Excel文件路径: {excel_path}")
-
-        if not excel_path.exists():
-            print(f"❌ Excel文件不存在: {excel_path}")
-
-            # 🔥🔥🔥 备选方案1：尝试使用原始file_id
-            if clean_file_id != file_id:
-                alt_excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / file_id
-                alt_excel_path = alt_excel_dir / excel_file_name
-                print(f"🔍🔍 尝试备选路径1: {alt_excel_path}")
-
-                if alt_excel_path.exists():
-                    excel_dir = alt_excel_dir
-                    excel_path = alt_excel_path
-                    clean_file_id = file_id
-                    print(f"✅ 使用备选路径1: {excel_path}")
-                else:
-                    # 🔥🔥🔥 备选方案2：如果是数字ID，查询数据库获取UUID
-                    if clean_file_id.isdigit():
-                        print(f"🔍🔍 尝试备选方案2: 数字ID查询数据库 {clean_file_id}")
-                        conn = db.connect()
-                        if conn:
-                            c = conn.cursor()
-                            c.execute("SELECT filename FROM files WHERE id = ? AND deleted = 0", (clean_file_id,))
-                            row = c.fetchone()
-                            conn.close()
-
-                            if row:
-                                real_uuid = row["filename"].split('.')[0] if '.' in row["filename"] else row["filename"]
-                                print(f"✅ 找到数据库对应UUID: {real_uuid}")
-
-                                alt_excel_dir2 = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / real_uuid
-                                alt_excel_path2 = alt_excel_dir2 / excel_file_name
-                                print(f"🔍🔍 尝试数据库路径: {alt_excel_path2}")
-
-                                if alt_excel_path2.exists():
-                                    excel_dir = alt_excel_dir2
-                                    excel_path = alt_excel_path2
-                                    clean_file_id = real_uuid
-                                    print(f"✅ 使用数据库路径: {excel_path}")
-                                else:
-                                    return jsonify({"success": False, "error": "Excel文件不存在"}), 404
-                            else:
-                                return jsonify({"success": False, "error": "Excel文件不存在"}), 404
-                        else:
-                            return jsonify({"success": False, "error": "Excel文件不存在"}), 404
-                    else:
-                        return jsonify({"success": False, "error": "Excel文件不存在"}), 404
-            else:
-                return jsonify({"success": False, "error": "Excel文件不存在"}), 404
-
-        print(f"✅ Excel文件存在: {excel_path}")
-
-        # 2. 读取Excel文件
-        try:
-            import pandas as pd
-            print("🎯 直接读取Excel文件数据")
-
-            # 读取指定的sheet
-            df = pd.read_excel(
-                excel_path,
-                sheet_name=sheet_name,
-                header=None,  # 不自动识别表头
-                dtype=str  # 全部读取为字符串
-            )
-
-            # 将NaN替换为空字符串
-            df = df.fillna('')
-
-            # 🔥🔥🔥 转换为二维列表
-            data = df.values.tolist()
-
-            print(f"✅ 成功读取sheet '{sheet_name}'，数据形状: {len(data)}行 x {len(data[0]) if data else 0}列")
-
-            # 🔥🔥🔥 提取元数据
-            # 🔥🔥🔥 关键修改1：初始化包含所有valid_keys字段的元数据字典
-            valid_keys = ["bankname", "currency", "report_period", "unit", "table_name", "ocr_table_id", "entity"]
-            metadata = {key: "" for key in valid_keys}  # 🔥 所有字段初始为空字符串
-
-            clean_data = []
-
-            for row in data:
-                if not row or not row[0]:
-                    clean_data.append(row)
-                    continue
-
-                first_cell = str(row[0]).strip()
-
-                # 查找包含冒号的行作为元数据
-                if ":" in first_cell:
-                    try:
-                        key, value = first_cell.split(":", 1)
-                        key = key.strip().lower()
-                        value = value.strip()
-
-                        # 🔥🔥🔥 关键修改2：如果是有效键，更新元数据字典
-                        if key in valid_keys:
-                            metadata[key] = value
-                            print(f"✅ 找到并设置元数据: {key} = {value}")
-                        clean_data.append(row)
-                    except:
-                        clean_data.append(row)
-                else:
-                    clean_data.append(row)
-
-            # 🔥 打印所有元数据字段的状态
-            print(f"📋 元数据最终状态:")
-            for key in valid_keys:
-                value = metadata.get(key, "")
-                print(f"  {key}: '{value}'")
-
-            result = {
-                "success": True,
-                "data": clean_data,  # 返回清理后的数据
-                "rows": len(clean_data),
-                "cols": len(clean_data[0]) if clean_data else 0,
-                "sheet_name": sheet_name,
-                "excel_file": excel_file_name,
-                "metadata": metadata,  # 🔥 返回提取的元数据
-                "has_custom_metadata": bool(metadata),  # 🔥 标记是否有元数据
-                "file_path": str(excel_path)
-            }
-
-            # 🔥🔥🔥 返回前端期望的格式
-            return jsonify(result)
-
-        except Exception as e:
-            print(f"❌ 读取Excel文件失败: {e}")
-            import traceback
-            traceback.print_exc()
-            return jsonify({"success": False, "error": f"读取Excel文件失败: {str(e)}"}), 500
-
-    except Exception as e:
-        print(f"❌❌❌ 获取Excel数据API失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"success": False, "error": "获取Excel数据失败"}), 500
-
 
 @file_bp.route('/api/excel/save-final', methods=['POST'])
 def save_final_excel():
@@ -869,7 +714,6 @@ def save_final_excel():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'保存失败: {str(e)}'}), 500
-
 
 
 @file_bp.route('/api/excel-data/<path:filename>')
@@ -1428,4 +1272,673 @@ def download_final_file(pdf_id, file_name):
     except Exception as e:
         print(f"❌ 下载错误: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def delete_excel_sheet(pdf_id, excel_file, sheet_name, excel_path, db):
+    """
+    从Excel文件中删除指定的sheet
+    """
+    try:
+        import pandas as pd
+        from openpyxl import load_workbook
+
+        print(f"🗑️ 删除sheet: {excel_file} -> {sheet_name}")
+
+        # 1. 检查文件是否存在
+        if not excel_path.exists():
+            error_msg = f'Excel文件不存在: {excel_path}'
+            print(f"❌ {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+        # 2. 加载工作簿
+        workbook = load_workbook(str(excel_path))
+
+        # 3. 检查sheet是否存在
+        if sheet_name not in workbook.sheetnames:
+            error_msg = f'Sheet不存在: {sheet_name}'
+            print(f"❌ {error_msg}")
+            return {'success': False, 'error': error_msg}
+
+        # 4. 删除sheet
+        sheet_to_delete = workbook[sheet_name]
+        workbook.remove(sheet_to_delete)
+
+        # 5. 保存工作簿
+        workbook.save(str(excel_path))
+
+        print(f"✅ 成功删除sheet: {sheet_name}")
+
+        return {
+            'success': True,
+            'message': f'成功删除sheet: {sheet_name}',
+            'file': str(excel_path),
+            'deleted_sheet': sheet_name
+        }
+
+    except Exception as e:
+        error_msg = f'删除sheet失败: {str(e)}'
+        print(f"❌ {error_msg}")
+        return {'success': False, 'error': error_msg}
+
+
+# ========== 新增的合并数据接口 ==========
+@file_bp.route('/api/excel/merge-sheets', methods=['POST'])
+def merge_sheets():
+    """
+    合并两个sheet的数据
+    条件：
+    1. 当前sheet名称必须包含_1_，目标sheet名称必须包含_T_
+    2. 两个sheet的页号必须是连续的
+    3. 表头一致性：当前表格可以没有表头，或者有表头但必须与前面表格表头完全相同
+    4. 列数必须一致
+    合并逻辑：
+    1. 当前表格：在第二列中查找"列标记"，保留该行之前的数据
+    2. 前面表格：在第二列中查找"列标记"
+    3. 将当前表格保留的数据插入到前面表格的"列标记"行前面
+    """
+    try:
+        data = request.get_json()
+        print("🔄 收到合并sheet请求...")
+
+        # 检查请求数据是否为空
+        if not data:
+            print("❌ 请求数据为空")
+            return jsonify({
+                'success': False,
+                'error': '请求数据为空'
+            }), 400
+
+        # 打印请求数据摘要
+        print(f"🔍 请求数据摘要:")
+        print(f"  请求键: {list(data.keys())}")
+
+        # 基本验证
+        required_fields = ['sourceSheet', 'targetSheet', 'currentData']
+        missing_fields = [field for field in required_fields if field not in data]
+
+        if missing_fields:
+            error_msg = f'缺少必要字段: {missing_fields}'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        source_sheet = data['sourceSheet']
+        target_sheet = data['targetSheet']
+        current_data = data['currentData']
+
+        # 验证sheet信息
+        required_sheet_fields = ['name', 'excelFile']
+        sheet_errors = []
+
+        for sheet_name, sheet_data in [('sourceSheet', source_sheet), ('targetSheet', target_sheet)]:
+            for field in required_sheet_fields:
+                if field not in sheet_data:
+                    sheet_errors.append(f'{sheet_name}.{field}')
+
+        if sheet_errors:
+            error_msg = f'sheet信息不完整，缺少字段: {sheet_errors}'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        current_sheet_name = source_sheet['name']
+        previous_sheet_name = target_sheet['name']
+        excel_file = source_sheet['excelFile']
+        pdf_id = source_sheet.get('pdfId')
+
+        # 确保pdf_id是字符串
+        if pdf_id is not None:
+            pdf_id = str(pdf_id)
+
+        print(f"🔍 开始验证sheet合并条件:")
+        print(f"  当前sheet: {current_sheet_name}")
+        print(f"  目标sheet: {previous_sheet_name}")
+        print(f"  Excel文件: {excel_file}")
+        print(f"  PDF ID: {pdf_id}")
+
+        # ========== 第一步：验证sheet名称 ==========
+        def extract_page_number(sheet_name):
+            """从sheet名称中提取页号"""
+            if not sheet_name or not isinstance(sheet_name, str):
+                return None
+
+            import re
+            patterns = [
+                r'P(\d+)_',  # P001_
+                r'P(\d+)-',  # P001-
+                r'[Pp](\d+)_',  # p001_
+                r'[Pp](\d+)-',  # p001-
+            ]
+
+            for pattern in patterns:
+                match = re.search(pattern, sheet_name)
+                if match:
+                    try:
+                        return int(match.group(1))
+                    except (ValueError, IndexError):
+                        continue
+            return None
+
+        # 检查当前sheet是否包含_1_
+        if '_1_' not in str(current_sheet_name):
+            error_msg = f'当前sheet"{current_sheet_name}"必须包含"_1_"'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        # 检查目标sheet是否包含_T_
+        if '_T_' not in str(previous_sheet_name):
+            error_msg = f'目标sheet"{previous_sheet_name}"必须包含"_T_"'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        # 提取页号
+        current_page = extract_page_number(str(current_sheet_name))
+        previous_page = extract_page_number(str(previous_sheet_name))
+
+        if current_page is None:
+            error_msg = f'无法从当前sheet"{current_sheet_name}"提取页号'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        if previous_page is None:
+            error_msg = f'无法从目标sheet"{previous_sheet_name}"提取页号'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        # 检查页号连续性
+        if current_page - previous_page != 1:
+            error_msg = f'页号不连续：当前页{current_page}，目标页{previous_page}，差值应为1'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        print(f"✅ sheet验证通过:")
+        print(f"  当前页号: {current_page}")
+        print(f"  目标页号: {previous_page}")
+        print(f"  页号连续: {current_page} - {previous_page} = 1")
+
+        # ========== 第二步：获取目标表格数据 ==========
+        print(f"📥 获取目标sheet数据: {previous_sheet_name}")
+
+        try:
+            # 直接读取Excel文件
+            import pandas as pd
+
+            # 1. 获取正确的PDF ID
+            pdf_id_str = str(pdf_id) if pdf_id is not None else ""
+
+            # 如果pdf_id是数字，查询数据库获取实际的UUID
+            if pdf_id_str.isdigit():
+                conn = db.connect()
+                if conn:
+                    c = conn.cursor()
+                    c.execute("SELECT filename FROM files WHERE id = ? AND deleted = 0", (int(pdf_id_str),))
+                    row = c.fetchone()
+                    conn.close()
+
+                    if row:
+                        # 提取UUID部分
+                        real_uuid = row["filename"].split('.')[0] if '.' in row["filename"] else row["filename"]
+                        pdf_id_str = real_uuid
+
+            # 2. 构建Excel文件路径
+            clean_file_id = pdf_id_str
+            excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+            excel_path = excel_dir / excel_file
+
+            print(f"🔍 尝试读取Excel文件: {excel_path}")
+
+            if not excel_path.exists():
+                error_msg = f'Excel文件不存在: {excel_path}'
+                print(f"❌ {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 404
+
+            # 3. 读取Excel文件
+            df = pd.read_excel(
+                excel_path,
+                sheet_name=previous_sheet_name,
+                header=None,
+                dtype=str
+            )
+
+            # 将NaN替换为空字符串
+            df = df.fillna('')
+
+            # 转换为二维列表
+            target_data = df.values.tolist()
+
+            print(f"✅ 成功读取目标sheet '{previous_sheet_name}'")
+            print(f"  数据形状: {len(target_data)}行 x {len(target_data[0]) if target_data else 0}列")
+
+        except Exception as e:
+            error_msg = f'获取目标sheet数据失败: {str(e)}'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 500
+
+        if not target_data or not isinstance(target_data, list) or len(target_data) == 0:
+            error_msg = f'目标sheet"{previous_sheet_name}"数据为空'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        if not current_data or not isinstance(current_data, list) or len(current_data) == 0:
+            error_msg = '当前sheet数据为空或格式不正确'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
+
+        # ========== 第三步：验证表头一致性 ==========
+        print(f"🔍 验证表头一致性...")
+
+        # 1. 获取前面表格的表头
+        previous_header = []
+        if target_data and len(target_data) > 0:
+            previous_header = target_data[0]
+            print(f"  前面表格表头: {previous_header}")
+
+        # 2. 检查当前表格是否有表头
+        current_has_header = False
+        current_header = []
+        if current_data and len(current_data) > 0:
+            first_row = current_data[0]
+            # 检查第一行是否可能是表头
+            is_header_row = True
+            for cell in first_row:
+                if cell is not None and str(cell).strip() != "":
+                    cell_str = str(cell).strip()
+                    # 检查是否是纯数字（可能是数据）
+                    if cell_str.replace('.', '').replace(',', '').isdigit():
+                        is_header_row = False
+                        break
+                    # 检查文本长度（表头通常较短）
+                    if len(cell_str) > 50:
+                        is_header_row = False
+                        break
+
+            if is_header_row:
+                current_has_header = True
+                current_header = first_row
+                print(f"  当前表格有表头: {current_header}")
+            else:
+                print(f"  当前表格没有表头，第一行是数据: {first_row}")
+
+        # 3. 验证表头一致性
+        if current_has_header:
+            # 情况B：当前表格有表头，必须与前面表格表头完全相同
+            if len(previous_header) != len(current_header):
+                error_msg = f'表头列数不一致：前面表格{len(previous_header)}列，当前表格{len(current_header)}列'
+                print(f"❌ {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 400
+
+            # 检查每个列名是否一致
+            mismatched_columns = []
+            for i, (prev_col, curr_col) in enumerate(zip(previous_header, current_header)):
+                prev_str = str(prev_col).strip() if prev_col is not None else ''
+                curr_str = str(curr_col).strip() if curr_col is not None else ''
+
+                if prev_str != curr_str:
+                    mismatched_columns.append({
+                        'index': i + 1,
+                        'previous': prev_str,
+                        'current': curr_str
+                    })
+
+            if mismatched_columns:
+                error_msg = '表头不匹配:\n' + '\n'.join([
+                    f'  第{col["index"]}列: 前面"{col["previous"]}"，当前"{col["current"]}"'
+                    for col in mismatched_columns[:5]
+                ])
+                if len(mismatched_columns) > 5:
+                    error_msg += f'\n  ... 还有{len(mismatched_columns) - 5}个不匹配'
+
+                print(f"❌ {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 400
+
+            print(f"✅ 表头完全一致，可以合并")
+        else:
+            # 情况A：当前表格没有表头
+            print(f"✅ 当前表格没有表头，可以合并（前提是列数一致）")
+
+        # 4. 验证列数一致性
+        if not current_has_header and current_data and len(current_data) > 0:
+            # 当前表格没有表头，需要验证数据行与前面表格的列数是否一致
+            first_data_row = current_data[0]
+            if first_data_row and len(first_data_row) != len(previous_header):
+                error_msg = f'列数不一致：前面表格{len(previous_header)}列，当前表格数据{len(first_data_row)}列'
+                print(f"❌ {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 400
+
+        # ========== 第四步：数据合并 ==========
+        print(f"🔄 开始合并数据...")
+
+        # 1. 确定"列标记"行 - 修正：在第二列中查找
+        def find_column_marker_row_in_second_column(data, start_index=0):
+            """在第二列中查找列标记行"""
+            for i in range(start_index, len(data)):
+                row = data[i]
+                if row and len(row) > 1 and isinstance(row[1], str):  # 🔥 修正：检查第二列
+                    cell_value = str(row[1]).strip()
+                    # 检查是否是列标记行
+                    if '列标记' in cell_value:
+                        return i
+            return -1
+
+        # 2. 处理前面表格（目标表格）数据
+        # 在前面表格的第二列中查找列标记行
+        previous_marker_index = find_column_marker_row_in_second_column(target_data, 1)  # 从第2行开始查找
+
+        if previous_marker_index >= 0:
+            # 有列标记行的情况
+            # 前面表格的表头
+            previous_header = target_data[0] if target_data else []
+
+            # 前面表格的列标记之前数据（从第1行到列标记行之前）
+            previous_before_marker = target_data[1:previous_marker_index] if previous_marker_index > 1 else []
+
+            # 前面表格的列标记行
+            previous_marker_row = target_data[previous_marker_index] if previous_marker_index < len(target_data) else []
+
+            # 前面表格的列标记之后数据
+            previous_after_marker = target_data[previous_marker_index + 1:] if previous_marker_index + 1 < len(
+                target_data) else []
+
+            print(f"📊 前面表格数据分割:")
+            print(f"  表头: 1行")
+            print(f"  列标记之前数据: {len(previous_before_marker)}行")
+            print(f"  列标记行位置: 第{previous_marker_index}行")
+            print(
+                f"  列标记行第二列内容: {previous_marker_row[1] if previous_marker_row and len(previous_marker_row) > 1 else 'N/A'}")
+            print(f"  列标记之后数据: {len(previous_after_marker)}行")
+        else:
+            # 没有找到列标记行
+            previous_header = target_data[0] if target_data else []
+            previous_before_marker = target_data[1:] if len(target_data) > 1 else []
+            previous_marker_row = None
+            previous_after_marker = []
+
+            print(f"⚠️ 前面表格没有找到列标记行:")
+            print(f"  表头: 1行")
+            print(f"  所有数据行: {len(previous_before_marker)}行")
+
+        # 3. 处理当前表格（源表格）数据
+        # 确定当前表格的数据起始位置
+        current_data_start = 0
+        if current_has_header:
+            # 如果有表头，从第二行开始
+            current_data_start = 1
+
+        # 获取当前表格的有效数据
+        current_valid_data = current_data[current_data_start:] if current_data else []
+
+        # 在当前表格的第二列中查找列标记行
+        current_marker_index = find_column_marker_row_in_second_column(current_valid_data)
+
+        if current_marker_index >= 0:
+            # 🔥 关键修正：有列标记行，只取列标记**之前**的数据
+            current_keep_data = current_valid_data[:current_marker_index]
+            print(f"🔍 当前表格在第二列中找到列标记行，只取前{current_marker_index}行数据（列标记之前）")
+            print(
+                f"  丢弃列标记行（第{current_marker_index}行）及之后的{len(current_valid_data) - current_marker_index}行数据")
+
+            # 调试：显示找到的列标记行
+            if current_marker_index < len(current_valid_data):
+                marker_row = current_valid_data[current_marker_index]
+                print(f"  找到的列标记行第二列内容: {marker_row[1] if len(marker_row) > 1 else 'N/A'}")
+        else:
+            # 没有列标记行，取所有数据
+            current_keep_data = current_valid_data
+            print(f"🔍 当前表格没有找到列标记行，取所有{len(current_keep_data)}行数据")
+
+        print(f"📊 当前表格保留数据: {len(current_keep_data)}行")
+
+        # 4. 验证列数一致性（再次验证）
+        if current_keep_data and len(current_keep_data) > 0:
+            first_row_cols = len(current_keep_data[0])
+            header_cols = len(previous_header) if previous_header else 0
+
+            if first_row_cols != header_cols:
+                error_msg = f'数据列数不一致：表头{header_cols}列，当前表格数据{first_row_cols}列'
+                print(f"❌ {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 400
+
+        # 5. 合并数据
+        merged_data = []
+
+        # 5.1 添加表头（来自前面表格）
+        if previous_header:
+            merged_data.append(previous_header)
+            print(f"✅ 添加前面表格的表头")
+
+        # 5.2 添加前面表格的列标记之前数据
+        if previous_before_marker:
+            for row in previous_before_marker:
+                merged_data.append(row)
+            print(f"✅ 添加前面表格的列标记之前数据: {len(previous_before_marker)}行")
+
+        # 5.3 🔥 关键修正：插入当前表格的数据到前面表格列标记之前
+        if current_keep_data:
+            for row in current_keep_data:
+                merged_data.append(row)
+            print(f"✅ 插入当前表格的数据到前面表格列标记之前: {len(current_keep_data)}行")
+
+        # 5.4 添加前面表格的列标记行
+        if previous_marker_row is not None:
+            merged_data.append(previous_marker_row)
+            print(f"✅ 添加前面表格的列标记行")
+
+        # 5.5 添加前面表格的列标记之后数据
+        if previous_after_marker:
+            for row in previous_after_marker:
+                merged_data.append(row)
+            print(f"✅ 添加前面表格的列标记之后数据: {len(previous_after_marker)}行")
+
+        print(f"✅ 数据合并完成:")
+        print(f"  合并后总行数: {len(merged_data)}")
+        print(f"  原始前面表格行数: {len(target_data)}")
+        print(f"  新增行数（来自当前表格）: {len(current_keep_data)}行")
+
+        # ========== 第五步：保存合并后的数据 ==========
+        print(f"💾 保存合并后的数据到目标sheet...")
+
+        try:
+            # 使用ExcelDataHandler保存数据
+            result = excel_data_handler.save_complete_table_data(
+                pdf_id_str, excel_file, previous_sheet_name, merged_data, 'original', db
+            )
+
+            if not result.get('success', True):
+                error_msg = f'保存合并数据失败: {result.get("error", "未知错误")}'
+                print(f"❌ {error_msg}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 500
+
+            print(f"✅ 数据保存成功: {result.get('message')}")
+
+        except Exception as e:
+            error_msg = f'保存合并数据失败: {str(e)}'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 500
+
+        # ========== 第六步：删除当前sheet ==========
+        print(f"🗑️ 开始删除当前sheet: {current_sheet_name}")
+
+        delete_source_sheet = data.get('metadata', {}).get('deleteSourceSheet', True)
+        source_sheet_deleted = False
+
+        if delete_source_sheet:
+            try:
+                # 删除当前sheet
+                delete_result = delete_excel_sheet(
+                    pdf_id_str, excel_file, current_sheet_name, excel_path, db
+                )
+
+                if delete_result.get('success', True):
+                    source_sheet_deleted = True
+                    print(f"✅ 成功删除当前sheet: {current_sheet_name}")
+                else:
+                    error_msg = f'合并成功但删除当前sheet失败: {delete_result.get("error", "未知错误")}'
+                    print(f"⚠️ {error_msg}")
+
+            except Exception as e:
+                error_msg = f'删除当前sheet时出错: {str(e)}'
+                print(f"⚠️ {error_msg}")
+
+        # ========== 第七步：返回成功响应 ==========
+        response_data = {
+            'success': True,
+            'message': f'数据合并成功{"，当前表格已删除" if source_sheet_deleted else ""}',
+            'metadata': {
+                'mergedSheet': previous_sheet_name,
+                'sourceSheet': current_sheet_name,
+                'currentPage': current_page,
+                'previousPage': previous_page,
+                'totalRows': len(merged_data),
+                'headerRows': 1,
+                'dataRows': len(merged_data) - 1,
+                'rowsAdded': len(current_keep_data),
+                'sourceSheetDeleted': source_sheet_deleted,
+                'previousMarkerFound': previous_marker_index >= 0,
+                'previousMarkerIndex': previous_marker_index,
+                'currentMarkerFound': current_marker_index >= 0,
+                'currentMarkerIndex': current_marker_index
+            },
+            'summary': {
+                'originalRows': len(target_data),
+                'currentRows': len(current_keep_data),
+                'mergedRows': len(merged_data),
+                'headerConsistent': current_has_header
+            }
+        }
+
+        print(f"✅ 合并成功，返回响应")
+        return jsonify(response_data)
+
+    except Exception as e:
+        error_msg = f'合并失败: {str(e)}'
+        print(f"❌❌ {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        }), 500
+
+
+
+# 为了能够在merge_sheets函数中调用save_final_excel，需要重新定义save_final_excel的包装函数
+def save_final_excel():
+    """包装save_final_excel路由函数，使其可以在merge_sheets中调用"""
+    from flask import request
+
+    # 获取请求数据
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': '缺少请求数据'}), 400
+
+    # 调用原始的save_final_excel路由处理逻辑
+    return save_final_excel_original(data)
+
+
+def save_final_excel_original(data):
+    """保存数据的原始逻辑，从save_final_excel路由中提取"""
+    print("******************** 保存整个表格（保护其他Sheet） ******************")
+
+    # 基础校验
+    required_fields = ['pdf_id', 'excel_file', 'sheet_name', 'table_type', 'data']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'缺少必要字段: {field}'}), 400
+
+    try:
+        pdf_id = data['pdf_id']
+        excel_file = data['excel_file']
+        sheet_name = data['sheet_name']
+        table_type = data['table_type']
+        table_data = data['data']
+
+        print(f"💾 保存数据: PDF={pdf_id}, 文件={excel_file}, Sheet={sheet_name}, 类型={table_type}")
+        print(f"📊 接收数据: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
+
+        # 根据表类型选择保存方式
+        if table_type == 'original':
+            result = excel_data_handler.save_complete_table_data(pdf_id, excel_file, sheet_name, table_data, table_type,
+                                                                 db)
+        elif table_type == 'flattened':
+            result = excel_data_handler.save_flattened_table_data(pdf_id, excel_file, sheet_name, table_data,
+                                                                  table_type, db)
+        else:
+            return jsonify({'error': f'不支持的表类型: {table_type}'}), 400
+
+        if not result['success']:
+            return jsonify({'success': False, 'error': result['error']}), 500
+
+        return jsonify({
+            'success': True,
+            'message': '表格数据保存成功',
+            'saved_count': result.get('saved_rows', 0),
+            'data_dimensions': result.get('data_dimensions', '未知'),
+            'excel_updated': result.get('excel_updated', False),
+            'sheets_protected': result.get('sheets_protected', False),
+            'protected_sheets_count': result.get('protected_sheets_count', 0),
+            'file_created': result.get('file_created', False)
+        }), 200
+
+    except Exception as e:
+        print(f"❌ 保存失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'保存失败: {str(e)}'}), 500
+
+
+# 修改原始的save_final_excel路由，使其使用包装函数
+@file_bp.route('/api/excel/save-final', methods=['POST'])
+def save_final_excel_route():
+    """统一保存整个表格数据 - 保护其他Sheet"""
+    return save_final_excel_original(request.json)
+
 
