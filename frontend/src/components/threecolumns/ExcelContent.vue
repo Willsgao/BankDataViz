@@ -708,6 +708,54 @@ const extractPageNumber = (sheetName) => {
 }
 
 
+
+// 🔥 新增：仅保存到本地草稿的函数（如果不存在则添加）
+const saveToLocalDraftOnly = (tableType) => {
+  if (!selectedPdf.value || !selectedSheet.value) {
+    console.warn('❌ 保存本地草稿失败：缺少PDF或Sheet信息');
+    return;
+  }
+
+  try {
+    console.log('💾 开始保存到本地草稿，表类型:', tableType);
+
+    const draftKey = ExcelKey.getDraftKey(
+      selectedPdf.value.id,
+      selectedExcelFile.value,
+      selectedSheet.value.name,
+      tableType
+    );
+
+    const hot = getActiveHotInstance();
+    if (hot && !hot.isDestroyed) {
+      const fullData = hot.getSourceData() || [];
+      const modifications = Array.from(window.unsavedCells?.[tableType] || []);
+
+      const draft = {
+        fullData,
+        modifications,
+        savedAt: Date.now(),
+        tableType,
+        backendSaved: false,
+        rowRemovals: window.unsavedRowRemovals?.[tableType] || 0
+      };
+
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+      console.log('✅ 已保存到本地草稿:', {
+        键: draftKey,
+        数据行数: fullData.length,
+        修改数: modifications.length,
+        删除行数: draft.rowRemovals
+      });
+    } else {
+      console.warn('⚠️ 无法获取表格实例，跳过本地草稿保存');
+    }
+  } catch (error) {
+    console.error('❌❌ 保存到本地草稿失败:', error);
+  }
+};
+
+
 // 选中区域合计数据
 const selectionSumData = ref({
   visible: false,
@@ -817,9 +865,35 @@ const handleSaveDraft = async () => {
 }
 
 /* ===== 计算属性 ===== */
-const enableSaveButtons = computed(() => {
+const enableSaveButtons0000 = computed(() => {
   const result = props.selectedSheet && props.actualHasUnsavedChanges
   return result
+})
+
+const enableSaveButtons = computed(() => {
+  // 原有逻辑：检查是否有选中的Sheet和实际未保存更改
+  const result = props.selectedSheet && props.actualHasUnsavedChanges
+
+  // 🔥 修复：通过组件自身的props获取表格类型
+  const tableType = props.showFlatMode ? 'flattened' : 'original';
+
+  // 🔥 修复：增加对"删除行"未保存状态的检查
+  const hasUnsavedRemovals = typeof window !== 'undefined'
+    ? (window.unsavedRowRemovals?.[tableType] || 0) > 0
+    : false;
+
+  // 调试日志
+  console.log('💾 保存按钮状态检查:', {
+    选中Sheet: !!props.selectedSheet,
+    实际未保存更改: props.actualHasUnsavedChanges,
+    表格类型: tableType,
+    删除行记录: window.unsavedRowRemovals?.[tableType] || 0,
+    有未保存删除行: hasUnsavedRemovals,
+    基础结果: result,
+    最终结果: result || hasUnsavedRemovals
+  })
+
+  return result || hasUnsavedRemovals
 })
 
 
@@ -952,6 +1026,7 @@ watch(() => props.selectedSheet, (newSheet, oldSheet) => {
 })
 
 
+
 // 🔥🔥 修复：只定义一次函数
 const forceRefreshHandsontable = () => {
   console.log('🔄🔄 开始强制刷新Handsontable...')
@@ -999,6 +1074,221 @@ const forceRefreshHandsontable = () => {
     }
 
     console.log('✅ 表格强制刷新完成')
+
+    // ==================== 🔥 关键新增：刷新后重新添加删除行监听器 ====================
+    setTimeout(() => {
+      console.log('🔧 表格刷新完成，等待300ms后重新设置删除行监听器...')
+
+      // 重新获取当前活跃的表格实例
+      const currentViewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+      if (!currentViewer) {
+        console.warn('⚠️ 刷新后无法获取表格查看器')
+        return
+      }
+
+      const refreshedInstance = currentViewer.getSafeHotInstance?.()
+      if (!refreshedInstance || refreshedInstance.isDestroyed) {
+        console.warn('⚠️ 刷新后无法获取表格实例')
+        return
+      }
+
+      console.log('🔧 开始重新添加删除行监听器，实例GUID:', refreshedInstance.guid)
+
+      // 检查当前是否有监听器（使用 hasHook）
+      console.log('🔍 检查当前监听器状态:')
+      if (typeof refreshedInstance.hasHook === 'function') {
+        const hasExistingHook = refreshedInstance.hasHook('afterRemoveRow')
+        console.log('   - hasHook("afterRemoveRow"):', hasExistingHook)
+        console.log('   - 实例GUID:', refreshedInstance.guid)
+
+        // 如果已有监听器，先移除旧的
+        if (hasExistingHook) {
+          console.log('🗑️ 移除旧的监听器...')
+          if (typeof refreshedInstance.removeHook === 'function') {
+            refreshedInstance.removeHook('afterRemoveRow')
+            console.log('✅ 旧监听器已移除')
+          }
+        }
+      } else {
+        console.log('⚠️ 无法检查监听器状态，hasHook 方法不存在')
+      }
+
+      // 添加新的删除行监听器
+      refreshedInstance.addHook('afterRemoveRow', (index, amount, physicalRows, source) => {
+        console.log('🔥🔥🔥 刷新后监听器触发: 检测到删除行操作', {
+          index,
+          amount,
+          source,
+          时间戳: Date.now(),
+          实例GUID: refreshedInstance.guid
+        })
+
+        // 创建数据变更信息
+        const changeInfo = {
+          isEditMode: true,
+          hasChanges: true,
+          operation: 'removeRows',
+          details: {
+            startIndex: index,
+            removedCount: amount,
+            source: source,
+            refreshType: 'forceRefresh',
+            instanceGuid: refreshedInstance.guid
+          },
+          allChanges: []
+        }
+
+        // 发射数据变更事件
+        emit('data-changed', changeInfo)
+
+        // 发射编辑状态变更事件
+        emit('edit-status-changed', {
+          hasChanges: true,
+          operation: 'rowRemovalAfterRefresh',
+          affectedRows: amount
+        })
+
+        console.log('✅ 删除行操作已通过刷新后监听器处理')
+      })
+
+      // 验证监听器是否成功添加（使用 hasHook）
+      console.log('✅ 刷新后监听器设置完成:')
+      if (typeof refreshedInstance.hasHook === 'function') {
+        const hasNewHook = refreshedInstance.hasHook('afterRemoveRow')
+        console.log('   - hasHook("afterRemoveRow"):', hasNewHook)
+        console.log('   - 实例GUID:', refreshedInstance.guid)
+        console.log('   - 设置成功:', hasNewHook)
+      } else {
+        console.log('⚠️ 无法验证监听器，hasHook 方法不存在')
+        console.log('   但监听器已尝试添加，实例GUID:', refreshedInstance.guid)
+      }
+    }, 300) // 延迟300ms，确保表格渲染完成
+    // ==================== 🔥 关键新增结束 ====================
+
+  } catch (error) {
+    console.error('❌❌ 表格刷新失败:', error)
+    retryCount = 0 // 🔥 出错时也重置计数器
+  }
+}
+
+
+const forceRefreshHandsontable00000 = () => {
+  console.log('🔄🔄 开始强制刷新Handsontable...')
+
+  try {
+    const viewer = props.showFlatMode ? flatViewer.value : originalViewer.value
+
+    if (!viewer) {
+      console.log('⏳⏳⏳ 表格视图未就绪，稍后重试...')
+
+      // 🔥 关键修复：先检查再增加
+      if (retryCount >= MAX_RETRY_COUNT) {
+        retryCount = 0 // 重置计数器
+        return
+      }
+
+      retryCount++ // 增加重试计数
+
+      setTimeout(() => {
+        console.log(`🔄🔄 第${retryCount}次重试...`)
+        forceRefreshHandsontable()
+      }, 500)
+      return
+    }
+
+    // 🔥 成功获取viewer时重置计数器
+    retryCount = 0
+
+    const hotInstance = viewer.getSafeHotInstance?.()
+    if (!hotInstance) {
+      console.error('❌❌ 无法获取Handsontable实例')
+      return
+    }
+
+    if (hotInstance.isDestroyed) {
+      console.error('❌❌ Handsontable实例已销毁')
+      return
+    }
+
+    hotInstance.render()
+    hotInstance.updateSettings({}, false)
+
+    if (props.excelData && props.excelData.length > 0) {
+      hotInstance.loadData(props.excelData)
+    }
+
+    console.log('✅ 表格强制刷新完成')
+
+    // 🔥🔥 关键新增：刷新后重新添加删除行监听器
+    console.log('⏳ 表格刷新完成，等待300ms后重新设置监听器...')
+    setTimeout(() => {
+      console.log('🔄 开始重新设置删除行监听器')
+
+      // 重新获取实例，确保是当前活跃的实例
+      const refreshedInstance = viewer.getSafeHotInstance?.()
+      if (!refreshedInstance || refreshedInstance.isDestroyed) {
+        console.warn('⚠️ 表格实例在刷新后被销毁，无法设置监听器')
+        return
+      }
+
+      // 检查是否需要重新设置监听器
+      const existingHooks = refreshedInstance.getHooks('afterRemoveRow')
+      console.log('🔍 检查当前监听器状态:', {
+        已有监听器数量: existingHooks?.length || 0,
+        实例GUID: refreshedInstance.guid
+      })
+
+      // 如果已有监听器，先移除旧的
+      if (existingHooks && existingHooks.length > 0) {
+        console.log('🗑️ 移除旧的监听器...')
+        refreshedInstance.removeHook('afterRemoveRow')
+      }
+
+      // 添加新的删除行监听器
+      refreshedInstance.addHook('afterRemoveRow', (index, amount, physicalRows, source) => {
+        console.log('🔥🔥🔥 表格刷新后监听器触发: 删除行操作', {
+          index,
+          amount,
+          source,
+          timestamp: Date.now()
+        })
+
+        // 创建数据变更信息
+        const changeInfo = {
+          isEditMode: true,
+          hasChanges: true,
+          operation: 'removeRows',
+          details: {
+            startIndex: index,
+            removedCount: amount,
+            source: source,
+            refreshType: 'forceRefresh',
+            instanceGuid: refreshedInstance.guid
+          },
+          allChanges: []
+        }
+
+        // 发射数据变更事件
+        emit('data-changed', changeInfo)
+
+        // 发射编辑状态变更事件
+        emit('edit-status-changed', {
+          hasChanges: true,
+          operation: 'rowRemovalAfterRefresh',
+          affectedRows: amount
+        })
+
+        console.log('✅ 删除行操作已通过刷新后监听器处理')
+      })
+
+      // 验证监听器是否成功添加
+      const newHooks = refreshedInstance.getHooks('afterRemoveRow')
+      console.log('✅ 刷新后监听器设置完成:', {
+        新监听器数量: newHooks?.length || 0,
+        设置成功: (newHooks?.length || 0) > 0,
+        实例GUID: refreshedInstance.guid
+      })
+    }, 300) // 延迟300ms，确保表格渲染完成
 
   } catch (error) {
     console.error('❌❌ 表格刷新失败:', error)

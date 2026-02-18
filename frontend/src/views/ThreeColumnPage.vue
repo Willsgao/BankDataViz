@@ -173,8 +173,29 @@ import { Download, Close, Document, Grid, Loading, Timer } from '@element-plus/i
 import excelDataCache from '@/utils/excelDataCache'
 import dataManager from '@/utils/dataManager.js'
 import sheetStateManager from '@/utils/SheetStateManager.js'
-
 import cacheDebug from '@/utils/CacheDebugCenter';
+
+// ==================== 🔥 增强全局变量安全初始化 ====================
+if (typeof window !== 'undefined') {
+  console.log('🔧 开始初始化全局变量...')
+
+  // 🔥 强制初始化，无论是否存在
+  window.unsavedRowRemovals = window.unsavedRowRemovals || {}
+  console.log('✅ unsavedRowRemovals 状态:', window.unsavedRowRemovals)
+
+  if (!window.unsavedCells || !window.unsavedCells.original || !window.unsavedCells.flattened) {
+    window.unsavedCells = {
+      original: new Set(),
+      flattened: new Set()
+    }
+  }
+  console.log('✅ unsavedCells 状态:', window.unsavedCells)
+
+  window.currentHasChanges = window.currentHasChanges || false
+  console.log('✅ 所有全局变量初始化完成')
+}
+// ==================== 🔥 全局变量安全初始化结束 ====================
+
 
 // 新增：用于强制触发计算属性更新的响应式变量
 const forceUnsavedUpdate = ref(0);
@@ -754,52 +775,129 @@ const autoSaveDraft = async () => {
 
   // 检查是否有未保存的修改
   const tableType = showFlatMode.value ? 'flattened' : 'original';
-  const hasChanges = window.unsavedCells?.[tableType]?.size > 0;
+
+  // 🔥 修改：同时检查单元格修改和删除行操作
+  const hasCellChanges = window.unsavedCells?.[tableType]?.size > 0;
+  const hasRowRemovals = window.unsavedRowRemovals?.[tableType] > 0;
+  const hasChanges = hasCellChanges || hasRowRemovals;
+
+  console.log('⏰ 自动保存检查:', {
+    表类型: tableType,
+    单元格修改: hasCellChanges,
+    删除行修改: hasRowRemovals,
+    总修改: hasChanges
+  });
 
   if (hasChanges) {
-    console.log('🔄🔄 检测到未保存修改，开始自动保存到后台...');
+    // 🔥🔥 新增：如果是纯删除行操作，延迟2秒保存
+    if (hasRowRemovals && !hasCellChanges) {
+      console.log('⏳ 检测到纯删除行操作，等待2秒后保存...', {
+        删除行数: window.unsavedRowRemovals?.[tableType] || 0
+      });
 
-    try {
-      // 调用修改后的 saveData 函数，传递 true 表示自动保存
-      const result = await saveData(true);
+      // 🔥 只增加一个时间延迟
+      setTimeout(async () => {
+        console.log('🔄🔄 2秒延迟后，开始自动保存删除行修改...', {
+          单元格修改数: window.unsavedCells?.[tableType]?.size || 0,
+          删除行数: window.unsavedRowRemovals?.[tableType] || 0,
+          表类型: tableType
+        });
 
-      if (result.success) {
-        console.log('✅✅ 自动保存到后台成功');
+        try {
+          // 调用修改后的 saveData 函数，传递 true 表示自动保存
+          const result = await saveData(true);
 
-        // 保存成功后，也保存到本地草稿作为备份
-        const draftKey = ExcelKey.getDraftKey(
-          selectedPdf.value.id,
-          selectedExcelFile.value,
-          selectedSheet.value.name,
-          tableType
-        );
+          if (result.success) {
+            console.log('✅✅ 删除行自动保存成功（2秒延迟后）');
 
-        const hot = getActiveHotInstance();
-        if (hot && !hot.isDestroyed) {
-          const fullData = hot.getSourceData() || [];
-          const modifications = Array.from(window.unsavedCells[tableType] || []);
+            // 保存成功后，也保存到本地草稿作为备份
+            const draftKey = ExcelKey.getDraftKey(
+              selectedPdf.value.id,
+              selectedExcelFile.value,
+              selectedSheet.value.name,
+              tableType
+            );
 
-          const draft = {
-            fullData,
-            modifications,
-            savedAt: Date.now(),
-            tableType,
-            backendSaved: true
-          };
-          localStorage.setItem(draftKey, JSON.stringify(draft));
+            const hot = getActiveHotInstance();
+            if (hot && !hot.isDestroyed) {
+              const fullData = hot.getSourceData() || [];
+              const modifications = Array.from(window.unsavedCells[tableType] || []);
+
+              const draft = {
+                fullData,
+                modifications,
+                savedAt: Date.now(),
+                tableType,
+                backendSaved: true
+              };
+              localStorage.setItem(draftKey, JSON.stringify(draft));
+            }
+          } else {
+            console.warn('⚠️⚠️ 删除行自动保存到后台失败，只保存到本地草稿');
+            // 后台保存失败时，只保存到本地草稿
+            saveToLocalDraftOnly(tableType);
+          }
+        } catch (error) {
+          console.error('❌❌ 删除行自动保存过程出错:', error);
+          // 出错时也保存到本地草稿
+          saveToLocalDraftOnly(tableType);
         }
-      } else {
-        console.warn('⚠️⚠️ 自动保存到后台失败，只保存到本地草稿');
-        // 后台保存失败时，只保存到本地草稿
+      }, 2000); // 🔥 2秒延迟
+
+    } else {
+      // 其他修改（单元格修改或混合修改）立即保存
+      console.log('🔄🔄 检测到未保存修改，开始自动保存到后台...', {
+        单元格修改数: window.unsavedCells?.[tableType]?.size || 0,
+        删除行数: window.unsavedRowRemovals?.[tableType] || 0,
+        表类型: tableType
+      });
+
+      try {
+        // 调用修改后的 saveData 函数，传递 true 表示自动保存
+        const result = await saveData(true);
+
+        if (result.success) {
+          console.log('✅✅ 自动保存到后台成功');
+
+          // 保存成功后，也保存到本地草稿作为备份
+          const draftKey = ExcelKey.getDraftKey(
+            selectedPdf.value.id,
+            selectedExcelFile.value,
+            selectedSheet.value.name,
+            tableType
+          );
+
+          const hot = getActiveHotInstance();
+          if (hot && !hot.isDestroyed) {
+            const fullData = hot.getSourceData() || [];
+            const modifications = Array.from(window.unsavedCells[tableType] || []);
+
+            const draft = {
+              fullData,
+              modifications,
+              savedAt: Date.now(),
+              tableType,
+              backendSaved: true
+            };
+            localStorage.setItem(draftKey, JSON.stringify(draft));
+          }
+        } else {
+          console.warn('⚠️⚠️ 自动保存到后台失败，只保存到本地草稿');
+          // 后台保存失败时，只保存到本地草稿
+          saveToLocalDraftOnly(tableType);
+        }
+      } catch (error) {
+        console.error('❌❌ 自动保存过程出错:', error);
+        // 出错时也保存到本地草稿
         saveToLocalDraftOnly(tableType);
       }
-    } catch (error) {
-      console.error('❌❌ 自动保存过程出错:', error);
-      // 出错时也保存到本地草稿
-      saveToLocalDraftOnly(tableType);
     }
+  } else {
+    console.log('⏸️ 无未保存修改，跳过自动保存');
   }
 };
+
+
 
 // 新增：仅保存到本地草稿的函数
 const saveToLocalDraftOnly = (tableType) => {
@@ -833,56 +931,93 @@ const saveToLocalDraftOnly = (tableType) => {
 
 
 let isRestoring = false
-
+// ThreeColumnPage.vue 中的 handleDataChanged 函数
 const handleDataChanged = (dataInfo) => {
-  console.log('📥 收到批量修改:', dataInfo)
+  console.log('📥 收到数据变更事件:', dataInfo);
 
   // 检查是否有选中的 sheet 和 pdf
   if (!selectedSheet.value || !selectedPdf.value) {
-    console.warn('❌ 没有选中的 sheet 或 pdf，忽略修改')
-    return
+    console.warn('❌ 没有选中的 sheet 或 pdf，忽略修改');
+    return;
   }
 
-  // 确定当前表类型
-  const currentTableType = showFlatMode.value ? 'flattened' : 'original'
-  console.log('🎯 当前表类型:', currentTableType)
+  const currentTableType = showFlatMode.value ? 'flattened' : 'original';
+  console.log('🎯 当前表类型:', currentTableType);
 
-  // 检查是否为编辑模式
+  // 🔥 优化点：检查是否为删除行操作
+  if (dataInfo.operation === 'removeRows') {
+    console.log(`🔄 处理删除行操作，删除了 ${dataInfo.details?.removedCount || 0} 行`);
+
+    // 初始化 DataManager 上下文
+    initDataManagerContext(selectedPdf.value, selectedSheet.value, selectedExcelFile.value);
+
+    // 对于删除行操作，设置全局修改状态
+    if (typeof window !== 'undefined') {
+      // 设置全局修改标志
+      window.currentHasChanges = true;
+
+      // 初始化删除行记录（如果需要）
+      if (!window.unsavedRowRemovals) window.unsavedRowRemovals = {};
+      if (!window.unsavedRowRemovals[currentTableType]) {
+        window.unsavedRowRemovals[currentTableType] = 0;
+      }
+      // 累加删除的行数
+      window.unsavedRowRemovals[currentTableType] += (dataInfo.details?.removedCount || 1);
+
+      console.log('🌍 更新全局删除行状态:', {
+        表类型: currentTableType,
+        删除行数: window.unsavedRowRemovals[currentTableType],
+        全局修改标志: window.currentHasChanges
+      });
+    }
+
+    // ✅ 设置脏锁，确保保存按钮可用
+    sheetEverDirty.value = true;
+    console.log('🔓 因删除行，清除最终保存锁定');
+
+    // 更新保存状态
+    updateSaveStatus();
+
+    // 触发自动保存
+    autoSaveDraft();
+
+    return; // 特殊处理完毕，返回
+  }
+
+  // 🔥 原有逻辑：检查是否为编辑模式
   if (!dataInfo.isEditMode || !dataInfo.hasChanges) {
-    console.log('⏸️ 非编辑模式或无修改，忽略')
-    return
+    console.log('⏸️ 非编辑模式或无修改，忽略');
+    return;
   }
 
-  // 关键修复：检查是否已经有活跃上下文，如果有说明已经处理过
-  const context = sheetStateManager.getActiveContext()
+  // 原有逻辑：检查是否已经有活跃上下文，如果有说明已经处理过
+  const context = sheetStateManager.getActiveContext();
   if (context &&
       context.pdfId === selectedPdf.value.id &&
       context.excelFile === selectedExcelFile.value &&
       context.sheetName === selectedSheet.value.name &&
       context.tableType === currentTableType) {
 
-    console.log('✅ 已有正确上下文，跳过批量记录以避免重复')
-    return
+    console.log('✅ 已有正确上下文，跳过批量记录以避免重复');
+    return;
   }
 
-  console.log(`🔄 批量记录 ${dataInfo.allChanges?.length || 0} 个修改（${currentTableType}表）`)
+  console.log(`🔄 批量记录 ${dataInfo.allChanges?.length || 0} 个修改（${currentTableType}表）`);
 
   // 初始化 DataManager 上下文
-  initDataManagerContext(selectedPdf.value, selectedSheet.value, selectedExcelFile.value)
+  initDataManagerContext(selectedPdf.value, selectedSheet.value, selectedExcelFile.value);
 
   if (dataInfo.allChanges && dataInfo.allChanges.length > 0) {
     dataInfo.allChanges.forEach((change) => {
-
       // 关键修复：检查新值是否有效，避免空值覆盖
       if (change.newValue !== null && change.newValue !== '') {
-
         dataManager.recordCellChange(
           change.row,
           change.col,
           change.oldValue || '',
           change.newValue,
           currentTableType
-        )
+        );
 
         sheetStateManager.recordCellChange(
           change.row,
@@ -890,23 +1025,22 @@ const handleDataChanged = (dataInfo) => {
           change.oldValue || '',
           change.newValue,
           currentTableType
-        )
+        );
       } else {
-        console.log(`⏸️ 跳过空值修改: [${change.row},${change.col}]`)
+        console.log(`⏸️ 跳过空值修改: [${change.row},${change.col}]`);
       }
-    })
+    });
   }
 
-  updateSaveStatus()
-  updateExcelContent()
-  autoSaveDraft()
+  updateSaveStatus();
+  updateExcelContent();
+  autoSaveDraft();
 
   // ✅ 批量改动也要置锁
-    if (dataInfo.allChanges?.length) {
-      sheetEverDirty.value = true
-    }
-
-}
+  if (dataInfo.allChanges?.length) {
+    sheetEverDirty.value = true;
+  }
+};
 
 
 
@@ -1888,16 +2022,7 @@ const hasUnsavedChangesInCurrentTable = () => {
     }
   }
   /* =========================================================== */
-
   const currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
-
-
-  console.log('🔍 检查保存条件:', {
-    表格: selectedSheet.value.name,
-    表类型: tableType,
-    数据行数: currentData?.length || 0,
-    全局修改数: window.unsavedCells?.size || 0
-  })
 
   // 3. 关键修复：直接检查 sheetStateManager 中当前表格的修改
   if (sheetStateManager) {
@@ -1915,10 +2040,17 @@ const hasUnsavedChangesInCurrentTable = () => {
   }
 
   // 4. 如果状态管理器没找到，再看全局状态
-  const hasGlobalChanges = window.unsavedCells?.size > 0
-  console.log('🌍 使用全局状态判断:', hasGlobalChanges)
+    const hasCellChanges = window.unsavedCells?.[tableType]?.size > 0
+    const hasRowRemovals = window.unsavedRowRemovals?.[tableType] > 0
+    const hasGlobalChanges = hasCellChanges || hasRowRemovals
 
-  return hasGlobalChanges
+    console.log('🌍 使用全局状态判断:', {
+      单元格修改: hasCellChanges,
+      删除行修改: hasRowRemovals,
+      总修改: hasGlobalChanges
+    })
+
+    return hasGlobalChanges
 }
 
 // 添加一个强制更新的 key
@@ -2661,7 +2793,117 @@ const clearModificationStatesOnly = async () => {
 };
 
 
+
 const saveData = async (isAutoSave = false) => {
+  console.log(`💾💾 ${isAutoSave ? '自动' : '手动'}保存数据...`);
+
+  if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
+    if (!isAutoSave) {
+      ElMessage.warning('请先选择表格');
+    }
+    return { success: false, error: '未选择表格' };
+  }
+
+  const currentTableType = showFlatMode.value ? 'flattened' : 'original';
+
+  // 自动保存时不显示loading状态
+  if (!isAutoSave) {
+    saving.value = true;
+  }
+
+  try {
+    const hotInstance = getActiveHotInstance();
+    if (!hotInstance) {
+      throw new Error('无法获取表格实例');
+    }
+
+    const currentTableData = hotInstance.getSourceData();
+    const pdfId = selectedPdf.value.disk_name || selectedPdf.value.id;
+
+    let apiUrl, savePayload;
+    if (currentTableType === 'original') {
+      apiUrl = '/excel/save-final';
+      savePayload = {
+        pdf_id: pdfId,
+        excel_file: selectedExcelFile.value,
+        sheet_name: selectedSheet.value.name,
+        table_type: 'original',
+        data: currentTableData,
+        timestamp: Date.now(),
+        auto_save: isAutoSave
+      };
+    } else {
+      apiUrl = '/excel/save-flattened';
+      savePayload = {
+        pdf_id: pdfId,
+        excel_file: selectedExcelFile.value,
+        sheet_name: selectedSheet.value.name,
+        table_type: 'flattened',
+        flattened_data: currentTableData,
+        original_data: excelData.value,
+        timestamp: Date.now(),
+        auto_save: isAutoSave
+      };
+    }
+
+    const response = await fetch(getApiUrl(apiUrl), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(savePayload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      // ================= 🔥 关键修改开始 =================
+      // 🔥 新增：清理删除行记录
+      if (typeof window !== 'undefined' && window.unsavedRowRemovals) {
+        if (window.unsavedRowRemovals[currentTableType]) {
+          console.log('🧹 保存成功，清理删除行记录，表类型:', currentTableType,
+                     '清理数量:', window.unsavedRowRemovals[currentTableType]);
+          delete window.unsavedRowRemovals[currentTableType];
+        }
+      }
+
+      // 🔥 新增：重置全局修改标志
+      if (typeof window !== 'undefined') {
+        window.currentHasChanges = false;
+      }
+      // ================= 🔥 关键修改结束 =================
+
+      // 自动保存时不显示成功消息，避免干扰用户
+      if (!isAutoSave) {
+        ElMessage.success(`${currentTableType === 'original' ? '原始' : '扁平化'}数据保存成功`);
+      }
+
+      // 清除修改状态
+      await clearModificationStatesOnly();
+
+      return { success: true, message: '保存成功', autoSave: isAutoSave };
+    } else {
+      throw new Error(result.error || '后端保存失败');
+    }
+
+  } catch (error) {
+    console.error(`❌❌ ${isAutoSave ? '自动' : '手动'}保存失败:`, error);
+    // 自动保存失败时不显示错误提示，避免干扰用户
+    if (!isAutoSave) {
+      ElMessage.error(`保存失败: ${error.message}`);
+    }
+    return { success: false, error: error.message, autoSave: isAutoSave };
+  } finally {
+    if (!isAutoSave) {
+      saving.value = false;
+    }
+  }
+};
+
+
+const saveData00000 = async (isAutoSave = false) => {
   console.log(`💾💾 ${isAutoSave ? '自动' : '手动'}保存数据...`);
 
   if (!selectedPdf.value || !selectedSheet.value || !selectedExcelFile.value) {
@@ -3221,7 +3463,6 @@ const convertSingleHeaderToTable = (singleHeaderData) => {
 }
 
 
-
 const convertToFlatData_DEPRECATED  = async () => {
   if (!selectedSheet.value || !selectedPdf.value) {
     ElMessage.warning('请先选择表格')
@@ -3519,8 +3760,6 @@ const restoreUnsavedData = async () => {
 }
 
 
-
-
 // 在 ThreeColumnPage.vue 的 setup 函数中添加 exitEditMode 函数
 const exitEditMode = async () => {
   console.log('🔚 退出编辑模式')
@@ -3688,13 +3927,6 @@ const handleSearch = inject('handleSearch', null)
 const searchResults = inject('searchResults', [])
 const isSearching = inject('isSearching', false)
 
-// 在 inject 后添加
-console.log('🔍🔍 ThreeColumnPage inject 的数据:', {
-  searchResults,
-  isSearching
-})
-
-
 watch(searchResults, (newVal) => {
   console.log('🔍🔍 ThreeColumnPage searchResults 变化:', newVal)
   console.log('🔍🔍 数据长度:', newVal?.length)
@@ -3703,13 +3935,6 @@ watch(searchResults, (newVal) => {
 watch(isSearching, (newVal) => {
   console.log('🔍🔍 ThreeColumnPage isSearching 变化:', newVal)
 }, { immediate: true })
-
-// 安全访问
-console.log('🔍 ThreeColumnPage 接收的搜索结果:', {
-  结果数量: searchResults?.length || 0,    // ✅ 去掉 .value
-  搜索中: isSearching,                    // ✅ 去掉 .value
-  有搜索函数: !!handleSearch
-})
 
 
 // 4. 检查计算属性
@@ -4201,6 +4426,79 @@ if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'd
 }
 
 
+// ==================== 🔥 新增清理监听器 ====================
+watch(() => selectedSheet.value, (newSheet, oldSheet) => {
+  // 🔧 修改这里：增加 newSheet 检查，确保是真正的表格切换
+  if (newSheet && oldSheet && window.unsavedRowRemovals) {
+    const tableType = showFlatMode.value ? 'flattened' : 'original';
+    if (window.unsavedRowRemovals[tableType]) {
+      console.log('🗑️ 切换表格，清理删除行记录:', {
+        表类型: tableType,
+        清理数量: window.unsavedRowRemovals[tableType],
+        旧表格: oldSheet?.name,
+        新表格: newSheet?.name
+      });
+      delete window.unsavedRowRemovals[tableType];
+    }
+  }
+});
+
+// 监听PDF切换事件
+watch(() => selectedPdf.value, (newPdf, oldPdf) => {
+  if (oldPdf && window.unsavedRowRemovals) {
+    console.log('🗑️ 切换PDF，清理所有删除行记录', {
+      旧PDF: oldPdf?.filename,
+      新PDF: newPdf?.filename
+    });
+    // 清理所有表格类型的删除行记录
+    window.unsavedRowRemovals = {};
+  }
+});
+
+// 监听扁平化模式切换
+watch(() => showFlatMode.value, (newMode, oldMode) => {
+  if (oldMode !== undefined && window.unsavedRowRemovals) {
+    const oldTableType = oldMode ? 'flattened' : 'original';
+    if (window.unsavedRowRemovals[oldTableType]) {
+      console.log('🗑️ 切换表格模式，清理旧模式的删除行记录:', {
+        旧模式: oldTableType,
+        新模式: newMode ? 'flattened' : 'original',
+        清理数量: window.unsavedRowRemovals[oldTableType]
+      });
+      delete window.unsavedRowRemovals[oldTableType];
+    }
+  }
+});
+
+// 组件卸载时清理全局状态
+onUnmounted(() => {
+  console.log('🧹 ThreeColumnPage 组件卸载，清理全局状态');
+  if (typeof window !== 'undefined') {
+    if (window.unsavedRowRemovals) {
+      window.unsavedRowRemovals = {};
+    }
+    window.currentHasChanges = false;
+  }
+});
+
+// 🔧 初始化全局变量（可放在setup开头）
+if (typeof window !== 'undefined') {
+  if (!window.unsavedRowRemovals) {
+    window.unsavedRowRemovals = {};
+    console.log('🔧 初始化 unsavedRowRemovals');
+  }
+  if (!window.unsavedCells) {
+    window.unsavedCells = {
+      original: new Set(),
+      flattened: new Set()
+    };
+    console.log('🔧 初始化 unsavedCells');
+  }
+  window.currentHasChanges = false;
+}
+// ==================== 🔥 清理监听器结束 ====================
+
+
 // 合并后的 onMounted 函数
 onMounted(() => {
   console.log('🔧 ThreeColumnPage 组件挂载，开始初始化...')
@@ -4597,13 +4895,6 @@ onUnmounted(() => {
 const testCellChange = () => {
   console.group('🧪 手动测试单元格修改')
 
-  console.log('1. 当前状态检查:')
-  console.log('   window.unsavedCells 存在:', !!window.unsavedCells)
-  console.log('   window.unsavedCells.original 大小:', window.unsavedCells?.original?.size || 0)
-  console.log('   selectedPdf:', selectedPdf.value?.id)
-  console.log('   selectedSheet:', selectedSheet.value?.name)
-  console.log('   selectedExcelFile:', selectedExcelFile.value)
-
   // 模拟单元格修改
   const testCellInfo = {
     row: 1,
@@ -4659,6 +4950,9 @@ if (typeof window !== 'undefined') {
     }
   }
 }
+
+
+
 
 
 </script>

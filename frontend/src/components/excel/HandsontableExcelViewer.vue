@@ -1426,7 +1426,6 @@ const {
 
 
 
-
 const onHotInit = () => {
   setTimeout(() => {
     const hot = getHotInstanceDirect()
@@ -1441,6 +1440,98 @@ const onHotInit = () => {
         实例ID: hot.guid,
         时间戳: Date.now()
       })
+
+      // ================== 🔥 关键修改开始 ==================
+      // 添加对删除行操作的监听（延迟2000ms确保表格完全初始化）
+      setTimeout(() => {
+        console.log('⏰ 延迟添加删除行监听器，当前实例GUID:', hot.guid)
+
+        // 重新获取实例，确保不是被销毁的实例
+        const currentHot = getHotInstanceDirect()
+        if (!currentHot || currentHot.isDestroyed) {
+          console.warn('⚠️ 表格实例已销毁或被替换，无法添加监听器')
+          return
+        }
+
+        // 先移除可能存在的旧监听器
+        currentHot.removeHook('afterRemoveRow')
+
+        // 添加新的删除行监听器（包含全局状态更新）
+        currentHot.addHook('afterRemoveRow', (index, amount, physicalRows, source) => {
+          console.log('✅✅✅✅✅✅ 检测到删除行操作（延迟监听器）:', {
+            index,
+            amount,
+            source,
+            tableType: props.excelData === props.flatData ? 'flattened' : 'original',
+            时间戳: Date.now(),
+            实例GUID: currentHot.guid
+          });
+
+          // 🔥🔥🔥 新增：更新全局状态（必须添加）
+          if (typeof window !== 'undefined') {
+            // 确保全局变量存在
+            if (!window.unsavedRowRemovals) {
+              window.unsavedRowRemovals = {};
+              console.log('🔧 初始化 unsavedRowRemovals');
+            }
+
+            // 确定当前表类型
+            const tableType = props.excelData === props.flatData ? 'flattened' : 'original';
+
+            // 累加删除行数
+            if (!window.unsavedRowRemovals[tableType]) {
+              window.unsavedRowRemovals[tableType] = 0;
+            }
+            window.unsavedRowRemovals[tableType] += amount;
+            window.currentHasChanges = true;
+
+            console.log('🌍 更新全局状态:', {
+              表类型: tableType,
+              本次删除: amount,
+              累计删除: window.unsavedRowRemovals[tableType],
+              全局修改: window.currentHasChanges
+            });
+          }
+          // 🔥🔥🔥 新增结束
+
+          // 关键：将此操作包装成一种"数据变更"，向上传递
+          const changeInfo = {
+            isEditMode: true,
+            hasChanges: true,
+            operation: 'removeRows',  // 特殊操作类型标识
+            details: {
+              startIndex: index,
+              removedCount: amount,
+              source: source,
+              tableType: props.excelData === props.flatData ? 'flattened' : 'original',
+              instanceGuid: currentHot.guid
+            },
+            allChanges: []  // 删除行不一定是单元格变化，这里为空
+          };
+
+          // 发射数据变更事件，通知父组件
+          emit('data-changed', changeInfo);
+
+          // 同时，强制标记当前表格有未保存的更改
+          emit('edit-status-changed', {
+            hasChanges: true,
+            operation: 'rowRemoval',
+            affectedRows: amount,
+            instanceGuid: currentHot.guid
+          });
+
+          console.log('✅ 删除行操作已记录，已触发数据变更事件');
+        });
+
+        // 验证监听器是否被成功添加
+        const hooks = currentHot.getHooks('afterRemoveRow')
+        console.log('🔍 验证afterRemoveRow钩子状态:', {
+          钩子数量: hooks?.length || 0,
+          实例GUID: currentHot.guid,
+          添加成功: (hooks?.length || 0) > 0
+        })
+      }, 2000) // 延迟2000ms，确保表格完全初始化
+      // ================== 🔥 关键修改结束 ==================
 
       // 🔥🔥 关键修复：禁用排序，避免三角号重叠
       console.log('🔍🔍 配置筛选下拉菜单（禁用排序）...')
@@ -1460,10 +1551,6 @@ const onHotInit = () => {
 
       // 检查当前配置
       const settings = hot.getSettings()
-      console.log('🔍🔍 当前生效配置:')
-      console.log('- filters:', settings.filters)
-      console.log('- dropdownMenu:', settings.dropdownMenu)
-      console.log('- columnSorting:', settings.columnSorting)  // 现在应该是 false
 
       // 🔥🔥 详细检查筛选插件
       const filterPlugin = hot.getPlugin('filters')
@@ -1496,10 +1583,13 @@ const onHotInit = () => {
         excelFileName: props.excelFileName,
         sheetName: props.sheetName,
         tableType: props.excelData === props.flatData ? 'flattened' : 'original',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        rowRemovalListenerAdded: true
       })
 
       nextTick(() => restoreModifiedCellsStyle())
+    } else {
+      console.warn('⚠️ 无法获取Handsontable实例，监听器添加失败')
     }
   }, 0)
 
@@ -1508,8 +1598,8 @@ const onHotInit = () => {
   }, 100)
 }
 
+
 // 在 HandsontableExcelViewer.vue 中添加处理函数
-// 🔥🔥🔥 修改：处理导出的响应
 const handleExport = async () => {
   try {
     console.log('🎯🎯 开始导出前的页面状态')
