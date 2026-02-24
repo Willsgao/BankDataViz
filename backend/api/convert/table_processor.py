@@ -2064,7 +2064,7 @@ def get_bank_name_from_database(pdf_folder):
         return ""
 
 
-def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
+def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - 更新调用方式"""
     try:
         print(f"📥📥 提交表格处理任务: pdf_folder={pdf_folder}")
@@ -2232,7 +2232,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
         }), 500
 
 
-def submit_table_processing_task_new(pdf_folder, filtered_tables_dir, request, progress_tracker):
+def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - Redis队列化版本，保留原有防重逻辑"""
 
     # ========== 添加入口日志 ==========
@@ -2425,15 +2425,6 @@ def submit_table_processing_task_new(pdf_folder, filtered_tables_dir, request, p
                 "queue_position": str(current_queue_length),
                 "queue_mode": "redis"
             })
-            # redis_client.hset(f"table:job:{job_id}", mapping={
-            #     "status": "queued",
-            #     "progress": "0",
-            #     "message": f"任务已加入队列，位置: {current_queue_length}",
-            #     "created_at": datetime.now().isoformat(),
-            #     "total_images": str(len(image_paths)),
-            #     "queue_position": str(current_queue_length),
-            #     "queue_mode": "redis"
-            # })
 
             # 设置过期时间
             redis_client.expire(f"table:job:{job_id}", 24 * 60 * 60)

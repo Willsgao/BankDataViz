@@ -436,7 +436,7 @@ const getFileProgress = (diskName) => {
 }
 
 // 获取处理状态描述
-const getProcessingStatus = (diskName) => {
+const getProcessingStatus000 = (diskName) => {
   const hasConverted = getHasConvertCache.value(diskName)
   const hasScreened = props.hasScreenedImages[diskName]
   const parsingProgress = props.parsingProgressMap[diskName]?.progress || 0
@@ -450,6 +450,86 @@ const getProcessingStatus = (diskName) => {
   }
   return '处理中'
 }
+
+
+
+// 完整的 getProcessingStatus 函数
+const getProcessingStatus = (diskName) => {
+  const progressData = props.parsingProgressMap[diskName]
+  const hasConverted = getHasConvertCache.value(diskName)
+  const hasScreened = props.hasScreenedImages[diskName]
+
+  // 1. 如果有进度数据显示格式，优先使用
+  if (progressData?.progress_display) {
+    return progressData.progress_display
+  }
+
+  // 2. 处理中状态
+  if (progressData && progressData.percentage > 0 && progressData.percentage < 100) {
+    const processed = progressData.processed || 0
+    const skipped = progressData.skipped || 0
+    const total = progressData.total || 0
+
+    if (total > 0) {
+      return `处理中 ${processed}+${skipped}/${total}`
+    } else if (progressData.message) {
+      // 尝试从消息中提取数字
+      const newMatch = progressData.message.match(/处理 (\d+) 张新图片/)
+      const skipMatch = progressData.message.match(/跳过 (\d+) 张/)
+      if (newMatch && skipMatch) {
+        const newProcessed = parseInt(newMatch[1])
+        const skipped = parseInt(skipMatch[1])
+        const total = newProcessed + skipped
+        return `处理中 ${newProcessed}+${skipped}/${total}`
+      }
+    }
+    return `解析中 ${progressData.percentage}%`
+  }
+
+  // 3. 已完成状态
+  if (progressData?.percentage === 100) {
+    const processed = progressData.processed || 0
+    const skipped = progressData.skipped || 0
+    const total = processed + skipped
+
+    if (total > 0) {
+      return `${processed}+${skipped}/${total}`
+    } else if (progressData.message) {
+      const newMatch = progressData.message.match(/处理 (\d+) 张新图片/)
+      const skipMatch = progressData.message.match(/跳过 (\d+) 张/)
+      if (newMatch && skipMatch) {
+        const newProcessed = parseInt(newMatch[1])
+        const skipped = parseInt(skipMatch[1])
+        const total = newProcessed + skipped
+        return `${newProcessed}+${skipped}/${total}`
+      }
+    }
+    return '已完成'
+  }
+
+  // 4. 其他状态
+  if (hasScreened) {
+    return '已筛选'
+  } else if (hasConverted) {
+    return '已转图'
+  }
+
+  return '待处理'
+}
+
+
+// 获取进度百分比
+const getProcessingProgress = (diskName) => {
+  const progressData = props.parsingProgressMap[diskName]
+  if (progressData?.percentage !== undefined) {
+    return progressData.percentage
+  }
+
+  // 原有的分阶段进度计算
+  return getFileProgress(diskName)
+}
+
+
 
 // 检查文件是否正在处理中（不可删除）
 const isProcessing = (diskName) => {

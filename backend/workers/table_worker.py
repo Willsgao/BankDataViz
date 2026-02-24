@@ -1034,52 +1034,6 @@ class TableProcessingWorker:
             traceback.print_exc()
 
     # 保存原始方法
-    def _update_job_status_original00000(self, job_id: str, status_data: Dict[str, Any]):
-        """原始的Redis更新方法"""
-        redis_key = f"table:job:{job_id}"
-
-        # 设置默认字段
-        status_data.setdefault("last_updated", datetime.now().isoformat())
-
-        # 如果状态是processing，添加开始时间
-        if status_data.get("status") == "processing" and "started_at" not in status_data:
-            status_data["started_at"] = datetime.now().isoformat()
-
-        # 如果状态是completed或failed，添加结束时间
-        if status_data.get("status") in ["completed", "failed"] and "completed_at" not in status_data:
-            status_data["completed_at"] = datetime.now().isoformat()
-
-        # 更新到Redis
-        self.redis_client.hmset(redis_key, status_data)
-        self.redis_client.expire(redis_key, 86400)  # 24小时过期
-
-        # 如果是completed或failed状态，发布通知
-        if status_data.get("status") in ["completed", "failed"]:
-            message = json.dumps({
-                "job_id": job_id,
-                "status": status_data["status"],
-                "progress": status_data.get("progress", 0),
-                "message": status_data.get("message", ""),
-                "timestamp": datetime.now().isoformat()
-            })
-            self.redis_client.publish(f"table:progress:{job_id}", message)
-
-        # ✅ 新增：同时更新按PDF名称索引的状态
-        pdf_folder = status_data.get("pdf_folder")
-        if pdf_folder:
-            pdf_key = f"pdf:{pdf_folder}:current_status"
-            pdf_data = {
-                "job_id": job_id,
-                "status": status_data.get("status", "unknown"),
-                "progress": status_data.get("progress", 0),
-                "processed_images": status_data.get("processed_images", 0),
-                "total_images": status_data.get("total_images", 0),
-                "last_updated": datetime.now().isoformat()
-            }
-            self.redis_client.hmset(pdf_key, pdf_data)
-            self.redis_client.expire(pdf_key, 86400)
-            print(f"  📁 同时更新PDF状态: {pdf_folder}")
-
     def _update_job_status_original(self, job_id: str, status_data: Dict[str, Any]):
         """原始的Redis更新方法 - 修复布尔值问题"""
         redis_key = f"table:job:{job_id}"
@@ -1107,7 +1061,7 @@ class TableProcessingWorker:
 
         # 更新到Redis
         self.redis_client.hmset(redis_key, processed_data)
-        self.redis_client.expire(redis_key, 86400)  # 24小时过期
+        self.redis_client.expire(redis_key, 604800)  # 24小时过期
 
         # 如果是completed或failed状态，发布通知
         if processed_data.get("status") in ["completed", "failed"]:
@@ -1137,7 +1091,7 @@ class TableProcessingWorker:
                 "last_updated": datetime.now().isoformat()
             }
             self.redis_client.hmset(pdf_key, pdf_data)
-            self.redis_client.expire(pdf_key, 86400)
+            self.redis_client.expire(pdf_key, 604800)
             print(f"  📁 同时更新PDF状态: {pdf_folder}")
 
 
@@ -1285,7 +1239,7 @@ class TableProcessingWorker:
                 "completed_at": datetime.now().isoformat(),
                 "duration": f"{time.time() - task_data.get('created_at', time.time()):.2f}秒",
                 "total_processed": total_new_images + total_skipped_images,  # ✅ 改为整数
-                "total_images": total_new_images,  # ✅ 改为整数
+                "total_images": total_new_images + total_skipped_images,  # ✅ 改为整数
                 "processed_images": total_new_images,  # ✅ 改为整数
                 "excel_generated": "true"
             })

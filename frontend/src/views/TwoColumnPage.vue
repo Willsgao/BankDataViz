@@ -158,6 +158,8 @@ const llmLoading = ref({})  // LLM加载状态
 const tableType = ref('financial')  // 表格类型
 const parsingProgressMap = ref({})
 
+const finalResultsMap = ref({})
+
 
 // 添加 defineEmits
 const emit = defineEmits([
@@ -1511,53 +1513,160 @@ const handleParseTablesCompleted = (data) => {
 }
 
 
-// 替换原有的 pollTableProgress 函数
-function subscribeTableProgressSSE(jobId) {
+// 保存最终处理结果
+// 完整的 saveFinalResult 函数
+function saveFinalResult(pdfDiskName, progressData) {
+  console.log('💾 开始保存最终结果:', { pdfDiskName, progressData })
+
+  // 从后端数据中提取处理计数
+  const processed = progressData.processed_images || progressData.processed || 0
+  const skipped = progressData.skipped_images || progressData.skipped || 0
+  const total = (progressData.total_images || progressData.total || 0) > 0
+    ? progressData.total_images || progressData.total
+    : processed + skipped
+  const failed = progressData.failed_images || progressData.failed || 0
+
+  // 计算成功数量
+  const successCount = processed - failed
+
+  // 生成简洁的进度显示格式
+  const progressDisplay = `${processed}+${skipped}/${total}`
+
+  // 创建最终结果对象
+  const finalResult = {
+    success: successCount,
+    total: total,
+    processed: processed,
+    skipped: skipped,
+    failed: failed,
+    percentage: 100,
+    message: progressData.message || '任务已完成',
+    progress_display: progressDisplay,
+    last_updated: new Date().toISOString(),
+    job_id: progressData.job_id
+  }
+
+  // 保存到最终结果映射
+  if (!finalResultsMap.value) {
+    finalResultsMap.value = {}
+  }
+  finalResultsMap.value[pdfDiskName] = finalResult
+
+  // 同时更新 parsingProgressMap，确保进度显示正确
+  if (parsingProgressMap.value[pdfDiskName]) {
+    parsingProgressMap.value[pdfDiskName] = {
+      ...parsingProgressMap.value[pdfDiskName],
+      ...finalResult,
+      percentage: 100,
+      status: 'success'
+    }
+  }
+
+  // 保存到 localStorage（用于页面刷新后恢复）
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const storageKey = `pdf_result_${pdfDiskName}`
+      localStorage.setItem(storageKey, JSON.stringify(finalResult))
+      console.log('📦 已保存到 localStorage')
+    } catch (error) {
+      console.warn('⚠️ 保存到 localStorage 失败:', error)
+    }
+  }
+
+  console.log('✅ 最终结果保存完成:', {
+    pdfDiskName,
+    result: finalResult
+  })
+}
+
+
+
+// 完整的 subscribeTableProgressSSE 函数
+function subscribeTableProgressSSE(jobId, pdfDiskName) {
   return new Promise((resolve, reject) => {
+    console.log(`🔌 开始SSE订阅: jobId=${jobId}, pdf=${pdfDiskName}`)
+
     // 创建EventSource连接
-    const eventSource = new EventSource(`/api/table-progress-sse/${jobId}`);
+    const eventSource = new EventSource(`/api/table-progress-sse/${jobId}`)
 
     // 监听消息
     eventSource.onmessage = (event) => {
       try {
-        const progressData = JSON.parse(event.data);
+        const progressData = JSON.parse(event.data)
+        console.log('📊 SSE进度数据接收:', progressData)
 
         // 更新进度状态
         if (progressData.job_id === jobId) {
-          // 更新原有的进度映射
-          parsingProgressMap.value[jobId] = {
-            ...parsingProgressMap.value[jobId],
-            ...progressData
-          };
+          // 计算总图片数
+          const processed = progressData.processed_images || 0
+          const skipped = progressData.skipped_images || 0
+          const total = progressData.total_images || 0
+          const actualTotal = total > 0 ? total : processed + skipped
 
-          // 如果任务完成，关闭连接并resolve
+          // 增强进度数据
+          const enhancedData = {
+            ...progressData,
+            // 确保处理计数字段存在
+            processed: processed,
+            skipped: skipped,
+            total: actualTotal,
+            failed: progressData.failed_images || 0,
+            success: processed - (progressData.failed_images || 0),
+            percentage: progressData.progress || 0,
+            // 生成进度显示格式
+            progress_display: `${processed}+${skipped}/${actualTotal}`,
+            // 状态转换
+            status: progressData.status === 'completed' ? 'success' :
+                   progressData.status === 'failed' ? 'exception' :
+                   progressData.status
+          }
+
+          // 更新进度映射 - 双重索引
+          parsingProgressMap.value[jobId] = enhancedData
+
+          if (pdfDiskName) {
+            parsingProgressMap.value[pdfDiskName] = enhancedData
+            console.log(`📁 更新PDF进度: ${pdfDiskName}`, {
+              display: enhancedData.progress_display,
+              percentage: enhancedData.percentage
+            })
+          }
+
+          // 如果任务完成
           if (progressData.status === 'completed' || progressData.status === 'failed') {
-            eventSource.close();
-            resolve(progressData);
+            console.log(`✅ 任务${progressData.status}: jobId=${jobId}, pdf=${pdfDiskName}`)
+            eventSource.close()
+
+            // 保存最终结果
+            if (pdfDiskName) {
+              saveFinalResult(pdfDiskName, enhancedData)
+            }
+
+            resolve(progressData)
           }
         }
       } catch (error) {
-        console.error('解析进度数据失败:', error);
+        console.error('❌ 解析进度数据失败:', error, '原始数据:', event.data)
       }
-    };
+    }
 
     // 错误处理
     eventSource.onerror = (error) => {
-      console.error('SSE连接错误:', error);
-      eventSource.close();
-      reject(new Error('进度连接失败'));
-    };
+      console.error('❌ SSE连接错误:', error)
+      eventSource.close()
+      reject(new Error('进度连接失败'))
+    }
 
-    // 可选：设置超时
+    // 设置超时（5分钟）
     setTimeout(() => {
       if (eventSource.readyState !== EventSource.CLOSED) {
-        eventSource.close();
-        reject(new Error('进度查询超时'));
+        console.warn('⏰ SSE连接超时，强制关闭')
+        eventSource.close()
+        reject(new Error('进度查询超时'))
       }
-    }, 300000); // 5分钟超时
-  });
+    }, 300000)
+  })
 }
-
 
 
 // 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用
@@ -1612,7 +1721,12 @@ const handleParseTables = async (pdfDiskName) => {
 
       // 轮询进度
       //await pollTableProgress(jobId, pdfDiskName)
-      await subscribeTableProgressSSE(jobId, pdfDiskName)
+    await subscribeTableProgressSSE(jobId, pdfDiskName).then((result) => {
+      console.log('✅ SSE进度订阅完成:', result);
+    }).catch((error) => {
+      console.error('❌ SSE进度订阅失败:', error);
+      isParsing.value = false;
+    });
 
     } else {
       ElMessage.error('提交表格解析任务失败: ' + response.data.error)

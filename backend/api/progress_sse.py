@@ -26,14 +26,20 @@ def get_progress_from_redis(job_id):
         total_images = redis_client.hget(f"table:job:{job_id}", "total_images") or "0"
         processed_images = redis_client.hget(f"table:job:{job_id}", "processed_images") or "0"
 
-        return {
+        # ✅ 添加 skipped_images 的读取
+        skipped_images = redis_client.hget(f"table:job:{job_id}", "skipped_images") or "0"
+
+        result =  {
             "job_id": job_id,
             "status": status,
             "progress": int(progress) if progress.isdigit() else 0,
             "message": message,
             "total_images": int(total_images) if total_images.isdigit() else 0,
-            "processed_images": int(processed_images) if processed_images.isdigit() else 0
+            "processed_images": int(processed_images) if processed_images.isdigit() else 0,
+            "skipped_images": int(skipped_images) if skipped_images.isdigit() else 0  # ✅ 新增字段
         }
+        print(">>>>>>>>>>>>>>>>result-->:", result)
+        return result
     except Exception as e:
         print(f"❌ 查询Redis进度失败: {e}")
         return None
