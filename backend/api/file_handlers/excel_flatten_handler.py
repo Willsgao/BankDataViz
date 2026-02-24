@@ -428,10 +428,7 @@ class ExcelFlattenHandler:
             # 🔥 额外的过滤：检查是否是数值行标记
             if vertical_path.isdigit() and len(vertical_path) <= 3:
                 # 可能是行标记行，检查是否是数值
-                print(f"⏭️ 跳过数值行标记行 {row_idx}: '{vertical_path}'")
                 continue
-
-            print(f"✅ 处理有效行{row_idx}: 纵向路径='{vertical_path}'")
 
             # 处理数据列
             for col_idx in range(1, len(row_data)):
@@ -595,62 +592,7 @@ class ExcelFlattenHandler:
             }
         }
 
-        print(f"📊 准备的表格元数据:")
-        print(f"  - name: {table_metadata.get('name')}")
-        print(f"  - entity: {table_metadata.get('entity')}")
-        print(f"  - bank_name: {table_metadata.get('bank_name')}")
-
         return table_metadata
-
-
-    def build_final_source_info00000(self, source_info: Dict[str, Any], metadata: Dict[str, str]) -> Dict[str, Any]:
-        """
-        构建最终的source_info，优先使用元数据
-        """
-        final_source_info = source_info.copy()
-
-        # 优先使用元数据中的银行名
-        if metadata.get("bankname"):
-            final_source_info["bank_name"] = metadata["bankname"]
-            print(f"✅ 使用元数据银行名: {metadata['bankname']}")
-        elif not final_source_info.get("bank_name"):
-            final_source_info["bank_name"] = "未知银行"
-
-        # 优先使用元数据中的币种
-        if metadata.get("currency"):
-            final_source_info["default_currency"] = metadata["currency"]
-            print(f"✅ 使用元数据币种: {metadata['currency']}")
-        elif not final_source_info.get("default_currency"):
-            final_source_info["default_currency"] = "人民币"
-
-        # 设置单位（数额类用元数据单位，百分比保持%）
-        if metadata.get("unit"):
-            final_source_info["default_unit"] = metadata["unit"]
-            print(f"✅ 使用元数据单位: {metadata['unit']}")
-        elif not final_source_info.get("default_unit"):
-            final_source_info["default_unit"] = ""
-
-        # 🔥🔥🔥 关键修改1：优先使用元数据中的entity
-        if metadata.get("entity"):
-            final_source_info["entity"] = metadata["entity"]
-            print(f"✅ 使用元数据实体: {metadata['entity']}")
-        # 🔥 如果metadata中没有entity，检查source_info中是否有
-        elif "entity" in source_info and source_info["entity"]:
-            final_source_info["entity"] = source_info["entity"]
-            print(f"✅ 使用source_info中的实体: {source_info['entity']}")
-        # 🔥 如果都没有，设置默认值
-        elif "entity" not in final_source_info:
-            final_source_info["entity"] = "本集团"  # 默认值
-            print(f"⚠️ 未指定实体，使用默认值: '本集团'")
-
-        # 其他元数据
-        if metadata.get("report_period"):
-            final_source_info["default_report_period"] = metadata["report_period"]
-
-        if metadata.get("table_name"):
-            final_source_info["table_name"] = metadata["table_name"]
-
-        return final_source_info
 
     def extract_marks_info(self, table_data: List[List[Any]]) -> Dict[str, Any]:
         """
@@ -666,15 +608,12 @@ class ExcelFlattenHandler:
         if not table_data:
             return marks_info
 
-        print(f"📊📊 提取原始标记信息...")
-
         # 1. 找行标记列
         first_row = table_data[0]
         for j in range(len(first_row)):
             header = str(first_row[j]).strip() if first_row[j] else ""
             if header == "行标记":
                 marks_info['row_mark_col_index'] = j
-                print(f"✅ '行标记'列位置: 第{j}列")
                 break
 
         # 2. 找列标记行
@@ -683,12 +622,10 @@ class ExcelFlattenHandler:
                 cell_value = str(table_data[i][0]).strip() if table_data[i][0] else ""
                 if cell_value == "列标记":
                     marks_info['col_mark_row_index'] = i
-                    print(f"✅ '列标记'行位置: 第{i}行")
                     break
 
         # 3. 读取行标记
         if marks_info['row_mark_col_index'] >= 0:
-            print(f"🔍🔍 读取行标记...")
             for i in range(1, len(table_data)):
                 if marks_info['row_mark_col_index'] < len(table_data[i]):
                     mark_value = table_data[i][marks_info['row_mark_col_index']]
@@ -705,11 +642,9 @@ class ExcelFlattenHandler:
                     marks_info['row_marks'].append(row_mark)
                 else:
                     marks_info['row_marks'].append(1)
-            print(f"✅ 读取完成: {len(marks_info['row_marks'])}个行标记")
 
         # 4. 读取列标记
         if marks_info['col_mark_row_index'] >= 0:
-            print(f"🔍🔍 读取列标记...")
             col_mark_row = table_data[marks_info['col_mark_row_index']]
             for j in range(1, len(col_mark_row)):
                 mark_value = col_mark_row[j]
@@ -724,28 +659,8 @@ class ExcelFlattenHandler:
                 except:
                     col_mark = 1
                 marks_info['col_marks'].append(col_mark)
-            print(f"✅ 读取完成: {len(marks_info['col_marks'])}个列标记")
 
         return marks_info
-
-    def prepare_table_metadata000000(self, data: Dict[str, Any], final_source_info: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        准备表格元数据
-        """
-        ori_table_metadata = data.get("table_metadata", {})
-
-        table_metadata = {
-            'name': ori_table_metadata.get('name', ''),
-            'default_unit': final_source_info.get("default_unit", ""),
-            'default_currency': final_source_info.get("default_currency", "人民币"),
-            'default_report_period': final_source_info.get("default_report_period", ''),
-            'headers': {
-                'rows': [],
-                'cols': []
-            }
-        }
-
-        return table_metadata
 
     def apply_units_to_flattened_data(self, flattened_data: List[Dict], source_info: Dict[str, Any]) -> List[Dict]:
         """
@@ -871,13 +786,10 @@ class ExcelFlattenHandler:
         try:
             # 检查转换器是否可用
             if not self.CONVERTER_AVAILABLE:
-                print("❌❌❌❌ 转换器不可用")
                 return {
                     "success": False,
                     "error": "数据转换器模块不可用"
                 }
-
-            print("🎯🎯🎯🎯 开始Excel扁平化处理（双字段名兼容版）")
 
             # 1. 提取和验证输入数据
             table_data = data.get('table_data', [])
@@ -890,7 +802,6 @@ class ExcelFlattenHandler:
             if 'source_info' in data and data['source_info']:
                 source_info = data.get('source_info', {})
                 field_source = "source_info"
-                print("✅ 使用 source_info 字段作为源信息")
             elif 'table_metadata' in data and data['table_metadata']:
                 # 将 table_metadata 转换为 source_info 格式
                 table_metadata = data.get('table_metadata', {})
@@ -904,42 +815,19 @@ class ExcelFlattenHandler:
                     'default_unit': table_metadata.get('default_unit', '')
                 }
                 field_source = "table_metadata (转换)"
-                print("🔄 将 table_metadata 转换为 source_info 格式")
             else:
                 source_info = {}
                 field_source = "无"
-                print("⚠️ 未找到 source_info 或 table_metadata 字段，使用空源信息")
 
-            # 🔥 打印调试信息
-            print(f"🔍 字段名兼容性调试:")
-            print(f"  - 数据中包含的字段: {list(data.keys())}")
-            print(f"  - 使用的字段来源: {field_source}")
-            print(f"  - 提取的源信息: {source_info}")
-
-            if 'entity' in source_info:
-                print(f"  - entity参数值: '{source_info.get('entity')}'")
-            else:
-                print(f"  - entity参数: 未设置")
 
             if not table_data or len(table_data) < 2:
-                print("❌❌❌❌ 表格数据至少需要表头行和一个数据行")
                 return {
                     "success": False,
                     "error": "表格数据至少需要表头行和一个数据行"
                 }
 
-            print(f"📊📊📊📊 开始处理Excel表格数据:")
-            print(f"  - 原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
-
             # 2. 提取元数据并清理数据
-            print(f"🔧 提取元数据并清理数据...")
             metadata, clean_table_data = self.extract_metadata_and_clean_data(table_data)
-
-            print(f"  - 从Excel提取的元数据: {metadata}")
-            print(f"  - 清理后数据长度: {len(clean_table_data)}行")
-
-            if 'entity' in metadata:
-                print(f"  - 从Excel提取的entity元数据: '{metadata.get('entity')}'")
 
             # 3. 构建最终的source_info（优先使用元数据）
             print(f"🔧 构建最终source_info...")
@@ -947,12 +835,9 @@ class ExcelFlattenHandler:
 
             # 🔥 验证entity参数
             entity_value = final_source_info.get('entity', '')
-            print(f"🎯 最终确定的entity值: '{entity_value}'")
 
             # 4. 提取标记信息
             marks_info = self.extract_marks_info(clean_table_data)
-            print(
-                f"🔧 标记信息: 行标记{len(marks_info.get('row_marks', []))}个, 列标记{len(marks_info.get('col_marks', []))}个")
 
             # 5. 准备表格元数据
             table_metadata = self.prepare_table_metadata(data, final_source_info)
@@ -963,34 +848,19 @@ class ExcelFlattenHandler:
                 clean_table_data, table_metadata, marks_info, final_source_info
             )
 
-            # 🔥 添加转换结果详细分析
-            print(f"📊 转换结果分析:")
-            print(f"  - 生成的记录数: {len(long_format_data)}")
-
             if len(long_format_data) == 0:
                 print(f"⚠️ 警告: 转换结果为空!")
-                print(f"  可能原因分析:")
-                print(f"  1. 清理后数据为空: {len(clean_table_data)}行")
-                print(f"  2. 转换器可能过滤了所有数据")
-                print(f"  3. 数据格式不符合转换要求")
             else:
                 # 验证entity是否被正确应用
                 sample_record = long_format_data[0]
                 sample_entity = sample_record.get('主体', '')
-                print(f"  - 第一条记录的'主体'字段: '{sample_entity}'")
-                print(f"  - 期望的entity值: '{entity_value}'")
-
-                if entity_value and sample_entity != entity_value:
-                    print(f"  ⚠️ 警告: entity参数未被正确应用到'主体'字段!")
 
             # 7. 对结果应用单位处理
             if long_format_data:
                 long_format_data = self.apply_units_to_flattened_data(long_format_data, final_source_info)
-                print(f"✅ 单位处理完成")
 
             # 8. 转换为前端格式
             frontend_rows, field_names = self.convert_to_frontend_format(long_format_data)
-            print(f"🔄 转换为前端格式: {len(frontend_rows)}行前端数据")
 
             # 9. 构建最终结果
             result = {
@@ -1020,7 +890,6 @@ class ExcelFlattenHandler:
                 }
             }
 
-            print("✅✅✅✅ API处理完成，返回结果")
             return result
 
         except Exception as e:
@@ -1053,7 +922,6 @@ class ExcelFlattenHandler:
             'source_sheet_name_original': '原sheet名称'  # 🔥 新增映射
         }
 
-
     def convert_to_frontend_format(self, long_format_data: List[Dict]) -> tuple[List[Dict], List[str]]:
         """
         将长格式数据转换为前端需要的双表头格式 - 修复：将表头作为第一行数据
@@ -1061,7 +929,6 @@ class ExcelFlattenHandler:
         print(f"🔄🔄🔄🔄 将长格式数据转换为前端双表头格式...")
 
         if not long_format_data or len(long_format_data) == 0:
-            print("⚠️ 长格式数据为空，返回空结构")
             return [], []
 
         # 获取自定义字段映射
@@ -1075,9 +942,6 @@ class ExcelFlattenHandler:
         for field_name in original_field_names:
             mapped_name = field_mapping.get(field_name, field_name)
             mapped_field_names.append(mapped_name)
-
-        print(f"📊📊 原始字段名: {original_field_names}")
-        print(f"📊📊 映射后字段名: {mapped_field_names}")
 
         # 构建前端需要的rows数组
         frontend_rows = []
@@ -1128,7 +992,6 @@ class ExcelFlattenHandler:
 
             frontend_rows.append(data_row)
 
-        print(f"✅ 转换完成: {len(frontend_rows)} 行前端格式数据")
         return frontend_rows, mapped_field_names
 
     def _is_header_row(self, row) -> bool:
@@ -1159,8 +1022,6 @@ class ExcelFlattenHandler:
             bank_name = pdf_file_info.get("bank_name", "未知银行")
             raw_filename = pdf_file_info.get("raw_filename", file_id)
 
-            print(f"🏦🏦🏦🏦 文件信息 - 银行: {bank_name}, 文件名: {raw_filename}")
-
             # 2. 查找Excel文件
             excel_files_info = self._find_excel_files_simple(excel_path, file_id)
             if not excel_files_info:
@@ -1172,8 +1033,6 @@ class ExcelFlattenHandler:
                     "total_rows": 0
                 }
 
-            print(f"📊📊📊📊 找到 {len(excel_files_info)} 个Excel文件")
-
             all_flattened_data = []
             processed_sheets = []  # 记录处理成功的sheet
             failed_sheets = []  # 记录处理失败的sheet
@@ -1183,13 +1042,9 @@ class ExcelFlattenHandler:
                 file_path = file_info['file_path']
                 file_name = file_info['file_name']
 
-                print(f"🎯🎯🎯🎯 处理Excel文件: {file_name}")
-
                 sheet_names = self.get_sheet_names_from_excel(file_path)
-                print(f"  📋📋📋📋 包含 {len(sheet_names)} 个sheet: {sheet_names}")
 
                 for sheet_name in sheet_names:
-                    print(f"    📄📄📄📄 处理sheet: {sheet_name}")
 
                     try:
                         # 读取sheet数据
@@ -1202,8 +1057,6 @@ class ExcelFlattenHandler:
                                 'reason': '数据不足或为空'
                             })
                             continue
-
-                        print(f"    📈📈📈📈 读取到 {len(original_data)} 行原始数据")
 
                         # 构建扁平化请求
                         flatten_request = {
@@ -1222,11 +1075,7 @@ class ExcelFlattenHandler:
                         print(f"    🔥🔥🔥 调用excel_flatten_from_excel...")
                         flatten_result = self.excel_flatten_from_excel(flatten_request)
 
-                        print(f"    🔍🔍🔍🔍 flatten_result结构: {list(flatten_result.keys())}")
-                        print(f"    🔍🔍🔍🔍 flatten_result.success: {flatten_result.get('success')}")
-
                         if flatten_result.get('success'):
-                            print(f"    ✅ sheet {sheet_name} 扁平化成功")
 
                             # 提取扁平化数据
                             flattened_rows = self._extract_flattened_data_from_result(
@@ -1274,11 +1123,6 @@ class ExcelFlattenHandler:
                         })
                         import traceback
                         traceback.print_exc()
-
-            # 4. 检查结果
-            print(f"📊📊📊📊📊📊📊📊📊📊📊📊 最终数据统计: {len(all_flattened_data)} 行")
-            print(f"✅ 成功处理 {len(processed_sheets)} 个sheet")
-            print(f"❌❌ 失败 {len(failed_sheets)} 个sheet")
 
             # 5. 保存文件
             saved_result = None
@@ -1349,7 +1193,6 @@ class ExcelFlattenHandler:
                     "total_columns": 0
                 })
 
-            print(f"✅✅✅✅ 整体扁平化处理完成，返回格式与excel_flatten_from_excel一致")
             return result
 
         except Exception as e:
@@ -1364,46 +1207,6 @@ class ExcelFlattenHandler:
                 "total_rows": 0
             }
 
-    def convert_to_long_format00000(self, table_data: List[List[Any]], table_metadata: Dict[str, Any],
-                               marks_info: Dict[str, Any], source_info: Dict[str, Any]) -> List[Dict]:
-        """
-        执行长格式转换 - 确保返回正确的数据结构
-        """
-        print(f"🔄🔄🔄🔄 开始转换表格数据...")
-
-        converter = self.FinalDataConverter()
-
-        # 🔥🔥🔥 关键修改：从source_info中获取entity参数
-        entity_value = source_info.get('entity', '')
-        bank_name_value = source_info.get('bank_name', '中国建设银行')
-
-        print(f"🔧 传递给转换器的参数:")
-        print(f"  - bank_name: {bank_name_value}")
-        print(f"  - entity: {entity_value}")
-
-        long_format_data = converter.convert_table_to_long_format(
-            table_data=table_data,
-            table_metadata=table_metadata,
-            marks_info=marks_info,
-            bank_name=bank_name_value,
-            entity=entity_value  # 🔥 传递entity参数
-        )
-
-        print(f"✅ 转换完成: {len(long_format_data)} 条标准格式记录")
-
-        # 🔥🔥🔥 验证entity是否被正确应用
-        if long_format_data and len(long_format_data) > 0:
-            sample_entity = long_format_data[0].get('主体', '')
-            print(f"📊 第一条记录的'主体'字段值: {sample_entity}")
-            print(f"📊 传递给转换器的entity参数: {entity_value}")
-
-            # 检查entity是否被正确应用
-            if entity_value and sample_entity != entity_value:
-                print(f"⚠️ 警告：entity参数可能未被正确应用！")
-                print(f"  期望: {entity_value}")
-                print(f"  实际: {sample_entity}")
-
-        return long_format_data
 
     def convert_to_long_format(self, table_data: List[List[Any]], table_metadata: Dict[str, Any],
                                marks_info: Dict[str, Any], source_info: Dict[str, Any]) -> List[Dict]:
@@ -1411,20 +1214,6 @@ class ExcelFlattenHandler:
         执行长格式转换 - 确保返回正确的数据结构
         """
         print(f"🔄🔄🔄🔄 开始转换表格数据...")
-
-        # 🔥 添加表格数据调试信息
-        print(f"🔍 输入数据详情:")
-        print(f"  - 表格数据行数: {len(table_data)}")
-        if table_data and len(table_data) > 0:
-            print(f"  - 表格数据列数: {len(table_data[0]) if table_data[0] else 0}")
-            print(f"  - 第一行样本: {table_data[0]}")
-            if len(table_data) > 1:
-                print(f"  - 第二行样本: {table_data[1]}")
-
-        print(f"🔍 元数据详情:")
-        print(f"  - table_metadata: {table_metadata}")
-        print(f"  - source_info: {source_info}")
-
         converter = self.FinalDataConverter()
 
         # 🔥🔥🔥 关键修改1：entity参数优先级处理
@@ -1442,14 +1231,6 @@ class ExcelFlattenHandler:
             bank_name_value = table_metadata.get('bank_name', '')
         if not bank_name_value:  # 如果都没有
             bank_name_value = '未知银行'
-
-        print(f"🔧 传递给转换器的最终参数:")
-        print(f"  - bank_name: '{bank_name_value}'")
-        print(f"  - entity: '{entity_value}'")
-        print(
-            f"  - table_data形状: {len(table_data)}行 x {len(table_data[0]) if table_data and len(table_data) > 0 else 0}列")
-        print(
-            f"  - marks_info: 行标记{len(marks_info.get('row_marks', []))}个, 列标记{len(marks_info.get('col_marks', []))}个")
 
         try:
             long_format_data = converter.convert_table_to_long_format(
@@ -1471,36 +1252,6 @@ class ExcelFlattenHandler:
                     if entity_in_record:
                         entities_in_data.add(entity_in_record)
 
-                print(f"📊 转换结果中的entity值统计:")
-                print(f"  - 传递给转换器的entity参数: '{entity_value}'")
-                print(f"  - 转换结果中出现的entity值: {list(entities_in_data)}")
-
-                if entity_value and entities_in_data and len(entities_in_data) == 1:
-                    actual_entity = list(entities_in_data)[0]
-                    if entity_value == actual_entity:
-                        print(f"✅ entity参数被正确应用到所有记录的'主体'字段")
-                    else:
-                        print(f"⚠️ 警告：entity参数未被正确应用！")
-                        print(f"  期望: '{entity_value}'")
-                        print(f"  实际: '{actual_entity}'")
-                elif len(entities_in_data) > 1:
-                    print(f"⚠️ 警告：转换结果中包含多个不同的entity值: {list(entities_in_data)}")
-                    print(f"  这可能表明entity参数未被统一应用")
-                else:
-                    print(f"⚠️ 警告：转换结果中没有找到有效的'主体'字段值")
-
-            # 🔥 如果转换结果为空，提供详细的诊断信息
-            if not long_format_data or len(long_format_data) == 0:
-                print(f"❌ 转换结果为空，可能的原因:")
-                print(f"  1. 输入数据table_data为空: {len(table_data)}行")
-                print(f"  2. 转换器过滤了所有数据")
-                print(f"  3. 数据格式不符合转换要求")
-
-                # 打印更多调试信息
-                if table_data and len(table_data) > 0:
-                    print(f"  🔍 输入数据前5行:")
-                    for i in range(min(5, len(table_data))):
-                        print(f"    行{i}: {table_data[i]}")
 
             return long_format_data
 
@@ -1510,181 +1261,7 @@ class ExcelFlattenHandler:
             traceback.print_exc()
             return []  # 返回空列表而不是抛出异常
 
-
-    def convert_to_long_format000000(self, table_data: List[List[Any]], table_metadata: Dict[str, Any],
-                               marks_info: Dict[str, Any], source_info: Dict[str, Any]) -> List[Dict]:
-        """
-        执行长格式转换 - 确保返回正确的数据结构
-        """
-        print(f"🔄🔄🔄🔄 开始转换表格数据...")
-
-        converter = self.FinalDataConverter()
-        long_format_data = converter.convert_table_to_long_format(
-            table_data=table_data,
-            table_metadata=table_metadata,
-            marks_info=marks_info,
-            bank_name=source_info.get('bank_name', '中国建设银行'),
-            entity=source_info.get('entity', '本集团')
-        )
-
-        print(f"✅ 转换完成: {len(long_format_data)} 条标准格式记录")
-
-        # 🔥🔥🔥 关键：确保数据结构正确
-        if long_format_data and len(long_format_data) > 0:
-            print(f"📊 第一条记录结构: {long_format_data[0].keys()}")
-            print(f"📊 示例记录: {long_format_data[0]}")
-
-        return long_format_data
-
-    def excel_flatten_from_excel00000(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        处理从Excel直接提取的标准格式数据 - 恢复正确版本
-        """
-        try:
-            # 检查转换器是否可用
-            if not self.CONVERTER_AVAILABLE:
-                print("❌❌❌❌ 转换器不可用")
-                return {
-                    "success": False,
-                    "error": "数据转换器模块不可用"
-                }
-
-            print("🎯🎯🎯🎯 开始Excel扁平化处理")
-
-            # 1. 提取和验证输入数据
-            table_data = data.get('table_data', [])
-            source_info = data.get('source_info', {})
-
-            # 🔥 添加请求数据调试
-            print(f"🔍 请求数据摘要:")
-            print(f"  - table_data长度: {len(table_data)}")
-            print(f"  - source_info内容: {source_info}")
-
-            if 'entity' in source_info:
-                print(f"  - 前端传递的entity参数: '{source_info.get('entity')}'")
-            else:
-                print(f"  ⚠️ 前端未传递entity参数")
-
-            if not table_data or len(table_data) < 2:
-                print("❌❌❌❌ 表格数据至少需要表头行和一个数据行")
-                return {
-                    "success": False,
-                    "error": "表格数据至少需要表头行和一个数据行"
-                }
-
-            print(f"📊📊📊📊 开始处理Excel表格数据:")
-            print(f"  - 原始表格尺寸: {len(table_data)}行 × {len(table_data[0]) if table_data else 0}列")
-
-            # 🔥 打印前两行数据样本
-            if len(table_data) > 0:
-                print(f"  - 第一行样本: {table_data[0]}")
-            if len(table_data) > 1:
-                print(f"  - 第二行样本: {table_data[1]}")
-
-            # 2. 提取元数据并清理数据
-            print(f"🔧 提取元数据并清理数据...")
-            metadata, clean_table_data = self.extract_metadata_and_clean_data(table_data)
-
-            print(f"  - 提取的元数据: {metadata}")
-            print(f"  - 清理后数据长度: {len(clean_table_data)}行")
-
-            if 'entity' in metadata:
-                print(f"  - 从Excel提取的entity元数据: '{metadata.get('entity')}'")
-
-            # 3. 构建最终的source_info（优先使用元数据）
-            print(f"🔧 构建最终source_info...")
-            final_source_info = self.build_final_source_info(source_info, metadata)
-
-            # 🔥 验证entity参数
-            entity_value = final_source_info.get('entity', '')
-            print(f"🎯 最终确定的entity值: '{entity_value}'")
-
-            # 4. 提取标记信息
-            marks_info = self.extract_marks_info(clean_table_data)
-            print(
-                f"🔧 标记信息: 行标记{len(marks_info.get('row_marks', []))}个, 列标记{len(marks_info.get('col_marks', []))}个")
-
-            # 5. 准备表格元数据
-            table_metadata = self.prepare_table_metadata(data, final_source_info)
-
-            # 6. 执行转换
-            print(f"🔧 开始长格式转换...")
-            long_format_data = self.convert_to_long_format(
-                clean_table_data, table_metadata, marks_info, final_source_info
-            )
-
-            # 🔥 添加转换结果详细分析
-            print(f"📊 转换结果分析:")
-            print(f"  - 生成的记录数: {len(long_format_data)}")
-
-            if len(long_format_data) == 0:
-                print(f"⚠️ 警告: 转换结果为空!")
-                print(f"  可能原因分析:")
-                print(f"  1. 清理后数据为空: {len(clean_table_data)}行")
-                print(f"  2. 转换器可能过滤了所有数据")
-                print(f"  3. 数据格式不符合转换要求")
-
-                # 打印清理后数据的样本
-                if clean_table_data and len(clean_table_data) > 0:
-                    print(f"  🔍 清理后数据前3行:")
-                    for i in range(min(3, len(clean_table_data))):
-                        print(f"    行{i}: {clean_table_data[i]}")
-            else:
-                # 验证entity是否被正确应用
-                sample_record = long_format_data[0]
-                sample_entity = sample_record.get('主体', '')
-                print(f"  - 第一条记录的'主体'字段: '{sample_entity}'")
-                print(f"  - 期望的entity值: '{entity_value}'")
-
-                if entity_value and sample_entity != entity_value:
-                    print(f"  ⚠️ 警告: entity参数未被正确应用到'主体'字段!")
-
-            # 7. 对结果应用单位处理
-            if long_format_data:
-                long_format_data = self.apply_units_to_flattened_data(long_format_data, final_source_info)
-                print(f"✅ 单位处理完成")
-
-            # 8. 转换为前端格式
-            frontend_rows, field_names = self.convert_to_frontend_format(long_format_data)
-            print(f"🔄 转换为前端格式: {len(frontend_rows)}行前端数据")
-
-            # 9. 构建最终结果
-            result = {
-                "rows": frontend_rows,
-                "total_rows": len(frontend_rows),
-                "total_columns": len(field_names) if long_format_data else 0,
-                "sheet_name": final_source_info.get('table_name', '扁平化数据'),
-                "excel_file": final_source_info.get('excel_file', ''),
-                "pdf_id": final_source_info.get('pdf_id', ''),
-                "has_dual_headers": True,
-                "success": True,
-                "long_format_data": long_format_data,  # 原有的字段
-                "data": long_format_data,  # 🔥 为了前端兼容性
-                "source_info": final_source_info,
-                "metadata": metadata,
-                "has_custom_metadata": bool(metadata),
-                "timestamp": datetime.datetime.now().isoformat(),
-                "stats": {
-                    "original_rows": len(table_data),
-                    "converted_records": len(long_format_data),
-                    "has_data": len(long_format_data) > 0
-                }
-            }
-
-            print("✅✅✅✅ API处理完成，返回结果")
-            return result
-
-        except Exception as e:
-            print(f"❌❌❌❌ Excel数据处理失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-
-            return {
-                "success": False,
-                "error": f"处理失败: {str(e)}"
-            }
-
-    def extract_metadata_and_clean_data(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
+    def extract_metadata_and_clean_data999999999999(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
         """
         提取元数据并清理数据 - 修复版：保持原始列结构，不删除任何列
 
@@ -1756,29 +1333,7 @@ class ExcelFlattenHandler:
                     print(f"  前两列: 列0='{col_0}', 列1='{col_1}'")
                     print(f"  完整行: {row}")
 
-        # 打印元数据提取结果
-        print(f"📊 元数据提取结果: {len(metadata)} 个字段")
-        if metadata:
-            for key, value in metadata.items():
-                print(f"  - {key}: '{value}'")
-        else:
-            print(f"  - 未提取到元数据")
 
-        # 打印清理后数据统计
-        print(f"📊 清理后数据: {len(clean_table_data)} 行")
-        if clean_table_data and len(clean_table_data) > 0:
-            print(f"📊 清理后数据列数: 第0行有{len(clean_table_data[0])}列")
-            print(f"📊 清理后数据样本（前5行）:")
-            for i in range(min(5, len(clean_table_data))):
-                row_str = str(clean_table_data[i])
-                if len(row_str) > 100:  # 截断过长的行
-                    row_str = row_str[:100] + "..."
-                print(f"  行{i} ({len(clean_table_data[i])}列): {row_str}")
-
-                # 特别检查每一行的列数是否一致
-                if i > 0 and len(clean_table_data[i]) != len(clean_table_data[0]):
-                    print(
-                        f"  ⚠️ 警告: 行{i}的列数({len(clean_table_data[i])})与行0的列数({len(clean_table_data[0])})不一致")
 
         # 验证数据结构
         if clean_table_data and len(clean_table_data) > 1:
@@ -1791,6 +1346,128 @@ class ExcelFlattenHandler:
                     break
             if consistent:
                 print(f"✅ 数据结构检查通过: 所有行都有{first_row_cols}列")
+
+        return metadata, clean_table_data
+
+    def extract_metadata_and_clean_data(self, table_data: List[List[Any]]) -> tuple[Dict[str, str], List[List[Any]]]:
+        """
+        提取元数据并清理数据 - 完整融合修正版
+
+        核心逻辑：
+        1. 检查并过滤元数据行
+        2. 检查前两列是否都为空/Null/nan，如果是则丢弃整行
+        3. 合并前两列作为新的纵向层级路径
+        4. 从原始表格的第2列（索引2）开始提取数值数据
+        5. 从合并列中提取元数据
+
+        参数：
+            table_data: 原始表格数据，二维列表格式
+
+        返回：
+            tuple[Dict[str, str], List[List[Any]]]: 元数据字典和清理后的表格数据
+        """
+        metadata = {}
+        clean_table_data = []
+
+        for row_idx, row in enumerate(table_data):
+            if not row or len(row) == 0:
+                # 空行不添加到clean_table_data
+                continue
+
+            # 1. 检查第一列是否为元数据行
+            is_metadata = False
+            first_cell = ""
+
+            if len(row) > 0 and row[0] is not None:
+                first_cell = str(row[0]).strip()
+
+                # 检查是否包含冒号，可能是元数据
+                if ":" in first_cell:
+                    try:
+                        key, value = first_cell.split(":", 1)
+                        key = key.strip().lower()
+                        value = value.strip()
+
+                        # 检查是否是有效的元数据键
+                        valid_keys = ["bankname", "currency", "report_period", "unit",
+                                      "table_name", "ocr_table_id", "entity"]
+                        if key in valid_keys:
+                            metadata[key] = value
+                            is_metadata = True
+                    except Exception as e:
+                        # 解析失败，当作普通行处理
+                        is_metadata = False
+
+            if is_metadata:
+                # 元数据行不添加到clean_table_data
+                continue
+
+            # 2. 🔥🔥🔥 检查前两列是否都为空或'Null'、'nan'、'na'、'none'
+            # 获取前两列的内容
+            col_0_val = row[0] if len(row) > 0 else None
+            col_1_val = row[1] if len(row) > 1 else None
+
+            # 转换为字符串并清理
+            col_0 = str(col_0_val).strip().lower() if col_0_val is not None else ""
+            col_1 = str(col_1_val).strip().lower() if col_1_val is not None else ""
+
+            # 定义空值判断函数
+            def is_empty_or_null(value: str) -> bool:
+                """判断字符串是否为空、Null、nan等无效值"""
+                if not value:
+                    return True
+                value_lower = value.lower()
+                return (value_lower == 'null' or
+                        value_lower == 'nan' or
+                        value_lower == 'na' or
+                        value_lower == 'none' or
+                        value_lower == '' or
+                        value_lower.isspace())
+
+            # 检查前两列是否都为空或无效
+            if is_empty_or_null(col_0) and is_empty_or_null(col_1):
+                continue
+
+            # 3. 合并前两列
+            # 重新获取原始值（不转换为小写）
+            col_0_original = str(row[0]).strip() if len(row) > 0 and row[0] is not None else ""
+            col_1_original = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
+
+            # 合并逻辑
+            merged_col = ""
+            if col_0_original and col_1_original:
+                # 两列都有内容，用>>拼接
+                merged_col = f"{col_0_original}>>{col_1_original}"
+            elif col_0_original:
+                merged_col = col_0_original
+            elif col_1_original:
+                merged_col = col_1_original
+            else:
+                # 理论上不会走到这里，因为前面已经检查过前两列不全为空
+                merged_col = ""
+
+            # 4. 🔥🔥🔥 关键修正：从第2列（索引2）开始提取数据
+            # 注意：原始表格的第2列是第一个数值列
+            if len(row) > 2:
+                # 正确的索引：从row[2]开始，这是第一个数值列
+                new_row = [merged_col] + row[2:]
+            else:
+                # 如果原始行只有2列或更少，只保留合并列
+                new_row = [merged_col]
+
+            clean_table_data.append(new_row)
+
+            # 5. 从合并列中提取元数据
+            if merged_col and ":" in merged_col:
+                try:
+                    key, value = merged_col.split(":", 1)
+                    key, value = key.strip().lower(), value.strip()
+                    valid_keys = ["bankname", "currency", "report_period", "unit",
+                                  "table_name", "ocr_table_id", "entity"]
+                    if key in valid_keys:
+                        metadata[key] = value
+                except:
+                    pass
 
         return metadata, clean_table_data
 
@@ -1819,43 +1496,30 @@ class ExcelFlattenHandler:
         # 🔥 银行名处理 - 优先级：元数据 > source_info > 默认值
         if metadata.get("bankname"):
             final_source_info["bank_name"] = metadata["bankname"]
-            print(f"✅ 使用元数据银行名: {metadata['bankname']}")
         elif not final_source_info.get("bank_name"):
             final_source_info["bank_name"] = "未知银行"
-            print(f"⚠️ 未指定银行名，使用默认值: '未知银行'")
-        else:
-            print(f"✅ 使用source_info中的银行名: {final_source_info.get('bank_name')}")
 
         # 🔥 币种处理
         if metadata.get("currency"):
             final_source_info["default_currency"] = metadata["currency"]
-            print(f"✅ 使用元数据币种: {metadata['currency']}")
         elif not final_source_info.get("default_currency"):
             final_source_info["default_currency"] = "人民币"
-            print(f"⚠️ 未指定币种，使用默认值: '人民币'")
 
         # 🔥 单位处理
         if metadata.get("unit"):
             final_source_info["default_unit"] = metadata["unit"]
-            print(f"✅ 使用元数据单位: {metadata['unit']}")
         elif not final_source_info.get("default_unit"):
             final_source_info["default_unit"] = ""
-            print(f"⚠️ 未指定单位，使用空值")
 
         # 🔥 entity处理 - 关键修改
         if metadata.get("entity"):
             final_source_info["entity"] = metadata["entity"]
-            print(f"✅ 使用元数据实体: {metadata['entity']}")
         elif not final_source_info.get("entity"):
             final_source_info["entity"] = "本集团"
-            print(f"⚠️ 未指定实体，使用默认值: '本集团'")
-        else:
-            print(f"✅ 使用source_info中的实体: {final_source_info.get('entity')}")
 
         # 其他字段
         if metadata.get("report_period"):
             final_source_info["default_report_period"] = metadata["report_period"]
-            print(f"✅ 使用元数据报告期: {metadata['report_period']}")
 
         if metadata.get("table_name") and not final_source_info.get("table_name"):
             final_source_info["table_name"] = metadata["table_name"]

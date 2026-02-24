@@ -444,7 +444,6 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
             else:
                 return jsonify({"error": "Excel文件不存在"}), 404
 
-        print(f"✅ Excel文件存在: {excel_path}")
 
         # 2. 读取Excel文件
         try:
@@ -465,14 +464,11 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
             # 转换为二维列表
             data = df.values.tolist()
 
-            print(f"✅ 成功读取sheet '{sheet_name}'，数据形状: {len(data)}行 x {len(data[0]) if data else 0}列")
-
             # 检查是否有元数据行
             metadata_row_index = -1
             for i, row in enumerate(data):
                 if row and isinstance(row[0], str) and row[0].startswith('#METADATA_START#'):
                     metadata_row_index = i
-                    print(f"🔍 找到元数据起始行: 第{i}行")
                     break
 
             # 如果有元数据，提取它
@@ -491,7 +487,6 @@ def get_excel_data(file_id, excel_file_name, sheet_name):
             # 如果找到元数据，在数据中移除元数据行
             if metadata_row_index >= 0:
                 data = data[:metadata_row_index]
-                print(f"✂️ 移除元数据行，保留 {len(data)} 行数据")
 
             return jsonify({
                 "success": True,
@@ -626,14 +621,11 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
                         # 只收集已知的元数据字段
                         if key in valid_keys:
                             metadata[key] = value
-                            print(f"✅ 找到元数据: {key} = {value}")
                         clean_data.append(row)
                     except:
                         clean_data.append(row)
                 else:
                     clean_data.append(row)
-
-            print(f"📋 提取的元数据: {metadata}")
 
             result = {
                 "success": True,
