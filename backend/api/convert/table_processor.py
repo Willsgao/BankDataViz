@@ -2064,7 +2064,7 @@ def get_bank_name_from_database(pdf_folder):
         return ""
 
 
-def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, progress_tracker):
+def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - 更新调用方式"""
     try:
         print(f"📥📥 提交表格处理任务: pdf_folder={pdf_folder}")
@@ -2232,7 +2232,7 @@ def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, p
         }), 500
 
 
-def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
+def submit_table_processing_task_new(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - Redis队列化版本，保留原有防重逻辑"""
 
     # ========== 添加入口日志 ==========
