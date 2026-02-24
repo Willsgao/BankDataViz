@@ -3,12 +3,13 @@
 职责：封装表格处理业务逻辑，不包含API响应
 """
 
+import os
 import sqlite3
 from flask import jsonify
 import threading
 import time
 import uuid
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 
 from backend.utils.constants import DATABASE_PATH, FILTERED_TABLES_DIR, EXCEL_DATA_DIR, DATABASE
@@ -526,7 +527,7 @@ class PDFAggregatorManager:
                 result[pdf_folder] = self.get_processing_status(pdf_folder)
             return result
 
-    def finalize_pdf(self, pdf_folder, output_dir=None, force=False, metadata_list=None):
+    def finalize_pdf_old(self, pdf_folder, output_dir=None, force=False, metadata_list=None):
         """
         最终化PDF处理，生成Excel文件（支持增量更新）
         """
@@ -612,6 +613,85 @@ class PDFAggregatorManager:
                 traceback.print_exc()
                 self.update_processing_status(pdf_folder, status='failed')
                 return False, None, error_msg
+
+    def finalize_pdf(self, pdf_folder, output_dir=None, force=False, metadata_list=None):
+        """
+        第一步修复：简化逻辑，确保文件被保存
+        移除所有可能导致提前返回的检查
+        """
+        with self._lock:
+            print(f"\n{'=' * 60}")
+            print(f"🔍 第一步修复：finalize_pdf 简化版")
+            print(f"{'=' * 60}")
+
+            if pdf_folder not in self._aggregators:
+                error_msg = f"PDF聚合器不存在: {pdf_folder}"
+                print(f"❌ {error_msg}")
+                return False, None, error_msg
+
+            aggregator = self._aggregators[pdf_folder]
+
+            print(f"📊 聚合器表格数量: {len(aggregator)}")
+
+            try:
+                from pathlib import Path
+                import os
+                from datetime import datetime
+
+                # 使用EXCEL_DATA_DIR
+                if output_dir is None:
+                    output_dir = Path(EXCEL_DATA_DIR) / pdf_folder
+                    print(f"📁 使用EXCEL_DATA_DIR: {EXCEL_DATA_DIR}")
+                else:
+                    output_dir = Path(output_dir) / pdf_folder
+
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+                print(f"📁 输出目录: {output_dir}")
+                print(f"📁 绝对路径: {output_dir.absolute()}")
+                print(f"📁 目录存在: {output_dir.exists()}")
+
+                # 创建文件名
+                if aggregator.bank_name:
+                    filename = f"{aggregator.bank_name}_{pdf_folder}.xlsx"
+                else:
+                    filename = f"{pdf_folder}_合并.xlsx"
+
+                output_path = output_dir / filename
+                print(f"🆕 保存到文件: {filename}")
+                print(f"📁 完整路径: {output_path.absolute()}")
+
+                # 第一步：直接保存，不进行任何检查
+                print(f"\n🔄 第一步：直接调用 save_to_excel")
+
+                # 保存Excel
+                success = aggregator.save_to_excel(str(output_path), metadata_list)
+
+                print(f"📊 save_to_excel 返回结果: {success}")
+
+                # 检查文件是否被创建
+                if output_path.exists():
+                    file_size = output_path.stat().st_size
+                    print(f"✅ 文件已创建: {output_path}")
+                    print(f"📁 文件大小: {file_size} 字节")
+
+                    if file_size > 0:
+                        print(f"✅ 文件保存成功: {output_path} ({file_size} 字节)")
+                        return True, str(output_path), None
+                    else:
+                        print(f"⚠️ 文件大小为0，可能保存失败")
+                        return False, None, "文件保存失败（文件大小为0）"
+                else:
+                    print(f"❌ 文件不存在: {output_path}")
+                    return False, None, "文件保存失败（文件不存在）"
+
+            except Exception as e:
+                import traceback
+                error_msg = f"保存失败: {str(e)}"
+                print(f"❌ {error_msg}")
+                traceback.print_exc()
+                return False, None, error_msg
+
 
     def cleanup(self, pdf_folder=None):
         """
@@ -1984,7 +2064,7 @@ def get_bank_name_from_database(pdf_folder):
         return ""
 
 
-def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
+def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - 更新调用方式"""
     try:
         print(f"📥📥 提交表格处理任务: pdf_folder={pdf_folder}")
@@ -2151,6 +2231,305 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
             "error": f"提交任务失败: {str(e)}"
         }), 500
 
+
+def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
+    """提交表格处理任务 - Redis队列化版本，保留原有防重逻辑"""
+
+    # ========== 添加入口日志 ==========
+    print("\n" + "=" * 80)
+    print("🔄 submit_table_processing_task 函数被调用")
+    print(f"📁 PDF文件夹: {pdf_folder}")
+    print(f"📁 过滤表格目录: {filtered_tables_dir}")
+    print(f"👤 请求方法: {request.method}")
+    print(f"📄 内容类型: {request.content_type}")
+    print("=" * 80)
+
+    try:
+        print(f"📥📥 提交表格处理任务: pdf_folder={pdf_folder}")
+
+        # 获取请求数据
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json() or {}
+            print("📦 从JSON获取请求数据")
+        else:
+            data = request.form.to_dict() or {}
+            if not data and request.data:
+                try:
+                    import json
+                    data = json.loads(request.data.decode('utf-8'))
+                    print("📦 从原始数据解析JSON")
+                except:
+                    data = {}
+                    print("⚠️ 无法解析请求数据")
+            else:
+                print("📦 从表单获取请求数据")
+
+        print(f"📊 请求数据: {data}")
+
+        table_type = data.get('table_type', 'financial')
+        use_ocr = data.get('use_ocr', True)
+
+        # 先从数据库中读取银行名称，如果没有再从请求参数获取
+        print(f"🔍 查询数据库获取银行名称: {pdf_folder}")
+        bank_name = get_bank_name_from_database(pdf_folder)
+        print("&&&&&&&&&&&&&&&&&&&&&&pdf_folder:", pdf_folder, bank_name)
+        if not bank_name:
+            bank_name = data.get('bank_name', '')
+            print(f"🔍 从请求参数获取银行名称: {bank_name}")
+
+        print(
+            f"  配置参数: table_type={table_type}, use_ocr={use_ocr}, bank_name={bank_name} (from_db: {bool(bank_name)})")
+
+        # 可选的png_names参数，如果未提供则从目录获取
+        png_names = data.get('png_names', [])
+        print(f"  前端提供的png_names: {png_names} (数量: {len(png_names)})")
+
+        # 如果未提供png_names，自动从筛选目录获取
+        tables_dir = Path(filtered_tables_dir) / pdf_folder / "tables"
+        print(f"🔍 检查表格目录: {tables_dir}")
+        print(f"📁 目录是否存在: {tables_dir.exists()}")
+
+        if not png_names:
+            if tables_dir.exists():
+                png_names = [f.name for f in tables_dir.glob("*.png")]
+                print(f"  自动从目录获取 {len(png_names)} 张表格图片: {png_names}")
+            else:
+                print(f"❌ 表格目录不存在: {tables_dir}")
+                return jsonify({
+                    "success": False,
+                    "error": f"表格目录不存在: {tables_dir}",
+                    "suggestion": "请先完成图片筛选"
+                }), 400
+
+        if not png_names:
+            print("❌ 没有找到表格图片")
+            return jsonify({
+                "success": False,
+                "error": "没有找到表格图片",
+                "suggestion": "筛选后没有发现包含表格的图片"
+            }), 400
+
+        # 生成作业ID
+        import time
+        import uuid
+        job_id = f"table_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        print(f"🆔 生成的作业ID: {job_id}")
+
+        # 构建完整的图片路径列表
+        image_paths = []
+        for png_name in png_names:
+            img_path = tables_dir / png_name
+            if img_path.exists():
+                image_paths.append(str(img_path))
+            else:
+                print(f"⚠️ 图片不存在: {img_path}")
+
+        print("排序前图片：", image_paths)
+        image_paths = sorted(image_paths)
+        print("排序后图片：", image_paths)
+
+        if not image_paths:
+            print("❌ 没有找到有效的图片文件")
+            return jsonify({
+                "success": False,
+                "error": "没有找到有效的图片文件",
+                "suggestion": "请检查筛选后的图片文件是否存在"
+            }), 400
+
+        print(f"📸📸 找到 {len(image_paths)} 张有效图片")
+
+        # 创建任务信息
+        from datetime import datetime
+        job_info = {
+            "job_id": job_id,
+            "pdf_folder": pdf_folder,
+            "table_type": table_type,
+            "bank_name": bank_name,
+            "total_images": len(image_paths),
+            "image_paths": image_paths,
+            "status": "pending",
+            "stage": "pending",
+            "progress": 0,
+            "start_time": datetime.now().isoformat(),
+            "processed_images": 0,
+            "results": [],
+            "error": None
+        }
+
+        # ========== 初始化进度跟踪 ==========
+        print(f"\n📊 初始化进度跟踪: job_id={job_id}")
+        progress_tracker.init_table_job(
+            job_id=job_id,
+            job_info=job_info
+        )
+
+        print(f"✅ 创建作业成功: job_id={job_id}")
+
+        # ========== 核心优化：将任务推送到Redis队列 ==========
+        print(f"\n🚀 开始Redis队列推送流程...")
+        queue_mode = "redis"  # 默认使用Redis队列模式
+
+        try:
+            import redis
+            import json as json_module
+            from backend.utils.redis_util import redis_hset_compatible
+
+            # 连接到Redis
+            print(f"🔌 尝试连接Redis: host=localhost, port=6379, db=0")
+            redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=0,
+                decode_responses=False,
+                socket_connect_timeout=10,
+                socket_timeout=10
+            )
+
+            # 测试Redis连接
+            print("🔌 测试Redis连接...")
+            result = redis_client.ping()
+            print(f"✅ Redis连接测试成功: {result}")
+
+            # 构建队列任务数据
+            print("📦 构建队列任务数据...")
+            queue_task = {
+                "job_id": job_id,
+                "pdf_folder": pdf_folder,
+                "filtered_tables_dir": str(filtered_tables_dir),
+                "table_type": table_type,
+                "bank_name": bank_name,
+                "image_paths": image_paths,
+                "png_names": png_names,
+                "use_ocr": use_ocr,
+                "created_at": time.time(),
+                "request_data": {
+                    "table_type": table_type,
+                    "use_ocr": use_ocr,
+                    "bank_name": bank_name
+                }
+            }
+
+            # 推送到Redis队列
+            print(f"📤 推送到Redis队列: table_parse_queue")
+            redis_client.lpush("table_parse_queue", json_module.dumps(queue_task, ensure_ascii=False).encode('utf-8'))
+            current_queue_length = redis_client.llen("table_parse_queue")
+
+            # 在Redis中存储任务元数据
+            print(f"💾 存储任务元数据到Redis: table:job:{job_id}")
+            redis_hset_compatible(redis_client, f"table:job:{job_id}", {
+                "status": "queued",
+                "progress": "0",
+                "message": f"任务已加入队列，位置: {current_queue_length}",
+                "created_at": datetime.now().isoformat(),
+                "total_images": str(len(image_paths)),
+                "queue_position": str(current_queue_length),
+                "queue_mode": "redis"
+            })
+            # redis_client.hset(f"table:job:{job_id}", mapping={
+            #     "status": "queued",
+            #     "progress": "0",
+            #     "message": f"任务已加入队列，位置: {current_queue_length}",
+            #     "created_at": datetime.now().isoformat(),
+            #     "total_images": str(len(image_paths)),
+            #     "queue_position": str(current_queue_length),
+            #     "queue_mode": "redis"
+            # })
+
+            # 设置过期时间
+            redis_client.expire(f"table:job:{job_id}", 24 * 60 * 60)
+
+            print(f"📤 任务已推送到Redis队列: {job_id}")
+            print(f"📊 当前队列长度: {current_queue_length}")
+            print(f"✅ Redis队列推送成功")
+
+        except redis.exceptions.ConnectionError as e:
+            print(f"🔌❌ Redis连接错误: {e}")
+            queue_mode = "fallback"
+        except redis.exceptions.TimeoutError as e:
+            print(f"⏱️❌ Redis超时错误: {e}")
+            queue_mode = "fallback"
+        except Exception as redis_error:
+            print(f"⚠️❌ Redis队列推送失败: {redis_error}")
+            import traceback
+            traceback.print_exc()
+
+            # ========== 回退到原有异步线程模式 ==========
+            print(f"\n🔄 切换到回退模式（异步线程）...")
+
+            def async_process_table_fallback():
+                """原有的异步处理函数（回退方案）"""
+                try:
+                    print(f"🚀🚀 开始异步处理表格任务（回退模式）: {job_id}")
+
+                    # 更新状态为处理中
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "processing",
+                        "stage": "starting",
+                        "progress": 5,
+                        "message": "开始处理表格图片..."
+                    })
+
+                    # 使用原有的处理函数，包含防重逻辑
+                    process_table_images_real(
+                        job_id=job_id,
+                        pdf_folder=pdf_folder,
+                        image_paths=image_paths,
+                        table_type=table_type,
+                        bank_name=bank_name,
+                        progress_tracker=progress_tracker,
+                        skipped_images=[],  # 原有的防重参数
+                        existing_sheets=None  # 原有的防重参数
+                    )
+
+                    print(f"🎉🎉 表格处理任务完成: {job_id}")
+
+                except Exception as e:
+                    print(f"❌❌ 异步处理异常: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "failed",
+                        "stage": "failed",
+                        "progress": 0,
+                        "error": str(e),
+                        "end_time": datetime.now().isoformat(),
+                        "message": f"处理失败: {str(e)}"
+                    })
+
+            # 启动异步线程（回退模式）
+            import threading
+            thread = threading.Thread(target=async_process_table_fallback, daemon=True)
+            thread.start()
+
+            queue_mode = "fallback"
+            print(f"🎯🎯 异步处理线程已启动（回退模式）")
+
+        # ========== 返回响应 ==========
+        print(f"\n📤 返回响应: queue_mode={queue_mode}")
+        print("=" * 80)
+
+        return jsonify({
+            "success": True,
+            "job_id": job_id,  # 保持字段名不变
+            "message": f"表格解析任务已提交 ({'Redis队列' if queue_mode == 'redis' else '异步线程'})",
+            "pdf_folder": pdf_folder,
+            "table_type": table_type,
+            "bank_name": bank_name,
+            "total_images": len(image_paths),
+            "auto_detected_images": data.get('png_names') is None,
+            "queue_mode": queue_mode
+        })
+
+    except Exception as e:
+        print(f"\n💥💥 submit_table_processing_task 函数异常: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": f"提交任务失败: {str(e)}"
+        }), 500
 
 
 def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_name,
@@ -2372,6 +2751,1303 @@ def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_
             "end_time": datetime.now().isoformat(),
             "message": f"处理失败: {str(e)}"
         })
+
+
+
+
+def process_images_with_real_time_updates___(
+        job_id: str,
+        pdf_folder: str,
+        image_paths: List[str],
+        table_type: str = "financial",
+        bank_name: str = "",
+        progress_tracker=None
+) -> Dict[str, Any]:
+    """
+    全新的图片处理函数 - 支持实时进度更新到Redis
+    专门为Worker设计，每处理一张图片就更新一次进度
+
+    修复：即使所有图片都跳过，也确保生成Excel文件
+    """
+    import os
+
+    # # 定义EXCEL_DATA_DIR常量
+    # EXCEL_DATA_DIR = "data/backend/static/excel_data"
+
+    start_time = time.time()
+
+    result = {
+        "success": False,
+        "job_id": job_id,
+        "pdf_folder": pdf_folder,
+        "total_images": len(image_paths),
+        "processed_images": 0,
+        "success_count": 0,
+        "failed_count": 0,
+        "total_tables_extracted": 0,
+        "execution_time": 0,
+        "excel_path": None,
+        "errors": []
+    }
+
+    try:
+        print(f"\n{'=' * 60}")
+        print(f"🆕 启动实时进度处理函数（修复版）")
+        print(f"🎯 任务ID: {job_id}")
+        print(f"📁 PDF文件夹: {pdf_folder}")
+        print(f"📸 图片数量: {len(image_paths)}")
+        print(f"{'=' * 60}")
+
+        # 1. 使用增量处理器过滤已处理的图片
+        print(f"\n🔍 检查增量处理状态...")
+
+        image_names = [os.path.basename(img_path) for img_path in image_paths]
+
+        # 使用增量处理器
+        images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
+
+        # 计算跳过的图片
+        skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+
+        print(f"📊 增量处理结果:")
+        print(f"  - 总图片: {len(image_names)}")
+        print(f"  - 已处理: {len(skipped_images_names)} (跳过)")
+        print(f"  - 待处理: {len(images_to_process_names)}")
+
+        # ✅ 修复：即使所有图片都跳过，也要生成Excel
+        if not images_to_process_names and skipped_images_names:
+            print("✅ 所有图片都已处理，但需要确保Excel文件存在")
+
+            # ✅ 修复：从增量处理器获取总图片数
+            try:
+                # 获取增量处理器的统计信息
+                stats = incremental_processor.get_processing_stats(pdf_folder, image_names)
+                total_processed_images = stats.get('total_processed', len(skipped_images_names))
+                print(f"🔍 从增量处理器获取到总图片数: {total_processed_images}")
+
+                # 使用正确的总图片数注册任务
+                pdf_aggregator_manager.register_processing_job(pdf_folder, total_processed_images, bank_name)
+
+                # ✅ 立即更新处理状态
+                pdf_aggregator_manager.update_processing_status(
+                    pdf_folder,
+                    processed_images=total_processed_images,  # 使用正确的总图片数
+                    status='ready_to_merge'
+                )
+            except Exception as e:
+                print(f"⚠️ 获取总图片数失败: {e}")
+                # 回退：使用跳过的图片数
+                pdf_aggregator_manager.register_processing_job(pdf_folder, len(skipped_images_names), bank_name)
+                pdf_aggregator_manager.update_processing_status(
+                    pdf_folder,
+                    processed_images=len(skipped_images_names),
+                    status='ready_to_merge'
+                )
+
+            print(f"✅ 已更新处理状态: {len(image_names)}/{len(image_names)} 张图片已处理")
+
+            # 获取PDF聚合器
+            aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+            # 检查聚合器状态
+            print(f"🔍 聚合器状态检查:")
+            print(f"  - 聚合器中表格数量: {len(aggregator)}")
+
+            # ✅ 关键修复2：在调用finalize_pdf前检查增量处理器状态
+            try:
+                stats = incremental_processor.get_processing_stats(pdf_folder, image_names)
+                if stats.get('is_completed', False):
+                    print(f"✅ 增量处理器确认处理完成，可以生成Excel")
+                else:
+                    print(f"⚠️ 增量处理器未确认完成，但所有图片都已跳过")
+            except Exception as e:
+                print(f"⚠️ 检查增量处理器状态失败: {e}")
+
+            # 调用finalize_pdf生成Excel
+            success, excel_path, error_msg = pdf_aggregator_manager.finalize_pdf(
+                pdf_folder,
+                EXCEL_DATA_DIR,
+                force=False,
+                metadata_list=[]
+            )
+
+            if success:
+                if progress_tracker:
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "completed",
+                        "progress": 100,
+                        "message": "所有图片都已处理完成，Excel文件已生成",
+                        "completed_at": datetime.now().isoformat(),
+                        "final_excel": excel_path
+                    })
+
+                result.update({
+                    "success": True,
+                    "message": "所有图片都已处理完成，Excel文件已生成",
+                    "skipped_images": skipped_images_names,
+                    "processed_images": len(skipped_images_names),
+                    "excel_path": excel_path,
+                    "execution_time": time.time() - start_time
+                })
+                print(f"✅ Excel文件已生成: {excel_path}")
+            else:
+                if progress_tracker:
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "failed",
+                        "error": f"Excel文件生成失败: {error_msg}",
+                        "end_time": datetime.now().isoformat()
+                    })
+
+                result.update({
+                    "success": False,
+                    "error": f"Excel文件生成失败: {error_msg}",
+                    "skipped_images": skipped_images_names,
+                    "execution_time": time.time() - start_time
+                })
+                print(f"❌ Excel文件生成失败: {error_msg}")
+
+            return result
+
+        # 2. 筛选出需要处理的图片路径
+        images_to_process = [
+            img_path for img_path in image_paths
+            if os.path.basename(img_path) in images_to_process_names
+        ]
+
+        total_to_process = len(images_to_process)
+
+        # 3. 初始化服务
+        print(f"🔧 初始化表格处理服务...")
+        table_service = TableProcessingService()
+
+        # 4. 注册PDF处理任务
+        pdf_aggregator_manager.register_processing_job(pdf_folder, len(image_names), bank_name)
+
+        # 5. 获取PDF聚合器
+        aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+        # 6. 开始处理图片（逐张处理，实时更新进度）
+        processed_count = 0
+        success_count = 0
+        failed_count = 0
+        all_metadata_list = []
+        results = []
+
+        for i, image_path in enumerate(images_to_process):
+            image_name = os.path.basename(image_path)
+
+            try:
+                # 6.1 更新开始处理状态
+                progress_percent = int((i / total_to_process) * 80)  # 0-80%
+
+                if progress_tracker:
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "processing",
+                        "progress": progress_percent,
+                        "message": f"开始处理第 {i + 1}/{total_to_process} 张图片: {image_name}",
+                        "current_image": image_name,
+                        "stage": "ocr_processing",
+                        "processed_images": i
+                    })
+
+                print(f"\n{'─' * 40}")
+                print(f"🖼 处理图片 {i + 1}/{total_to_process}: {image_name}")
+                print(f"{'─' * 40}")
+
+                # 6.2 调用OCR-LLM内存流水线
+                tables_data, sheet_names, metadata_list = table_service._run_ocr_llm_memory_pipeline(
+                    image_path=image_path,
+                    bank_name=bank_name
+                )
+
+                if tables_data:
+                    # 将表格数据添加到聚合器
+                    for table_idx, (table_data, sheet_name) in enumerate(zip(tables_data, sheet_names)):
+                        table_metadata = metadata_list[table_idx] if table_idx < len(metadata_list) else {}
+                        success = aggregator.add_table(
+                            image_name=image_name,
+                            table_data=table_data,
+                            sheet_name=sheet_name,
+                            image_path=image_path,
+                            metadata=table_metadata
+                        )
+                        if success:
+                            all_metadata_list.append(table_metadata)
+
+                    success_count += 1
+                    results.append({
+                        "image_path": image_name,
+                        "success": True,
+                        "tables_extracted": len(tables_data)
+                    })
+                    print(f"✅ 图片处理成功: {image_name}, 提取 {len(tables_data)} 个表格")
+                else:
+                    failed_count += 1
+                    results.append({
+                        "image_path": image_name,
+                        "success": False,
+                        "error": "未提取到表格数据"
+                    })
+                    print(f"⚠️ 图片处理未提取到表格: {image_name}")
+
+                # 6.3 标记图片完成
+                pdf_aggregator_manager.mark_image_completed(pdf_folder, image_name,
+                                                            len(sheet_names) if tables_data else 0)
+
+            except Exception as img_error:
+                failed_count += 1
+                print(f"❌ 处理图片失败 {image_name}: {img_error}")
+                import traceback
+                traceback.print_exc()
+
+                results.append({
+                    "image_path": image_name,
+                    "success": False,
+                    "error": str(img_error)
+                })
+
+                # 标记图片完成（即使失败）
+                pdf_aggregator_manager.mark_image_completed(pdf_folder, image_name, 0)
+
+            finally:
+                processed_count += 1
+
+                # 6.4 ✅ 关键：实时更新处理进度
+                if progress_tracker:
+                    current_progress = int((i + 1) / total_to_process * 80)  # 更新进度
+                    progress_tracker.update_table_job(job_id, {
+                        "progress": current_progress,
+                        "processed_images": i + 1,
+                        "success_count": success_count,
+                        "current_image": image_name
+                    })
+
+        # 7. 最终合并
+        print(f"\n{'=' * 60}")
+        print(f"🔄 所有图片处理完成，开始最终合并")
+        print(f"{'=' * 60}")
+
+        if progress_tracker:
+            progress_tracker.update_table_job(job_id, {
+                "stage": "merging",
+                "progress": 85,
+                "message": f"正在合并 {len(aggregator)} 个表格到Excel..."
+            })
+
+        # 最终化PDF，生成Excel
+        success, excel_path, error_msg = pdf_aggregator_manager.finalize_pdf(
+            pdf_folder,
+            EXCEL_DATA_DIR,
+            force=False,
+            metadata_list=all_metadata_list
+        )
+
+        # 8. 任务完成
+        if success:
+            if progress_tracker:
+                progress_tracker.update_table_job(job_id, {
+                    "status": "completed",
+                    "stage": "completed",
+                    "progress": 100,
+                    "processed_images": processed_count,
+                    "success_count": success_count,
+                    "failed_count": failed_count,
+                    "final_excel": excel_path,
+                    "results": results,
+                    "end_time": datetime.now().isoformat(),
+                    "message": f"处理完成: 成功 {success_count}/{processed_count} 张图片"
+                })
+
+            # 清理聚合器
+            aggregator.clear()
+
+            result.update({
+                "success": True,
+                "processed_images": processed_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "total_tables_extracted": len(all_metadata_list),
+                "excel_path": excel_path,
+                "execution_time": time.time() - start_time,
+                "results": results
+            })
+
+            print(f"\n✅ 任务完成: {job_id}")
+            print(f"📊 处理统计: 处理 {success_count} 张，失败 {failed_count} 张，提取 {len(all_metadata_list)} 个表格")
+
+        else:
+            if progress_tracker:
+                progress_tracker.update_table_job(job_id, {
+                    "status": "failed",
+                    "stage": "failed",
+                    "error": error_msg,
+                    "end_time": datetime.now().isoformat()
+                })
+
+            result.update({
+                "error": error_msg
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"❌ 实时进度处理函数异常: {e}")
+        import traceback
+        traceback.print_exc()
+
+        if progress_tracker:
+            progress_tracker.update_table_job(job_id, {
+                "status": "failed",
+                "stage": "failed",
+                "error": str(e),
+                "end_time": datetime.now().isoformat()
+            })
+
+        result.update({
+            "error": str(e),
+            "execution_time": time.time() - start_time
+        })
+
+        return result
+
+
+def _check_existing_excel_11(pdf_folder: str, bank_name: str = "") -> Tuple[bool, Optional[str]]:
+    """
+    增强版：检查Excel文件是否已存在且包含有效数据
+
+    返回: (是否有效, 文件路径)
+    """
+    try:
+        from pathlib import Path
+        import openpyxl
+
+        # 定义可能的Excel输出目录
+        possible_dirs = []
+
+        # 1. 标准输出目录
+        if hasattr(tableconfig, 'output_dir') and tableconfig.output_dir:
+            possible_dirs.append(Path(tableconfig.output_dir) / pdf_folder)
+
+        # 2. Excel数据目录
+        possible_dirs.append(Path("data/backend/static/excel_data") / pdf_folder)
+
+        # 3. 备用输出目录
+        possible_dirs.append(Path("data/backend/outputs") / pdf_folder)
+
+        for excel_dir in possible_dirs:
+            if excel_dir and excel_dir.exists():
+                print(f"🔍 检查目录: {excel_dir}")
+
+                # 查找Excel文件
+                excel_files = list(excel_dir.glob("*.xlsx"))
+                if excel_files:
+                    print(f"  📁 找到 {len(excel_files)} 个Excel文件")
+
+                    # 按修改时间排序，取最新的
+                    excel_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                    excel_path = excel_files[0]
+
+                    # 验证文件大小
+                    file_size = excel_path.stat().st_size
+                    if file_size <= 0:
+                        print(f"  ⚠️ 文件为空: {excel_path.name}")
+                        continue
+
+                    # ✅ 新增：验证Excel文件内容
+                    print(f"  🔍 验证Excel文件内容: {excel_path.name}")
+
+                    try:
+                        # 尝试打开Excel文件
+                        wb = openpyxl.load_workbook(str(excel_path), data_only=True, read_only=True)
+
+                        sheet_names = wb.sheetnames
+                        print(f"  📄 Sheet数量: {len(sheet_names)}")
+                        print(f"  📄 Sheet名称: {sheet_names}")
+
+                        # 检查是否有实际数据
+                        has_real_data = False
+                        table_count = 0
+
+                        for sheet_name in sheet_names:
+                            ws = wb[sheet_name]
+                            max_row = ws.max_row
+                            max_col = ws.max_column
+
+                            # 排除空表或只有表头的表
+                            if max_row > 1 and max_col > 1:  # 至少2行2列才认为是有效表格
+                                has_real_data = True
+                                table_count += 1
+                                print(f"  ✅ Sheet '{sheet_name}': {max_row}行×{max_col}列")
+                            else:
+                                print(f"  ⚠️ Sheet '{sheet_name}' 可能为空")
+
+                        wb.close()
+
+                        if has_real_data:
+                            print(f"  ✅ Excel文件包含 {table_count} 个有效表格，大小: {file_size} 字节")
+                            return True, str(excel_path)
+                        else:
+                            print(f"  ⚠️ Excel文件没有有效表格数据")
+                            # 文件存在但没有有效数据，返回False
+                            return False, str(excel_path)
+
+                    except Exception as e:
+                        print(f"  ⚠️ 读取Excel文件失败: {e}")
+                        # 如果无法读取，认为文件无效
+                        return False, str(excel_path)
+
+        print(f"📄 未发现有效的Excel文件")
+        return False, None
+
+    except Exception as e:
+        print(f"⚠️ 检查现有Excel文件失败: {e}")
+        return False, None
+
+
+def process_images_with_real_time_updates_00(
+        job_id: str,
+        pdf_folder: str,
+        image_paths: List[str],
+        table_type: str = "financial",
+        bank_name: str = "",
+        progress_tracker=None
+) -> Dict[str, Any]:
+    """
+    重构版本：职责单一、状态清晰的图片处理函数
+
+    职责：只处理图片，将表格数据添加到聚合器
+    不负责生成Excel文件，Excel生成由调用方统一处理
+
+    设计原则：
+    1. 单一职责：只处理图片，不生成Excel
+    2. 状态透明：明确返回处理结果和下一步建议
+    3. 错误隔离：处理失败不影响整体流程
+    4. 增量友好：正确处理已处理和未处理图片
+
+    返回结果结构：
+    {
+        "success": bool,                # 整体处理是否成功
+        "operation": str,               # 执行的操作类型
+        "images_processed": int,        # 实际处理的图片数量
+        "tables_added": int,            # 添加到聚合器的表格数量
+        "aggregator_has_data": bool,    # 聚合器当前是否有数据
+        "next_action": str,             # 建议的下一步操作
+        "need_generate_excel": bool,    # 是否需要生成Excel
+        "excel_exists": bool,           # Excel文件是否已存在
+        "excel_path": Optional[str],    # 已存在的Excel路径（如果存在）
+        "details": Dict,                # 详细处理信息
+        "errors": List[str]             # 错误信息列表
+    }
+    """
+    import os
+    import time
+    from pathlib import Path
+    from datetime import datetime
+    from typing import Dict, Any, List, Optional, Tuple
+
+    start_time = time.time()
+
+    # 初始化结果结构
+    result = {
+        "success": False,
+        "job_id": job_id,
+        "pdf_folder": pdf_folder,
+        "operation": "unknown",
+        "total_images_received": len(image_paths),
+        "images_processed": 0,
+        "tables_added": 0,
+        "aggregator_has_data": False,
+        "need_generate_excel": False,
+        "excel_exists": False,
+        "excel_path": None,
+        "next_action": "unknown",
+        "execution_time": 0,
+        "details": {
+            "images_filtered": 0,
+            "images_to_process": 0,
+            "images_skipped": 0,
+            "success_count": 0,
+            "failed_count": 0,
+            "aggregator_tables_before": 0,
+            "aggregator_tables_after": 0
+        },
+        "errors": []
+    }
+
+    try:
+        print(f"\n{'=' * 60}")
+        print(f"🎯 重构版图片处理函数启动")
+        print(f"📁 PDF文件夹: {pdf_folder}")
+        print(f"📸 接收图片数: {len(image_paths)}")
+        print(f"🏦 银行名称: {bank_name}")
+        print(f"{'=' * 60}")
+
+        # ========== 阶段1：状态检查和初始化 ==========
+        print(f"\n🔍 阶段1：状态检查和初始化")
+
+        # 1.1 检查图片路径有效性
+        valid_image_paths = []
+        invalid_images = []
+
+        for img_path in image_paths:
+            if os.path.exists(img_path):
+                valid_image_paths.append(img_path)
+            else:
+                invalid_images.append(img_path)
+
+        if invalid_images:
+            print(f"⚠️ 发现 {len(invalid_images)} 个无效图片路径")
+            for invalid_img in invalid_images[:3]:  # 只显示前3个
+                print(f"  - {invalid_img}")
+            if len(invalid_images) > 3:
+                print(f"  ... 等 {len(invalid_images) - 3} 个")
+
+            result["errors"].append(f"发现 {len(invalid_images)} 个无效图片路径")
+
+        if not valid_image_paths:
+            result["operation"] = "no_valid_images"
+            result["next_action"] = "check_existing_excel"
+            result["execution_time"] = time.time() - start_time
+            print(f"❌ 没有有效的图片路径，跳过处理")
+            return result
+
+        # 1.2 获取图片名称列表
+        image_names = [os.path.basename(img_path) for img_path in valid_image_paths]
+
+        # 1.3 检查增量处理状态
+        print(f"\n🔍 检查增量处理状态...")
+        try:
+            # 过滤已处理的图片
+            images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
+            skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+
+            result["details"]["images_filtered"] = len(image_names)
+            result["details"]["images_to_process"] = len(images_to_process_names)
+            result["details"]["images_skipped"] = len(skipped_images_names)
+
+            print(f"📊 增量处理结果:")
+            print(f"  - 总图片: {len(image_names)}")
+            print(f"  - 待处理: {len(images_to_process_names)}")
+            print(f"  - 已处理: {len(skipped_images_names)} (跳过)")
+
+        except Exception as e:
+            print(f"⚠️ 增量处理器检查失败: {e}")
+            result["errors"].append(f"增量处理器检查失败: {str(e)}")
+            # 回退：处理所有图片
+            images_to_process_names = image_names
+            skipped_images_names = []
+
+        # 1.4 检查Excel文件是否已存在
+        print(f"\n🔍 检查现有Excel文件...")
+        excel_exists, existing_excel_path = _check_existing_excel(pdf_folder, bank_name)
+
+        result["excel_exists"] = excel_exists
+        result["excel_path"] = existing_excel_path
+
+        if excel_exists and existing_excel_path:
+            print(f"✅ 发现现有Excel文件: {existing_excel_path}")
+        else:
+            print(f"📄 未发现现有Excel文件，需要创建新文件")
+
+        # 1.5 获取聚合器并记录初始状态
+        print(f"\n🔍 初始化聚合器...")
+        try:
+            # 注册处理任务
+            pdf_aggregator_manager.register_processing_job(pdf_folder, len(image_names), bank_name)
+
+            # 获取聚合器实例
+            aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+            # 记录初始状态
+            initial_tables_count = len(aggregator)
+            result["details"]["aggregator_tables_before"] = initial_tables_count
+            result["aggregator_has_data"] = initial_tables_count > 0
+
+            print(f"📊 聚合器初始状态:")
+            print(f"  - 表格数量: {initial_tables_count}")
+            print(f"  - 是否有数据: {result['aggregator_has_data']}")
+
+        except Exception as e:
+            print(f"❌ 聚合器初始化失败: {e}")
+            result["errors"].append(f"聚合器初始化失败: {str(e)}")
+            result["execution_time"] = time.time() - start_time
+            return result
+
+        # ========== 阶段2：决策逻辑 ==========
+        print(f"\n🤔 阶段2：处理决策")
+
+        # 决策树：
+        # 1. 如果没有图片需要处理
+        # 2. 如果聚合器已有数据
+        # 3. 如果有新图片需要处理
+
+        # 在决策部分修改：
+        if not images_to_process_names:
+            # 情况1：没有新图片需要处理
+            result["operation"] = "no_new_images"
+            result["images_processed"] = 0
+
+            if result["aggregator_has_data"]:
+                # 聚合器有数据，需要生成Excel
+                result["need_generate_excel"] = True
+                result["next_action"] = "generate_excel_from_aggregator"
+                print(f"📊 决策: 无新图片，但聚合器有 {initial_tables_count} 个表格，需要生成Excel")
+            elif excel_exists:
+                # ✅ 修改：只有excel_exists为True且文件有效时才使用
+                if excel_exists:  # 这里excel_exists现在表示文件有效
+                    result["need_generate_excel"] = False
+                    result["next_action"] = "use_existing_excel"
+                    print(f"📊 决策: 无新图片，有有效Excel，无需处理")
+                else:
+                    # 有Excel文件但无效
+                    result["need_generate_excel"] = True
+                    result["next_action"] = "generate_excel"
+                    print(f"📊 决策: 无新图片，Excel文件无效，需要重新生成")
+            else:
+                # 既无新图片，聚合器也无数据，也没有有效Excel
+                result["need_generate_excel"] = True
+                result["next_action"] = "generate_empty_excel"
+                print(f"📊 决策: 无新图片，无聚合器数据，无有效Excel，需要创建新Excel")
+
+            result["success"] = True
+            result["execution_time"] = time.time() - start_time
+            return result
+
+        # 情况2：有新图片需要处理
+        result["operation"] = "process_new_images"
+
+        # 筛选出需要处理的图片路径
+        images_to_process = [
+            img_path for img_path in valid_image_paths
+            if os.path.basename(img_path) in images_to_process_names
+        ]
+
+        print(f"🔄 决策: 有 {len(images_to_process)} 张新图片需要处理")
+
+        # ========== 阶段3：图片处理 ==========
+        print(f"\n🖼️ 阶段3：处理 {len(images_to_process)} 张新图片")
+
+        # 3.1 初始化表格处理服务
+        try:
+            table_service = TableProcessingService()
+        except Exception as e:
+            print(f"❌ 表格处理服务初始化失败: {e}")
+            result["errors"].append(f"表格处理服务初始化失败: {str(e)}")
+            result["execution_time"] = time.time() - start_time
+            return result
+
+        # 3.2 逐张处理图片
+        processed_count = 0
+        success_count = 0
+        failed_count = 0
+        tables_added = 0
+        all_metadata_list = []
+
+        for i, image_path in enumerate(images_to_process):
+            image_name = os.path.basename(image_path)
+
+            try:
+                # 3.2.1 更新进度
+                if progress_tracker:
+                    progress_percent = int((i / len(images_to_process)) * 80)
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "processing",
+                        "progress": progress_percent,
+                        "message": f"处理第 {i + 1}/{len(images_to_process)} 张图片: {image_name}",
+                        "current_image": image_name,
+                        "processed_images": i
+                    })
+
+                print(f"\n{'─' * 40}")
+                print(f"🖼 处理图片 {i + 1}/{len(images_to_process)}: {image_name}")
+                print(f"{'─' * 40}")
+
+                # 3.2.2 调用OCR-LLM流水线
+                tables_data, sheet_names, metadata_list = table_service._run_ocr_llm_memory_pipeline(
+                    image_path=image_path,
+                    bank_name=bank_name
+                )
+
+                if tables_data:
+                    # 3.2.3 将表格数据添加到聚合器
+                    for table_idx, (table_data, sheet_name) in enumerate(zip(tables_data, sheet_names)):
+                        table_metadata = metadata_list[table_idx] if table_idx < len(metadata_list) else {}
+
+                        # 添加到聚合器
+                        add_success = aggregator.add_table(
+                            image_name=image_name,
+                            table_data=table_data,
+                            sheet_name=sheet_name,
+                            image_path=image_path,
+                            metadata=table_metadata
+                        )
+
+                        if add_success:
+                            tables_added += 1
+                            all_metadata_list.append(table_metadata)
+                            print(f"  ✅ 添加表格 {table_idx + 1}: '{sheet_name}'")
+
+                    success_count += 1
+                    print(f"✅ 图片处理成功: {image_name}, 添加 {len(tables_data)} 个表格")
+                else:
+                    failed_count += 1
+                    print(f"⚠️ 图片未提取到表格: {image_name}")
+
+                # 3.2.4 标记图片为已处理
+                try:
+                    pdf_aggregator_manager.mark_image_completed(
+                        pdf_folder,
+                        image_name,
+                        len(tables_data) if tables_data else 0
+                    )
+                except Exception as e:
+                    print(f"⚠️ 标记图片完成失败: {e}")
+                    result["errors"].append(f"标记图片完成失败 {image_name}: {str(e)}")
+
+            except Exception as img_error:
+                failed_count += 1
+                print(f"❌ 处理图片失败 {image_name}: {img_error}")
+                result["errors"].append(f"图片处理失败 {image_name}: {str(img_error)}")
+
+                # 标记图片完成（即使失败）
+                try:
+                    pdf_aggregator_manager.mark_image_completed(pdf_folder, image_name, 0)
+                except Exception as e:
+                    print(f"⚠️ 标记失败图片完成失败: {e}")
+
+            finally:
+                processed_count += 1
+
+        # ========== 阶段4：结果汇总 ==========
+        print(f"\n📊 阶段4：处理结果汇总")
+
+        # 4.1 更新聚合器状态
+        final_tables_count = len(aggregator)
+        result["details"]["aggregator_tables_after"] = final_tables_count
+        result["details"]["success_count"] = success_count
+        result["details"]["failed_count"] = failed_count
+
+        result["images_processed"] = processed_count
+        result["tables_added"] = tables_added
+        result["aggregator_has_data"] = final_tables_count > 0
+
+        print(f"📊 处理统计:")
+        print(f"  - 处理图片: {processed_count} 张")
+        print(f"  - 成功: {success_count} 张")
+        print(f"  - 失败: {failed_count} 张")
+        print(f"  - 添加表格: {tables_added} 个")
+        print(f"  - 聚合器总数: {final_tables_count} 个表格")
+
+        # 4.2 决策下一步操作
+        if result["aggregator_has_data"]:
+            result["need_generate_excel"] = True
+            result["next_action"] = "generate_excel_from_aggregator"
+            print(f"📊 决策: 聚合器有 {final_tables_count} 个表格，需要生成Excel")
+        elif excel_exists:
+            result["need_generate_excel"] = False
+            result["next_action"] = "use_existing_excel"
+            print(f"📊 决策: 使用现有Excel文件")
+        else:
+            result["need_generate_excel"] = True
+            result["next_action"] = "generate_empty_excel"
+            print(f"📊 决策: 无表格数据，无现有Excel，需要创建空Excel")
+
+        # 4.3 更新进度
+        if progress_tracker:
+            progress_tracker.update_table_job(job_id, {
+                "status": "processing_completed",
+                "progress": 90,
+                "message": f"图片处理完成: 成功 {success_count} 张，失败 {failed_count} 张，添加 {tables_added} 个表格",
+                "processed_images": processed_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "tables_added": tables_added
+            })
+
+        result["success"] = True
+        result["execution_time"] = time.time() - start_time
+
+        print(f"\n✅ 图片处理函数完成")
+        print(f"⏱️ 执行时间: {result['execution_time']:.2f}秒")
+        print(f"📤 返回结果: {result['operation']}, 下一步: {result['next_action']}")
+
+        return result
+
+    except Exception as e:
+        print(f"❌ 图片处理函数异常: {e}")
+        import traceback
+        traceback.print_exc()
+
+        result["errors"].append(f"函数异常: {str(e)}")
+        result["execution_time"] = time.time() - start_time
+
+        if progress_tracker:
+            progress_tracker.update_table_job(job_id, {
+                "status": "failed",
+                "error": f"处理函数异常: {str(e)}"
+            })
+
+        return result
+
+
+def _check_existing_excel(pdf_folder: str, bank_name: str = "") -> Tuple[bool, Optional[str]]:
+    """
+    独立的辅助函数，检查是否已存在Excel文件且包含有效数据
+
+    返回: (是否有效, 文件路径)
+    """
+    try:
+        from pathlib import Path
+        import openpyxl
+
+        # 使用导入的EXCEL_DATA_DIR常量
+        excel_dir = Path(EXCEL_DATA_DIR) / pdf_folder
+        print(f"🔍 检查目录: {excel_dir}")
+
+        if excel_dir.exists():
+            # 查找Excel文件
+            excel_files = list(excel_dir.glob("*.xlsx"))
+            if excel_files:
+                print(f"  📁 找到 {len(excel_files)} 个Excel文件")
+
+                # 按修改时间排序，取最新的
+                excel_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                excel_path = excel_files[0]
+
+                # 验证文件大小
+                file_size = excel_path.stat().st_size
+                if file_size <= 0:
+                    print(f"  ⚠️ 文件为空: {excel_path.name}")
+                    return False, str(excel_path)
+
+                # 验证Excel文件内容
+                print(f"  🔍 验证Excel文件内容: {excel_path.name}")
+
+                try:
+                    # 尝试打开Excel文件
+                    wb = openpyxl.load_workbook(str(excel_path), data_only=True, read_only=True)
+
+                    sheet_names = wb.sheetnames
+                    print(f"  📄 Sheet数量: {len(sheet_names)}")
+                    print(f"  📄 Sheet名称: {sheet_names}")
+
+                    # 检查是否有实际数据
+                    has_real_data = False
+                    table_count = 0
+
+                    for sheet_name in sheet_names:
+                        ws = wb[sheet_name]
+                        max_row = ws.max_row
+                        max_col = ws.max_column
+
+                        # 排除空表或只有表头的表
+                        if max_row > 1 and max_col > 1:  # 至少2行2列才认为是有效表格
+                            has_real_data = True
+                            table_count += 1
+                            print(f"  ✅ Sheet '{sheet_name}': {max_row}行×{max_col}列")
+                        else:
+                            print(f"  ⚠️ Sheet '{sheet_name}' 可能为空")
+
+                    wb.close()
+
+                    if has_real_data:
+                        print(f"  ✅ Excel文件包含 {table_count} 个有效表格，大小: {file_size} 字节")
+                        return True, str(excel_path)
+                    else:
+                        print(f"  ⚠️ Excel文件没有有效表格数据")
+                        return False, str(excel_path)
+
+                except Exception as e:
+                    print(f"  ⚠️ 读取Excel文件失败: {e}")
+                    return False, str(excel_path)
+
+        print(f"📄 未发现有效的Excel文件")
+        return False, None
+
+    except Exception as e:
+        print(f"⚠️ 检查现有Excel文件失败: {e}")
+        return False, None
+
+
+def process_images_with_real_time_updates(
+        job_id: str,
+        pdf_folder: str,
+        image_paths: List[str],
+        table_type: str = "financial",
+        bank_name: str = "",
+        progress_tracker=None
+) -> Dict[str, Any]:
+    """
+    重构版本：职责单一、状态清晰的图片处理函数
+
+    职责：只处理图片，将表格数据添加到聚合器
+    不负责生成Excel文件，Excel生成由调用方统一处理
+
+    设计原则：
+    1. 单一职责：只处理图片，不生成Excel
+    2. 状态透明：明确返回处理结果和下一步建议
+    3. 错误隔离：处理失败不影响整体流程
+    4. 增量友好：正确处理已处理和未处理图片
+
+    返回结果结构：
+    {
+        "success": bool,                # 整体处理是否成功
+        "operation": str,               # 执行的操作类型
+        "images_processed": int,        # 实际处理的图片数量
+        "tables_added": int,            # 添加到聚合器的表格数量
+        "aggregator_has_data": bool,    # 聚合器当前是否有数据
+        "next_action": str,             # 建议的下一步操作
+        "need_generate_excel": bool,    # 是否需要生成Excel
+        "excel_exists": bool,           # Excel文件是否已存在
+        "excel_path": Optional[str],    # 已存在的Excel路径（如果存在）
+        "details": Dict,                # 详细处理信息
+        "errors": List[str]             # 错误信息列表
+    }
+    """
+    import os
+    import time
+    from pathlib import Path
+    from datetime import datetime
+    from typing import Dict, Any, List, Optional, Tuple
+
+    start_time = time.time()
+
+    # 初始化结果结构
+    result = {
+        "success": False,
+        "job_id": job_id,
+        "pdf_folder": pdf_folder,
+        "operation": "unknown",
+        "total_images_received": len(image_paths),
+        "images_processed": 0,
+        "tables_added": 0,
+        "aggregator_has_data": False,
+        "need_generate_excel": False,
+        "excel_exists": False,
+        "excel_path": None,
+        "next_action": "unknown",
+        "execution_time": 0,
+        "details": {
+            "images_filtered": 0,
+            "images_to_process": 0,
+            "images_skipped": 0,
+            "success_count": 0,
+            "failed_count": 0,
+            "aggregator_tables_before": 0,
+            "aggregator_tables_after": 0
+        },
+        "errors": []
+    }
+
+    try:
+        print(f"\n{'=' * 60}")
+        print(f"🎯 重构版图片处理函数启动")
+        print(f"📁 PDF文件夹: {pdf_folder}")
+        print(f"📸 接收图片数: {len(image_paths)}")
+        print(f"🏦 银行名称: {bank_name}")
+        print(f"{'=' * 60}")
+
+        # ========== 阶段1：状态检查和初始化 ==========
+        print(f"\n🔍 阶段1：状态检查和初始化")
+
+        # 1.1 检查图片路径有效性
+        valid_image_paths = []
+        invalid_images = []
+
+        for img_path in image_paths:
+            if os.path.exists(img_path):
+                valid_image_paths.append(img_path)
+            else:
+                invalid_images.append(img_path)
+
+        if invalid_images:
+            print(f"⚠️ 发现 {len(invalid_images)} 个无效图片路径")
+            for invalid_img in invalid_images[:3]:  # 只显示前3个
+                print(f"  - {invalid_img}")
+            if len(invalid_images) > 3:
+                print(f"  ... 等 {len(invalid_images) - 3} 个")
+
+            result["errors"].append(f"发现 {len(invalid_images)} 个无效图片路径")
+
+        if not valid_image_paths:
+            result["operation"] = "no_valid_images"
+            result["next_action"] = "check_existing_excel"
+            result["execution_time"] = time.time() - start_time
+            print(f"❌ 没有有效的图片路径，跳过处理")
+            return result
+
+        # 1.2 获取图片名称列表
+        image_names = [os.path.basename(img_path) for img_path in valid_image_paths]
+
+        # 1.3 检查增量处理状态
+        print(f"\n🔍 检查增量处理状态...")
+        try:
+            # 过滤已处理的图片
+            images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
+            skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+
+            result["details"]["images_filtered"] = len(image_names)
+            result["details"]["images_to_process"] = len(images_to_process_names)
+            result["details"]["images_skipped"] = len(skipped_images_names)
+
+            print(f"📊 增量处理结果:")
+            print(f"  - 总图片: {len(image_names)}")
+            print(f"  - 待处理: {len(images_to_process_names)}")
+            print(f"  - 已处理: {len(skipped_images_names)} (跳过)")
+
+        except Exception as e:
+            print(f"⚠️ 增量处理器检查失败: {e}")
+            result["errors"].append(f"增量处理器检查失败: {str(e)}")
+            # 回退：处理所有图片
+            images_to_process_names = image_names
+            skipped_images_names = []
+
+        # 1.4 检查Excel文件是否已存在
+        print(f"\n🔍 检查现有Excel文件...")
+        excel_exists, existing_excel_path = _check_existing_excel(pdf_folder, bank_name)
+
+        result["excel_exists"] = excel_exists
+        result["excel_path"] = existing_excel_path
+
+        if excel_exists and existing_excel_path:
+            print(f"✅ 发现有效的现有Excel文件: {existing_excel_path}")
+        else:
+            print(f"📄 未发现有效的Excel文件，需要创建新文件")
+
+        # 1.5 获取聚合器并记录初始状态
+        print(f"\n🔍 初始化聚合器...")
+        try:
+            # 注册处理任务
+            pdf_aggregator_manager.register_processing_job(pdf_folder, len(image_names), bank_name)
+
+            # 获取聚合器实例
+            aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+            # 记录初始状态
+            initial_tables_count = len(aggregator)
+            result["details"]["aggregator_tables_before"] = initial_tables_count
+            result["aggregator_has_data"] = initial_tables_count > 0
+
+            print(f"📊 聚合器初始状态:")
+            print(f"  - 表格数量: {initial_tables_count}")
+            print(f"  - 是否有数据: {result['aggregator_has_data']}")
+
+        except Exception as e:
+            print(f"❌ 聚合器初始化失败: {e}")
+            result["errors"].append(f"聚合器初始化失败: {str(e)}")
+            result["execution_time"] = time.time() - start_time
+            return result
+
+        # ========== 阶段2：决策逻辑 ==========
+        print(f"\n🤔 阶段2：处理决策")
+
+        # 决策树：
+        # 1. 如果没有图片需要处理
+        # 2. 如果聚合器已有数据
+        # 3. 如果有新图片需要处理
+
+        if not images_to_process_names:
+            # 情况1：没有新图片需要处理
+            result["operation"] = "no_new_images"
+            result["images_processed"] = 0
+
+            if result["aggregator_has_data"]:
+                # 聚合器有数据，需要生成Excel
+                result["need_generate_excel"] = True
+                result["next_action"] = "generate_excel_from_aggregator"
+                print(f"📊 决策: 无新图片，但聚合器有 {initial_tables_count} 个表格，需要生成Excel")
+            elif excel_exists:
+                # 有有效Excel文件，无需处理
+                result["need_generate_excel"] = False
+                result["next_action"] = "use_existing_excel"
+                print(f"📊 决策: 无新图片，有有效Excel，无需处理")
+            else:
+                # 既无新图片，聚合器也无数据，也没有有效Excel
+                result["need_generate_excel"] = True
+                result["next_action"] = "generate_excel"
+                print(f"📊 决策: 无新图片，无聚合器数据，无有效Excel，需要创建新Excel")
+
+            result["success"] = True
+            result["execution_time"] = time.time() - start_time
+            return result
+
+        # 情况2：有新图片需要处理
+        result["operation"] = "process_new_images"
+
+        # 筛选出需要处理的图片路径
+        images_to_process = [
+            img_path for img_path in valid_image_paths
+            if os.path.basename(img_path) in images_to_process_names
+        ]
+
+        print(f"🔄 决策: 有 {len(images_to_process)} 张新图片需要处理")
+
+        # ========== 阶段3：图片处理 ==========
+        print(f"\n🖼️ 阶段3：处理 {len(images_to_process)} 张新图片")
+
+        # 3.1 初始化表格处理服务
+        try:
+            table_service = TableProcessingService()
+        except Exception as e:
+            print(f"❌ 表格处理服务初始化失败: {e}")
+            result["errors"].append(f"表格处理服务初始化失败: {str(e)}")
+            result["execution_time"] = time.time() - start_time
+            return result
+
+        # 3.2 逐张处理图片
+        processed_count = 0
+        success_count = 0
+        failed_count = 0
+        tables_added = 0
+        all_metadata_list = []
+
+        for i, image_path in enumerate(images_to_process):
+            image_name = os.path.basename(image_path)
+
+            try:
+                # 3.2.1 更新进度
+                if progress_tracker:
+                    progress_percent = int((i / len(images_to_process)) * 80)
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "processing",
+                        "progress": progress_percent,
+                        "message": f"处理第 {i + 1}/{len(images_to_process)} 张图片: {image_name}",
+                        "current_image": image_name,
+                        "processed_images": i
+                    })
+
+                print(f"\n{'─' * 40}")
+                print(f"🖼 处理图片 {i + 1}/{len(images_to_process)}: {image_name}")
+                print(f"{'─' * 40}")
+
+                # 3.2.2 调用OCR-LLM流水线
+                tables_data, sheet_names, metadata_list = table_service._run_ocr_llm_memory_pipeline(
+                    image_path=image_path,
+                    bank_name=bank_name
+                )
+
+                if tables_data:
+                    # 3.2.3 将表格数据添加到聚合器
+                    for table_idx, (table_data, sheet_name) in enumerate(zip(tables_data, sheet_names)):
+                        table_metadata = metadata_list[table_idx] if table_idx < len(metadata_list) else {}
+
+                        # 添加到聚合器
+                        add_success = aggregator.add_table(
+                            image_name=image_name,
+                            table_data=table_data,
+                            sheet_name=sheet_name,
+                            image_path=image_path,
+                            metadata=table_metadata
+                        )
+
+                        if add_success:
+                            tables_added += 1
+                            all_metadata_list.append(table_metadata)
+                            print(f"  ✅ 添加表格 {table_idx + 1}: '{sheet_name}'")
+
+                    success_count += 1
+                    print(f"✅ 图片处理成功: {image_name}, 添加 {len(tables_data)} 个表格")
+                else:
+                    failed_count += 1
+                    print(f"⚠️ 图片未提取到表格: {image_name}")
+
+                # 3.2.4 标记图片为已处理
+                try:
+                    pdf_aggregator_manager.mark_image_completed(
+                        pdf_folder,
+                        image_name,
+                        len(tables_data) if tables_data else 0
+                    )
+                except Exception as e:
+                    print(f"⚠️ 标记图片完成失败: {e}")
+                    result["errors"].append(f"标记图片完成失败 {image_name}: {str(e)}")
+
+            except Exception as img_error:
+                failed_count += 1
+                print(f"❌ 处理图片失败 {image_name}: {img_error}")
+                result["errors"].append(f"图片处理失败 {image_name}: {str(img_error)}")
+
+                # 标记图片完成（即使失败）
+                try:
+                    pdf_aggregator_manager.mark_image_completed(pdf_folder, image_name, 0)
+                except Exception as e:
+                    print(f"⚠️ 标记失败图片完成失败: {e}")
+
+            finally:
+                processed_count += 1
+
+        # ========== 阶段4：结果汇总 ==========
+        print(f"\n📊 阶段4：处理结果汇总")
+
+        # 4.1 更新聚合器状态
+        final_tables_count = len(aggregator)
+        result["details"]["aggregator_tables_after"] = final_tables_count
+        result["details"]["success_count"] = success_count
+        result["details"]["failed_count"] = failed_count
+
+        result["images_processed"] = processed_count
+        result["tables_added"] = tables_added
+        result["aggregator_has_data"] = final_tables_count > 0
+
+        print(f"📊 处理统计:")
+        print(f"  - 处理图片: {processed_count} 张")
+        print(f"  - 成功: {success_count} 张")
+        print(f"  - 失败: {failed_count} 张")
+        print(f"  - 添加表格: {tables_added} 个")
+        print(f"  - 聚合器总数: {final_tables_count} 个表格")
+
+        # 4.2 决策下一步操作
+        if result["aggregator_has_data"]:
+            result["need_generate_excel"] = True
+            result["next_action"] = "generate_excel_from_aggregator"
+            print(f"📊 决策: 聚合器有 {final_tables_count} 个表格，需要生成Excel")
+        elif excel_exists:
+            result["need_generate_excel"] = False
+            result["next_action"] = "use_existing_excel"
+            print(f"📊 决策: 使用现有有效Excel文件")
+        else:
+            result["need_generate_excel"] = True
+            result["next_action"] = "generate_excel"
+            print(f"📊 决策: 无表格数据，无有效Excel，需要创建新Excel")
+
+        # 4.3 更新进度
+        if progress_tracker:
+            progress_tracker.update_table_job(job_id, {
+                "status": "processing_completed",
+                "progress": 90,
+                "message": f"图片处理完成: 成功 {success_count} 张，失败 {failed_count} 张，添加 {tables_added} 个表格",
+                "processed_images": processed_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "tables_added": tables_added
+            })
+
+        result["success"] = True
+        result["execution_time"] = time.time() - start_time
+
+        print(f"\n✅ 图片处理函数完成")
+        print(f"⏱️ 执行时间: {result['execution_time']:.2f}秒")
+        print(f"📤 返回结果: {result['operation']}, 下一步: {result['next_action']}")
+
+        return result
+
+    except Exception as e:
+        print(f"❌ 图片处理函数异常: {e}")
+        import traceback
+        traceback.print_exc()
+
+        result["errors"].append(f"函数异常: {str(e)}")
+        result["execution_time"] = time.time() - start_time
+
+        if progress_tracker:
+            progress_tracker.update_table_job(job_id, {
+                "status": "failed",
+                "error": f"处理函数异常: {str(e)}"
+            })
+
+        return result
+
+
 
 # 保留get_table_results函数
 def get_table_results(pdf_folder, progress_tracker):

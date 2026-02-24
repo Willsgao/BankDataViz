@@ -83,6 +83,10 @@ app.register_blueprint(visualization_bp)
 app.register_blueprint(baidu_ocr_bp)
 app.register_blueprint(websocket_bp)
 
+# 轮询进度
+from backend.api.progress_sse import progress_sse_bp
+app.register_blueprint(progress_sse_bp)
+
 # ----------- 静态文件路由配置 -----------
 from backend.utils.constants import MAIN_ROOT, PNG_OUTPUT_ROOT
 

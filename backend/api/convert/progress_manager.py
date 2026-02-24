@@ -42,7 +42,7 @@ class ProgressManager:
         })
         self.TABLE_PROCESSING_JOBS[job_id] = job_info
 
-    def update_table_job(self, job_id, updates):
+    def update_table_job_old(self, job_id, updates):
         """更新表格处理任务状态"""
         if job_id in self.TABLE_PROCESSING_JOBS:
             self.TABLE_PROCESSING_JOBS[job_id].update(updates)
@@ -50,6 +50,82 @@ class ProgressManager:
             self.save_table_job_to_db(job_id)
             return True
         return False
+
+    # 在 progress_manager.py 的 update_table_job 方法中修改
+    def update_table_job(self, job_id, updates):
+        """更新表格处理任务状态 - 同步到Redis"""
+        if job_id in self.TABLE_PROCESSING_JOBS:
+            # 1. 更新内存中的任务状态
+            self.TABLE_PROCESSING_JOBS[job_id].update(updates)
+
+            # 2. 保存到数据库
+            db_success = self.save_table_job_to_db(job_id)
+
+            # 3. ✅ 新增：同步到Redis
+            redis_success = self.save_table_job_to_redis(job_id)
+
+            if db_success and redis_success:
+                return True
+            else:
+                print(f"⚠️ 进度更新部分失败: 数据库={db_success}, Redis={redis_success}")
+                return False
+        return False
+
+    def save_table_job_to_redis(self, job_id):
+        """保存任务状态到Redis"""
+        if job_id not in self.TABLE_PROCESSING_JOBS:
+            return False
+
+        try:
+            from backend.utils.redis_util import redis_hset_compatible, get_redis_client
+
+            # 获取Redis客户端
+            redis_client = get_redis_client()
+            if not redis_client:
+                print("⚠️ Redis客户端获取失败")
+                return False
+
+            # 获取任务信息
+            job_info = self.TABLE_PROCESSING_JOBS[job_id]
+
+            # 准备Redis更新数据
+            redis_updates = {
+                "status": job_info.get("status", "unknown"),
+                "progress": str(job_info.get("progress", 0)),
+                "message": job_info.get("message", ""),
+                "stage": job_info.get("stage", "unknown"),
+                "total_images": str(job_info.get("total_images", 0)),
+                "processed_images": str(job_info.get("processed_images", 0)),
+                "updated_at": datetime.now().isoformat()
+            }
+
+            # 添加可选字段
+            if "current_image" in job_info:
+                redis_updates["current_image"] = job_info["current_image"]
+
+            if "bank_name" in job_info:
+                redis_updates["bank_name"] = job_info["bank_name"]
+
+            if "error" in job_info and job_info["error"]:
+                redis_updates["error"] = job_info["error"]
+
+            # 更新到Redis
+            success = redis_hset_compatible(
+                redis_client,
+                f"table:job:{job_id}",
+                redis_updates
+            )
+
+            if success:
+                # 设置过期时间（24小时）
+                redis_client.expire(f"table:job:{job_id}", 24 * 60 * 60)
+                return True
+            else:
+                return False
+
+        except Exception as e:
+            print(f"❌ 保存任务到Redis失败: {e}")
+            return False
 
     def save_table_job_to_db(self, job_id):
         """保存任务状态到数据库"""

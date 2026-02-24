@@ -1518,8 +1518,6 @@ class TableReconstructor:
         for idx, (table, name) in enumerate(zip(tables_data, table_names)):
             ws = wb.create_sheet(title=name)
 
-            print(f"处理表格: {name}")
-
             # 🔥🔥🔥🔥 只处理第2行（索引为1，因为第1行是表头）
             filtered_table = table.copy()  # 先复制整个表格
 
@@ -1530,18 +1528,10 @@ class TableReconstructor:
                 # 检查第2行的行标记
                 row_marker = self._extract_row_marker(second_row)
 
-                print("second_row::::", second_row)
-
-                print(">>>>>>>>>>>>row_marker>>>>>>>>>>>>>>", row_marker)
-
                 # 如果行标记是0或'0'，删除第2行
                 if str(row_marker).strip() in ['0', '0']:
-                    print(f"  ⏭️ 删除第2行：行标记为0")
                     del filtered_table[1]  # 删除第2行
-                else:
-                    print(f"  ✅ 保留第2行：行标记为{row_marker}")
-            else:
-                print(f"  ℹ️  表格行数不足，跳过第2行检查")
+
 
             # 写入过滤后的数据
             for r, row in enumerate(filtered_table, 1):
@@ -1554,43 +1544,6 @@ class TableReconstructor:
                 # 原有数据从第2列开始写入
                 for c, val in enumerate(row, 2):
                     ws.cell(row=r, column=c, value=val)
-
-            # # ========== 保存元数据到表格末尾 ==========
-            # if metadata_list and idx < len(metadata_list):
-            #     metadata = metadata_list[idx]
-            #     data_row_count = len(filtered_table)
-            #     metadata_start_row = data_row_count + 2
-            #
-            #     if any(metadata.values()):
-            #         ws.cell(row=metadata_start_row, column=1, value="")
-            #
-            #         row_offset = 1
-            #         if metadata.get('default_currency'):
-            #             ws.cell(row=metadata_start_row + row_offset, column=1,
-            #                     value=f"currency:{metadata['default_currency']}")
-            #             row_offset += 1
-            #
-            #         if metadata.get('default_report_period'):
-            #             ws.cell(row=metadata_start_row + row_offset, column=1,
-            #                     value=f"report_period:{metadata['default_report_period']}")
-            #             row_offset += 1
-            #
-            #         if metadata.get('default_unit'):
-            #             ws.cell(row=metadata_start_row + row_offset, column=1,
-            #                     value=f"unit:{metadata['default_unit']}")
-            #             row_offset += 1
-            #
-            #         if metadata.get('original_table_name'):
-            #             ws.cell(row=metadata_start_row + row_offset, column=1,
-            #                     value=f"table_name:{metadata['original_table_name']}")
-            #             row_offset += 1
-            #
-            #         if metadata.get('ocr_table_id') != -1:
-            #             ws.cell(row=metadata_start_row + row_offset, column=1,
-            #                     value=f"ocr_table_id:{metadata['ocr_table_id']}")
-            #             row_offset += 1
-            #
-            #         ws.cell(row=metadata_start_row + row_offset, column=1, value="")
 
             # ========== 保存元数据到表格末尾 ==========
             if metadata_list and idx < len(metadata_list):
@@ -1628,16 +1581,10 @@ class TableReconstructor:
                     ws.cell(row=metadata_start_row + row_offset, column=1,
                             value=f"{key}:{value}")
 
-                    # 打印调试信息
-                    print(f"      元数据字段 {key}: '{value}'")
-
                     row_offset += 1
 
                 ws.cell(row=metadata_start_row + row_offset, column=1, value="")
 
-                print(f"    元数据已保存到第{metadata_start_row}行之后，共保存{len(valid_keys)}个字段")
-
-            print(f"  📊 最终表格行数: {len(filtered_table)}行")
 
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         wb.save(output_file)

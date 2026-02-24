@@ -1511,6 +1511,55 @@ const handleParseTablesCompleted = (data) => {
 }
 
 
+// 替换原有的 pollTableProgress 函数
+function subscribeTableProgressSSE(jobId) {
+  return new Promise((resolve, reject) => {
+    // 创建EventSource连接
+    const eventSource = new EventSource(`/api/table-progress-sse/${jobId}`);
+
+    // 监听消息
+    eventSource.onmessage = (event) => {
+      try {
+        const progressData = JSON.parse(event.data);
+
+        // 更新进度状态
+        if (progressData.job_id === jobId) {
+          // 更新原有的进度映射
+          parsingProgressMap.value[jobId] = {
+            ...parsingProgressMap.value[jobId],
+            ...progressData
+          };
+
+          // 如果任务完成，关闭连接并resolve
+          if (progressData.status === 'completed' || progressData.status === 'failed') {
+            eventSource.close();
+            resolve(progressData);
+          }
+        }
+      } catch (error) {
+        console.error('解析进度数据失败:', error);
+      }
+    };
+
+    // 错误处理
+    eventSource.onerror = (error) => {
+      console.error('SSE连接错误:', error);
+      eventSource.close();
+      reject(new Error('进度连接失败'));
+    };
+
+    // 可选：设置超时
+    setTimeout(() => {
+      if (eventSource.readyState !== EventSource.CLOSED) {
+        eventSource.close();
+        reject(new Error('进度查询超时'));
+      }
+    }, 300000); // 5分钟超时
+  });
+}
+
+
+
 // 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用
 const handleParseTables = async (pdfDiskName) => {
   console.log('🔄 开始表格解析:', pdfDiskName)
@@ -1562,69 +1611,8 @@ const handleParseTables = async (pdfDiskName) => {
       ElMessage.success(`表格解析任务已提交，发现 ${totalImages} 张表格图片`)
 
       // 轮询进度
-      await pollTableProgress(jobId, pdfDiskName)
-
-    } else {
-      ElMessage.error('提交表格解析任务失败: ' + response.data.error)
-      isParsing.value = false
-    }
-
-  } catch (error) {
-    console.error('❌ 表格解析失败:', error)
-
-    updateStepStatus(pdfDiskName, 'parse', 'failed')
-
-    if (error.response?.data?.error) {
-      ElMessage.error('表格解析失败: ' + error.response.data.error)
-    } else {
-      ElMessage.error('表格解析失败: ' + error.message)
-    }
-
-    isParsing.value = false
-  }
-}
-
-// 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用
-const handleParseTables000 = async (pdfDiskName) => {
-  console.log('🔄 开始表格解析:', pdfDiskName)
-
-  updateCurrentPdf(pdfDiskName)
-  isParsing.value = true
-
-  try {
-    // 检查筛选状态
-    const hasScreened = hasScreenedImages.value[pdfDiskName]
-    if (!hasScreened) {
-      ElMessage.warning('请先完成图片筛选再进行表格解析')
-      isParsing.value = false
-      return
-    }
-
-    const pdfFolder = pdfDiskName.replace(/\.pdf$/i, '')
-
-    console.log('📤 发送表格解析请求（简化版）...')
-
-    // 简化请求：后端会自动获取png_names
-    const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
-      table_type: tableType.value,
-      use_ocr: true,
-      force_refresh: false
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-
-    console.log('✅ 收到响应:', response.data)
-
-    if (response.data.success) {
-      const jobId = response.data.job_id
-      const totalImages = response.data.total_images || 0
-
-      ElMessage.success(`表格解析任务已提交，发现 ${totalImages} 张表格图片`)
-
-      // 轮询进度
-      await pollTableProgress(jobId, pdfDiskName)
+      //await pollTableProgress(jobId, pdfDiskName)
+      await subscribeTableProgressSSE(jobId, pdfDiskName)
 
     } else {
       ElMessage.error('提交表格解析任务失败: ' + response.data.error)

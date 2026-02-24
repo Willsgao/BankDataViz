@@ -241,12 +241,12 @@ class MarkedTableProcessor:
 
         # 1. 完全正确的数值（全是std_num）
         if has_std_num and not has_minor_num and not has_error_num:
-            print(f"  {label}: 标记1 - 标准数值")
+            # print(f"  {label}: 标记1 - 标准数值")
             return 1
 
         # 0. 纯文本
         if not has_std_num and not has_minor_num and not has_error_num:
-            print(f"  {label}: 标记0 - 纯文本")
+            # print(f"  {label}: 标记0 - 纯文本")
             return 0
 
         # 默认返回0
