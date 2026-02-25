@@ -1096,7 +1096,7 @@ class TableProcessingWorker:
 
 
 
-    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
+    def process_single_task11111(self, task_data: Dict[str, Any]) -> bool:
         """处理单个任务 - 增强诊断版本"""
 
         from datetime import datetime
@@ -1268,6 +1268,56 @@ class TableProcessingWorker:
             })
 
             self.current_job = None
+            return False
+
+    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
+        """处理单个任务 - 修复版本"""
+
+        # 提取参数
+        job_id = task_data["job_id"]
+        pdf_folder = task_data["pdf_folder"]
+        image_paths = task_data["image_paths"]
+        table_type = task_data.get("table_type", "financial")
+        bank_name = task_data.get("bank_name", "")
+
+        self.current_job = job_id
+
+        try:
+            # 初始化状态
+            self.update_job_status(job_id, {
+                "status": "processing",
+                "progress": 0,
+                "message": f"开始处理 {len(image_paths)} 张图片",
+                "started_at": datetime.now().isoformat(),
+                "worker_id": self.worker_id
+            })
+
+            # 在Flask上下文中处理
+            with app.app_context():
+                # ✅ 关键修复：模仿 submit_table_processing_task_old 的调用
+                process_table_images_real(
+                    job_id=job_id,
+                    pdf_folder=pdf_folder,
+                    image_paths=image_paths,  # 所有图片
+                    table_type=table_type,
+                    bank_name=bank_name,
+                    progress_tracker=progress_tracker,
+                    skipped_images=[],  # 空数组
+                    existing_sheets=None  # None
+                )
+
+            # 更新完成状态
+            self.update_job_status(job_id, {
+                "status": "completed",
+                "progress": 100,
+                "message": f"任务完成，已生成Excel文件",
+                "completed_at": datetime.now().isoformat()
+            })
+
+            return True
+
+        except Exception as e:
+            # 错误处理
             return False
 
 

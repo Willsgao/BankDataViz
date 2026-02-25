@@ -1580,6 +1580,40 @@ function saveFinalResult(pdfDiskName, progressData) {
 }
 
 
+// 添加一个辅助函数来生成进度显示文本
+function formatProgressDisplay(progressData) {
+  if (!progressData) return '';
+
+  const processed = progressData.processed_images || 0;
+  const skipped = progressData.skipped_images || 0;
+  const total = progressData.total_images || 0;
+
+  // 处理中状态
+  if (progressData.status === 'processing') {
+    if (progressData.progress === 85) {
+      return '正在生成Excel文件...';
+    }
+    return `处理中 ${processed}+${skipped}/${total}`;
+  }
+
+  // 完成状态
+  if (progressData.status === 'completed' || progressData.status === 'success') {
+    if (total > 0 || (processed + skipped) > 0) {
+      const actualTotal = total > 0 ? total : processed + skipped;
+      return `${processed}+${skipped}/${actualTotal}`;
+    }
+  }
+
+  // 失败状态
+  if (progressData.status === 'failed' || progressData.status === 'exception') {
+    return '处理失败';
+  }
+
+  // 默认返回原有消息
+  return progressData.message || '';
+}
+
+
 
 // 完整的 subscribeTableProgressSSE 函数
 function subscribeTableProgressSSE(jobId, pdfDiskName) {

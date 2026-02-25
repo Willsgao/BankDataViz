@@ -2232,7 +2232,7 @@ def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, p
         }), 500
 
 
-def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
+def submit_table_processing_task_0001(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - Redis队列化版本，保留原有防重逻辑"""
 
     # ========== 添加入口日志 ==========
@@ -2460,16 +2460,16 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
                         "message": "开始处理表格图片..."
                     })
 
-                    # 使用原有的处理函数，包含防重逻辑
+                    # ✅ 修复：模仿 submit_table_processing_task_old 的调用方式
                     process_table_images_real(
                         job_id=job_id,
                         pdf_folder=pdf_folder,
-                        image_paths=image_paths,
+                        image_paths=image_paths,  # 传递所有图片，不进行预过滤
                         table_type=table_type,
                         bank_name=bank_name,
                         progress_tracker=progress_tracker,
-                        skipped_images=[],  # 原有的防重参数
-                        existing_sheets=None  # 原有的防重参数
+                        skipped_images=[],  # 传递空数组，由内部处理
+                        existing_sheets=None  # 传递None，由内部处理
                     )
 
                     print(f"🎉🎉 表格处理任务完成: {job_id}")
@@ -2521,6 +2521,392 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
             "success": False,
             "error": f"提交任务失败: {str(e)}"
         }), 500
+
+
+def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progress_tracker):
+    """提交表格处理任务 - Redis队列化版本，保留原有防重逻辑"""
+
+    # ========== 添加入口日志 ==========
+    print("\n" + "=" * 80)
+    print("🔄 submit_table_processing_task 函数被调用")
+    print(f"📁 PDF文件夹: {pdf_folder}")
+    print(f"📁 过滤表格目录: {filtered_tables_dir}")
+    print(f"👤 请求方法: {request.method}")
+    print(f"📄 内容类型: {request.content_type}")
+    print("=" * 80)
+
+    try:
+        print(f"📥📥 提交表格处理任务: pdf_folder={pdf_folder}")
+
+        # 获取请求数据
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json() or {}
+            print("📦 从JSON获取请求数据")
+        else:
+            data = request.form.to_dict() or {}
+            if not data and request.data:
+                try:
+                    import json
+                    data = json.loads(request.data.decode('utf-8'))
+                    print("📦 从原始数据解析JSON")
+                except:
+                    data = {}
+                    print("⚠️ 无法解析请求数据")
+            else:
+                print("📦 从表单获取请求数据")
+
+        print(f"📊 请求数据: {data}")
+
+        table_type = data.get('table_type', 'financial')
+        use_ocr = data.get('use_ocr', True)
+
+        # 先从数据库中读取银行名称，如果没有再从请求参数获取
+        print(f"🔍 查询数据库获取银行名称: {pdf_folder}")
+        bank_name = get_bank_name_from_database(pdf_folder)
+        print("&&&&&&&&&&&&&&&&&&&&&&pdf_folder:", pdf_folder, bank_name)
+        if not bank_name:
+            bank_name = data.get('bank_name', '')
+            print(f"🔍 从请求参数获取银行名称: {bank_name}")
+
+        print(
+            f"  配置参数: table_type={table_type}, use_ocr={use_ocr}, bank_name={bank_name} (from_db: {bool(bank_name)})")
+
+        # 可选的png_names参数，如果未提供则从目录获取
+        png_names = data.get('png_names', [])
+        print(f"  前端提供的png_names: {png_names} (数量: {len(png_names)})")
+
+        # 如果未提供png_names，自动从筛选目录获取
+        tables_dir = Path(filtered_tables_dir) / pdf_folder / "tables"
+        print(f"🔍 检查表格目录: {tables_dir}")
+        print(f"📁 目录是否存在: {tables_dir.exists()}")
+
+        if not png_names:
+            if tables_dir.exists():
+                png_names = [f.name for f in tables_dir.glob("*.png")]
+                print(f"  自动从目录获取 {len(png_names)} 张表格图片: {png_names}")
+            else:
+                print(f"❌ 表格目录不存在: {tables_dir}")
+                return jsonify({
+                    "success": False,
+                    "error": f"表格目录不存在: {tables_dir}",
+                    "suggestion": "请先完成图片筛选"
+                }), 400
+
+        if not png_names:
+            print("❌ 没有找到表格图片")
+            return jsonify({
+                "success": False,
+                "error": "没有找到表格图片",
+                "suggestion": "筛选后没有发现包含表格的图片"
+            }), 400
+
+        # 生成作业ID
+        import time
+        import uuid
+        job_id = f"table_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        print(f"🆔 生成的作业ID: {job_id}")
+
+        # 构建完整的图片路径列表
+        image_paths = []
+        for png_name in png_names:
+            img_path = tables_dir / png_name
+            if img_path.exists():
+                image_paths.append(str(img_path))
+            else:
+                print(f"⚠️ 图片不存在: {img_path}")
+
+        print("排序前图片：", image_paths)
+        image_paths = sorted(image_paths)
+        print("排序后图片：", image_paths)
+
+        if not image_paths:
+            print("❌ 没有找到有效的图片文件")
+            return jsonify({
+                "success": False,
+                "error": "没有找到有效的图片文件",
+                "suggestion": "请检查筛选后的图片文件是否存在"
+            }), 400
+
+        print(f"📸📸 找到 {len(image_paths)} 张有效图片")
+
+        # 创建任务信息
+        from datetime import datetime
+        job_info = {
+            "job_id": job_id,
+            "pdf_folder": pdf_folder,
+            "table_type": table_type,
+            "bank_name": bank_name,
+            "total_images": len(image_paths),
+            "image_paths": image_paths,
+            "status": "pending",
+            "stage": "pending",
+            "progress": 0,
+            "start_time": datetime.now().isoformat(),
+            "processed_images": 0,
+            "results": [],
+            "error": None
+        }
+
+        # ========== 初始化进度跟踪 ==========
+        print(f"\n📊 初始化进度跟踪: job_id={job_id}")
+        progress_tracker.init_table_job(
+            job_id=job_id,
+            job_info=job_info
+        )
+
+        print(f"✅ 创建作业成功: job_id={job_id}")
+
+        # ========== 核心优化：将任务推送到Redis队列 ==========
+        print(f"\n🚀 开始Redis队列推送流程...")
+        queue_mode = "redis"  # 默认使用Redis队列模式
+
+        try:
+            import redis
+            import json as json_module
+            # from backend.utils.redis_util import redis_hset_compatible
+
+            # 连接到Redis
+            print(f"🔌 尝试连接Redis: host=localhost, port=6379, db=0")
+            redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=0,
+                decode_responses=False,
+                socket_connect_timeout=10,
+                socket_timeout=10
+            )
+
+            # 测试Redis连接
+            print("🔌 测试Redis连接...")
+            result = redis_client.ping()
+            print(f"✅ Redis连接测试成功: {result}")
+
+            # 构建队列任务数据
+            print("📦 构建队列任务数据...")
+            queue_task = {
+                "job_id": job_id,
+                "pdf_folder": pdf_folder,
+                "filtered_tables_dir": str(filtered_tables_dir),
+                "table_type": table_type,
+                "bank_name": bank_name,
+                "image_paths": image_paths,
+                "png_names": png_names,
+                "use_ocr": use_ocr,
+                "created_at": time.time(),
+                "request_data": {
+                    "table_type": table_type,
+                    "use_ocr": use_ocr,
+                    "bank_name": bank_name
+                }
+            }
+
+            # 推送到Redis队列
+            print(f"📤 推送到Redis队列: table_parse_queue")
+            redis_client.lpush("table_parse_queue", json_module.dumps(queue_task, ensure_ascii=False).encode('utf-8'))
+            current_queue_length = redis_client.llen("table_parse_queue")
+
+            # 在Redis中存储任务元数据
+            print(f"💾 存储任务元数据到Redis: table:job:{job_id}")
+            redis_hset_compatible(redis_client, f"table:job:{job_id}", {
+                "status": "queued",
+                "progress": "0",
+                "message": f"任务已加入队列，位置: {current_queue_length}",
+                "created_at": datetime.now().isoformat(),
+                "total_images": str(len(image_paths)),
+                "queue_position": str(current_queue_length),
+                "queue_mode": "redis"
+            })
+
+            # 设置过期时间
+            redis_client.expire(f"table:job:{job_id}", 24 * 60 * 60)
+
+            print(f"📤 任务已推送到Redis队列: {job_id}")
+            print(f"📊 当前队列长度: {current_queue_length}")
+            print(f"✅ Redis队列推送成功")
+
+        except redis.exceptions.ConnectionError as e:
+            print(f"🔌❌ Redis连接错误: {e}")
+            queue_mode = "fallback"
+        except redis.exceptions.TimeoutError as e:
+            print(f"⏱️❌ Redis超时错误: {e}")
+            queue_mode = "fallback"
+        except Exception as redis_error:
+            print(f"⚠️❌ Redis队列推送失败: {redis_error}")
+            import traceback
+            traceback.print_exc()
+
+            # ========== 回退到原有异步线程模式 ==========
+            print(f"\n🔄 切换到回退模式（异步线程）...")
+
+            def async_process_table_fallback():
+                """修复版本：原有的异步处理函数（回退方案）- 包含增量处理逻辑"""
+                try:
+                    print(f"🚀🚀 开始异步处理表格任务（回退模式）: {job_id}")
+
+                    # 更新状态为处理中
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "processing",
+                        "stage": "starting",
+                        "progress": 5,
+                        "message": "开始处理表格图片..."
+                    })
+
+                    # ========== ✅ 修复点：添加增量处理逻辑 ==========
+                    print(f"\n{'=' * 60}")
+                    print(f"🔍 回退模式：增量处理检查")
+                    print(f"{'=' * 60}")
+
+                    # 提取图片名称
+                    import os
+                    image_names = [os.path.basename(img_path) for img_path in image_paths]
+
+                    images_to_process = image_paths
+                    skipped_images = []
+
+                    try:
+                        # # 尝试导入增量处理器
+                        # from backend.src.incremental_processor import incremental_processor
+
+                        # 过滤已处理的图片
+                        images_to_process_names = incremental_processor.filter_processed_images(
+                            pdf_folder, image_names
+                        )
+
+                        # 计算跳过的图片
+                        skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+
+                        # 筛选出需要处理的图片路径
+                        images_to_process = [
+                            img_path for img_path in image_paths
+                            if os.path.basename(img_path) in images_to_process_names
+                        ]
+
+                        skipped_images = [
+                            img_path for img_path in image_paths
+                            if os.path.basename(img_path) in skipped_images_names
+                        ]
+
+                        print(f"📊 增量处理结果:")
+                        print(f"  - 总图片: {len(image_paths)}")
+                        print(f"  - 已处理: {len(skipped_images)} (跳过)")
+                        print(f"  - 待处理: {len(images_to_process)}")
+
+                        if skipped_images:
+                            print(f"⏭️ 跳过的图片:")
+                            for i, img_path in enumerate(skipped_images[:3]):
+                                print(f"    {i + 1}. {os.path.basename(img_path)}")
+                            if len(skipped_images) > 3:
+                                print(f"    ... 等 {len(skipped_images) - 3} 张")
+
+                        if not images_to_process:
+                            print(f"ℹ️ 没有新图片需要处理，所有图片都已处理过")
+
+                    except ImportError as e:
+                        print(f"⚠️ 无法导入增量处理器: {e}")
+                        print(f"ℹ️ 跳过增量处理，处理所有图片")
+                    except Exception as e:
+                        print(f"⚠️ 增量处理异常: {e}")
+                        print(f"ℹ️ 跳过增量处理，处理所有图片")
+
+                    # 如果没有新图片需要处理，直接生成Excel文件
+                    if not images_to_process and skipped_images:
+                        print(f"\n{'=' * 60}")
+                        print(f"🔄 回退模式：没有新图片，直接生成/检查Excel文件")
+                        print(f"{'=' * 60}")
+
+                        try:
+                            # 检查是否有现有Excel文件
+                            # from backend.api.convert.table_processor import EXCEL_DATA_DIR
+                            # import os
+                            # from datetime import datetime
+
+                            excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
+                            if os.path.exists(excel_dir):
+                                import glob
+                                excel_files = glob.glob(os.path.join(excel_dir, "*.xlsx"))
+                                if excel_files:
+                                    existing_excel_path = excel_files[0]
+                                    print(f"✅ 找到现有Excel文件: {existing_excel_path}")
+
+                                    # 更新任务状态
+                                    progress_tracker.update_table_job(job_id, {
+                                        "status": "completed",
+                                        "stage": "completed",
+                                        "progress": 100,
+                                        "message": f"任务完成。跳过 {len(skipped_images)} 张已处理图片，使用现有Excel文件",
+                                        "completed_at": datetime.now().isoformat(),
+                                        "total_processed": len(skipped_images),
+                                        "existing_excel_used": "true",
+                                        "excel_path": existing_excel_path
+                                    })
+
+                                    print(f"🎉🎉 表格处理任务完成（使用现有文件）: {job_id}")
+                                    return
+                        except Exception as e:
+                            print(f"⚠️ 检查现有Excel文件失败: {e}")
+
+                    # ========== ✅ 修复点：传递正确的参数 ==========
+                    process_table_images_real(
+                        job_id=job_id,
+                        pdf_folder=pdf_folder,
+                        image_paths=images_to_process,  # ✅ 使用过滤后的图片列表
+                        table_type=table_type,
+                        bank_name=bank_name,
+                        progress_tracker=progress_tracker,
+                        skipped_images=skipped_images,  # ✅ 传递跳过的图片列表
+                        existing_sheets=None
+                    )
+
+                    print(f"🎉🎉 表格处理任务完成: {job_id}")
+
+                except Exception as e:
+                    print(f"❌❌ 异步处理异常: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+                    progress_tracker.update_table_job(job_id, {
+                        "status": "failed",
+                        "stage": "failed",
+                        "progress": 0,
+                        "error": str(e),
+                        "end_time": datetime.now().isoformat(),
+                        "message": f"处理失败: {str(e)}"
+                    })
+
+            # 启动异步线程（回退模式）
+            import threading
+            thread = threading.Thread(target=async_process_table_fallback, daemon=True)
+            thread.start()
+
+            queue_mode = "fallback"
+            print(f"🎯🎯 异步处理线程已启动（回退模式）")
+
+        # ========== 返回响应 ==========
+        print(f"\n📤 返回响应: queue_mode={queue_mode}")
+        print("=" * 80)
+
+        return jsonify({
+            "success": True,
+            "job_id": job_id,  # 保持字段名不变
+            "message": f"表格解析任务已提交 ({'Redis队列' if queue_mode == 'redis' else '异步线程'})",
+            "pdf_folder": pdf_folder,
+            "table_type": table_type,
+            "bank_name": bank_name,
+            "total_images": len(image_paths),
+            "auto_detected_images": data.get('png_names') is None,
+            "queue_mode": queue_mode
+        })
+
+    except Exception as e:
+        print(f"\n💥💥 submit_table_processing_task 函数异常: {e}")
+        import traceback
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "error": f"提交任务失败: {str(e)}"
+        }), 500
+
 
 
 def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_name,

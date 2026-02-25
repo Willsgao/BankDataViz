@@ -452,26 +452,40 @@ const getProcessingStatus000 = (diskName) => {
 }
 
 
-
-// 完整的 getProcessingStatus 函数
+// 修改后的 getProcessingStatus 函数
 const getProcessingStatus = (diskName) => {
   const progressData = props.parsingProgressMap[diskName]
   const hasConverted = getHasConvertCache.value(diskName)
   const hasScreened = props.hasScreenedImages[diskName]
 
+  // 🔴 添加调试日志
+  console.log('🔍 getProcessingStatus 调用:', {
+    diskName,
+    progressData,
+    hasProgressDisplay: !!progressData?.progress_display
+  })
+
   // 1. 如果有进度数据显示格式，优先使用
   if (progressData?.progress_display) {
+    console.log('✅ 使用 progress_display:', progressData.progress_display)
     return progressData.progress_display
   }
 
-  // 2. 处理中状态
-  if (progressData && progressData.percentage > 0 && progressData.percentage < 100) {
-    const processed = progressData.processed || 0
-    const skipped = progressData.skipped || 0
-    const total = progressData.total || 0
+  // 2. 从数据中提取正确的字段名
+  // 优先使用 _images 后缀的字段，然后回退到短字段名
+  const processed = progressData?.processed_images || progressData?.processed || 0
+  const skipped = progressData?.skipped_images || progressData?.skipped || 0
+  const totalImages = progressData?.total_images || progressData?.total || 0
 
-    if (total > 0) {
-      return `处理中 ${processed}+${skipped}/${total}`
+  // 3. 如果 totalImages 为0，但 processed 和 skipped 有值，计算总数
+  const actualTotal = totalImages > 0 ? totalImages : processed + skipped
+
+  console.log('📊 提取的计数值:', { processed, skipped, totalImages, actualTotal })
+
+  // 4. 处理中状态
+  if (progressData && progressData.percentage > 0 && progressData.percentage < 100) {
+    if (actualTotal > 0) {
+      return `处理中 ${processed}+${skipped}/${actualTotal}`
     } else if (progressData.message) {
       // 尝试从消息中提取数字
       const newMatch = progressData.message.match(/处理 (\d+) 张新图片/)
@@ -486,14 +500,10 @@ const getProcessingStatus = (diskName) => {
     return `解析中 ${progressData.percentage}%`
   }
 
-  // 3. 已完成状态
-  if (progressData?.percentage === 100) {
-    const processed = progressData.processed || 0
-    const skipped = progressData.skipped || 0
-    const total = processed + skipped
-
-    if (total > 0) {
-      return `${processed}+${skipped}/${total}`
+  // 5. 已完成状态
+  if (progressData?.percentage === 100 || progressData?.status === 'completed' || progressData?.status === 'success') {
+    if (actualTotal > 0) {
+      return `${processed}+${skipped}/${actualTotal}`
     } else if (progressData.message) {
       const newMatch = progressData.message.match(/处理 (\d+) 张新图片/)
       const skipMatch = progressData.message.match(/跳过 (\d+) 张/)
@@ -507,7 +517,7 @@ const getProcessingStatus = (diskName) => {
     return '已完成'
   }
 
-  // 4. 其他状态
+  // 6. 其他状态
   if (hasScreened) {
     return '已筛选'
   } else if (hasConverted) {
