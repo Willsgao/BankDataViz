@@ -6,7 +6,7 @@
       frameborder="0"
     ></iframe>
     <el-button
-      size="mini"
+      size="small"
       circle
       icon="el-icon-close"
       class="close"

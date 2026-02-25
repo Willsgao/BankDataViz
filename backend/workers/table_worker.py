@@ -1270,7 +1270,7 @@ class TableProcessingWorker:
             self.current_job = None
             return False
 
-    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
+    def process_single_task2222222(self, task_data: Dict[str, Any]) -> bool:
         """处理单个任务 - 修复版本"""
 
         # 提取参数
@@ -1320,6 +1320,98 @@ class TableProcessingWorker:
             # 错误处理
             return False
 
+    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
+        """处理单个任务 - 修复版本：正确的计数逻辑"""
+
+        from datetime import datetime
+        import os
+        import time
+
+        # 提取参数
+        job_id = task_data["job_id"]
+        pdf_folder = task_data["pdf_folder"]
+        image_paths = task_data["image_paths"]
+        table_type = task_data.get("table_type", "financial")
+        bank_name = task_data.get("bank_name", "")
+
+        self.current_job = job_id
+
+        try:
+            # 1. 首先计算总图片数
+            total_all_images = len(image_paths)
+
+            # 2. 使用增量处理器获取实际需要处理的图片
+            image_names = [os.path.basename(img_path) for img_path in image_paths]
+
+            try:
+                # ✅ 关键修复：获取需要处理的新图片
+                images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
+
+                # ✅ 计算跳过的图片
+                skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+
+                # ✅ 正确的计数计算
+                total_new_images = len(images_to_process_names)  # 新图片数
+                total_skipped_images = len(skipped_images_names)  # 跳过图片数
+                total_processed = total_new_images + total_skipped_images  # 总处理数
+
+                print(f"📊 增量处理统计:")
+                print(f"  - 总图片: {total_all_images}")
+                print(f"  - 新图片: {total_new_images}")
+                print(f"  - 跳过图片: {total_skipped_images}")
+
+            except Exception as e:
+                print(f"⚠️ 增量处理失败，处理所有图片: {e}")
+                total_new_images = total_all_images
+                total_skipped_images = 0
+                total_processed = total_all_images
+
+            # 3. 初始状态更新
+            self.update_job_status(job_id, {
+                "status": "processing",
+                "progress": 0,
+                "message": f"开始处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片",
+                "started_at": datetime.now().isoformat(),
+                "worker_id": self.worker_id,
+                "total_images": total_processed,  # 总图片数
+                "processed_images": 0,  # 初始为0
+                "skipped_images": total_skipped_images,  # 跳过图片数
+                "pdf_folder": pdf_folder
+            })
+
+            # 4. 在Flask上下文中处理
+            with app.app_context():
+                # 处理图片
+                process_table_images_real(
+                    job_id=job_id,
+                    pdf_folder=pdf_folder,
+                    image_paths=image_paths,  # 传递所有图片
+                    table_type=table_type,
+                    bank_name=bank_name,
+                    progress_tracker=progress_tracker,
+                    skipped_images=[],  # 传递空数组
+                    existing_sheets=None
+                )
+
+            # 5. 最终状态更新 - 使用正确的计数
+            self.update_job_status(job_id, {
+                "status": "completed",
+                "progress": 100,
+                "message": f"任务完成。处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片，已生成Excel文件",
+                "completed_at": datetime.now().isoformat(),
+                "duration": f"{time.time() - task_data.get('created_at', time.time()):.2f}秒",
+                "total_processed": total_processed,  # 总处理数
+                "total_images": total_processed,  # 总图片数
+                "processed_images": total_new_images,  # 新处理图片数
+                "skipped_images": total_skipped_images,  # 跳过图片数
+                "excel_generated": "true"
+            })
+
+            return True
+
+        except Exception as e:
+            # 错误处理
+            return False
 
     def run(self):
         """运行Worker主循环 - 优化版本，增加超时错误处理"""
@@ -1441,5 +1533,71 @@ def main():
                 worker.running = False
 
 
+
+import sys
+import os
+import time
+import subprocess
+import signal
+
+
+def main_with_reload():
+    """带热更新的主函数"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description='表格处理Worker')
+    parser.add_argument('--id', type=str, help='Worker ID')
+    parser.add_argument('--count', type=int, default=1, help='启动Worker数量')
+    parser.add_argument('--reload', action='store_true', help='启用热更新')
+    args = parser.parse_args()
+
+    if args.reload:
+        print("🔄 热更新模式已启用，修改文件后会自动重启")
+
+        cmd = [sys.executable, __file__]
+        if args.id:
+            cmd.extend(['--id', args.id])
+        if args.count:
+            cmd.extend(['--count', str(args.count)])
+
+        while True:
+            process = subprocess.Popen(cmd)
+            try:
+                process.wait()
+            except KeyboardInterrupt:
+                print("\n🛑 停止进程...")
+                process.terminate()
+                break
+            print("🔄 重启中...")
+            time.sleep(1)
+    else:
+        # 您原有的main函数逻辑
+        workers = []
+
+        for i in range(args.count):
+            worker_id = args.id or f"worker_{i + 1}_{int(time.time())}"
+            worker = TableProcessingWorker(worker_id)
+
+            if args.count > 1:
+                thread = threading.Thread(
+                    target=worker.run,
+                    name=f"TableWorker-{worker_id}",
+                    daemon=True
+                )
+                thread.start()
+                workers.append((worker, thread))
+            else:
+                worker.run()
+
+        if args.count > 1:
+            try:
+                for worker, thread in workers:
+                    thread.join()
+            except KeyboardInterrupt:
+                print("\n🛑 收到中断信号，停止所有Worker...")
+                for worker, _ in workers:
+                    worker.running = False
+
+
 if __name__ == "__main__":
-    main()
+    main_with_reload()

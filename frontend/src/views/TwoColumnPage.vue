@@ -23,6 +23,7 @@
       :step-completion-time="stepCompletionTime"
       :step-statuses="stepStatuses"
       :parsing-progress-map="parsingProgressMap"
+      :persistent-file-status="persistentFileStatus"
       @load-files="loadFiles"
       @delete-file="deleteFile"
       @cut-table="cutTable"
@@ -159,7 +160,7 @@ const tableType = ref('financial')  // 表格类型
 const parsingProgressMap = ref({})
 
 const finalResultsMap = ref({})
-
+const persistentFileStatus = ref({})
 
 // 添加 defineEmits
 const emit = defineEmits([
@@ -184,6 +185,7 @@ const emit = defineEmits([
 // ---------------- 生命周期 ----------------
 onMounted(async () => {
   await loadFiles()
+  await loadPersistentFileStatus()
 
 })
 
@@ -1469,6 +1471,163 @@ const emitStepCompletionEvent = (pdfDiskName, step, status) => {
 const handleParseTablesCompleted = (data) => {
   console.log('🎯 TwoColumnPage handleParseTablesCompleted 被调用:', data)
 
+  if (!data) {
+    console.error('handleParseTablesCompleted: data 参数为空')
+    return
+  }
+
+  const { pdfDiskName, parsingResult, progress } = data
+
+  // 更新当前PDF
+  updateCurrentPdf(pdfDiskName)
+
+  // 记录解析步骤完成时间
+  if (progress?.percentage === 100 || parsingResult?.success) {
+    recordStepCompletion(pdfDiskName, 'parse', {
+      result: parsingResult,
+      progress: progress,
+      timestamp: Date.now()
+    })
+
+    // ✅ 必须调用保存！传递完整的后端数据
+    saveFinalFileStatus(pdfDiskName, {
+      ...parsingResult,  // 包含 processed_images, skipped_images, total_images
+      ...progress,       // 包含 progress, message, status
+      status: 'completed',
+      message: '表格解析完成',
+      progress: 100,
+      lastUpdated: new Date().toISOString()
+    })
+
+    // 显示成功消息
+    ElMessage.success({
+      message: '表格解析完成！',
+      duration: 3000
+    })
+  }
+
+  console.log('✅ 解析状态已更新和保存:', {
+    pdfDiskName,
+    completionTime: stepCompletionTime.value[pdfDiskName]?.parse
+  })
+}
+
+
+// ✅ 修复版本：保存完整的进度显示信息
+const saveFinalFileStatus = (pdfDiskName, statusData) => {
+  if (!pdfDiskName) return
+
+  // 构建完整的进度显示数据
+  const processed = statusData.processed_images || statusData.processed || 0
+  const skipped = statusData.skipped_images || statusData.skipped || 0
+  const totalImages = statusData.total_images || statusData.total || 0
+  const actualTotal = totalImages > 0 ? totalImages : (processed + skipped)
+
+  const fullStatusData = {
+    ...statusData,
+    diskName: pdfDiskName,
+    // ✅ 添加进度显示字段
+    progress_display: `${processed}+${skipped}/${actualTotal}`,
+    // ✅ 确保有基本字段
+    processed_images: processed,
+    skipped_images: skipped,
+    total_images: actualTotal,
+    // ✅ 添加时间戳
+    saved_at: new Date().toISOString()
+  }
+
+  console.log('💾 保存文件状态:', { pdfDiskName, fullStatusData })
+
+  // 1. 保存到内存 - 强制响应式更新
+  persistentFileStatus.value = {
+    ...persistentFileStatus.value,
+    [pdfDiskName]: fullStatusData
+  }
+
+  // 2. 保存到 localStorage
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(`file_status_${pdfDiskName}`, JSON.stringify(fullStatusData))
+      console.log('✅ 文件状态已保存到 localStorage:', pdfDiskName)
+    } catch (error) {
+      console.warn('⚠️ 保存到 localStorage 失败:', error)
+    }
+  }
+
+  // 3. 更新到 parsingProgressMap
+  if (parsingProgressMap.value[pdfDiskName]) {
+    parsingProgressMap.value[pdfDiskName] = {
+      ...parsingProgressMap.value[pdfDiskName],
+      ...fullStatusData
+    }
+  }
+
+  // ✅ 同时记录到 stepCompletionTime
+  if (!stepCompletionTime.value[pdfDiskName]) {
+    stepCompletionTime.value[pdfDiskName] = {}
+  }
+  stepCompletionTime.value[pdfDiskName].parse = Date.now()
+  stepCompletionTime.value = { ...stepCompletionTime.value }
+}
+
+
+// ✅ 修复版本：确保响应式更新
+const loadPersistentFileStatus = async () => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const allKeys = Object.keys(localStorage)
+      const statusKeys = allKeys.filter(key => key.startsWith('file_status_'))
+
+      console.log('🔍 在localStorage中找到的状态键:', statusKeys)
+
+      if (statusKeys.length === 0) {
+        console.log('📭 localStorage中没有找到持久化状态')
+        return
+      }
+
+      const loadedData = {}
+
+      for (const key of statusKeys) {
+        const statusData = localStorage.getItem(key)
+        if (statusData) {
+          try {
+            const parsedData = JSON.parse(statusData)
+            const pdfDiskName = key.replace('file_status_', '')
+            loadedData[pdfDiskName] = parsedData
+            console.log('📥 加载状态:', pdfDiskName, parsedData)
+          } catch (e) {
+            console.warn('❌ 解析状态数据失败:', e, key)
+          }
+        }
+      }
+
+      // ✅ 关键修复：使用扩展运算符触发响应式更新
+      persistentFileStatus.value = {
+        ...persistentFileStatus.value,
+        ...loadedData
+      }
+
+      console.log('📁 已加载持久化文件状态:', {
+        数量: Object.keys(persistentFileStatus.value).length,
+        具体文件: Object.keys(persistentFileStatus.value)
+      })
+    }
+  } catch (error) {
+    console.error('❌ 加载持久化状态失败:', error)
+  }
+}
+
+
+
+
+// ✅ 新增：获取文件的持久化状态
+const getPersistentFileStatus = (diskName) => {
+  return persistentFileStatus.value[diskName] || null
+}
+
+const handleParseTablesCompleted000000 = (data) => {
+  console.log('🎯 TwoColumnPage handleParseTablesCompleted 被调用:', data)
+
   // 添加数据检查
   if (!data) {
     console.error('handleParseTablesCompleted: data 参数为空')
@@ -1614,8 +1773,6 @@ function formatProgressDisplay(progressData) {
 }
 
 
-
-// 完整的 subscribeTableProgressSSE 函数
 function subscribeTableProgressSSE(jobId, pdfDiskName) {
   return new Promise((resolve, reject) => {
     console.log(`🔌 开始SSE订阅: jobId=${jobId}, pdf=${pdfDiskName}`)
@@ -1637,6 +1794,9 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
           const total = progressData.total_images || 0
           const actualTotal = total > 0 ? total : processed + skipped
 
+          // ✅ 添加状态映射函数
+          const elementStatus = mapStatusToElementStatus(progressData.status)
+
           // 增强进度数据
           const enhancedData = {
             ...progressData,
@@ -1649,9 +1809,12 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
             percentage: progressData.progress || 0,
             // 生成进度显示格式
             progress_display: `${processed}+${skipped}/${actualTotal}`,
-            // 状态转换
-            status: progressData.status === 'completed' ? 'success' :
-                   progressData.status === 'failed' ? 'exception' :
+            // ✅ 添加Element Plus兼容的状态字段
+            element_status: elementStatus,  // 用于Element组件
+            original_status: progressData.status,  // 保留原始状态
+            // ✅ 正确的状态转换
+            status: elementStatus === 'success' ? 'completed' :
+                   elementStatus === 'exception' ? 'failed' :
                    progressData.status
           }
 
@@ -1659,11 +1822,22 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
           parsingProgressMap.value[jobId] = enhancedData
 
           if (pdfDiskName) {
-            parsingProgressMap.value[pdfDiskName] = enhancedData
+            // ✅ 关键修复：确保响应式更新
+            parsingProgressMap.value = {
+              ...parsingProgressMap.value,
+              [pdfDiskName]: enhancedData
+            }
+
             console.log(`📁 更新PDF进度: ${pdfDiskName}`, {
               display: enhancedData.progress_display,
-              percentage: enhancedData.percentage
+              percentage: enhancedData.percentage,
+              element_status: enhancedData.element_status
             })
+
+            // ✅ 立即保存到持久化状态
+            if (progressData.status === 'completed' || progressData.status === 'success') {
+              saveFinalFileStatus(pdfDiskName, enhancedData)
+            }
           }
 
           // 如果任务完成
@@ -1701,6 +1875,23 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
     }, 300000)
   })
 }
+
+
+// ✅ 状态映射函数
+function mapStatusToElementStatus(originalStatus) {
+  const statusMap = {
+    'queued': 'warning',      // 排队中 -> 警告（黄色）
+    'processing': 'warning',  // 处理中 -> 警告（黄色）
+    'completed': 'success',   // 已完成 -> 成功（绿色）
+    'success': 'success',     // 成功 -> 成功（绿色）
+    'failed': 'exception',    // 失败 -> 异常（红色）
+    'exception': 'exception', // 异常 -> 异常（红色）
+    '': '',                   // 空状态
+    'unknown': 'warning'      // 未知 -> 警告
+  }
+  return statusMap[originalStatus] || 'warning'
+}
+
 
 
 // 8. 在 handleParseTables 函数中，替换模拟代码为真实的API调用

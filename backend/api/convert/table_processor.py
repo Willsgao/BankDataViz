@@ -2663,7 +2663,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
         try:
             import redis
             import json as json_module
-            # from backend.utils.redis_util import redis_hset_compatible
+            from backend.utils.redis_util import redis_hset_compatible
 
             # 连接到Redis
             print(f"🔌 尝试连接Redis: host=localhost, port=6379, db=0")
