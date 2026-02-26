@@ -97,13 +97,33 @@
               </div>
             </div>
           </div>
-          <div class="table-type-selector" v-if="files.length > 0">
-            <el-radio-group
-              :value="tableType"
+          <div class="header-right">
+            <!-- 新增：查看解析进度按钮 -->
+            <el-button
               size="small"
-              @change="$emit('table-type-change', $event)"
+              type="text"
+              icon="el-icon-data-line"
+              @click="$emit('show-progress-dialog')"
+              class="progress-monitor-btn"
+              title="查看所有PDF的解析进度"
             >
-            </el-radio-group>
+              解析进度
+              <el-badge
+                v-if="activeTaskCount > 0"
+                :value="activeTaskCount"
+                :max="99"
+                class="task-badge"
+              />
+            </el-button>
+
+            <div class="table-type-selector" v-if="files.length > 0">
+              <el-radio-group
+                :value="tableType"
+                size="small"
+                @change="$emit('table-type-change', $event)"
+              >
+              </el-radio-group>
+            </div>
           </div>
         </div>
 
@@ -277,6 +297,10 @@
   </div>
 </template>
 
+
+
+
+
 <script setup>
 // 导入组件
 import { ref, computed, watch } from 'vue'
@@ -404,7 +428,8 @@ defineEmits([
   'clearCache',
   'parse-tables',
   'parseTables',
-  'tableTypeChange'
+  'tableTypeChange',
+  'show-progress-dialog'
 ])
 
 
@@ -416,6 +441,23 @@ const getHasConvertCache = computed(() => {
     const cacheData = props.convertCache[cacheKey]
     return cacheData && Array.isArray(cacheData) && cacheData.length > 0
   }
+})
+
+
+// 计算属性：活跃任务数量
+const activeTaskCount = computed(() => {
+  if (!props.parsingProgressMap) return 0
+
+  let count = 0
+  Object.values(props.parsingProgressMap).forEach(task => {
+    if (task) {
+      const status = task.status || task.original_status
+      if (status === 'processing' || status === 'queued') {
+        count++
+      }
+    }
+  })
+  return count
 })
 
 
@@ -473,8 +515,6 @@ const getFileProgress = (diskName) => {
 }
 
 
-
-// 修改 completedFiles 计算属性
 // 修改 completedFiles 计算属性
 const completedFiles = computed(() => {
   return props.otherPdfs.filter(pdf => {

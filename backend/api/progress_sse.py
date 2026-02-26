@@ -93,4 +93,157 @@ def table_progress_sse(job_id):
         }
     )
 
+
+@progress_sse_bp.route('/api/all-tasks-progress')
+def all_tasks_progress_sse():
+    """
+    SSE推送所有表格处理任务的实时进度
+    用于前端进度监控弹窗
+    """
+
+    def generate():
+        import json
+        import time
+
+        while True:
+            try:
+                # 获取所有任务
+                redis_client = redis.Redis(
+                    host='localhost',
+                    port=6379,
+                    db=0,
+                    decode_responses=True
+                )
+
+                # 1. 获取所有表格任务
+                tasks = []
+                task_keys = redis_client.keys("table:job:*")
+
+                for key in task_keys[:50]:  # 限制数量防止性能问题
+                    try:
+                        job_id = key.replace("table:job:", "")
+                        task_data = redis_client.hgetall(key)
+
+                        if task_data:
+                            task_data['job_id'] = job_id
+                            task_data['timestamp'] = time.time()
+                            tasks.append(task_data)
+
+                    except Exception as e:
+                        print(f"⚠️ 处理任务键 {key} 失败: {e}")
+
+                # 2. 获取PDF级状态
+                pdf_tasks = []
+                pdf_keys = redis_client.keys("pdf:*:current_status")
+
+                for key in pdf_keys[:20]:
+                    try:
+                        pdf_folder = key.replace("pdf:", "").replace(":current_status", "")
+                        pdf_data = redis_client.hgetall(key)
+
+                        if pdf_data:
+                            pdf_data['pdf_folder'] = pdf_folder
+                            pdf_data['status_type'] = 'pdf_level'
+                            pdf_data['timestamp'] = time.time()
+                            pdf_tasks.append(pdf_data)
+
+                    except Exception as e:
+                        print(f"⚠️ 处理PDF键 {key} 失败: {e}")
+
+                # 3. 合并任务列表
+                all_tasks = tasks + pdf_tasks
+
+                # 4. 推送数据
+                data = {
+                    "type": "all_tasks_update",
+                    "timestamp": time.time(),
+                    "total": len(all_tasks),
+                    "tasks": all_tasks
+                }
+
+                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+            except Exception as e:
+                print(f"❌ 生成所有任务进度失败: {e}")
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+            time.sleep(3)  # 3秒推送一次
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
+
+
+@progress_sse_bp.route('/api/active-tasks')
+def get_active_tasks():
+    """
+    获取所有活跃任务的快照（非SSE）
+    用于前端打开弹窗时一次性获取
+    """
+    try:
+        redis_client = redis.Redis(
+            host='localhost',
+            port=6379,
+            db=0,
+            decode_responses=True
+        )
+
+        # 获取所有任务
+        tasks = []
+        task_keys = redis_client.keys("table:job:*")
+
+        for key in task_keys[:100]:  # 限制100个任务
+            try:
+                job_id = key.replace("table:job:", "")
+                task_data = redis_client.hgetall(key)
+
+                if task_data:
+                    task_data['job_id'] = job_id
+                    tasks.append(task_data)
+
+            except Exception as e:
+                print(f"⚠️ 处理任务键 {key} 失败: {e}")
+
+        # 按时间排序（最新的在前）
+        tasks.sort(key=lambda x: float(x.get('timestamp', 0) or x.get('created_at', 0)), reverse=True)
+
+        # 统计摘要
+        summary = {
+            "total": len(tasks),
+            "processing": 0,
+            "queued": 0,
+            "completed": 0,
+            "failed": 0
+        }
+
+        for task in tasks:
+            status = task.get('status', 'unknown')
+            if status in ['processing', 'running']:
+                summary['processing'] += 1
+            elif status == 'queued':
+                summary['queued'] += 1
+            elif status in ['completed', 'success']:
+                summary['completed'] += 1
+            elif status in ['failed', 'exception']:
+                summary['failed'] += 1
+
+        return jsonify({
+            "success": True,
+            "tasks": tasks,
+            "summary": summary,
+            "timestamp": time.time()
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        })
+
 # 在app_factory.py中注册此蓝图

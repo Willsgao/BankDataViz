@@ -7,8 +7,7 @@ import os
 import sqlite3
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any, Optional
-import json
+
 
 # 导入适配器和配置
 from . import get_db_connection, get_database_path, get_upload_folder, get_main_root

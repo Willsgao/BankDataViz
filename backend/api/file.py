@@ -519,13 +519,9 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
         # 🔥🔥🔥 关键修复：清理file_id，移除.pdf扩展名
         clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
 
-        print("clean_file_idclean_file_id:", clean_file_id)
-
         # 1. 构建Excel文件路径
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
         excel_path = excel_dir / excel_file_name
-
-        print(f"📁 Excel文件路径: {excel_path}")
 
         if not excel_path.exists():
             print(f"❌ Excel文件不存在: {excel_path}")

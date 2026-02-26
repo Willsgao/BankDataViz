@@ -36,6 +36,7 @@
       @table-type-change="handleTableTypeChange"
       @screen-images-completed="handleScreenImagesCompleted"
       @parse-tables-completed="handleParseTablesCompleted"
+      @show-progress-dialog="showProgressDialog"
     />
 
   <!-- 确保全局组件在正确的位置 -->
@@ -79,10 +80,36 @@
       </div>
     </el-dialog>
 
+    <!-- 表格解析进度监控弹窗 -->
+    <el-dialog
+      v-model="progressDialogVisible"
+      title="PDF解析进度监控"
+      width="90%"
+      top="2vh"
+      destroy-on-close
+      :close-on-click-modal="false"
+      class="progress-monitor-dialog"
+    >
+      <ProgressMonitorDialog
+        v-if="progressDialogVisible"
+        :tasks="allParsingTasks"
+        :summary="tasksSummary"
+        :loading="false"
+        @refresh="refreshTasks"
+        @cancel="cancelTask"
+        @view-result="handleViewResult"
+        @retry="handleRetryTask"
+        @view-detail="handleViewTaskDetail"
+        @clear-completed="handleClearCompletedTasks"
+        @close="closeProgressDialog"
+      />
+    </el-dialog>
+
+
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed, watch, reactive } from 'vue'  // 添加了 watch 导入
+import { ref, onMounted, onUnmounted, nextTick, computed, watch, reactive } from 'vue'  // 添加了 watch 导入
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 // 在现有的import部分添加
@@ -111,6 +138,8 @@ import { baiduOcrApi } from '@/api/baiduOcr'
 // 工具函数导入
 import { getBackendUrl, getStaticUrl, getSmartUrl  } from '@/utils/config'
 
+// 在现有的 import 语句中添加
+import ProgressMonitorDialog from '@/components/progress/ProgressMonitorDialog.vue'
 
 // ---------------- 数据声明（从App.vue迁移过来） ----------------
 const files = ref([])
@@ -178,7 +207,8 @@ const emit = defineEmits([
   'screen-images-completed',
   'parse-tables-completed',
   'update-step-status',
-  'smart-process-pdf'
+  'smart-process-pdf',
+  'show-progress-dialog'
 ])
 
 
@@ -318,28 +348,6 @@ const handleScreenImages = async (pdfDiskName) => {
   }
 }
 
-
-const processImages00 = (images, type) => {
-    return (images || []).map(img => {
-      const processedImg = {
-        ...img,
-        // 确保图片有正确的URL
-        url: img.url || getImageUrl(img, pdfFolder),
-        // 如果没有type，根据分类设置
-        type: img.type || type,
-        // 如果没有name但有path，从path中提取name
-        name: img.name || (img.path ? img.path.split('/').pop() : '')
-      }
-
-      // 确保URL是字符串
-      if (typeof processedImg.url !== 'string') {
-        console.warn('⚠️ 图片URL不是字符串:', processedImg.url)
-        processedImg.url = getImageUrl(processedImg, pdfFolder)
-      }
-
-      return processedImg
-    })
-  }
 
 
 // 修改：加载分类数据的函数 - 移除 ElMessage.info
@@ -487,6 +495,171 @@ watch(screeningVisible, async (newVal) => {
   }
 })
 
+
+
+// ============ 新增：任务操作方法 ============
+// 1. 查看任务结果
+const handleViewResult = (jobId) => {
+  console.log('🔍 查看任务结果:', jobId)
+
+  // 查找任务对应的PDF
+  const task = allParsingTasks.value.find(t => t.job_id === jobId)
+  if (task) {
+    const pdfDiskName = task.pdfDiskName || extractPdfFromJobId(jobId)
+    if (pdfDiskName) {
+      // 切换到该PDF
+      switchToPdfByDiskName(pdfDiskName)
+
+      // 关闭进度弹窗
+      closeProgressDialog()
+
+      ElMessage.success(`已切换到任务 ${pdfDiskName}`)
+    } else {
+      ElMessage.warning('未找到对应的PDF文件')
+    }
+  } else {
+    ElMessage.error('任务不存在')
+  }
+}
+
+// 2. 重试失败任务
+const handleRetryTask = async (jobId) => {
+  try {
+    console.log('🔄 重试任务:', jobId)
+
+    const task = allParsingTasks.value.find(t => t.job_id === jobId)
+    if (!task) {
+      ElMessage.error('任务不存在')
+      return
+    }
+
+    const pdfDiskName = task.pdfDiskName || extractPdfFromJobId(jobId)
+    if (!pdfDiskName) {
+      ElMessage.error('无法获取PDF信息')
+      return
+    }
+
+    // 重新提交解析
+    handleParseTables(pdfDiskName)
+
+    // 从列表中移除旧任务
+    allParsingTasks.value = allParsingTasks.value.filter(t => t.job_id !== jobId)
+
+    ElMessage.success('已重新提交解析任务')
+
+  } catch (error) {
+    console.error('❌ 重试任务失败:', error)
+    ElMessage.error(`重试失败: ${error.message}`)
+  }
+}
+
+// 3. 查看任务详情
+const handleViewTaskDetail = (task) => {
+  console.log('📄 查看任务详情:', task)
+
+  // 打开任务详情弹窗
+  ElMessageBox.alert(
+    `
+    <div style="font-family: 'Monaco', 'Menlo', 'Consolas', monospace; font-size: 12px;">
+      <p><strong>任务ID:</strong> ${task.job_id || 'N/A'}</p>
+      <p><strong>PDF文件:</strong> ${getPdfFilename(task)}</p>
+      <p><strong>状态:</strong> ${task.status || task.original_status || 'unknown'}</p>
+      <p><strong>进度:</strong> ${task.progress || task.percentage || 0}%</p>
+      <p><strong>已处理图片:</strong> ${task.processed || task.processed_images || 0}/${task.total || task.total_images || 0}</p>
+      <p><strong>开始时间:</strong> ${new Date(task.timestamp || task.start_time).toLocaleString()}</p>
+      <p><strong>最后消息:</strong> ${task.message || '无'}</p>
+    </div>
+    `,
+    '任务详情',
+    {
+      dangerouslyUseHTMLString: true,
+      customClass: 'task-detail-dialog',
+      confirmButtonText: '关闭',
+      showClose: false
+    }
+  )
+}
+
+// 4. 清除已完成任务
+const handleClearCompletedTasks = () => {
+  try {
+    const completedTasks = allParsingTasks.value.filter(task =>
+      task.status === 'completed' ||
+      task.original_status === 'completed' ||
+      task.status === 'success'
+    )
+
+    if (completedTasks.length === 0) {
+      ElMessage.info('没有已完成的任务')
+      return
+    }
+
+    ElMessageBox.confirm(
+      `确定要清除 ${completedTasks.length} 个已完成的任务吗？`,
+      '清除确认',
+      {
+        confirmButtonText: '确认清除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    ).then(() => {
+      // 只保留未完成的任务
+      allParsingTasks.value = allParsingTasks.value.filter(task =>
+        task.status !== 'completed' &&
+        task.original_status !== 'completed' &&
+        task.status !== 'success'
+      )
+
+      // 更新统计
+      updateTasksSummary(allParsingTasks.value)
+
+      ElMessage.success(`已清除 ${completedTasks.length} 个已完成任务`)
+    })
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('❌ 清除任务失败:', error)
+    }
+  }
+}
+
+// 5. 工具函数：从jobId提取PDF信息
+const extractPdfFromJobId = (jobId) => {
+  if (!jobId) return null
+
+  // 查找对应的PDF
+  for (const pdf of files.value) {
+    if (pdf.disk_name && jobId.includes(pdf.disk_name.replace('.pdf', ''))) {
+      return pdf.disk_name
+    }
+  }
+
+  return null
+}
+
+// 6. 工具函数：获取PDF文件名
+const getPdfFilename = (task) => {
+  if (task.filename) return task.filename
+
+  if (task.pdfDiskName) {
+    // 在文件列表中查找
+    const pdf = files.value.find(f => f.disk_name === task.pdfDiskName)
+    if (pdf) return pdf.filename
+    return task.pdfDiskName
+  }
+
+  return '未知文件'
+}
+
+// 7. 切换到指定PDF
+const switchToPdfByDiskName = (pdfDiskName) => {
+  const pdf = files.value.find(f => f.disk_name === pdfDiskName)
+  if (pdf) {
+    switchToPdf(pdf)
+  } else {
+    console.warn('⚠️ 未找到PDF:', pdfDiskName)
+  }
+}
 
 
 const getImageUrl = (imageData, pdfFolder) => {
@@ -1974,8 +2147,6 @@ const handleParseTables = async (pdfDiskName) => {
 }
 
 
-
-
 // 监听文件处理事件
 const handleFileProcessed = (event) => {
   console.log('🎯 文件处理事件:', event)
@@ -2094,6 +2265,290 @@ async function pollTableProgress(jobId, pdfDiskName) {
     }, 1000) // 每秒轮询一次
   })
 }
+
+
+
+
+
+
+// ----------------------------------------------
+
+// 在现有的数据声明部分添加以下内容
+// ============ 新增：进度监控相关状态 ============
+const progressDialogVisible = ref(false)  // 控制弹窗显示
+const allParsingTasks = ref([])           // 存储所有任务数据
+const tasksSSE = ref(null)                // 用于存储SSE连接实例
+const tasksSummary = ref({                // 任务统计摘要
+  total: 0,
+  processing: 0,
+  completed: 0,
+  failed: 0,
+  queued: 0
+})
+
+
+// ============ 新增：方法 ============
+// 1. 显示进度弹窗
+const showProgressDialog = () => {
+  console.log('📊 显示进度弹窗')
+  progressDialogVisible.value = true
+
+  // 弹窗打开时立即获取一次任务列表
+  fetchAllParsingTasks()
+
+  // 建立SSE连接用于实时更新
+  connectToTasksSSE()
+}
+
+// 2. 获取所有解析任务
+// 修改现有的 fetchAllParsingTasks 方法
+const fetchAllParsingTasks = async () => {
+  try {
+    console.log('🔄 获取所有解析任务...')
+
+    const tasks = []
+
+    // 从现有的 parsingProgressMap 中提取任务
+    Object.entries(parsingProgressMap.value).forEach(([key, taskData]) => {
+      if (!taskData) return
+
+      const task = { ...taskData }
+
+      // 确定任务标识符
+      if (key.includes('table_') && key.startsWith('table_')) {
+        // 这是以job_id为键的任务
+        task.job_id = key
+        task.task_key = 'job_id'
+      } else {
+        // 这是以PDF为键的任务
+        task.pdfDiskName = key
+        task.job_id = taskData.job_id
+        task.task_key = 'pdf_disk_name'
+      }
+
+      // 确保有必要的字段
+      if (!task.status && task.original_status) {
+        task.status = task.original_status
+      }
+
+      // 为任务添加文件信息
+      if (task.pdfDiskName) {
+        const pdf = files.value.find(f => f.disk_name === task.pdfDiskName)
+        if (pdf) {
+          task.filename = pdf.filename
+          task.created_at = pdf.created_at
+        }
+      }
+
+      tasks.push(task)
+    })
+
+    // 按时间排序（最新的在前）
+    tasks.sort((a, b) => {
+      const timeA = a.timestamp || a.start_time || 0
+      const timeB = b.timestamp || b.start_time || 0
+      return timeB - timeA
+    })
+
+    allParsingTasks.value = tasks
+
+    // 更新统计摘要
+    updateTasksSummary(tasks)
+
+    console.log(`✅ 获取到 ${tasks.length} 个任务`)
+
+  } catch (error) {
+    console.error('❌ 获取任务列表失败:', error)
+    // 不显示错误消息，避免干扰用户
+  }
+}
+
+// 3. 更新任务统计摘要
+const updateTasksSummary = (tasks) => {
+  const summary = {
+    total: tasks.length,
+    processing: 0,
+    completed: 0,
+    failed: 0,
+    queued: 0
+  }
+
+  tasks.forEach(task => {
+    const status = task.status || task.original_status || 'unknown'
+    switch (status) {
+      case 'processing':
+        summary.processing++
+        break
+      case 'completed':
+      case 'success':
+        summary.completed++
+        break
+      case 'failed':
+      case 'exception':
+        summary.failed++
+        break
+      case 'queued':
+        summary.queued++
+        break
+    }
+  })
+
+  tasksSummary.value = summary
+  console.log('📈 任务统计更新:', summary)
+}
+
+// 4. 连接SSE获取实时更新
+const connectToTasksSSE = () => {
+  // 先关闭现有的连接
+  if (tasksSSE.value) {
+    tasksSSE.value.close()
+  }
+
+  try {
+    // 建立新的SSE连接
+    tasksSSE.value = new EventSource('/api/all-tasks-progress')
+
+    tasksSSE.value.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        console.log('📡 收到任务进度更新:', data)
+
+        // 更新任务列表
+        updateTaskInList(data)
+
+      } catch (error) {
+        console.error('❌ 解析任务更新数据失败:', error)
+      }
+    }
+
+    tasksSSE.value.onerror = (error) => {
+      console.error('❌ 任务进度SSE连接错误:', error)
+      // 可以在这里实现重连逻辑
+    }
+
+    tasksSSE.value.onopen = () => {
+      console.log('✅ 任务进度SSE连接已建立')
+    }
+
+  } catch (error) {
+    console.error('❌ 建立任务进度SSE连接失败:', error)
+  }
+}
+
+// 5. 更新单个任务在列表中的状态
+const updateTaskInList = (taskData) => {
+  const jobId = taskData.job_id
+  const pdfDiskName = taskData.pdfDiskName
+
+  if (!jobId && !pdfDiskName) {
+    console.warn('⚠️ 更新任务数据缺少标识符:', taskData)
+    return
+  }
+
+  // 查找现有任务
+  const taskIndex = allParsingTasks.value.findIndex(task =>
+    task.job_id === jobId ||
+    task.pdfDiskName === pdfDiskName ||
+    task.job_id === pdfDiskName
+  )
+
+  if (taskIndex >= 0) {
+    // 更新现有任务
+    allParsingTasks.value[taskIndex] = {
+      ...allParsingTasks.value[taskIndex],
+      ...taskData
+    }
+  } else {
+    // 添加新任务
+    allParsingTasks.value.push(taskData)
+  }
+
+  // 触发响应式更新
+  allParsingTasks.value = [...allParsingTasks.value]
+
+  // 更新统计
+  updateTasksSummary(allParsingTasks.value)
+}
+
+// 6. 手动刷新任务列表
+const refreshTasks = () => {
+  console.log('🔄 手动刷新任务列表')
+  fetchAllParsingTasks()
+}
+
+// 7. 取消任务
+const cancelTask = async (jobId) => {
+  try {
+    console.log(`🗑️ 请求取消任务: ${jobId}`)
+
+    await ElMessageBox.confirm(
+      '确定要取消此任务吗？',
+      '取消确认',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 调用后端API取消任务
+    const response = await axios.post(`/api/cancel-task/${jobId}`)
+
+    if (response.data.success) {
+      ElMessage.success('任务已取消')
+
+      // 从列表中移除已取消的任务
+      allParsingTasks.value = allParsingTasks.value.filter(task => task.job_id !== jobId)
+
+      // 更新统计
+      updateTasksSummary(allParsingTasks.value)
+
+    } else {
+      throw new Error(response.data.error || '取消任务失败')
+    }
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('❌ 取消任务失败:', error)
+      ElMessage.error(`取消任务失败: ${error.message}`)
+    }
+  }
+}
+
+// 8. 关闭弹窗时清理
+const closeProgressDialog = () => {
+  console.log('📊 关闭进度弹窗')
+  progressDialogVisible.value = false
+
+  // 关闭SSE连接
+  if (tasksSSE.value) {
+    tasksSSE.value.close()
+    tasksSSE.value = null
+  }
+}
+
+// ============ 新增：生命周期钩子 ============
+// 页面卸载时清理SSE连接
+onUnmounted(() => {
+  if (tasksSSE.value) {
+    tasksSSE.value.close()
+    tasksSSE.value = null
+  }
+})
+
+// 监听弹窗状态变化
+watch(progressDialogVisible, (newVal) => {
+  if (newVal) {
+    // 弹窗打开时的处理
+    console.log('📊 进度弹窗已打开')
+  } else {
+    // 弹窗关闭时的处理
+    console.log('📊 进度弹窗已关闭')
+  }
+})
+
+
+
 
 
 // 现有的 currentPdf 计算属性
@@ -2495,6 +2950,74 @@ async function pollProgress(jobId) {
   content: "🆕";
   margin-right: 8px;
   font-size: 12px;
+}
+
+
+/* 在现有的 <style> 部分添加 */
+/* 进度监控弹窗样式 */
+.progress-monitor-dialog .el-dialog {
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.progress-monitor-dialog .el-dialog__body {
+  flex: 1;
+  padding: 16px 20px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.progress-monitor-dialog .el-dialog__header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.progress-monitor-dialog .el-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.progress-monitor-dialog .el-dialog__headerbtn {
+  top: 18px;
+  right: 20px;
+}
+
+/* 任务详情弹窗样式 */
+.task-detail-dialog .el-message-box {
+  width: 500px;
+  max-width: 90vw;
+}
+
+.task-detail-dialog .el-message-box__header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.task-detail-dialog .el-message-box__content {
+  padding: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.task-detail-dialog .el-message-box__content p {
+  margin: 8px 0;
+  display: flex;
+  align-items: baseline;
+}
+
+.task-detail-dialog .el-message-box__content strong {
+  display: inline-block;
+  width: 100px;
+  color: #606266;
+  flex-shrink: 0;
+}
+
+.task-detail-dialog .el-message-box__btns {
+  padding-top: 16px;
+  border-top: 1px solid #e4e7ed;
 }
 
 
