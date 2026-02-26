@@ -1840,3 +1840,165 @@ def save_final_excel_route():
     return save_final_excel_original(request.json)
 
 
+# 在 table_routes.py 或相关路由文件中添加
+@file_bp.route('/api/get-original-filenames', methods=['POST'])
+def get_original_filenames():
+    """批量获取原始文件名映射 - 直接查询数据库"""
+    try:
+        data = request.get_json()
+        pdf_folders = data.get('pdf_folders', [])
+
+        if not pdf_folders:
+            return jsonify({"success": True, "filename_map": {}})
+
+        print(f"🔍 开始批量查询原始文件名，数量: {len(pdf_folders)}")
+        print(f"🔍 查询列表: {pdf_folders}")
+
+        # 连接到数据库
+        try:
+            from backend.utils.db_manager import DatabaseManager
+            import sqlite3
+            import os
+
+            db_manager = DatabaseManager()
+
+            if not hasattr(db_manager, 'db_path'):
+                return jsonify({"success": False, "error": "DatabaseManager没有db_path属性"})
+
+            db_path = db_manager.db_path
+
+            if not os.path.exists(db_path):
+                return jsonify({"success": False, "error": f"数据库文件不存在: {db_path}"})
+
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # ✅ 修复1：先打印数据库结构进行调试
+            try:
+                cursor.execute("PRAGMA table_info(files)")
+                columns = cursor.fetchall()
+                column_names = [col[1] for col in columns]
+                print(f"📊 数据库表结构: {column_names}")
+            except:
+                print("⚠️ 无法获取表结构信息")
+
+            # ✅ 修复2：修改SQL查询条件
+            # 问题：原代码查询WHERE filename IN (...)
+            # 应该改为WHERE disk_name IN (...) 或更合适的字段
+            placeholders = ','.join(['?'] * len(pdf_folders))
+
+            # 尝试多种可能的字段匹配
+            filename_map = {}
+            found_identifiers = set()
+
+            # 方式1：优先尝试disk_name字段
+            query1 = f"""
+                SELECT disk_name, filename, raw_filename 
+                FROM files 
+                WHERE disk_name IN ({placeholders})
+            """
+            print(f"🔍 执行查询1: {query1}")
+            print(f"🔍 查询参数: {pdf_folders}")
+
+            cursor.execute(query1, pdf_folders)
+            results1 = cursor.fetchall()
+
+            for row in results1:
+                disk_name = row['disk_name']
+                filename = row['filename']
+                raw_filename = row['raw_filename']
+
+                # 优先使用raw_filename，然后是filename，最后是disk_name
+                original_name = raw_filename or filename or f"{disk_name}.pdf"
+                filename_map[disk_name] = original_name
+                found_identifiers.add(disk_name)
+
+                print(f"  ✅ 通过disk_name找到: {disk_name} -> {original_name}")
+                print(f"     详细信息: filename='{filename}', raw_filename='{raw_filename}'")
+
+            # 方式2：如果disk_name没找到足够的结果，尝试filename字段
+            remaining_identifiers = [folder for folder in pdf_folders if folder not in found_identifiers]
+
+            if remaining_identifiers:
+                print(f"🔍 还有 {len(remaining_identifiers)} 个标识符未找到，尝试查询filename字段")
+
+                for folder in remaining_identifiers:
+                    # 尝试查询filename字段
+                    query2 = """
+                        SELECT disk_name, filename, raw_filename 
+                        FROM files 
+                        WHERE filename LIKE ? OR raw_filename LIKE ?
+                    """
+                    search_pattern = f"%{folder}%"
+                    cursor.execute(query2, (search_pattern, search_pattern))
+                    row = cursor.fetchone()
+
+                    if row:
+                        disk_name = row['disk_name']
+                        filename = row['filename']
+                        raw_filename = row['raw_filename']
+
+                        # 优先使用raw_filename
+                        original_name = raw_filename or filename or f"{disk_name}.pdf"
+                        filename_map[folder] = original_name
+                        found_identifiers.add(folder)
+
+                        print(f"  🔄 通过filename模糊匹配找到: {folder} -> {original_name}")
+
+            # ✅ 修复3：处理未找到的情况
+            not_found = [folder for folder in pdf_folders if folder not in found_identifiers]
+            if not_found:
+                print(f"⚠️ 未找到的文件标识符: {not_found}")
+
+                # 为未找到的文件添加默认映射
+                for folder in not_found:
+                    # 默认使用标识符本身作为文件名
+                    if folder.endswith('.pdf'):
+                        default_name = folder
+                    else:
+                        default_name = f"{folder}.pdf"
+
+                    filename_map[folder] = default_name
+                    print(f"  ⚠️ 为未找到的标识符添加默认映射: {folder} -> {default_name}")
+
+            # 打印数据库中的文件示例以供调试
+            try:
+                cursor.execute("SELECT disk_name, filename, raw_filename FROM files LIMIT 5")
+                sample_files = cursor.fetchall()
+                print(f"📁 数据库中的文件示例（前5条）:")
+                for file in sample_files:
+                    print(
+                        f"  - disk_name: '{file['disk_name']}', filename: '{file['filename']}', raw_filename: '{file['raw_filename']}'")
+            except:
+                print("⚠️ 无法获取文件示例")
+
+            conn.close()
+
+            print(f"✅ 文件名映射查询完成:")
+            print(f"  - 查询数量: {len(pdf_folders)}")
+            print(f"  - 找到数量: {len(found_identifiers)}")
+            print(f"  - 未找到: {len(not_found)}")
+            print(f"  - 映射结果: {filename_map}")
+
+            return jsonify({
+                "success": True,
+                "filename_map": filename_map,
+                "query_count": len(pdf_folders),
+                "found_count": len(found_identifiers),
+                "not_found": not_found
+            })
+
+        except ImportError as e:
+            print(f"❌ 无法导入DatabaseManager: {e}")
+            return jsonify({"success": False, "error": f"无法导入DatabaseManager: {str(e)}"})
+
+        except sqlite3.Error as e:
+            print(f"❌ 数据库查询错误: {e}")
+            return jsonify({"success": False, "error": f"数据库查询失败: {str(e)}"})
+
+    except Exception as e:
+        print(f"❌ 获取原始文件名异常: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": f"获取原始文件名异常: {str(e)}"})

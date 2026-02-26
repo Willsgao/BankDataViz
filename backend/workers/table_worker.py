@@ -22,7 +22,7 @@ sys.path.insert(0, str(project_root))
 # ==================================================
 
 from backend.utils.redis_util import redis_hset_compatible
-
+from backend.models.unified_db import UnifiedDatabaseManager
 
 try:
     # 使用工厂模式创建Flask应用
@@ -45,6 +45,7 @@ except ImportError as e:
     print(f"❌ 无法导入业务模块: {e}")
     sys.exit(1)
 
+from backend.utils.constants import PROJECT_ROOT_STR
 
 class TableProcessingWorker:
     """表格处理Worker类"""
@@ -207,7 +208,6 @@ class TableProcessingWorker:
         返回:
             tuple: (success, excel_path, error_msg)
         """
-        import os
         from pathlib import Path
         from datetime import datetime
 
@@ -818,15 +818,129 @@ class TableProcessingWorker:
             traceback.print_exc()
 
 
+    def _update_job_status_original(self, job_id: str, status_data: Dict[str, Any]):
+        """原始的Redis更新方法 - 修复布尔值问题，包含所有字段"""
+        from datetime import datetime
+        import json
+
+        redis_key = f"table:job:{job_id}"
+
+        # ✅ 修复1：转换所有值为字符串
+        processed_data = {}
+        for key, value in status_data.items():
+            if value is None:
+                processed_data[key] = ""
+            elif isinstance(value, bool):
+                processed_data[key] = str(value).lower()  # True -> "true", False -> "false"
+            elif isinstance(value, (int, float)):
+                processed_data[key] = str(value)  # 数字也转为字符串
+            elif isinstance(value, dict) or isinstance(value, list):
+                processed_data[key] = json.dumps(value, ensure_ascii=False)  # 复杂对象转为JSON
+            else:
+                processed_data[key] = str(value)
+
+        # 设置默认字段
+        processed_data.setdefault("last_updated", datetime.now().isoformat())
+
+        # ✅ 确保有原始文件名
+        if "original_filename" not in processed_data:
+            pdf_folder = processed_data.get("pdf_folder", "")
+            if pdf_folder:
+                processed_data["original_filename"] = f"{pdf_folder}.pdf"
+            else:
+                processed_data["original_filename"] = job_id
+
+        # 如果状态是processing，添加开始时间
+        if processed_data.get("status") == "processing" and "started_at" not in processed_data:
+            processed_data["started_at"] = datetime.now().isoformat()
+
+        # 如果状态是completed或failed，添加结束时间
+        if processed_data.get("status") in ["completed", "failed"] and "completed_at" not in processed_data:
+            processed_data["completed_at"] = datetime.now().isoformat()
+
+        print(f"🔍 写入Redis的数据:")
+        print(f"  - 字段数量: {len(processed_data)}")
+        print(f"  - 原始文件名: {processed_data.get('original_filename')}")
+        print(f"  - 开始时间: {processed_data.get('started_at')}")
+        print(f"  - PDF文件夹: {processed_data.get('pdf_folder')}")
+
+        # 更新到Redis
+        self.redis_client.hmset(redis_key, processed_data)
+        self.redis_client.expire(redis_key, 604800)  # 7天过期
+
+        # ✅ 修复2：SSE推送包含所有关键字段
+        sse_message = {
+            "job_id": job_id,
+            "status": processed_data.get("status", ""),
+            "progress": processed_data.get("progress", 0),
+            "message": processed_data.get("message", ""),
+            "original_filename": processed_data.get("original_filename", ""),
+            "started_at": processed_data.get("started_at", ""),
+            "pdf_folder": processed_data.get("pdf_folder", ""),
+            "skipped_images": processed_data.get("skipped_images", 0),
+            "processed_images": processed_data.get("processed_images", 0),
+            "total_images": processed_data.get("total_images", 0),
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # 发布SSE消息
+        message_json = json.dumps(sse_message, ensure_ascii=False)
+        self.redis_client.publish(f"table:progress:{job_id}", message_json)
+
+        print(f"📤 SSE推送消息: {json.dumps(sse_message, ensure_ascii=False, indent=2)}")
+
+        # ✅ 修复3：同时更新按PDF名称索引的状态
+        pdf_folder = processed_data.get("pdf_folder")
+        if not pdf_folder and "pdf_folder" in status_data:
+            pdf_folder = status_data.get("pdf_folder")
+
+        if pdf_folder:
+            pdf_key = f"pdf:{pdf_folder}:current_status"
+            pdf_data = {
+                "job_id": job_id,
+                "status": processed_data.get("status", "unknown"),
+                "progress": processed_data.get("progress", 0),
+                "processed_images": processed_data.get("processed_images", 0),
+                "total_images": processed_data.get("total_images", 0),
+                "message": processed_data.get("message", ""),
+                "original_filename": processed_data.get("original_filename", ""),
+                "started_at": processed_data.get("started_at", ""),
+                "last_updated": datetime.now().isoformat()
+            }
+            self.redis_client.hmset(pdf_key, pdf_data)
+            self.redis_client.expire(pdf_key, 604800)
+            print(f"  📁 同时更新PDF状态: {pdf_folder}")
+
     def update_job_status(self, job_id: str, status_data: Dict[str, Any]):
         """更新任务状态到Redis - 增强调试版本"""
 
         print(f"\n📤 更新任务状态到Redis:")
         print(f"  - job_id: {job_id}")
-        print(f"  - 状态数据: {status_data}")
+        print(f"  - 原始文件名: {status_data.get('original_filename', '未设置')}")
+        print(f"  - 开始时间: {status_data.get('started_at', '未设置')}")
+        print(f"  - PDF文件夹: {status_data.get('pdf_folder', '未设置')}")
 
         try:
-            # 确保关键字段存在
+            # 1. ✅ 确保有原始文件名
+            if "original_filename" not in status_data:
+                # 尝试从pdf_folder推断
+                pdf_folder = status_data.get("pdf_folder")
+                if pdf_folder:
+                    status_data["original_filename"] = f"{pdf_folder}.pdf"
+                    print(f"  ✅ 添加推断的原始文件名: {status_data['original_filename']}")
+                else:
+                    status_data["original_filename"] = job_id
+
+            # 2. ✅ 确保有开始时间
+            if "started_at" not in status_data:
+                from datetime import datetime
+                status_data["started_at"] = datetime.now().isoformat()
+                print(f"  ✅ 添加开始时间: {status_data['started_at']}")
+
+            if "skipped_images" not in status_data:
+                status_data["skipped_images"] = 0
+
+            # 3. 确保关键字段存在
             if "processed_images" not in status_data and "progress" in status_data:
                 # 尝试从progress计算processed_images
                 progress = status_data.get("progress", 0)
@@ -842,13 +956,14 @@ class TableProcessingWorker:
                     status_data["processed_images"] = processed
                     print(f"  - 计算得到 processed_images: {processed}/{total_images}")
 
-            # 记录关键字段
-            key_fields = ["status", "progress", "processed_images", "total_images", "message"]
+            # 4. 记录关键字段
+            key_fields = ["status", "progress", "processed_images", "total_images", "message",
+                          "original_filename", "started_at", "pdf_folder", "skipped_images"]
             for field in key_fields:
                 if field in status_data:
                     print(f"  - {field}: {status_data[field]}")
 
-            # 调用原始的Redis更新逻辑
+            # 5. 调用原始的Redis更新逻辑
             self._update_job_status_original(job_id, status_data)
 
             print(f"✅ Redis状态更新完成")
@@ -858,167 +973,10 @@ class TableProcessingWorker:
             import traceback
             traceback.print_exc()
 
-    # 保存原始方法
-    def _update_job_status_original(self, job_id: str, status_data: Dict[str, Any]):
-        """原始的Redis更新方法 - 修复布尔值问题"""
-        redis_key = f"table:job:{job_id}"
-
-        # ✅ 修复1：转换布尔值为字符串
-        processed_data = {}
-        for key, value in status_data.items():
-            if isinstance(value, bool):
-                processed_data[key] = str(value).lower()  # True -> "true", False -> "false"
-            elif isinstance(value, (int, float)):
-                processed_data[key] = str(value)  # 数字也转为字符串
-            else:
-                processed_data[key] = value
-
-        # 设置默认字段
-        processed_data.setdefault("last_updated", datetime.now().isoformat())
-
-        # 如果状态是processing，添加开始时间
-        if processed_data.get("status") == "processing" and "started_at" not in processed_data:
-            processed_data["started_at"] = datetime.now().isoformat()
-
-        # 如果状态是completed或failed，添加结束时间
-        if processed_data.get("status") in ["completed", "failed"] and "completed_at" not in processed_data:
-            processed_data["completed_at"] = datetime.now().isoformat()
-
-        # 更新到Redis
-        self.redis_client.hmset(redis_key, processed_data)
-        self.redis_client.expire(redis_key, 604800)  # 24小时过期
-
-        # 如果是completed或failed状态，发布通知
-        if processed_data.get("status") in ["completed", "failed"]:
-            message = json.dumps({
-                "job_id": job_id,
-                "status": processed_data["status"],
-                "progress": processed_data.get("progress", 0),
-                "message": processed_data.get("message", ""),
-                "timestamp": datetime.now().isoformat()
-            })
-            self.redis_client.publish(f"table:progress:{job_id}", message)
-
-        # ✅ 修复2：同时更新按PDF名称索引的状态
-        pdf_folder = processed_data.get("pdf_folder")
-        if not pdf_folder and "pdf_folder" in status_data:  # 从原始数据获取
-            pdf_folder = status_data.get("pdf_folder")
-
-        if pdf_folder:
-            pdf_key = f"pdf:{pdf_folder}:current_status"
-            pdf_data = {
-                "job_id": job_id,
-                "status": processed_data.get("status", "unknown"),
-                "progress": processed_data.get("progress", 0),
-                "processed_images": processed_data.get("processed_images", 0),
-                "total_images": processed_data.get("total_images", 0),
-                "message": processed_data.get("message", ""),
-                "last_updated": datetime.now().isoformat()
-            }
-            self.redis_client.hmset(pdf_key, pdf_data)
-            self.redis_client.expire(pdf_key, 604800)
-            print(f"  📁 同时更新PDF状态: {pdf_folder}")
-
-    def process_single_task_0000(self, task_data: Dict[str, Any]) -> bool:
-        """处理单个任务 - 修复版本：正确的计数逻辑"""
-
-        from datetime import datetime
-        import os
-        import time
-
-        # 提取参数
-        job_id = task_data["job_id"]
-        pdf_folder = task_data["pdf_folder"]
-        image_paths = task_data["image_paths"]
-        table_type = task_data.get("table_type", "financial")
-        bank_name = task_data.get("bank_name", "")
-
-        self.current_job = job_id
-
-        try:
-            # 1. 首先计算总图片数
-            total_all_images = len(image_paths)
-
-            # 2. 使用增量处理器获取实际需要处理的图片
-            image_names = [os.path.basename(img_path) for img_path in image_paths]
-
-            try:
-                # ✅ 关键修复：获取需要处理的新图片
-                images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
-
-                # ✅ 计算跳过的图片
-                skipped_images_names = [img for img in image_names if img not in images_to_process_names]
-
-                # ✅ 正确的计数计算
-                total_new_images = len(images_to_process_names)  # 新图片数
-                total_skipped_images = len(skipped_images_names)  # 跳过图片数
-                total_processed = total_new_images + total_skipped_images  # 总处理数
-
-                print(f"📊 增量处理统计:")
-                print(f"  - 总图片: {total_all_images}")
-                print(f"  - 新图片: {total_new_images}")
-                print(f"  - 跳过图片: {total_skipped_images}")
-
-            except Exception as e:
-                print(f"⚠️ 增量处理失败，处理所有图片: {e}")
-                total_new_images = total_all_images
-                total_skipped_images = 0
-                total_processed = total_all_images
-
-            # 3. 初始状态更新
-            self.update_job_status(job_id, {
-                "status": "processing",
-                "progress": 0,
-                "message": f"开始处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片",
-                "started_at": datetime.now().isoformat(),
-                "worker_id": self.worker_id,
-                "total_images": total_processed,  # 总图片数
-                "processed_images": 0,  # 初始为0
-                "skipped_images": total_skipped_images,  # 跳过图片数
-                "pdf_folder": pdf_folder
-            })
-
-            # 4. 在Flask上下文中处理
-            with app.app_context():
-                # 处理图片
-                process_table_images_real(
-                    job_id=job_id,
-                    pdf_folder=pdf_folder,
-                    image_paths=image_paths,  # 传递所有图片
-                    table_type=table_type,
-                    bank_name=bank_name,
-                    progress_tracker=progress_tracker,
-                    skipped_images=[],  # 传递空数组
-                    existing_sheets=None
-                )
-
-            # 5. 最终状态更新 - 使用正确的计数
-            self.update_job_status(job_id, {
-                "status": "completed",
-                "progress": 100,
-                "message": f"任务完成。处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片，已生成Excel文件",
-                "completed_at": datetime.now().isoformat(),
-                "duration": f"{time.time() - task_data.get('created_at', time.time()):.2f}秒",
-                "total_processed": total_processed,  # 总处理数
-                "total_images": total_processed,  # 总图片数
-                "processed_images": total_new_images,  # 新处理图片数
-                "skipped_images": total_skipped_images,  # 跳过图片数
-                "excel_generated": "true"
-            })
-
-            return True
-
-        except Exception as e:
-            # 错误处理
-            return False
-
     def process_single_task(self, task_data: Dict[str, Any]) -> bool:
         """处理单个任务 - 修复版本：查询原始文件名并记录开始时间"""
 
         from datetime import datetime
-        import os
-        import time
-        import threading
         import sqlite3
 
         # 提取参数
@@ -1027,6 +985,20 @@ class TableProcessingWorker:
         image_paths = task_data["image_paths"]
         table_type = task_data.get("table_type", "financial")
         bank_name = task_data.get("bank_name", "")
+
+        # ✅ 第一步：添加参数调试
+        print(f"\n🔍 第一步：验证任务参数")
+        print(f"  - job_id: {job_id}")
+        print(f"  - pdf_folder: {pdf_folder}")
+        print(f"  - 参数类型: {type(pdf_folder)}")
+        print(f"  - 是否是UUID格式: {'是' if len(pdf_folder) == 36 and '-' in pdf_folder else '否'}")
+        print(f"  - 是否是带扩展名的文件名: {'是' if '.pdf' in pdf_folder else '否'}")
+        print(f"  - 原始任务数据的所有字段: {list(task_data.keys())}")
+
+        # 检查是否有其他相关字段
+        for key in ['filename', 'disk_name', 'pdf_disk_name', 'folder_name']:
+            if key in task_data:
+                print(f"  - 找到额外字段 {key}: {task_data[key]}")
 
         self.current_job = job_id
 
@@ -1039,12 +1011,14 @@ class TableProcessingWorker:
 
             try:
                 # 尝试获取数据库路径
-                from backend.utils.db_manager import DatabaseManager
-                db_manager = DatabaseManager()
+                db_manager = UnifiedDatabaseManager()
 
                 # 获取数据库路径
                 if hasattr(db_manager, 'db_path'):
-                    db_path = db_manager.db_path
+                    # print(os.getcwd())
+                    print("PROJECT_ROOT_STR----------->:", PROJECT_ROOT_STR)
+                    db_path = f"{PROJECT_ROOT_STR}/{db_manager.db_path}"
+                    # db_path = db_manager.db_path
                     print(f"✅ 获取到数据库路径: {db_path}")
 
                     # 检查数据库文件是否存在
@@ -1057,7 +1031,7 @@ class TableProcessingWorker:
                         cursor = conn.cursor()
 
                         # 方法1：精确匹配 filename
-                        cursor.execute("SELECT raw_filename FROM files WHERE filename = ?", (pdf_folder,))
+                        cursor.execute("SELECT raw_filename FROM files WHERE filename = ?", (pdf_folder+".pdf",))
                         result = cursor.fetchone()
 
                         if result and result['raw_filename']:
@@ -1075,7 +1049,7 @@ class TableProcessingWorker:
                                 print(f"🔍 找到 {len(all_results)} 个匹配的文件:")
                                 for i, row in enumerate(all_results):
                                     print(
-                                        f"  {i + 1}. filename: {row['filename'][:30]}..., raw_filename: {row['raw_filename'][:30]}...")
+                                        f"  {i + 1}. filename: {row['filename']}..., raw_filename: {row['raw_filename']}...")
 
                                 # 使用第一个匹配结果
                                 original_filename = all_results[0]['raw_filename']
@@ -1346,10 +1320,7 @@ def main():
 
 
 import sys
-import os
-import time
 import subprocess
-import signal
 
 
 def main_with_reload():

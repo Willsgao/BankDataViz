@@ -8,7 +8,7 @@ progress_sse_bp = Blueprint('progress_sse', __name__)
 
 
 def get_progress_from_redis(job_id):
-    """从Redis获取进度信息"""
+    """从Redis获取进度信息 - 完整版本"""
     try:
         redis_client = redis.Redis(
             host='localhost',
@@ -17,29 +17,59 @@ def get_progress_from_redis(job_id):
             decode_responses=True
         )
 
-        if not redis_client.exists(f"table:job:{job_id}"):
+        redis_key = f"table:job:{job_id}"
+        if not redis_client.exists(redis_key):
             return None
 
-        status = redis_client.hget(f"table:job:{job_id}", "status") or "unknown"
-        progress = redis_client.hget(f"table:job:{job_id}", "progress") or "0"
-        message = redis_client.hget(f"table:job:{job_id}", "message") or ""
-        total_images = redis_client.hget(f"table:job:{job_id}", "total_images") or "0"
-        processed_images = redis_client.hget(f"table:job:{job_id}", "processed_images") or "0"
+        # ✅ 获取所有字段
+        all_fields = redis_client.hgetall(redis_key)
 
-        # ✅ 添加 skipped_images 的读取
-        skipped_images = redis_client.hget(f"table:job:{job_id}", "skipped_images") or "0"
-
-        result =  {
+        # ✅ 定义需要读取的所有字段
+        field_mappings = {
+            # 基本字段
             "job_id": job_id,
-            "status": status,
-            "progress": int(progress) if progress.isdigit() else 0,
-            "message": message,
-            "total_images": int(total_images) if total_images.isdigit() else 0,
-            "processed_images": int(processed_images) if processed_images.isdigit() else 0,
-            "skipped_images": int(skipped_images) if skipped_images.isdigit() else 0  # ✅ 新增字段
+            "status": all_fields.get("status", "unknown"),
+            "progress": all_fields.get("progress", "0"),
+            "message": all_fields.get("message", ""),
+
+            # 文件信息字段
+            "original_filename": all_fields.get("original_filename", ""),
+            "pdf_folder": all_fields.get("pdf_folder", ""),
+            "pdf_disk_name": all_fields.get("pdf_disk_name", ""),
+
+            # 时间字段
+            "started_at": all_fields.get("started_at", ""),
+            "completed_at": all_fields.get("completed_at", ""),
+            "timestamp": all_fields.get("timestamp", ""),
+            "last_updated": all_fields.get("last_updated", ""),
+
+            # 图片统计字段
+            "total_images": all_fields.get("total_images", "0"),
+            "processed_images": all_fields.get("processed_images", "0"),
+            "skipped_images": all_fields.get("skipped_images", "0"),
+            "failed_images": all_fields.get("failed_images", "0"),
+
+            # 其他元数据
+            "worker_id": all_fields.get("worker_id", ""),
+            "db_filename": all_fields.get("db_filename", ""),
+            "db_query_success": all_fields.get("db_query_success", ""),
+            "task_start_time": all_fields.get("task_start_time", "")
         }
-        print(">>>>>>>>>>>>>>>>result-->:", result)
-        return result
+
+        # ✅ 转换数字字段
+        for field in ["progress", "total_images", "processed_images", "skipped_images", "failed_images"]:
+            if field in field_mappings and field_mappings[field].isdigit():
+                field_mappings[field] = int(field_mappings[field])
+
+        # ✅ 添加调试
+        print(f"🔍 Redis读取结果:")
+        print(f"  - job_id: {job_id}")
+        print(f"  - original_filename: {field_mappings.get('original_filename')}")
+        print(f"  - started_at: {field_mappings.get('started_at')}")
+        print(f"  - 总字段数: {len(field_mappings)}")
+
+        return field_mappings
+
     except Exception as e:
         print(f"❌ 查询Redis进度失败: {e}")
         return None

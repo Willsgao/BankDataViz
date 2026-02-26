@@ -109,21 +109,24 @@
           empty-text="暂无进行中的解析任务"
         >
           <!-- 文件列 -->
-          <el-table-column label="PDF文件" width="220">
-            <template #default="{ row }">
-              <div class="pdf-info-cell">
-                <i class="el-icon-document"></i>
-                <div class="pdf-details">
-                  <div class="pdf-filename" :title="getPdfFilename(row)">
-                    {{ truncateText(getPdfFilename(row), 20) }}
-                  </div>
-                  <div class="pdf-job-id" v-if="row.job_id">
-                    <small>{{ truncateText(row.job_id, 15) }}</small>
+          <el-table-column label="PDF文件" width="250">
+              <template #default="{ row }">
+                <div class="pdf-info-cell">
+                  <i class="el-icon-document"></i>
+                  <div class="pdf-details">
+                    <!-- 显示原始文件名 -->
+                    <div class="pdf-filename" :title="row.original_filename">
+                      {{ truncateText(row.original_filename, 25) }}
+                    </div>
+                    <!-- 显示数据库ID（用于调试） -->
+                    <div v-if="row.from_database" class="pdf-db-id">
+                      <small>ID: {{ truncateText(row.pdf_folder, 15) }}</small>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </template>
-          </el-table-column>
+              </template>
+            </el-table-column>
+
 
           <!-- 状态列 -->
           <el-table-column label="状态" width="120">
@@ -176,13 +179,13 @@
           </el-table-column>
 
           <!-- 开始时间 -->
-          <el-table-column label="开始时间" width="140">
-            <template #default="{ row }">
-              <div class="time-cell">
-                {{ formatTime(row.timestamp || row.start_time) }}
-              </div>
-            </template>
-          </el-table-column>
+          <el-table-column label="开始时间" width="150">
+              <template #default="{ row }">
+                <div class="time-cell">
+                  {{ formatDateTime(row.started_at) }}
+                </div>
+              </template>
+            </el-table-column>
 
           <!-- 操作列 -->
           <el-table-column label="操作" width="150" fixed="right">
@@ -440,17 +443,31 @@ const getElapsedTime = (task) => {
   }
 }
 
-const formatTime = (timestamp) => {
+
+// 格式化时间函数
+const formatDateTime = (timestamp) => {
   if (!timestamp) return '-'
-  const date = new Date(timestamp)
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  try {
+    const date = new Date(timestamp)
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch (e) {
+    return '-'
+  }
 }
 
-const truncateText = (text, maxLength) => {
+// 截断文本函数
+const truncateText = (text, length) => {
   if (!text) return ''
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
+  if (text.length <= length) return text
+  return text.substring(0, length) + '...'
 }
+
 
 // 自动刷新逻辑
 const handleAutoRefreshToggle = () => {

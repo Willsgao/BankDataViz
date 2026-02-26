@@ -246,7 +246,6 @@ async function checkBaiduOCRHealth() {
 // 新增：处理OCR完成事件
 async function handleOcrCompleted(ocrResult) {
   try {
-    console.log('🎯 TwoColumnPage 收到 OCR 完成事件:', ocrResult)
 
     if (!ocrResult.success) {
       ElMessage.error(`OCR识别失败: ${ocrResult.error}`)
@@ -266,7 +265,6 @@ async function handleOcrCompleted(ocrResult) {
 
 // 处理清除缓存
 const handleClearCache = (pdfDiskName) => {
-  console.log('🔄 清除缓存:', pdfDiskName)
   // 清除相关缓存
   const cacheKey = pdfDiskName.replace('.pdf', '')
   if (convertCache.value[cacheKey]) {
@@ -282,14 +280,12 @@ const handleClearCache = (pdfDiskName) => {
 
 // 处理表格类型变化
 const handleTableTypeChange = (newType) => {
-  console.log('📊 表格类型变化:', newType)
   tableType.value = newType
   ElMessage.info(`表格类型已切换为: ${newType === 'financial' ? '财务报表' : '非财务报表'}`)
 }
 
 // 处理图片筛选
 const handleScreenImages = async (pdfDiskName) => {
-  console.log('🖼️ 开始图片筛选:', pdfDiskName)
 
   // 更新当前PDF
   updateCurrentPdf(pdfDiskName)
@@ -360,7 +356,6 @@ const loadClassificationData = async (pdfDiskName) => {
     const response = await screeningApi.getClassifiedImages(pdfFolder)
 
     if (response.success) {
-      console.log('✅ API返回的分类数据:', response)
 
     // 处理图片数据，使用原有的 getImageUrl 函数
     const processImages = (images, type) => {
@@ -413,25 +408,6 @@ const loadClassificationData = async (pdfDiskName) => {
       // 强制响应式更新
       screeningData.value = { ...screeningData.value }
       screeningStats.value = { ...screeningStats.value }
-
-      console.log('✅ 分类数据加载完成:', {
-        pdfFolder,
-        tables: processedData.tables?.length || 0,
-        no_tables: processedData.no_tables?.length || 0,
-        uncertain: processedData.uncertain?.length || 0,
-        stats: screeningStats.value[pdfDiskName],
-        sampleTableUrl: processedData.tables[0]?.url || '无表格图片'
-      })
-
-      // 检查图片URL是否正确
-      if (processedData.tables.length > 0) {
-        console.log('🔍 检查表格图片URL:', {
-          name: processedData.tables[0].name,
-          path: processedData.tables[0].path,
-          url: processedData.tables[0].url,
-          type: processedData.tables[0].type
-        })
-      }
 
       return true
 
@@ -490,7 +466,6 @@ const handleOpenClassification = async (pdfDiskName) => {
 watch(screeningVisible, async (newVal) => {
   if (newVal && currentScreeningPdf.value) {
     // 对话框打开且当前PDF存在时，加载数据
-    console.log('📁 对话框打开，加载分类数据:', currentScreeningPdf.value)
     await loadClassificationData(currentScreeningPdf.value)
   }
 })
@@ -500,7 +475,6 @@ watch(screeningVisible, async (newVal) => {
 // ============ 新增：任务操作方法 ============
 // 1. 查看任务结果
 const handleViewResult = (jobId) => {
-  console.log('🔍 查看任务结果:', jobId)
 
   // 查找任务对应的PDF
   const task = allParsingTasks.value.find(t => t.job_id === jobId)
@@ -555,7 +529,6 @@ const handleRetryTask = async (jobId) => {
 
 // 3. 查看任务详情
 const handleViewTaskDetail = (task) => {
-  console.log('📄 查看任务详情:', task)
 
   // 打开任务详情弹窗
   ElMessageBox.alert(
@@ -668,7 +641,6 @@ const getImageUrl = (imageData, pdfFolder) => {
 
     // 优先使用后端返回的URL
     if (imageData.url && typeof imageData.url === 'string') {
-      console.log('📌 使用后端URL:', imageData.url)
 
       const baseUrl = window.location.origin
       let finalUrl = imageData.url
@@ -680,7 +652,6 @@ const getImageUrl = (imageData, pdfFolder) => {
         finalUrl = baseUrl + '/api' + (imageData.url.startsWith('/') ? imageData.url : '/' + imageData.url)
       }
 
-      console.log('🔗 最终图片URL:', finalUrl)
       return finalUrl
     }
 
@@ -716,8 +687,6 @@ const handleImageError = (image, event) => {
     const pdfFolder = currentScreeningPdf.value?.replace('.pdf', '') || ''
     const backupUrl = getImageUrl(image, pdfFolder)
 
-    console.log('🔄 尝试备用URL:', backupUrl)
-
     // 如果备份URL与当前不同，尝试加载
     if (backupUrl && backupUrl !== event.target.src) {
       event.target.src = backupUrl
@@ -735,10 +704,6 @@ const updateCurrentPdf = (pdfDiskName) => {
   currentPdfDiskName.value = pdfDiskName
   lastOperationTime.value[pdfDiskName] = Date.now()
 
-  console.log('📌 更新当前PDF:', pdfDiskName, {
-    timestamp: new Date().toISOString(),
-    operationCount: Object.keys(lastOperationTime.value).length
-  })
 }
 
 // ---------------- 计算属性：获取当前PDF对象 ----------------
@@ -755,18 +720,14 @@ const otherPdfs = computed(() => {
 async function loadFiles() {
   try {
     console.log('🔍🔍 第一步：检查 loadFiles() 执行')
-    console.log('📡📡 准备调用 getFiles() API...')
 
     // 🔴 修复：不要清空 currentPdfDiskName，保留当前选择状态
     const previousCurrentPdf = currentPdfDiskName.value // 保存当前选择
     files.value = []
     // currentPdfDiskName.value = '' // ← 删除这行，不要清空
 
-    console.log('🔄🔄 清空后的 files.value:', files.value)
-
     // 调用 API
     const apiResult = await getFiles()
-    console.log('✅ getFiles() 返回结果:', apiResult)
 
     // 🔴 修复：检查API响应是否成功
     if (!apiResult.success) {
@@ -777,8 +738,6 @@ async function loadFiles() {
 
     // 获取文件数组
     const fileList = apiResult.files || []
-    console.log('📊📊 返回文件列表长度:', fileList.length)
-    console.log('📁📁 文件列表内容:', fileList)
 
     files.value = fileList
 
@@ -794,7 +753,6 @@ async function loadFiles() {
     let defaultPdf = null
     if (previousCurrentPdf) {
       defaultPdf = files.value.find(f => f.disk_name === previousCurrentPdf)
-      console.log('🔍🔍 查找之前选择的PDF:', { previousCurrentPdf, found: !!defaultPdf })
     }
 
     // 如果之前的选择不存在，使用最近操作的文件
@@ -803,7 +761,6 @@ async function loadFiles() {
         .sort((a, b) => b[1] - a[1])
       const latestPdfDiskName = sorted[0][0]
       defaultPdf = files.value.find(f => f.disk_name === latestPdfDiskName)
-      console.log('🔍🔍 查找最近操作的PDF:', { latestPdfDiskName, found: !!defaultPdf })
     }
 
     // 如果还没有找到，使用第一个文件
@@ -814,14 +771,6 @@ async function loadFiles() {
 
     // 更新当前PDF状态
     updateCurrentPdf(defaultPdf.disk_name)
-    console.log('✅ 已设置当前PDF:', defaultPdf.filename)
-
-    // 状态摘要
-    console.log('📊📊 文件加载完成，状态摘要:', {
-      totalFiles: files.value.length,
-      currentPdfDiskName: currentPdfDiskName.value,
-      otherPdfsCount: files.value.filter(f => f.disk_name !== currentPdfDiskName.value).length
-    })
 
   } catch (error) {
     console.error('💥💥 加载文件失败:', error)
@@ -836,24 +785,18 @@ async function loadFiles() {
 async function loadFiles1111() {
   try {
     console.log('🔍 第一步：检查 loadFiles() 执行')
-    console.log('📡 准备调用 getFiles() API...')
 
     // 清空现有状态
     files.value = []
     currentPdfDiskName.value = ''
-    console.log('🔄 清空后的 files.value:', files.value)
 
     // 调用 API
     const apiResult = await getFiles()
-    console.log('✅ getFiles() 返回结果:', apiResult)
-    console.log('📊 返回结果长度:', apiResult.length)
 
     files.value = apiResult
-    console.log('📁 赋值后的文件列表:', files.value)
 
     // 如果没有文件，直接返回
     if (files.value.length === 0) {
-      console.log('📭 没有PDF文件，清空当前PDF')
       return
     }
 
@@ -866,25 +809,15 @@ async function loadFiles1111() {
         .sort((a, b) => b[1] - a[1])
       const latestPdfDiskName = sorted[0][0]
       defaultPdf = files.value.find(f => f.disk_name === latestPdfDiskName)
-      console.log('🔍 查找最近操作的PDF:', { latestPdfDiskName, found: !!defaultPdf })
     }
 
     // 如果没有最近操作记录，使用第一个文件
     if (!defaultPdf) {
       defaultPdf = files.value[0]
-      console.log('📌 使用第一个文件作为默认PDF:', defaultPdf.filename)
     }
 
     // 更新当前PDF状态
     updateCurrentPdf(defaultPdf.disk_name)
-    console.log('✅ 已设置当前PDF:', defaultPdf.filename)
-
-    // 5. 状态摘要（在所有设置完成后）
-    console.log('📊 文件加载完成，状态摘要:', {
-      totalFiles: files.value.length,
-      currentPdfDiskName: currentPdfDiskName.value,
-      otherPdfsCount: files.value.filter(f => f.disk_name !== currentPdfDiskName.value).length
-    })
 
     // 6. 文件访问测试（可选，在最后进行）
     await testFileAccess(defaultPdf)
@@ -902,10 +835,8 @@ async function testFileAccess(file) {
   try {
     const baseUrl = window.location.origin
     const testUrl = `${baseUrl}/api/file-info/${file.disk_name}`
-    console.log('🔗 测试URL:', testUrl)
 
     const testResponse = await fetch(testUrl)
-    console.log('✅ 文件访问测试:', testResponse.ok)
 
     if (!testResponse.ok) {
       console.warn('⚠️ 文件访问测试失败，状态码:', testResponse.status)
@@ -922,7 +853,6 @@ async function testFileAccess(file) {
 async function loadFiles000() {
   try {
     files.value = await getFiles()
-    console.log('📁 加载的文件列表:', files.value)
 
     // 设置默认当前PDF：第一个文件或最后操作的文件
     if (files.value.length > 0) {
@@ -937,11 +867,6 @@ async function loadFiles000() {
         const latestPdfDiskName = sorted[0][0]
         defaultPdf = files.value.find(f => f.disk_name === latestPdfDiskName)
 
-        console.log('🔍 查找最近操作的PDF:', {
-          latestPdfDiskName,
-          found: !!defaultPdf,
-          sortedEntries: sorted.slice(0, 3) // 显示前3个最近的
-        })
       }
 
       // 如果没找到，使用第一个文件
@@ -952,16 +877,10 @@ async function loadFiles000() {
 
       if (defaultPdf) {
         updateCurrentPdf(defaultPdf.disk_name)
-        console.log('✅ 已设置当前PDF:', {
-          name: defaultPdf.filename,
-          diskName: defaultPdf.disk_name,
-          timestamp: new Date(lastOperationTime.value[defaultPdf.disk_name] || Date.now()).toISOString()
-        })
       }
     } else {
       // 没有文件，清空当前PDF
       currentPdfDiskName.value = ''
-      console.log('📭 没有PDF文件，清空当前PDF')
     }
 
     // 原有的文件访问测试代码
@@ -972,11 +891,8 @@ async function loadFiles000() {
       const baseUrl = window.location.origin // 'http://localhost:8080'
       const testUrl = `${baseUrl}/api/file-info/${firstFile.disk_name}`
 
-      console.log('🔗 测试URL:', testUrl)
-
       try {
         const testResponse = await fetch(testUrl)
-        console.log('✅ 文件访问测试:', testResponse.ok)
 
         if (!testResponse.ok) {
           console.warn('⚠️ 文件访问测试失败，状态码:', testResponse.status)
@@ -985,14 +901,6 @@ async function loadFiles000() {
         console.error('❌ 文件访问测试失败:', error)
       }
     }
-
-    // 输出当前状态摘要 - 修复这里，使用 currentPdfDiskName 而不是 currentPdf
-    console.log('📊 文件加载完成，状态摘要:', {
-      totalFiles: files.value.length,
-      currentPdfDiskName: currentPdfDiskName.value, // 修复这里：使用 currentPdfDiskName.value
-      otherPdfsCount: files.value.filter(f => f.disk_name !== currentPdfDiskName.value).length,
-      lastOperationTimeRecords: Object.keys(lastOperationTime.value).length
-    })
 
   } catch (error) {
     console.error('加载文件失败:', error)
@@ -1025,8 +933,6 @@ async function deleteFile(file) {
       ElMessage.error('文件信息无效')
       return
     }
-
-    console.log('🎯 实际要删除的文件名:', filenameToDelete)
 
     await ElMessageBox.confirm(
       '确定删除该文件吗？',
@@ -1085,7 +991,6 @@ async function convertAndPreview(pdfDiskName) {
 
     // 步骤2：使用智能处理的结果，不再调用老的接口
     if (smartResult && smartResult.success) {
-      console.log('✅ 智能处理成功，使用智能处理结果')
 
       // 直接从智能处理结果获取数据，不再调用 getPngList
       if (smartResult.pngs) {
@@ -1175,10 +1080,8 @@ async function convertAndPreview000(pdfDiskName) {
 
   if (!hasConverted) {
     // 需要转图，执行转图操作
-    console.log('📸 需要转图，开始转图操作...')
     await executeConvertPdf(pdfDiskName, cacheKey)
   } else {
-    console.log('✅ 转图已完成，跳过转图步骤')
     // 转图已完成，直接记录状态
     recordStepCompletion(pdfDiskName, 'convert', { timestamp: Date.now() })
     updateStepStatus(pdfDiskName, 'convert', 'done')
@@ -1192,7 +1095,6 @@ async function convertAndPreview000(pdfDiskName) {
     console.log('🖼️ 需要图片筛选，开始筛选操作...')
     await executeScreenImages(pdfDiskName, cacheKey)
   } else {
-    console.log('✅ 图片筛选已完成，跳过筛选步骤')
     // 筛选已完成，直接记录状态
     recordStepCompletion(pdfDiskName, 'screen', { timestamp: Date.now() })
   }
@@ -1327,10 +1229,6 @@ function updateUIAfterAutoProcess(pdfDiskName) {
   // 触发组件重新计算
   nextTick(() => {
     console.log('✅ UI状态更新完成，应该显示分类管理和表格分析按钮了')
-    console.log('当前状态:', {
-      hasScreenedImages: hasScreenedImages.value[pdfDiskName],
-      hasConvertCache: !!convertCache.value[pdfDiskName.replace('.pdf', '')]
-    })
   })
 }
 
@@ -1561,14 +1459,6 @@ const handleScreenImagesCompleted = (data) => {
     screeningResultMap.value = newScreeningResultMap
   }
 
-  console.log('✅ 筛选状态已更新:', {
-    pdfDiskName,
-    hasScreened: hasScreenedImages.value[pdfDiskName],
-    screeningResult,
-    completionTime: stepCompletionTime.value[pdfDiskName]?.screen,
-    currentHasScreenedImages: JSON.parse(JSON.stringify(hasScreenedImages.value))
-  })
-
   // 显示成功消息
   if (screeningResult) {
     ElMessage.success({
@@ -1581,14 +1471,6 @@ const handleScreenImagesCompleted = (data) => {
 
   // 添加延迟检查，确认状态是否真的更新了
   setTimeout(() => {
-    console.log('⏰ 延迟检查状态:', {
-      pdfDiskName,
-      hasScreened: hasScreenedImages.value[pdfDiskName],
-      'hasScreenedImages[pdfDiskName] 类型': typeof hasScreenedImages.value[pdfDiskName],
-      'hasScreenedImages[pdfDiskName] 值': hasScreenedImages.value[pdfDiskName],
-      'hasScreenedImages 对象': JSON.parse(JSON.stringify(hasScreenedImages.value)),
-      'stepCompletionTime': stepCompletionTime.value[pdfDiskName]
-    })
   }, 100)
 }
 
@@ -1614,13 +1496,6 @@ const recordStepCompletion = (pdfDiskName, step, data = {}) => {
 
   // 强制响应式更新
   stepCompletionTime.value = { ...stepCompletionTime.value }
-
-  console.log(`✅ ${step}步骤完成时间已记录:`, {
-    pdfDiskName,
-    step,
-    time: new Date(stepCompletionTime.value[pdfDiskName][step]).toLocaleTimeString(),
-    hasResult: !!data.result
-  })
 
   // 同时更新步骤状态
   updateStepStatus(pdfDiskName, step, 'done')
@@ -1679,10 +1554,6 @@ const handleParseTablesCompleted = (data) => {
     })
   }
 
-  console.log('✅ 解析状态已更新和保存:', {
-    pdfDiskName,
-    completionTime: stepCompletionTime.value[pdfDiskName]?.parse
-  })
 }
 
 
@@ -1751,8 +1622,6 @@ const loadPersistentFileStatus = async () => {
       const allKeys = Object.keys(localStorage)
       const statusKeys = allKeys.filter(key => key.startsWith('file_status_'))
 
-      console.log('🔍 在localStorage中找到的状态键:', statusKeys)
-
       if (statusKeys.length === 0) {
         console.log('📭 localStorage中没有找到持久化状态')
         return
@@ -1780,10 +1649,6 @@ const loadPersistentFileStatus = async () => {
         ...loadedData
       }
 
-      console.log('📁 已加载持久化文件状态:', {
-        数量: Object.keys(persistentFileStatus.value).length,
-        具体文件: Object.keys(persistentFileStatus.value)
-      })
     }
   } catch (error) {
     console.error('❌ 加载持久化状态失败:', error)
@@ -1836,80 +1701,10 @@ const handleParseTablesCompleted000000 = (data) => {
     })
   }
 
-  console.log('✅ 解析状态已更新:', {
-    pdfDiskName,
-    completionTime: stepCompletionTime.value[pdfDiskName]?.parse,
-    progress: progress,
-    result: parsingResult
-  })
 }
 
 
 // 保存最终处理结果
-// 完整的 saveFinalResult 函数
-function saveFinalResult(pdfDiskName, progressData) {
-  console.log('💾 开始保存最终结果:', { pdfDiskName, progressData })
-
-  // 从后端数据中提取处理计数
-  const processed = progressData.processed_images || progressData.processed || 0
-  const skipped = progressData.skipped_images || progressData.skipped || 0
-  const total = (progressData.total_images || progressData.total || 0) > 0
-    ? progressData.total_images || progressData.total
-    : processed + skipped
-  const failed = progressData.failed_images || progressData.failed || 0
-
-  // 计算成功数量
-  const successCount = processed - failed
-
-  // 生成简洁的进度显示格式
-  const progressDisplay = `${processed}+${skipped}/${total}`
-
-  // 创建最终结果对象
-  const finalResult = {
-    success: successCount,
-    total: total,
-    processed: processed,
-    skipped: skipped,
-    failed: failed,
-    percentage: 100,
-    message: progressData.message || '任务已完成',
-    progress_display: progressDisplay,
-    last_updated: new Date().toISOString(),
-    job_id: progressData.job_id
-  }
-
-  // 保存到最终结果映射
-  if (!finalResultsMap.value) {
-    finalResultsMap.value = {}
-  }
-  finalResultsMap.value[pdfDiskName] = finalResult
-
-  // 同时更新 parsingProgressMap，确保进度显示正确
-  if (parsingProgressMap.value[pdfDiskName]) {
-    parsingProgressMap.value[pdfDiskName] = {
-      ...parsingProgressMap.value[pdfDiskName],
-      ...finalResult,
-      percentage: 100,
-      status: 'success'
-    }
-  }
-
-  // 保存到 localStorage（用于页面刷新后恢复）
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const storageKey = `pdf_result_${pdfDiskName}`
-      localStorage.setItem(storageKey, JSON.stringify(finalResult))
-      console.log('📦 已保存到 localStorage')
-    } catch (error) {
-      console.warn('⚠️ 保存到 localStorage 失败:', error)
-    }
-  }
-
-  console.log('✅ 最终结果保存完成:', {
-    pdfDiskName,
-    result: finalResult
-  })
-}
 
 
 // 添加一个辅助函数来生成进度显示文本
@@ -1957,9 +1752,7 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
     eventSource.onmessage = (event) => {
       try {
         const progressData = JSON.parse(event.data)
-        console.log('📊 SSE进度数据接收:', progressData)
 
-        // 更新进度状态
         if (progressData.job_id === jobId) {
           // 计算总图片数
           const processed = progressData.processed_images || 0
@@ -1970,52 +1763,76 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
           // ✅ 添加状态映射函数
           const elementStatus = mapStatusToElementStatus(progressData.status)
 
-          // 增强进度数据
+          // ✅ 关键修复2：增强进度数据，确保有所有必要字段
           const enhancedData = {
+            // ✅ 先复制SSE的所有原始字段
             ...progressData,
-            // 确保处理计数字段存在
+
+            // ✅ 关键修复：确保有文件名字段
+            // 如果SSE没有，从参数推断
+            original_filename: progressData.original_filename,
+            pdf_folder: progressData.pdf_folder,
+
+            // ✅ 确保处理计数字段存在
             processed: processed,
             skipped: skipped,
             total: actualTotal,
             failed: progressData.failed_images || 0,
             success: processed - (progressData.failed_images || 0),
             percentage: progressData.progress || 0,
+
             // 生成进度显示格式
             progress_display: `${processed}+${skipped}/${actualTotal}`,
+
             // ✅ 添加Element Plus兼容的状态字段
             element_status: elementStatus,  // 用于Element组件
             original_status: progressData.status,  // 保留原始状态
-            // ✅ 正确的状态转换
-            status: elementStatus === 'success' ? 'completed' :
-                   elementStatus === 'exception' ? 'failed' :
-                   progressData.status
+
+            // ✅ 保留原始的status字段
+            status: progressData.status,  // 保留SSE的原始status
+
+            // ✅ 添加一个额外的状态字段用于显示
+            display_status: elementStatus === 'success' ? 'completed' :
+                           elementStatus === 'exception' ? 'failed' :
+                           progressData.status
           }
 
-          // 更新进度映射 - 双重索引
+          // ✅ 方案2核心修复：修改数据存储逻辑
+          // 1. 以jobId为主键存储完整数据
           parsingProgressMap.value[jobId] = enhancedData
 
-          if (pdfDiskName) {
-            // ✅ 关键修复：确保响应式更新
-            parsingProgressMap.value = {
-              ...parsingProgressMap.value,
-              [pdfDiskName]: enhancedData
+          if (pdfDiskName && pdfDiskName !== jobId) {
+            // ✅ 方案2：对于pdfDiskName索引，存储包含文件名的引用
+            parsingProgressMap.value[pdfDiskName] = {
+              // 存储关键引用信息
+              job_id: jobId,
+              is_reference: true,  // 标记为引用
+              referenced_to: jobId,  // 指向的主键
+
+              // ✅ 关键修复：确保引用条目也有文件名
+              original_filename: enhancedData.original_filename,
+              pdf_folder: enhancedData.pdf_folder,
+              pdfDiskName: pdfDiskName,  // 添加pdfDiskName字段
+
+              // 基本信息用于显示
+              status: enhancedData.status,
+              progress: enhancedData.progress,
+              message: enhancedData.message,
+              started_at: enhancedData.started_at,
+              processed_images: enhancedData.processed_images,
+              total_images: enhancedData.total_images,
+              skipped_images: enhancedData.skipped_images
             }
 
-            console.log(`📁 更新PDF进度: ${pdfDiskName}`, {
-              display: enhancedData.progress_display,
-              percentage: enhancedData.percentage,
-              element_status: enhancedData.element_status
-            })
+          }
 
-            // ✅ 立即保存到持久化状态
-            if (progressData.status === 'completed' || progressData.status === 'success') {
-              saveFinalFileStatus(pdfDiskName, enhancedData)
-            }
+          // ✅ 立即保存到持久化状态
+          if (progressData.status === 'completed' || progressData.status === 'success') {
+            saveFinalFileStatus(pdfDiskName, enhancedData)
           }
 
           // 如果任务完成
           if (progressData.status === 'completed' || progressData.status === 'failed') {
-            console.log(`✅ 任务${progressData.status}: jobId=${jobId}, pdf=${pdfDiskName}`)
             eventSource.close()
 
             // 保存最终结果
@@ -2047,6 +1864,35 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
       }
     }, 300000)
   })
+}
+
+
+// 辅助函数：保存最终结果
+function saveFinalResult(pdfDiskName, enhancedData) {
+  try {
+    console.log('💾 开始保存最终结果:', { pdfDiskName, progressData: enhancedData })
+
+    // 这里可以调用您的保存逻辑
+    // 例如：localStorage、API调用等
+    const resultData = {
+      pdfDiskName: pdfDiskName,
+      jobId: enhancedData.job_id,
+      status: enhancedData.status,
+      originalFilename: enhancedData.original_filename,
+      pdfFolder: enhancedData.pdf_folder,
+      startedAt: enhancedData.started_at,
+      completedAt: new Date().toISOString(),
+      totalImages: enhancedData.total_images,
+      processedImages: enhancedData.processed_images,
+      skippedImages: enhancedData.skipped_images,
+      message: enhancedData.message
+    }
+
+    localStorage.setItem(`final_result_${pdfDiskName}`, JSON.stringify(resultData))
+
+  } catch (error) {
+    console.error('❌ 保存最终结果失败:', error)
+  }
 }
 
 
@@ -2085,7 +1931,6 @@ const handleParseTables = async (pdfDiskName) => {
 
     const pdfFolder = pdfDiskName.replace(/\.pdf$/i, '')
 
-    console.log('📤 发送表格解析请求（简化版）...')
 
     // 简化请求：后端会自动获取png_names
     const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
@@ -2107,7 +1952,6 @@ const handleParseTables = async (pdfDiskName) => {
       // 🔴 添加参数校验
       if (!jobId || jobId === 'undefined') {
         console.error('❌ 后端返回的jobId无效:', jobId)
-        console.log('📊 完整响应数据:', response.data)
 
         // 如果没有job_id，说明是即时完成的处理
         ElMessage.success('表格处理已完成（即时处理）')
@@ -2154,15 +1998,11 @@ const handleFileProcessed = (event) => {
   const { type, fileId, fileName, response } = event
 
   if (type === 'duplicate') {
-    // 重复文件处理逻辑
-    console.log(`🔄 重复文件: ${fileName} -> ID: ${fileId}`)
 
     // 可以在这里添加特殊处理，比如高亮显示已存在的文件
     highlightExistingFile(fileId)
 
   } else if (type === 'new') {
-    // 新文件处理逻辑
-    console.log(`🆕 新文件: ${fileName} -> ID: ${fileId}`)
 
     // 可以选择性地立即设置为新文件的当前PDF
     if (response.file_id) {
@@ -2181,7 +2021,6 @@ const handleFileProcessed = (event) => {
 // 高亮显示已存在的文件
 const highlightExistingFile = (fileId) => {
   // 可以在这里添加视觉效果
-  console.log('✨ 高亮文件ID:', fileId)
 
   // 例如，找到对应的文件并添加临时高亮类
   setTimeout(() => {
@@ -2189,10 +2028,7 @@ const highlightExistingFile = (fileId) => {
       f.disk_name.includes(fileId)
     )
 
-    if (existingFile) {
-      console.log('🔍 找到已存在的文件:', existingFile.filename)
-      // 可以触发一些视觉效果
-    }
+
   }, 500)
 }
 
@@ -2214,8 +2050,6 @@ async function pollTableProgress(jobId, pdfDiskName) {
         // const { data } = await axios.get(`/api/table-progress/${jobId}`)
         // 5. 表格进度查询
         const { data } = await axios.get(getSmartUrl(`/api/table-progress/${jobId}`))
-
-        console.log('📊 表格解析进度:', data)
 
         // 更新解析进度
         const newParsingProgressMap = { ...parsingProgressMap.value }
@@ -2300,54 +2134,87 @@ const showProgressDialog = () => {
   connectToTasksSSE()
 }
 
-// 2. 获取所有解析任务
+
+
 // 修改现有的 fetchAllParsingTasks 方法
 const fetchAllParsingTasks = async () => {
   try {
-    console.log('🔄 获取所有解析任务...')
+    // ========== 第一步：诊断 parsingProgressMap 数据 ==========
+    console.log('🔍=== 第一步：诊断 parsingProgressMap 数据 ===')
+
+    // 1. 获取所有任务ID
+    const allKeys = Object.keys(parsingProgressMap.value)
+
+    // 2. 查找所有任务中最新的任务
+    let latestJobId = null
+    let latestTimestamp = 0
+
+    allKeys.forEach(key => {
+      const task = parsingProgressMap.value[key]
+      if (task) {
+        // ✅ 跳过引用条目
+        if (task.is_reference === true) {
+          return
+        }
+
+        // 尝试从多个字段获取时间
+        const taskTime = task.timestamp || task.started_at || task.start_time
+        if (taskTime) {
+          const timeValue = new Date(taskTime).getTime()
+          if (timeValue > latestTimestamp) {
+            latestTimestamp = timeValue
+            latestJobId = key
+          }
+        }
+      }
+    })
+
+    if (latestJobId) {
+      const latestTask = parsingProgressMap.value[latestJobId]
+    } else {
+      console.log('🔍 未找到最新任务')
+    }
+
+    // 3. 列出所有任务及其关键字段
+    console.log('📋 当前所有任务列表:')
+    allKeys.forEach((key, index) => {
+      const task = parsingProgressMap.value[key]
+    })
+    console.log('🔍=== 诊断结束 ===\n')
+    // ========== 诊断结束 ==========
 
     const tasks = []
+    const processedJobIds = new Set()  // 用于去重
 
     // 从现有的 parsingProgressMap 中提取任务
     Object.entries(parsingProgressMap.value).forEach(([key, taskData]) => {
       if (!taskData) return
 
-      const task = { ...taskData }
+      console.log(`  🔍 处理key: "${key}"`)
 
-      // 确定任务标识符
-      if (key.includes('table_') && key.startsWith('table_')) {
-        // 这是以job_id为键的任务
-        task.job_id = key
-        task.task_key = 'job_id'
-      } else {
-        // 这是以PDF为键的任务
-        task.pdfDiskName = key
-        task.job_id = taskData.job_id
-        task.task_key = 'pdf_disk_name'
+      // ✅ 方案2核心：跳过引用条目
+      if (taskData.is_reference === true) {
+        console.log(`  ⏭️ 跳过引用条目: ${key} -> ${taskData.referenced_to || '未知'}`)
+
+        // ✅ 关键修复：引用条目有文件名，但我们不处理它
+        // 主数据会通过jobId被处理
+        return
       }
 
-      // 确保有必要的字段
-      if (!task.status && task.original_status) {
-        task.status = task.original_status
-      }
-
-      // 为任务添加文件信息
-      if (task.pdfDiskName) {
-        const pdf = files.value.find(f => f.disk_name === task.pdfDiskName)
-        if (pdf) {
-          task.filename = pdf.filename
-          task.created_at = pdf.created_at
-        }
-      }
-
-      tasks.push(task)
+      // 处理主数据
+      processTaskData(key, taskData, tasks, processedJobIds)
     })
 
     // 按时间排序（最新的在前）
     tasks.sort((a, b) => {
-      const timeA = a.timestamp || a.start_time || 0
-      const timeB = b.timestamp || b.start_time || 0
-      return timeB - timeA
+      const timeA = a.timestamp || a.started_at || a.start_time || 0
+      const timeB = b.timestamp || b.started_at || b.start_time || 0
+
+      // 处理时间字符串
+      const dateA = timeA ? new Date(timeA).getTime() : 0
+      const dateB = timeB ? new Date(timeB).getTime() : 0
+
+      return dateB - dateA
     })
 
     allParsingTasks.value = tasks
@@ -2355,13 +2222,151 @@ const fetchAllParsingTasks = async () => {
     // 更新统计摘要
     updateTasksSummary(tasks)
 
-    console.log(`✅ 获取到 ${tasks.length} 个任务`)
+    // 打印任务统计
+    const activeCount = tasks.filter(t => t.is_active).length
+    const completedCount = tasks.filter(t => t.status === 'completed' || t.status === 'success').length
+    const failedCount = tasks.filter(t => t.status === 'failed' || t.status === 'exception').length
 
   } catch (error) {
     console.error('❌ 获取任务列表失败:', error)
     // 不显示错误消息，避免干扰用户
   }
 }
+
+// 新增辅助函数：处理单个任务数据
+function processTaskData(key, taskData, tasks, processedJobIds) {
+
+  const task = { ...taskData }
+
+  // 获取真实的job_id
+  const realJobId = task.job_id || (key.includes('table_') ? key : null)
+
+  if (!realJobId) {
+    console.log(`  ⏭️ 跳过没有job_id的条目: ${key}`)
+    return
+  }
+
+  // 去重检查
+  if (processedJobIds.has(realJobId)) {
+    return
+  }
+
+  // 标记为已处理
+  processedJobIds.add(realJobId)
+
+  // 确定任务标识符
+  if (key.includes('table_') && key.startsWith('table_')) {
+    // 这是以job_id为键的任务
+    task.job_id = key
+    task.task_key = 'job_id'
+  } else {
+    // 这是以PDF为键的任务
+    task.pdfDiskName = key
+    task.job_id = realJobId
+    task.task_key = 'pdf_disk_name'
+  }
+
+  // 确保有必要的字段
+  if (!task.status && task.original_status) {
+    task.status = task.original_status
+  }
+
+  if (!task.original_filename) {
+    console.log(`  ⚠️ 任务 ${task.job_id} 缺少original_filename字段`)
+
+    // 优先级1：从pdfDiskName推断
+    if (task.pdfDiskName) {
+      task.original_filename = task.pdfDiskName
+    }
+    // 优先级2：从pdf_folder推断
+    else if (task.pdf_folder) {
+      task.original_filename = `${task.pdf_folder}.pdf`
+    }
+    // 优先级3：从key推断
+    else if (key.endsWith('.pdf')) {
+      task.original_filename = key
+    }
+    // 优先级4：从job_id推断
+    else if (task.job_id && task.job_id.startsWith('table_')) {
+      const jobIdParts = task.job_id.split('_')
+      if (jobIdParts.length > 1) {
+        task.original_filename = `table_${jobIdParts[1]}.pdf`
+      } else {
+        task.original_filename = task.job_id
+      }
+    }
+    // 优先级5：默认值
+    else {
+      task.original_filename = task.job_id || '未知文件'
+    }
+  } else {
+    console.log(`  ✅ 任务 ${task.job_id} 已有original_filename: ${task.original_filename}`)
+  }
+
+  // ✅ 统一时间字段
+  if (!task.started_at) {
+    if (task.timestamp) {
+      task.started_at = new Date(task.timestamp).toISOString()
+    } else if (task.start_time) {
+      task.started_at = task.start_time
+    } else {
+      task.started_at = new Date().toISOString()
+    }
+  }
+
+  // ✅ 为任务添加文件信息
+  if (task.pdf_folder || task.pdfDiskName) {
+    const diskName = task.pdf_folder || task.pdfDiskName
+    const pdfFile = files.value.find(f =>
+      f.disk_name === diskName ||
+      f.disk_name === `${diskName}.pdf` ||
+      f.disk_name === diskName.replace('.pdf', '')
+    )
+
+    if (pdfFile) {
+      task.file_info = {
+        disk_name: pdfFile.disk_name,
+        filename: pdfFile.filename,
+        raw_filename: pdfFile.raw_filename || pdfFile.filename,
+        created_at: pdfFile.created_at,
+        file_size: pdfFile.file_size
+      }
+
+      if (!task.original_filename && pdfFile.raw_filename) {
+        task.original_filename = pdfFile.raw_filename
+      }
+    }
+  }
+
+  // ✅ 计算显示名称
+  task.display_name = task.original_filename || task.job_id || '未知任务'
+
+  if (task.display_name.length > 30) {
+    task.display_name_short = task.display_name.substring(0, 27) + '...'
+  } else {
+    task.display_name_short = task.display_name
+  }
+
+  // ✅ 计算进度状态
+  if (task.status === 'queued' || task.status === 'processing') {
+    task.is_active = true
+    task.progress_status = 'processing'
+  } else if (task.status === 'completed' || task.status === 'success') {
+    task.is_active = false
+    task.progress_status = 'success'
+  } else if (task.status === 'failed' || task.status === 'exception') {
+    task.is_active = false
+    task.progress_status = 'exception'
+  } else {
+    task.is_active = false
+    task.progress_status = ''
+  }
+
+  tasks.push(task)
+
+}
+
+
 
 // 3. 更新任务统计摘要
 const updateTasksSummary = (tasks) => {
@@ -2394,7 +2399,6 @@ const updateTasksSummary = (tasks) => {
   })
 
   tasksSummary.value = summary
-  console.log('📈 任务统计更新:', summary)
 }
 
 // 4. 连接SSE获取实时更新
@@ -2411,7 +2415,6 @@ const connectToTasksSSE = () => {
     tasksSSE.value.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log('📡 收到任务进度更新:', data)
 
         // 更新任务列表
         updateTaskInList(data)
@@ -2427,7 +2430,6 @@ const connectToTasksSSE = () => {
     }
 
     tasksSSE.value.onopen = () => {
-      console.log('✅ 任务进度SSE连接已建立')
     }
 
   } catch (error) {
@@ -2472,14 +2474,12 @@ const updateTaskInList = (taskData) => {
 
 // 6. 手动刷新任务列表
 const refreshTasks = () => {
-  console.log('🔄 手动刷新任务列表')
   fetchAllParsingTasks()
 }
 
 // 7. 取消任务
 const cancelTask = async (jobId) => {
   try {
-    console.log(`🗑️ 请求取消任务: ${jobId}`)
 
     await ElMessageBox.confirm(
       '确定要取消此任务吗？',
@@ -2517,7 +2517,6 @@ const cancelTask = async (jobId) => {
 
 // 8. 关闭弹窗时清理
 const closeProgressDialog = () => {
-  console.log('📊 关闭进度弹窗')
   progressDialogVisible.value = false
 
   // 关闭SSE连接
@@ -2548,9 +2547,6 @@ watch(progressDialogVisible, (newVal) => {
 })
 
 
-
-
-
 // 现有的 currentPdf 计算属性
 const currentPdf = computed(() => {
   if (!currentPdfDiskName.value || files.value.length === 0) return null
@@ -2572,12 +2568,6 @@ const handleUpdateScreeningStatus = (data) => {
 
   // 更新状态
   hasScreenedImages.value[pdfDiskName] = hasScreened
-
-  console.log('✅ 筛选状态已更新:', {
-    pdfDiskName,
-    hasScreened: hasScreenedImages.value[pdfDiskName],
-    allStatus: hasScreenedImages.value
-  })
 }
 
 
@@ -2588,7 +2578,6 @@ function openLLMConfig() {
 }
 
 function onLLMConfigured(success = true) {
-  console.log('🎯 TwoColumnPage: LLM配置完成', success)
   if (success) {
     ElMessage.success('LLM配置已更新，现在可以识别表格了！')
   }
@@ -2604,8 +2593,6 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
     }
 
     const pdfFolder = targetPdf.replace('.pdf', '')
-
-    console.log(`🔄 移动图片: ${imageName} from ${fromType} to ${toType}`)
 
     // 乐观更新：先更新UI
     const currentData = screeningData.value[targetPdf]
@@ -2654,8 +2641,6 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
       })
 
       if (response.success) {
-        console.log('✅ 图片移动成功:', response.message)
-
 
         // 无论是否重命名，都要更新本地数据
         const toArray = screeningData.value[targetPdf][toType] || []
@@ -2739,7 +2724,6 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
 // 处理刷新分类数据 - 增强版本
 const handleRefreshClassification = async (pdfDiskName) => {
   try {
-    console.log('🔄 刷新分类数据:', pdfDiskName)
     const pdfFolder = pdfDiskName.replace('.pdf', '')
 
     // 显示加载状态
@@ -2761,12 +2745,6 @@ const handleRefreshClassification = async (pdfDiskName) => {
 
       ElMessage.success('数据已刷新')
 
-      console.log('✅ 数据刷新完成:', {
-        tables: response.data.tables?.length || 0,
-        no_tables: response.data.no_tables?.length || 0,
-        total: response.stats?.total || 0
-      })
-
     } else {
       loadingMessage.close()
       throw new Error(response.error || '刷新失败')
@@ -2781,7 +2759,6 @@ const handleRefreshClassification = async (pdfDiskName) => {
 // 处理重新检测图片 - 增强版本
 const handleRedetectImage = async ({ imageName, currentType, pdfDiskName }) => {
   try {
-    console.log('🔄 重新检测图片:', { imageName, currentType, pdfDiskName })
     const pdfFolder = pdfDiskName.replace('.pdf', '')
 
     // 显示加载状态
@@ -2829,18 +2806,12 @@ const handleRedetectImage = async ({ imageName, currentType, pdfDiskName }) => {
 
 // 处理完成分类管理
 const handleFinishClassification = () => {
-  console.log('✅ 完成分类管理')
 
   // 如果有数据变化，可以在这里保存或同步
   if (currentScreeningPdf.value && screeningData.value[currentScreeningPdf.value]) {
     const data = screeningData.value[currentScreeningPdf.value]
     const stats = screeningStats.value[currentScreeningPdf.value]
 
-    console.log('最终分类结果:', {
-      tables: data.tables?.length || 0,
-      no_tables: data.no_tables?.length || 0,
-      total: stats?.total || 0
-    })
   }
 
   ElMessage.success('分类管理完成')
