@@ -62,6 +62,7 @@ PNG_OUTPUT_ROOT = r'data/backend/static/pdf2pngs'
 EXCEL_OUTPUT_ROOT = r'data/backend/static/excel_data'
 JOINED_TABLES_ROOT = r'data/backend/static/joined_tables'
 DATABASE = r'data/database.db'
+OBJ_CACHE = "data/backend/obj_cache"
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 # ⭐⭐⭐ 新增：完整的静态文件路径常量 ⭐⭐⭐
@@ -73,6 +74,7 @@ UPLOAD_DIR = Path(MAIN_ROOT) / UPLOAD_FOLDER
 PNG_OUTPUT_DIR = Path(MAIN_ROOT) / PNG_OUTPUT_ROOT
 JOINED_TABLES_DIR = Path(MAIN_ROOT) / JOINED_TABLES_ROOT
 DATABASE_PATH = Path(MAIN_ROOT) / DATABASE
+OBJ_CACHE_PATH = Path(MAIN_ROOT) / OBJ_CACHE
 
 # ⭐⭐⭐ 新增：API路由路径常量 ⭐⭐⭐
 API_EXCEL_DATA_PREFIX = "/api/excel-data"

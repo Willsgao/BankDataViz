@@ -15,7 +15,7 @@ import sqlite3
 import threading
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Tuple
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent.parent
@@ -1468,20 +1468,19 @@ class TableProcessingWorker:
             # 短暂等待后继续检查
             time.sleep(check_interval)
 
+
+
     def process_single_task(self, task_data: Dict[str, Any]) -> bool:
-        """处理单个表格处理任务 - 增强版：支持图片级实时进度更新"""
+        """处理单个表格处理任务 - 重构版：主流程清晰"""
 
         # 提取任务参数
         job_id = task_data.get("job_id", "")
         pdf_folder = task_data.get("pdf_folder", "")
         image_paths = task_data.get("image_paths", [])
-        png_names = task_data.get("png_names", [])
         table_type = task_data.get("table_type", "financial")
         bank_name = task_data.get("bank_name", "")
-        filtered_tables_dir = task_data.get("filtered_tables_dir", "")
-        use_ocr = task_data.get("use_ocr", True)
 
-        if not job_id or not pdf_folder:
+        if not job_id or not pdf_folder or not image_paths:
             print(f"❌ 任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}")
             self.update_job_status(job_id, {
                 "status": "failed",
@@ -1494,366 +1493,86 @@ class TableProcessingWorker:
         task_start_time = time.time()
 
         try:
-            # ✅ 1. 获取原始文件名
-            print(f"🔍 查询原始文件名: {pdf_folder}")
-            original_filename = pdf_folder
-            db_connection_success = False
+            # 阶段1: 获取原始文件名
+            print(f"\n{'=' * 60}")
+            print(f"阶段1: 获取原始文件名")
+            print(f"{'=' * 60}")
 
-            try:
-                from backend.models.unified_db import UnifiedDatabaseManager
-                db_manager = UnifiedDatabaseManager()
-                if hasattr(db_manager, 'db_path'):
-                    db_path = self._get_database_path()
-                    print(f"✅ 数据库路径: {db_path}")
+            original_filename, db_connection_success = self._get_original_filename(pdf_folder)
 
-                    if os.path.exists(db_path):
-                        conn = sqlite3.connect(db_path)
-                        conn.row_factory = sqlite3.Row
-                        cursor = conn.cursor()
+            # 阶段2: 增量过滤图片
+            print(f"\n{'=' * 60}")
+            print(f"阶段2: 增量过滤图片")
+            print(f"{'=' * 60}")
 
-                        # 查询原始文件名
-                        cursor.execute("SELECT raw_filename FROM files WHERE filename = ?", (pdf_folder + ".pdf",))
-                        result = cursor.fetchone()
+            filter_result = self._filter_images_incrementally(pdf_folder, image_paths)
 
-                        if result and result['raw_filename']:
-                            original_filename = result['raw_filename']
-                            print(f"✅ 查询到原始文件名: {original_filename}")
-                            db_connection_success = True
-                        else:
-                            # 模糊匹配
-                            cursor.execute("SELECT filename, raw_filename FROM files WHERE filename LIKE ?",
-                                           (f"%{pdf_folder}%",))
-                            all_results = cursor.fetchall()
-                            if all_results:
-                                original_filename = all_results[0]['raw_filename']
-                                db_connection_success = True
-                                print(f"✅ 模糊匹配到原始文件名: {original_filename}")
-                            else:
-                                print(f"⚠️ 数据库中未找到记录")
-                                original_filename = pdf_folder
+            total_all_images = len(image_paths)
+            total_skipped_images = filter_result.get("total_skipped_images", 0)
+            total_new_images = filter_result.get("total_new_images", 0)
+            images_to_process = filter_result.get("images_to_process", [])
+            skipped_images_names = filter_result.get("skipped_images_names", [])
 
-                        conn.close()
-                    else:
-                        print(f"❌ 数据库文件不存在: {db_path}")
-                else:
-                    print(f"⚠️ DatabaseManager没有db_path属性")
-            except Exception as e:
-                print(f"❌ 查询数据库异常: {e}")
+            print(f"📊 过滤结果: 总{total_all_images}张, 新{total_new_images}张, 跳过{total_skipped_images}张")
 
-            # ✅ 2. 增量处理：过滤已处理的图片
-            print(f"\n🔍 增量处理检查...")
-            image_names = [os.path.basename(img_path) for img_path in image_paths]
+            # 阶段3: 初始化任务状态
+            print(f"\n{'=' * 60}")
+            print(f"阶段3: 初始化任务状态")
+            print(f"{'=' * 60}")
 
-            # 导入增量处理器
-            try:
-                from backend.src.incremental_processor import incremental_processor
-                images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
-                skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+            self._initialize_job_status(
+                job_id, pdf_folder, original_filename, db_connection_success,
+                total_all_images, total_skipped_images, total_new_images
+            )
 
-                # 筛选出需要处理的图片路径
-                images_to_process = [
-                    img_path for img_path in image_paths
-                    if os.path.basename(img_path) in images_to_process_names
-                ]
+            # 阶段4: 处理图片
+            print(f"\n{'=' * 60}")
+            print(f"阶段4: 处理图片")
+            print(f"{'=' * 60}")
 
-                total_new_images = len(images_to_process)
-                total_skipped_images = len(skipped_images_names)
-                total_processed = total_new_images + total_skipped_images
-
-                if skipped_images_names:
-                    print(f"⏭️ 跳过的图片 (前5张):")
-                    for i, img_name in enumerate(skipped_images_names[:5]):
-                        print(f"    {i + 1}. {img_name}")
-                    if len(skipped_images_names) > 5:
-                        print(f"    ... 等 {len(skipped_images_names) - 5} 张")
-
-            except Exception as e:
-                print(f"⚠️ 增量处理器导入失败，处理所有图片: {e}")
-                images_to_process = image_paths
-                total_new_images = len(image_paths)
-                total_skipped_images = 0
-                total_processed = len(image_paths)
-                skipped_images_names = []
-
-            # ✅ 3. 初始化任务状态 - 包含完整的进度信息
-            job_start_time = datetime.now().isoformat()
-
-            # ✅ 关键修复：正确的统计初始化
-            total_all_images = len(image_paths)  # 总图片数
-            current_processed_total = total_skipped_images  # 初始已处理 = 跳过图片数
-            progress_percentage = int((current_processed_total / total_all_images * 100)) if total_all_images > 0 else 0
-
-            self.update_job_status(job_id, {
-                "status": "processing",
-                "progress": str(progress_percentage),
-                "progress_percentage": progress_percentage,
-                "message": f"任务开始处理: {total_new_images}张新图片 + {total_skipped_images}张已处理图片",
-                "started_at": job_start_time,
-                "worker_id": self.worker_id,
-                "total_images": str(total_all_images),  # ✅ 总图片数
-                "total_new_images": str(total_new_images),  # ✅ 新图片数
-                "processed_images": str(current_processed_total),  # ✅ 初始已处理数 = 跳过图片数
-                "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
-                "new_processed": "0",  # ✅ 本次新处理数
-                "current_image": "",  # 当前处理的图片
-                "current_image_index": "0",  # 当前索引
-                "current_image_name": "",  # 当前图片名称
-                "pdf_folder": pdf_folder,
-                "original_filename": original_filename,
-                "db_filename": pdf_folder,
-                "task_start_time": job_start_time,
-                "db_query_success": str(db_connection_success)
-            })
-
-            # ✅ 4. 核心：使用优化后的图片处理函数（带实时进度更新）
+            processing_result = {}
             if total_new_images > 0:
-                print(f"\n{'=' * 60}")
-                print(f"🔄 开始处理 {total_new_images} 张新图片")
-                print(f"{'=' * 60}")
-
-                images_processed = 0
-                tables_added = 0
-                success = True
-                errors = []
-
-                # ✅ 关键修复：遍历每张图片，实时更新进度
-                for i, image_path in enumerate(images_to_process):
-                    try:
-                        image_name = os.path.basename(image_path)
-                        current_new_processed = i + 1
-                        current_total_processed = total_skipped_images + current_new_processed
-                        total_all_images = len(image_paths)
-                        progress_percentage = int(
-                            (current_total_processed / total_all_images) * 100) if total_all_images > 0 else 0
-
-                        print(f"\n📸 处理图片 [{current_new_processed}/{total_new_images}]: {image_name}")
-                        print(f"  - 当前进度: {progress_percentage}% ({current_total_processed}/{total_all_images})")
-                        print(f"  - 跳过图片: {total_skipped_images}张")
-                        print(f"  - 新处理: {current_new_processed}张")
-
-                        # ✅ 1. 立即更新状态
-                        self.update_job_status(job_id, {
-                            "status": "processing",
-                            "progress": str(progress_percentage),
-                            "progress_percentage": progress_percentage,
-                            "message": f"正在处理第 {current_total_processed}/{total_all_images} 张图片: {image_name} (跳过: {total_skipped_images}张)",
-                            "total_images": str(total_all_images),  # ✅ 总图片数
-                            "processed_images": str(current_total_processed),  # ✅ 总已处理数 = 跳过 + 新处理
-                            "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
-                            "new_processed": str(current_new_processed),  # ✅ 本次新处理数
-                            "current_image": image_name,
-                            "current_image_index": str(current_new_processed),  # ✅ 新处理索引
-                            "current_image_name": image_name
-                        })
-
-                        # ✅ 2. 处理图片，不延迟
-                        try:
-                            from backend.api.convert.table_processor import process_single_table_image
-
-                            # 异步处理图片（不阻塞主线程）
-                            result = process_single_table_image(
-                                pdf_folder=pdf_folder,
-                                image_path=image_path,
-                                table_type=table_type,
-                                bank_name=bank_name
-                            )
-
-                            if result.get("success", False):
-                                images_processed += 1
-                                if "tables" in result and int(result["tables"]) > 0:
-                                    tables_added += int(result["tables"])
-                                print(f"  ✅ 处理成功")
-
-                                # ✅ 关键：标记为已处理
-                                try:
-                                    if self.incremental_processor:
-                                        self.incremental_processor.mark_images_processed(pdf_folder, image_name)
-                                        print(f"  📝 已标记为已处理: {image_name}")
-                                except Exception as mark_error:
-                                    print(f"  ⚠️ 标记为已处理失败: {mark_error}")
-
-                            else:
-                                error_msg = result.get("error", "未知错误")
-                                errors.append(f"{image_name}: {error_msg}")
-                                print(f"  ⚠️ 处理失败: {error_msg}")
-
-                        except Exception as img_error:
-                            error_msg = f"图片处理异常: {str(img_error)}"
-                            errors.append(f"{image_name}: {error_msg}")
-                            print(f"  ❌ 处理异常: {img_error}")
-
-                    except Exception as loop_error:
-                        print(f"❌ 图片处理循环异常: {loop_error}")
-                        import traceback
-                        traceback.print_exc()
-                        continue
-
-                # 处理结果汇总
-                processing_result = {
-                    "success": success and len(errors) == 0,
-                    "images_processed": images_processed,  # 本次新处理数
-                    "tables_added": tables_added,
-                    "need_generate_excel": images_processed > 0 or total_skipped_images > 0,
-                    "excel_exists": False,
-                    "next_action": "generate_excel" if images_processed > 0 else "skip",
-                    "errors": errors
-                }
-
-                print(f"\n📊 图片处理结果:")
-                print(f"  - 成功: {processing_result['success']}")
-                print(f"  - 新处理图片数: {images_processed}")
-                print(f"  - 跳过图片数: {total_skipped_images}")
-                print(f"  - 总已处理: {total_skipped_images + images_processed}")
-                print(f"  - 添加表格数: {tables_added}")
-                print(f"  - 需要生成Excel: {processing_result['need_generate_excel']}")
-
-                if errors:
-                    print(f"  - 错误列表 ({len(errors)}个):")
-                    for i, error in enumerate(errors[:3]):
-                        print(f"    {i + 1}. {error}")
-                    if len(errors) > 3:
-                        print(f"    ... 等 {len(errors) - 3} 个错误")
-
-                # 更新进度到90%，等待Excel生成
-                self.update_job_status(job_id, {
-                    "status": "generating_excel",
-                    "progress": "90",
-                    "progress_percentage": 90,
-                    "message": f"图片处理完成。新处理 {images_processed} 张图片，跳过 {total_skipped_images} 张已处理图片",
-                    "processed_images": str(total_skipped_images + images_processed),  # ✅ 总已处理数
-                    "total_images": str(total_all_images),  # ✅ 总图片数
-                    "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
-                    "new_processed": str(images_processed),  # ✅ 本次新处理数
-                    "processing_result": str(success)
-                })
+                processing_result = self._process_all_images(
+                    job_id, pdf_folder, images_to_process,
+                    total_skipped_images, total_all_images,
+                    table_type, bank_name
+                )
             else:
-                print(f"ℹ️ 没有新图片需要处理")
-                # 直接进入Excel生成阶段
+                print("ℹ️ 没有新图片需要处理")
                 processing_result = {
                     "success": True,
                     "images_processed": 0,
                     "tables_added": 0,
-                    "need_generate_excel": total_skipped_images > 0,  # 即使没有新图片，跳过图片也需要生成Excel
-                    "excel_exists": False
+                    "errors": []
                 }
 
-            # ✅ 5. 生成Excel文件
-            excel_generated = False
-            excel_path = ""
+            images_processed = processing_result.get("images_processed", 0)
+            tables_added = processing_result.get("tables_added", 0)
+            errors = processing_result.get("errors", [])
 
-            try:
-                # 更新状态：开始生成Excel
-                self.update_job_status(job_id, {
-                    "status": "generating_excel",
-                    "progress": "95",
-                    "message": "正在生成Excel文件...",
-                    "processed_images": str(
-                        total_skipped_images + (total_new_images if 'total_new_images' in locals() else 0)),
-                    # ✅ 总已处理数
-                    "total_images": str(len(image_paths)),  # ✅ 总图片数
-                    "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
-                    "new_processed": str(total_new_images if 'total_new_images' in locals() else 0),  # ✅ 本次新处理数
-                    "current_image": "正在生成Excel"
-                })
+            # 阶段5: 生成Excel文件
+            print(f"\n{'=' * 60}")
+            print(f"阶段5: 生成Excel文件")
+            print(f"{'=' * 60}")
 
-                # ✅ 关键：获取PDF聚合器并生成Excel
-                aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
-
-                if len(aggregator) > 0:
-                    print(f"📊 聚合器中有 {len(aggregator)} 个表格需要保存")
-
-                    # 生成Excel
-                    success, excel_path, error_msg = pdf_aggregator_manager.finalize_pdf(
-                        pdf_folder=pdf_folder,
-                        output_dir=EXCEL_DATA_DIR,
-                        force=False,
-                        metadata_list=[]
-                    )
-
-                    if success and excel_path and os.path.exists(excel_path):
-                        excel_generated = True
-                        file_size = os.path.getsize(excel_path)
-                    else:
-                        print(f"❌ Excel文件生成失败: {error_msg}")
-                else:
-                    print(f"⚠️ 聚合器中没有表格数据")
-
-                    # 检查是否已有Excel文件
-                    import glob
-                    excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
-                    if os.path.exists(excel_dir):
-                        excel_files = glob.glob(os.path.join(excel_dir, "*.xlsx"))
-                        if excel_files:
-                            existing_excel_path = excel_files[0]
-                            if os.path.getsize(existing_excel_path) > 0:
-                                excel_generated = True
-                                excel_path = existing_excel_path
-                                print(f"✅ 使用现有Excel文件: {excel_path}")
-                            else:
-                                print(f"⚠️ 现有Excel文件为空: {existing_excel_path}")
-                        else:
-                            print(f"⚠️ 没有找到Excel文件")
-                    else:
-                        print(f"⚠️ Excel目录不存在: {excel_dir}")
-
-            except Exception as excel_error:
-                print(f"❌ 生成Excel异常: {excel_error}")
-                import traceback
-                traceback.print_exc()
-                excel_generated = False
-
-            # ✅ 6. 最终状态更新
-            duration = time.time() - task_start_time
-            final_status = "completed" if excel_generated else "failed"
-
-            # ✅ 关键修复：正确的统计计算
-            total_all_images = len(image_paths)
-            total_skipped = total_skipped_images
-            total_new_processed = total_new_images if 'total_new_images' in locals() else 0
-            total_processed_total = total_skipped + total_new_processed
-
-            final_message = (
-                f"任务完成。处理 {total_new_processed} 张新图片，跳过 {total_skipped} 张已处理图片"
-                if excel_generated else
-                f"任务失败。处理了 {total_new_processed} 张新图片，跳过 {total_skipped} 张已处理图片，但生成Excel失败"
+            excel_generated, excel_path = self._generate_excel_file(
+                job_id, pdf_folder, bank_name,
+                total_skipped_images, images_processed
             )
 
-            # 记录任务详细信息
-            task_details = {
-                "status": final_status,
-                "progress": "100" if excel_generated else "0",
-                "progress_percentage": 100 if excel_generated else 0,
-                "message": final_message,
-                "completed_at": datetime.now().isoformat(),
-                "duration": f"{duration:.2f}秒",
-                "total_images": str(total_all_images),  # ✅ 总图片数
-                "processed_images": str(total_processed_total),  # ✅ 总已处理数
-                "skipped_images": str(total_skipped),  # ✅ 跳过图片数
-                "new_processed": str(total_new_processed),  # ✅ 本次新处理数
-                "excel_generated": str(excel_generated).lower(),
-                "excel_path": excel_path if excel_generated else "",
-                "original_filename": original_filename,
-                "db_filename": pdf_folder,
-                "task_start_time": job_start_time,
-                "processing_summary": {
-                    "total_images": total_all_images,
-                    "new_images_processed": total_new_processed,
-                    "skipped_images": total_skipped,
-                    "total_processed": total_processed_total,
-                    "aggregator_tables": len(pdf_aggregator_manager.get_aggregator(pdf_folder,
-                                                                                   bank_name)) if 'pdf_aggregator_manager' in locals() else 0,
-                    "excel_created": excel_generated,
-                    "processing_time": f"{duration:.2f}秒",
-                    "images_per_second": f"{total_new_processed / duration:.2f}" if duration > 0 and total_new_processed > 0 else "0"
-                }
-            }
+            # 阶段6: 更新最终状态
+            print(f"\n{'=' * 60}")
+            print(f"阶段6: 更新最终状态")
+            print(f"{'=' * 60}")
 
-            # 如果有错误信息，也记录下来
-            if 'errors' in locals() and errors:
-                task_details["errors"] = errors
+            self._update_final_status(
+                job_id, pdf_folder, original_filename,
+                excel_generated, excel_path,
+                total_all_images, total_skipped_images, images_processed,
+                task_start_time, errors
+            )
 
-            self.update_job_status(job_id, task_details)
-
+            print(f"\n✅ 任务处理完成: {'成功' if excel_generated else '失败'}")
             return excel_generated
 
         except Exception as e:
@@ -1861,21 +1580,416 @@ class TableProcessingWorker:
             import traceback
             traceback.print_exc()
 
-            # 异常时更新状态
-            try:
-                self.update_job_status(job_id, {
-                    "status": "failed",
-                    "progress": "0",
-                    "message": f"任务处理异常: {str(e)}",
-                    "error": str(e),
-                    "completed_at": datetime.now().isoformat(),
-                    "original_filename": original_filename if 'original_filename' in locals() else pdf_folder,
-                    "db_filename": pdf_folder
-                })
-            except:
-                pass
-
+            # 异常处理
+            self._handle_task_exception(job_id, pdf_folder, e)
             return False
+
+    # ========== 提取的功能函数 ==========
+
+    def _get_original_filename(self, pdf_folder: str) -> Tuple[str, bool]:
+        """
+        从数据库获取原始文件名
+
+        返回:
+            Tuple[str, bool]: (原始文件名, 数据库连接是否成功)
+        """
+        print(f"🔍 查询原始文件名: {pdf_folder}")
+
+        original_filename = pdf_folder
+        db_connection_success = False
+
+        try:
+            from backend.models.unified_db import UnifiedDatabaseManager
+            db_manager = UnifiedDatabaseManager()
+
+            if hasattr(db_manager, 'db_path'):
+                db_path = self._get_database_path()
+                print(f"✅ 数据库路径: {db_path}")
+
+                if os.path.exists(db_path):
+                    conn = sqlite3.connect(db_path)
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+
+                    # 精确查询
+                    cursor.execute("SELECT raw_filename FROM files WHERE filename = ?", (pdf_folder + ".pdf",))
+                    result = cursor.fetchone()
+
+                    if result and result['raw_filename']:
+                        original_filename = result['raw_filename']
+                        db_connection_success = True
+                        print(f"✅ 查询到原始文件名: {original_filename}")
+                    else:
+                        # 模糊匹配
+                        cursor.execute("SELECT filename, raw_filename FROM files WHERE filename LIKE ?",
+                                       (f"%{pdf_folder}%",))
+                        all_results = cursor.fetchall()
+                        if all_results:
+                            original_filename = all_results[0]['raw_filename']
+                            db_connection_success = True
+                            print(f"✅ 模糊匹配到原始文件名: {original_filename}")
+                        else:
+                            print(f"⚠️ 数据库中未找到记录")
+                            original_filename = pdf_folder
+
+                    conn.close()
+                else:
+                    print(f"❌ 数据库文件不存在: {db_path}")
+            else:
+                print(f"⚠️ DatabaseManager没有db_path属性")
+
+        except Exception as e:
+            print(f"❌ 查询数据库异常: {e}")
+
+        return original_filename, db_connection_success
+
+    def _filter_images_incrementally(self, pdf_folder: str, image_paths: List[str]) -> Dict[str, Any]:
+        """
+        增量过滤图片
+
+        返回:
+            Dict: 包含过滤结果的字典
+        """
+        print(f"🔍 增量处理检查...")
+
+        image_names = [os.path.basename(img_path) for img_path in image_paths]
+
+        try:
+            from backend.src.incremental_processor import incremental_processor
+
+            # 过滤已处理的图片
+            images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
+            skipped_images_names = [img for img in image_names if img not in images_to_process_names]
+
+            # 筛选出需要处理的图片路径
+            images_to_process = [
+                img_path for img_path in image_paths
+                if os.path.basename(img_path) in images_to_process_names
+            ]
+
+            total_new_images = len(images_to_process)
+            total_skipped_images = len(skipped_images_names)
+
+            # 输出跳过图片信息
+            if skipped_images_names:
+                print(f"⏭️ 跳过的图片 ({len(skipped_images_names)}张):")
+                for i, img_name in enumerate(skipped_images_names[:3]):
+                    print(f"  {i + 1}. {img_name}")
+                if len(skipped_images_names) > 3:
+                    print(f"  ... 等 {len(skipped_images_names) - 3} 张")
+
+            return {
+                "images_to_process": images_to_process,
+                "skipped_images_names": skipped_images_names,
+                "total_new_images": total_new_images,
+                "total_skipped_images": total_skipped_images
+            }
+
+        except Exception as e:
+            print(f"⚠️ 增量处理器导入失败，处理所有图片: {e}")
+            return {
+                "images_to_process": image_paths,
+                "skipped_images_names": [],
+                "total_new_images": len(image_paths),
+                "total_skipped_images": 0
+            }
+
+    def _initialize_job_status(self, job_id: str, pdf_folder: str,
+                               original_filename: str, db_connection_success: bool,
+                               total_all_images: int, total_skipped_images: int,
+                               total_new_images: int) -> None:
+        """
+        初始化任务状态
+        """
+        job_start_time = datetime.now().isoformat()
+
+        # 计算初始进度
+        current_processed_total = total_skipped_images
+        progress_percentage = int((current_processed_total / total_all_images * 100)) if total_all_images > 0 else 0
+
+        self.update_job_status(job_id, {
+            "status": "processing",
+            "progress": str(progress_percentage),
+            "progress_percentage": progress_percentage,
+            "message": f"任务开始处理: {total_new_images}张新图片 + {total_skipped_images}张已处理图片",
+            "started_at": job_start_time,
+            "worker_id": self.worker_id,
+            "total_images": str(total_all_images),
+            "total_new_images": str(total_new_images),
+            "processed_images": str(current_processed_total),
+            "skipped_images": str(total_skipped_images),
+            "new_processed": "0",
+            "current_image": "",
+            "current_image_index": "0",
+            "current_image_name": "",
+            "pdf_folder": pdf_folder,
+            "original_filename": original_filename,
+            "db_filename": pdf_folder,
+            "task_start_time": job_start_time,
+            "db_query_success": str(db_connection_success)
+        })
+
+    def _process_single_image(self, job_id: str, pdf_folder: str, image_path: str,
+                              current_index: int, total_new_images: int,
+                              total_skipped_images: int, total_all_images: int,
+                              table_type: str, bank_name: str) -> Dict[str, Any]:
+        """
+        处理单张图片
+
+        返回:
+            Dict: 处理结果
+        """
+        image_name = os.path.basename(image_path)
+
+        # 计算进度
+        current_total_processed = total_skipped_images + current_index
+        progress_percentage = int((current_total_processed / total_all_images * 100)) if total_all_images > 0 else 0
+
+        # 更新进度状态
+        self.update_job_status(job_id, {
+            "status": "processing",
+            "progress": str(progress_percentage),
+            "progress_percentage": progress_percentage,
+            "message": f"正在处理第 {current_total_processed}/{total_all_images} 张图片: {image_name}",
+            "current_image": image_name,
+            "current_image_index": str(current_index),
+            "current_image_name": image_name
+        })
+
+        print(f"🖼 处理图片 [{current_index}/{total_new_images}]: {image_name}")
+        print(f"  - 进度: {progress_percentage}% ({current_total_processed}/{total_all_images})")
+
+        try:
+            # 导入图片处理函数
+            from backend.api.convert.table_processor import process_single_table_image
+
+            # 处理图片
+            result = process_single_table_image(
+                pdf_folder=pdf_folder,
+                image_path=image_path,
+                table_type=table_type,
+                bank_name=bank_name
+            )
+
+            if result.get("success", False):
+                # 处理成功
+                tables_added = int(result.get("tables", 0))
+
+                # 标记为已处理
+                self._mark_image_processed(pdf_folder, image_name)
+
+                return {
+                    "success": True,
+                    "tables_added": tables_added,
+                    "error": None
+                }
+            else:
+                error_msg = result.get("error", "未知错误")
+                return {
+                    "success": False,
+                    "tables_added": 0,
+                    "error": f"{image_name}: {error_msg}"
+                }
+
+        except Exception as e:
+            error_msg = f"图片处理异常: {str(e)}"
+            return {
+                "success": False,
+                "tables_added": 0,
+                "error": f"{image_name}: {error_msg}"
+            }
+
+    def _process_all_images(self, job_id: str, pdf_folder: str,
+                            images_to_process: List[str],
+                            total_skipped_images: int, total_all_images: int,
+                            table_type: str, bank_name: str) -> Dict[str, Any]:
+        """
+        批量处理所有图片
+
+        返回:
+            Dict: 处理结果汇总
+        """
+        print(f"🔄 开始处理 {len(images_to_process)} 张新图片")
+
+        images_processed = 0
+        tables_added = 0
+        errors = []
+
+        for i, image_path in enumerate(images_to_process, 1):
+            result = self._process_single_image(
+                job_id, pdf_folder, image_path, i, len(images_to_process),
+                total_skipped_images, total_all_images, table_type, bank_name
+            )
+
+            if result["success"]:
+                images_processed += 1
+                tables_added += result["tables_added"]
+            else:
+                errors.append(result["error"])
+
+        # 更新处理完成状态
+        self.update_job_status(job_id, {
+            "status": "generating_excel",
+            "progress": "90",
+            "progress_percentage": 90,
+            "message": f"图片处理完成。新处理 {images_processed} 张图片，跳过 {total_skipped_images} 张已处理图片",
+            "processed_images": str(total_skipped_images + images_processed),
+            "new_processed": str(images_processed)
+        })
+
+        print(f"📊 处理结果: 成功 {images_processed} 张, 失败 {len(errors)} 张, 添加 {tables_added} 个表格")
+
+        if errors:
+            print(f"❌ 错误列表 ({len(errors)}个):")
+            for error in errors[:3]:
+                print(f"  - {error}")
+
+        return {
+            "images_processed": images_processed,
+            "tables_added": tables_added,
+            "errors": errors
+        }
+
+    def _mark_image_processed(self, pdf_folder: str, image_name: str) -> None:
+        """标记图片为已处理"""
+        try:
+            if hasattr(self, 'incremental_processor') and self.incremental_processor:
+                self.incremental_processor.mark_images_processed(pdf_folder, [image_name])
+                print(f"  ✅ 标记为已处理: {image_name}")
+        except Exception as e:
+            print(f"  ⚠️ 标记失败: {e}")
+
+    def _generate_excel_file(self, job_id: str, pdf_folder: str, bank_name: str,
+                             total_skipped_images: int, total_new_processed: int) -> Tuple[bool, str]:
+        """
+        生成Excel文件
+
+        返回:
+            Tuple[bool, str]: (是否成功, Excel文件路径)
+        """
+        print("📊 开始生成Excel文件...")
+
+        # 更新状态
+        self.update_job_status(job_id, {
+            "status": "generating_excel",
+            "progress": "95",
+            "message": "正在生成Excel文件...",
+            "current_image": "正在生成Excel"
+        })
+
+        try:
+            from backend.api.convert.table_processor import pdf_aggregator_manager
+            from backend.utils.constants import EXCEL_DATA_DIR
+
+            # 获取聚合器
+            aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+            if len(aggregator) > 0:
+                print(f"📊 聚合器中有 {len(aggregator)} 个表格需要保存")
+
+                # 生成Excel
+                success, excel_path, error_msg = pdf_aggregator_manager.finalize_pdf(
+                    pdf_folder=pdf_folder,
+                    output_dir=EXCEL_DATA_DIR,
+                    force=False,
+                    metadata_list=[]
+                )
+
+                if success and excel_path and os.path.exists(excel_path):
+                    file_size = os.path.getsize(excel_path)
+                    print(f"✅ Excel生成成功: {excel_path} ({file_size} 字节)")
+                    return True, excel_path
+                else:
+                    print(f"❌ Excel生成失败: {error_msg}")
+                    return False, ""
+            else:
+                print(f"⚠️ 聚合器中没有表格数据")
+                return self._check_existing_excel(pdf_folder)
+
+        except Exception as e:
+            print(f"❌ 生成Excel异常: {e}")
+            return False, ""
+
+    def _check_existing_excel(self, pdf_folder: str) -> Tuple[bool, str]:
+        """检查现有Excel文件"""
+        import glob
+        from backend.utils.constants import EXCEL_DATA_DIR
+
+        excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
+        if os.path.exists(excel_dir):
+            excel_files = glob.glob(os.path.join(excel_dir, "*.xlsx"))
+            if excel_files:
+                existing_excel_path = excel_files[0]
+                if os.path.getsize(existing_excel_path) > 0:
+                    print(f"✅ 使用现有Excel文件: {existing_excel_path}")
+                    return True, existing_excel_path
+                else:
+                    print(f"⚠️ 现有Excel文件为空: {existing_excel_path}")
+            else:
+                print(f"⚠️ 没有找到Excel文件")
+        else:
+            print(f"⚠️ Excel目录不存在: {excel_dir}")
+
+        return False, ""
+
+    def _update_final_status(self, job_id: str, pdf_folder: str, original_filename: str,
+                             excel_generated: bool, excel_path: str,
+                             total_all_images: int, total_skipped: int,
+                             total_new_processed: int, task_start_time: float,
+                             errors: List[str] = None) -> None:
+        """
+        更新最终状态
+        """
+        duration = time.time() - task_start_time
+        final_status = "completed" if excel_generated else "failed"
+
+        # 计算总已处理数
+        total_processed_total = total_skipped + total_new_processed
+
+        # 生成最终消息
+        if excel_generated:
+            final_message = f"任务完成。处理 {total_new_processed} 张新图片，跳过 {total_skipped} 张已处理图片"
+        else:
+            final_message = f"任务失败。处理了 {total_new_processed} 张新图片，跳过 {total_skipped} 张已处理图片，但生成Excel失败"
+
+        # 构建任务详情
+        task_details = {
+            "status": final_status,
+            "progress": "100" if excel_generated else "0",
+            "progress_percentage": 100 if excel_generated else 0,
+            "message": final_message,
+            "completed_at": datetime.now().isoformat(),
+            "duration": f"{duration:.2f}秒",
+            "total_images": str(total_all_images),
+            "processed_images": str(total_processed_total),
+            "skipped_images": str(total_skipped),
+            "new_processed": str(total_new_processed),
+            "excel_generated": str(excel_generated).lower(),
+            "excel_path": excel_path if excel_generated else "",
+            "original_filename": original_filename,
+            "db_filename": pdf_folder
+        }
+
+        # 添加错误信息
+        if errors:
+            task_details["errors"] = errors
+
+        self.update_job_status(job_id, task_details)
+
+    def _handle_task_exception(self, job_id: str, pdf_folder: str, exception: Exception) -> None:
+        """处理任务异常"""
+        try:
+            self.update_job_status(job_id, {
+                "status": "failed",
+                "progress": "0",
+                "message": f"任务处理异常: {str(exception)}",
+                "error": str(exception),
+                "completed_at": datetime.now().isoformat(),
+                "original_filename": pdf_folder,
+                "db_filename": pdf_folder
+            })
+        except:
+            pass
 
 
     def run(self):
