@@ -315,7 +315,7 @@ class EnhancedFinancialTableAnalyzer:
     现在分析，直接输出JSON：
     """
 
-    def _call_llm_global(self, base64_image: str, prompt: str) -> Dict[str, Any]:
+    def _call_llm_global_000(self, base64_image: str, prompt: str) -> Dict[str, Any]:
         """调用LLM进行全局分析 - 最终版"""
         start_time = time.time()
 
@@ -371,6 +371,110 @@ class EnhancedFinancialTableAnalyzer:
             "token_usage": token_usage
         }
 
+    def _call_llm_global(self, base64_image: str, prompt: str) -> Dict[str, Any]:
+        """调用LLM进行全局分析 - 修复版本"""
+        start_time = time.time()
+
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
+                ]
+            }],
+            temperature=0,
+            top_p=0.1,
+            seed=42,
+            response_format={"type": "json_object"}
+        )
+
+        elapsed = time.time() - start_time
+        content = response.choices[0].message.content.strip()
+
+        try:
+            # 移除可能的代码块标记
+            if content.startswith("```"):
+                lines = content.split("\n")
+                content = "\n".join(lines[1:-1]) if len(lines) > 2 else content
+
+            # 解析JSON
+            result = json.loads(content)
+
+            # 🛑 关键修复：处理多种可能的响应格式
+            tables_data = None
+
+            # 情况1：直接返回数组 [ {...}, {...} ]
+            if isinstance(result, list):
+                print(f"⚠️ LLM返回了数组格式，自动包装为对象")
+                tables_data = result
+
+            # 情况2：返回 { "tables": [...] }
+            elif isinstance(result, dict) and "tables" in result:
+                tables_data = result["tables"]
+
+            # 情况3：返回 { "tables_structure": { "tables": [...] } }
+            elif isinstance(result, dict) and "tables_structure" in result:
+                tables_data = result["tables_structure"].get("tables", [])
+
+            # 情况4：其他格式，尝试查找tables字段
+            else:
+                # 深度搜索tables字段
+                def find_tables(obj):
+                    if isinstance(obj, list):
+                        for item in obj:
+                            result = find_tables(item)
+                            if result is not None:
+                                return result
+                    elif isinstance(obj, dict):
+                        if "tables" in obj:
+                            return obj["tables"]
+                        for key, value in obj.items():
+                            result = find_tables(value)
+                            if result is not None:
+                                return result
+                    return None
+
+                tables_data = find_tables(result)
+
+            # 如果找不到tables数据，抛出错误
+            if tables_data is None:
+                raise ValueError(f"无法从响应中提取tables数据。响应格式: {type(result)}")
+
+            # 验证tables数据的结构
+            if not isinstance(tables_data, list):
+                raise ValueError(f"tables数据不是数组类型: {type(tables_data)}")
+
+            for i, table in enumerate(tables_data):
+                if not isinstance(table, dict):
+                    raise ValueError(f"表格{i}不是对象类型: {type(table)}")
+                if "id" not in table:
+                    table["id"] = str(i + 1)  # 自动添加id
+                if "headers" not in table:
+                    raise ValueError(f"表格{table.get('id', i)}缺少headers字段")
+                if not isinstance(table["headers"], dict):
+                    raise ValueError(f"表格{table.get('id', i)}的headers不是对象")
+                if "cols" not in table["headers"] or not isinstance(table["headers"]["cols"], list):
+                    raise ValueError(f"表格{table.get('id', i)}缺少cols数组")
+                if "rows" not in table["headers"] or not isinstance(table["headers"]["rows"], list):
+                    raise ValueError(f"表格{table.get('id', i)}缺少rows数组")
+
+        except (json.JSONDecodeError, ValueError) as e:
+            raise ValueError(f"LLM响应解析失败: {e}\n原始内容: {content[:500]}...")
+
+        usage = response.usage if hasattr(response, 'usage') else None
+        token_usage = {
+            "prompt_tokens": usage.prompt_tokens if usage else 0,
+            "completion_tokens": usage.completion_tokens if usage else 0,
+            "total_tokens": usage.total_tokens if usage else 0
+        }
+
+        return {
+            "tables": tables_data,  # 确保这里是数组
+            "time_sec": round(elapsed, 2),
+            "token_usage": token_usage
+        }
 
     def analyze_image(self, image_path: str, ocr_result: Dict[str, Any]) -> Dict[str, Any]:
         """分析单张图片中的所有表格"""
@@ -416,6 +520,9 @@ class EnhancedFinancialTableAnalyzer:
         print(f"[LLM] Prompt长度: {len(prompt)} 字符")
 
         llm_result = self._call_llm_global(base64_image, prompt)
+
+        print("XXXXXXXXXXXXXXXXllm_resultXXXXXXXXXXXXXXXXX")
+        print(llm_result)
 
         compressed = gzip.compress(json.dumps(llm_result).encode())
 

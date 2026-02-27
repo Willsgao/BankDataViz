@@ -1560,11 +1560,6 @@ class TableProcessingWorker:
                 total_skipped_images = len(skipped_images_names)
                 total_processed = total_new_images + total_skipped_images
 
-                print(f"📊 增量处理结果:")
-                print(f"  - 总图片: {len(image_paths)}")
-                print(f"  - 新图片: {total_new_images}")
-                print(f"  - 跳过图片: {total_skipped_images}")
-
                 if skipped_images_names:
                     print(f"⏭️ 跳过的图片 (前5张):")
                     for i, img_name in enumerate(skipped_images_names[:5]):
@@ -1582,17 +1577,24 @@ class TableProcessingWorker:
 
             # ✅ 3. 初始化任务状态 - 包含完整的进度信息
             job_start_time = datetime.now().isoformat()
+
+            # ✅ 关键修复：正确的统计初始化
+            total_all_images = len(image_paths)  # 总图片数
+            current_processed_total = total_skipped_images  # 初始已处理 = 跳过图片数
+            progress_percentage = int((current_processed_total / total_all_images * 100)) if total_all_images > 0 else 0
+
             self.update_job_status(job_id, {
                 "status": "processing",
-                "progress": "0",
-                "progress_percentage": 0,
+                "progress": str(progress_percentage),
+                "progress_percentage": progress_percentage,
                 "message": f"任务开始处理: {total_new_images}张新图片 + {total_skipped_images}张已处理图片",
                 "started_at": job_start_time,
                 "worker_id": self.worker_id,
-                "total_images": str(total_processed),  # 总图片数
-                "total_to_process": str(total_new_images),  # 需要处理的新图片数
-                "processed_images": "0",  # 初始已处理数为0
-                "skipped_images": str(total_skipped_images),  # 跳过图片数
+                "total_images": str(total_all_images),  # ✅ 总图片数
+                "total_new_images": str(total_new_images),  # ✅ 新图片数
+                "processed_images": str(current_processed_total),  # ✅ 初始已处理数 = 跳过图片数
+                "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
+                "new_processed": "0",  # ✅ 本次新处理数
                 "current_image": "",  # 当前处理的图片
                 "current_image_index": "0",  # 当前索引
                 "current_image_name": "",  # 当前图片名称
@@ -1603,33 +1605,44 @@ class TableProcessingWorker:
                 "db_query_success": str(db_connection_success)
             })
 
-
             # ✅ 4. 核心：使用优化后的图片处理函数（带实时进度更新）
             if total_new_images > 0:
+                print(f"\n{'=' * 60}")
+                print(f"🔄 开始处理 {total_new_images} 张新图片")
+                print(f"{'=' * 60}")
 
                 images_processed = 0
                 tables_added = 0
                 success = True
                 errors = []
 
-                # ✅ 关键修复：遍历每张图片，但通过定时检查控制流程
+                # ✅ 关键修复：遍历每张图片，实时更新进度
                 for i, image_path in enumerate(images_to_process):
                     try:
                         image_name = os.path.basename(image_path)
-                        current_processed = i + 1
-                        progress_percentage = int((current_processed / total_new_images) * 100)
+                        current_new_processed = i + 1
+                        current_total_processed = total_skipped_images + current_new_processed
+                        total_all_images = len(image_paths)
+                        progress_percentage = int(
+                            (current_total_processed / total_all_images) * 100) if total_all_images > 0 else 0
+
+                        print(f"\n📸 处理图片 [{current_new_processed}/{total_new_images}]: {image_name}")
+                        print(f"  - 当前进度: {progress_percentage}% ({current_total_processed}/{total_all_images})")
+                        print(f"  - 跳过图片: {total_skipped_images}张")
+                        print(f"  - 新处理: {current_new_processed}张")
 
                         # ✅ 1. 立即更新状态
                         self.update_job_status(job_id, {
                             "status": "processing",
                             "progress": str(progress_percentage),
                             "progress_percentage": progress_percentage,
-                            "message": f"正在处理第 {current_processed}/{total_new_images} 张图片: {image_name}",
-                            "processed_images": str(current_processed),
-                            "total_images": str(total_new_images),
-                            "skipped_images": str(total_skipped_images),
+                            "message": f"正在处理第 {current_total_processed}/{total_all_images} 张图片: {image_name} (跳过: {total_skipped_images}张)",
+                            "total_images": str(total_all_images),  # ✅ 总图片数
+                            "processed_images": str(current_total_processed),  # ✅ 总已处理数 = 跳过 + 新处理
+                            "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
+                            "new_processed": str(current_new_processed),  # ✅ 本次新处理数
                             "current_image": image_name,
-                            "current_image_index": str(current_processed),
+                            "current_image_index": str(current_new_processed),  # ✅ 新处理索引
                             "current_image_name": image_name
                         })
 
@@ -1647,9 +1660,18 @@ class TableProcessingWorker:
 
                             if result.get("success", False):
                                 images_processed += 1
-                                if "tables" in result and len(result["tables"]) > 0:
-                                    tables_added += len(result["tables"])
+                                if "tables" in result and int(result["tables"]) > 0:
+                                    tables_added += int(result["tables"])
                                 print(f"  ✅ 处理成功")
+
+                                # ✅ 关键：标记为已处理
+                                try:
+                                    if self.incremental_processor:
+                                        self.incremental_processor.mark_images_processed(pdf_folder, image_name)
+                                        print(f"  📝 已标记为已处理: {image_name}")
+                                except Exception as mark_error:
+                                    print(f"  ⚠️ 标记为已处理失败: {mark_error}")
+
                             else:
                                 error_msg = result.get("error", "未知错误")
                                 errors.append(f"{image_name}: {error_msg}")
@@ -1669,13 +1691,41 @@ class TableProcessingWorker:
                 # 处理结果汇总
                 processing_result = {
                     "success": success and len(errors) == 0,
-                    "images_processed": images_processed,
+                    "images_processed": images_processed,  # 本次新处理数
                     "tables_added": tables_added,
                     "need_generate_excel": images_processed > 0 or total_skipped_images > 0,
                     "excel_exists": False,
                     "next_action": "generate_excel" if images_processed > 0 else "skip",
                     "errors": errors
                 }
+
+                print(f"\n📊 图片处理结果:")
+                print(f"  - 成功: {processing_result['success']}")
+                print(f"  - 新处理图片数: {images_processed}")
+                print(f"  - 跳过图片数: {total_skipped_images}")
+                print(f"  - 总已处理: {total_skipped_images + images_processed}")
+                print(f"  - 添加表格数: {tables_added}")
+                print(f"  - 需要生成Excel: {processing_result['need_generate_excel']}")
+
+                if errors:
+                    print(f"  - 错误列表 ({len(errors)}个):")
+                    for i, error in enumerate(errors[:3]):
+                        print(f"    {i + 1}. {error}")
+                    if len(errors) > 3:
+                        print(f"    ... 等 {len(errors) - 3} 个错误")
+
+                # 更新进度到90%，等待Excel生成
+                self.update_job_status(job_id, {
+                    "status": "generating_excel",
+                    "progress": "90",
+                    "progress_percentage": 90,
+                    "message": f"图片处理完成。新处理 {images_processed} 张图片，跳过 {total_skipped_images} 张已处理图片",
+                    "processed_images": str(total_skipped_images + images_processed),  # ✅ 总已处理数
+                    "total_images": str(total_all_images),  # ✅ 总图片数
+                    "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
+                    "new_processed": str(images_processed),  # ✅ 本次新处理数
+                    "processing_result": str(success)
+                })
             else:
                 print(f"ℹ️ 没有新图片需要处理")
                 # 直接进入Excel生成阶段
@@ -1683,7 +1733,7 @@ class TableProcessingWorker:
                     "success": True,
                     "images_processed": 0,
                     "tables_added": 0,
-                    "need_generate_excel": True,  # 即使没有新图片，也可能需要生成Excel
+                    "need_generate_excel": total_skipped_images > 0,  # 即使没有新图片，跳过图片也需要生成Excel
                     "excel_exists": False
                 }
 
@@ -1697,7 +1747,12 @@ class TableProcessingWorker:
                     "status": "generating_excel",
                     "progress": "95",
                     "message": "正在生成Excel文件...",
-                    "processed_images": str(total_new_images),
+                    "processed_images": str(
+                        total_skipped_images + (total_new_images if 'total_new_images' in locals() else 0)),
+                    # ✅ 总已处理数
+                    "total_images": str(len(image_paths)),  # ✅ 总图片数
+                    "skipped_images": str(total_skipped_images),  # ✅ 跳过图片数
+                    "new_processed": str(total_new_images if 'total_new_images' in locals() else 0),  # ✅ 本次新处理数
                     "current_image": "正在生成Excel"
                 })
 
@@ -1750,10 +1805,17 @@ class TableProcessingWorker:
             # ✅ 6. 最终状态更新
             duration = time.time() - task_start_time
             final_status = "completed" if excel_generated else "failed"
+
+            # ✅ 关键修复：正确的统计计算
+            total_all_images = len(image_paths)
+            total_skipped = total_skipped_images
+            total_new_processed = total_new_images if 'total_new_images' in locals() else 0
+            total_processed_total = total_skipped + total_new_processed
+
             final_message = (
-                f"任务完成。处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片"
+                f"任务完成。处理 {total_new_processed} 张新图片，跳过 {total_skipped} 张已处理图片"
                 if excel_generated else
-                f"任务失败。处理了 {total_new_images} 张图片，但生成Excel失败"
+                f"任务失败。处理了 {total_new_processed} 张新图片，跳过 {total_skipped} 张已处理图片，但生成Excel失败"
             )
 
             # 记录任务详细信息
@@ -1764,24 +1826,25 @@ class TableProcessingWorker:
                 "message": final_message,
                 "completed_at": datetime.now().isoformat(),
                 "duration": f"{duration:.2f}秒",
-                "total_processed": str(total_processed),
-                "total_images": str(total_processed),
-                "processed_images": str(total_new_images),
-                "skipped_images": str(total_skipped_images),
+                "total_images": str(total_all_images),  # ✅ 总图片数
+                "processed_images": str(total_processed_total),  # ✅ 总已处理数
+                "skipped_images": str(total_skipped),  # ✅ 跳过图片数
+                "new_processed": str(total_new_processed),  # ✅ 本次新处理数
                 "excel_generated": str(excel_generated).lower(),
                 "excel_path": excel_path if excel_generated else "",
                 "original_filename": original_filename,
                 "db_filename": pdf_folder,
                 "task_start_time": job_start_time,
                 "processing_summary": {
-                    "total_images": len(image_paths),
-                    "new_images_processed": total_new_images,
-                    "skipped_images": total_skipped_images,
+                    "total_images": total_all_images,
+                    "new_images_processed": total_new_processed,
+                    "skipped_images": total_skipped,
+                    "total_processed": total_processed_total,
                     "aggregator_tables": len(pdf_aggregator_manager.get_aggregator(pdf_folder,
                                                                                    bank_name)) if 'pdf_aggregator_manager' in locals() else 0,
                     "excel_created": excel_generated,
                     "processing_time": f"{duration:.2f}秒",
-                    "images_per_second": f"{total_new_images / duration:.2f}" if duration > 0 else "0"
+                    "images_per_second": f"{total_new_processed / duration:.2f}" if duration > 0 and total_new_processed > 0 else "0"
                 }
             }
 

@@ -979,60 +979,6 @@ class TableProcessingService:
             default_dir.mkdir(parents=True, exist_ok=True)
             return default_dir
 
-    def process_images00(self, pdf_folder: str, valid_images: List[str],
-                       bank_name: str = "") -> Dict[str, Any]:
-        """
-        处理图片表格 - 自动从数据库获取UUID
-
-        Args:
-            pdf_folder: PDF文件夹名称（用于查询数据库）
-            valid_images: 有效图片路径列表
-            bank_name: 银行名称
-        """
-        # 从数据库获取UUID
-        pdf_uuid = self._get_pdf_uuid_from_database(pdf_folder)
-
-        print(f"📊📊 开始处理表格 - 文件夹: {pdf_folder}, UUID: {pdf_uuid}, 图片数: {len(valid_images)}")
-
-        if not PIPELINE_AVAILABLE:
-            return {
-                "success": False,
-                "error": "表格处理管道不可用",
-                "total_images": len(valid_images),
-                "pdf_uuid": pdf_uuid  # 返回UUID信息
-            }
-
-        try:
-            # 使用UUID子目录
-            output_dir = self._get_uuid_based_dir(pdf_uuid) / pdf_folder
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            print(f"📁📁 输出目录: {output_dir}")
-
-            # 调用批量处理函数 - 修复：不传递pdf_uuid参数
-            result = batch_example(
-                image_paths=valid_images,
-                output_dir=str(output_dir),
-                bank_name=bank_name
-            )
-
-            # 解析结果，添加UUID信息
-            parsed_result = self._parse_processing_result(result, valid_images)
-            parsed_result["pdf_uuid"] = pdf_uuid
-            return parsed_result
-
-        except Exception as e:
-            print(f"❌❌ 表格处理失败: {e}")
-            import traceback
-            traceback.print_exc()
-
-            return {
-                "success": False,
-                "error": str(e),
-                "total_images": len(valid_images),
-                "pdf_uuid": pdf_uuid
-            }
-
     def _run_ocr_llm_memory_pipeline(self, image_path: str, bank_name: str = ""):
         """
         纯算法流水线：OCR → LLM → 内存表格数据
@@ -1053,6 +999,10 @@ class TableProcessingService:
             print(f"🤖🤖 LLM分析: {Path(image_path).name}")
             analyzer = EnhancedFinancialTableAnalyzer()
             llm_result = analyzer.analyze_image(image_path, ocr_result)
+
+            print("TTTTTTTTTTTTTllm_resultTTTTTTTTTTTTTT")
+            print(llm_result)
+
 
             if not llm_result.get('tables_structure', {}).get('tables'):
                 print(f"⚠️ LLM未分析出表格结构: {Path(image_path).name}")
@@ -2183,12 +2133,14 @@ def process_table_images_real(job_id, pdf_folder, image_paths, table_type, bank_
                                 all_metadata_list.append(table_metadata)
 
                         success_count += 1
+
                         results.append({
                             "image_path": image_name,
                             "success": True,
                             "tables_extracted": len(tables_data),
                             "processing_time": 0
                         })
+
                         print(f"✅ 图片处理成功: {image_name}, 提取 {len(tables_data)} 个表格")
                     else:
                         failed_count += 1
@@ -2644,6 +2596,7 @@ def process_images_with_real_time_updates(
                             print(f"  ✅ 添加表格 {table_idx + 1}: '{sheet_name}'")
 
                     success_count += 1
+                    print("555555555555555555555555555")
                     print(f"✅ 图片处理成功: {image_name}, 添加 {len(tables_data)} 个表格")
                 else:
                     failed_count += 1
@@ -2808,7 +2761,6 @@ def download_excel_file(pdf_folder, filename):
 
 
 
-
 def get_available_steps():
     """API: 获取可用步骤"""
     from flask import jsonify
@@ -2827,6 +2779,75 @@ def get_available_steps():
             "success": False,
             "error": str(e)
         }), 500
+
+
+def process_single_table_image(pdf_folder, image_path, table_type, bank_name):
+    """
+    处理单张表格图片 - 提供给 table_worker.py 调用的兼容函数
+
+    参数：
+        pdf_folder: PDF文件夹名称
+        image_path: 图片路径
+        table_type: 表格类型
+        bank_name: 银行名称
+
+    返回：
+        Dict: 处理结果
+    """
+    try:
+        print(f"🔍 处理单张表格图片: {os.path.basename(image_path)}")
+
+        # 创建处理服务
+        service = TableProcessingService()
+
+        # 运行OCR-LLM流水线
+        tables_data, sheet_names, metadata_list = service._run_ocr_llm_memory_pipeline(
+            image_path=image_path,
+            bank_name=bank_name
+        )
+
+        if tables_data:
+            # 获取聚合器
+            aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+            image_name = os.path.basename(image_path)
+            tables_added = 0
+
+            # 将表格添加到聚合器
+            for table_idx, (table_data, sheet_name) in enumerate(zip(tables_data, sheet_names)):
+                table_metadata = metadata_list[table_idx] if table_idx < len(metadata_list) else {}
+
+                add_success = aggregator.add_table(
+                    image_name=image_name,
+                    table_data=table_data,
+                    sheet_name=sheet_name,
+                    image_path=image_path,
+                    metadata=table_metadata
+                )
+
+                if add_success:
+                    tables_added += 1
+
+            return {
+                "success": True,
+                "image_path": image_path,
+                "tables": len(tables_data),
+                "tables_added": tables_added,
+                "message": f"成功处理 {os.path.basename(image_path)}，添加 {tables_added} 个表格"
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"未提取到表格数据: {os.path.basename(image_path)}"
+            }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": f"处理失败: {str(e)}"
+        }
 
 
 import concurrent.futures
