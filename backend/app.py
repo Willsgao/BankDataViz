@@ -30,7 +30,7 @@ print("=" * 60)
 
 # 在 app.py 的数据库初始化前
 import os
-from backend.utils.constants import DATABASE as DB_PATH
+from backend.utils.constants import DATABASE_PATH as DB_PATH
 print(f"📊 统一数据库路径: {DB_PATH}")
 print(f"📊 数据库文件存在: {os.path.exists(DB_PATH)}")
 

@@ -11,6 +11,7 @@ import json
 import time
 import redis
 import signal
+import sqlite3
 import threading
 from pathlib import Path
 from datetime import datetime
@@ -36,7 +37,7 @@ except ImportError as e:
 
 # 导入原有的处理函数
 try:
-    from backend.api.convert.table_processor import TableProcessingService, process_table_images_real, process_images_with_real_time_updates,pdf_aggregator_manager, EXCEL_DATA_DIR
+    from backend.api.convert.table_processor import TableProcessingService, process_table_images_real, process_images_with_real_time_updates,pdf_aggregator_manager
     from backend.api.convert_apis import progress_tracker
     from backend.src.incremental_processor import incremental_processor
 
@@ -45,7 +46,7 @@ except ImportError as e:
     print(f"❌ 无法导入业务模块: {e}")
     sys.exit(1)
 
-from backend.utils.constants import PROJECT_ROOT_STR
+from backend.utils.constants import PROJECT_ROOT_STR, EXCEL_DATA_DIR, DATABASE_PATH
 
 class TableProcessingWorker:
     """表格处理Worker类"""
@@ -195,7 +196,7 @@ class TableProcessingWorker:
         except Exception as e:
             print(f"⚠️ 更新任务状态失败: {e}")
 
-    def generate_excel_directly(self, job_id, pdf_folder, bank_name="", aggregator=None):
+    def generate_excel_directly_000(self, job_id, pdf_folder, bank_name="", aggregator=None):
         """
         直接生成Excel文件，不依赖process_table_images_real的复杂逻辑
 
@@ -219,7 +220,7 @@ class TableProcessingWorker:
 
         try:
             # 1. 定义Excel输出路径
-            EXCEL_DATA_DIR = "data/backend/static/excel_data"
+            # EXCEL_DATA_DIR = "data/backend/static/excel_data"
             excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
             excel_path = os.path.join(excel_dir, f"{pdf_folder}_合并.xlsx")
 
@@ -288,6 +289,133 @@ class TableProcessingWorker:
                         file_size = os.path.getsize(excel_path)
                         print(f"✅ 文件已确认存在，大小: {file_size} 字节")
                         return True, excel_path, None
+                    else:
+                        print(f"❌ 文件保存成功但文件不存在: {excel_path}")
+                        return False, None, "文件保存成功但文件不存在"
+                else:
+                    print(f"❌ 聚合器save_to_excel返回失败")
+                    return False, None, "聚合器保存失败"
+
+            except Exception as e:
+                print(f"❌ 保存Excel文件异常: {e}")
+                import traceback
+                traceback.print_exc()
+                return False, None, f"保存Excel异常: {str(e)}"
+
+        except Exception as e:
+            print(f"❌ 直接生成Excel函数异常: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, None, f"生成Excel函数异常: {str(e)}"
+
+    def generate_excel_directly(self, job_id, pdf_folder, bank_name="", aggregator=None):
+        """
+        直接生成Excel文件，不依赖process_table_images_real的复杂逻辑
+
+        参数:
+            job_id: 任务ID
+            pdf_folder: PDF文件夹名称
+            bank_name: 银行名称
+            aggregator: PDF聚合器对象（如果已有）
+
+        返回:
+            tuple: (success, excel_path, error_msg)
+        """
+        import os
+        from pathlib import Path
+        from datetime import datetime
+
+        print(f"\n{'=' * 60}")
+        print(f"🆕 开始直接生成Excel文件")
+        print(f"📁 PDF文件夹: {pdf_folder}")
+        print(f"🏦 银行名称: {bank_name}")
+        print(f"{'=' * 60}")
+
+        try:
+            # ✅ 修复1：确保使用了正确导入的 EXCEL_DATA_DIR 常量
+            # 如果 EXCEL_DATA_DIR 是绝对路径，直接使用；如果是相对路径，基于 PROJECT_ROOT_STR 构建
+            try:
+                # 假设 EXCEL_DATA_DIR 已经是从 backend.utils.constants 导入的常量
+                excel_base_dir = Path(EXCEL_DATA_DIR)
+                print(f"🔍 使用导入的 EXCEL_DATA_DIR: {excel_base_dir}")
+            except NameError:
+                # 如果 EXCEL_DATA_DIR 未导入，基于 PROJECT_ROOT_STR 构建
+                print(f"⚠️ EXCEL_DATA_DIR 未导入，使用 PROJECT_ROOT_STR 构建路径")
+                excel_base_dir = Path(PROJECT_ROOT_STR) / "data" / "backend" / "static" / "excel_data"
+
+            # ✅ 修复2：使用 Path 对象进行路径操作，更安全
+            excel_dir = excel_base_dir / pdf_folder
+            excel_path = excel_dir / f"{pdf_folder}_合并.xlsx"
+
+            # ✅ 修复3：确保输出路径的绝对性
+            excel_dir = excel_dir.resolve()
+            excel_path = excel_path.resolve()
+
+            # 确保目录存在
+            excel_dir.mkdir(parents=True, exist_ok=True)
+            print(f"📁 Excel输出绝对路径: {excel_path}")
+            print(f"📁 目录已创建: {excel_dir.exists()}")
+
+            # 2. 获取或创建聚合器
+            if aggregator is None:
+                print(f"🔄 获取PDF聚合器...")
+                aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+            print(f"🔍 聚合器状态:")
+            print(f"  - 聚合器对象: {aggregator}")
+            print(f"  - 表格数量: {len(aggregator)}")
+
+            if hasattr(aggregator, 'tables'):
+                print(f"  - 表格列表: {list(aggregator.tables.keys())}")
+
+            # 3. 检查是否已有Excel文件
+            existing_files = list(excel_dir.glob("*.xlsx"))
+            if existing_files:
+                print(f"🔍 发现现有Excel文件: {existing_files[0]}")
+
+            # 4. 如果聚合器为空，检查是否已有文件
+            if len(aggregator) == 0:
+                if existing_files:
+                    excel_path = str(existing_files[0])
+                    print(f"✅ 聚合器为空，但已有Excel文件存在: {excel_path}")
+                    return True, str(excel_path), "使用已有Excel文件"
+                else:
+                    print(f"⚠️ 聚合器为空，也没有现有Excel文件")
+
+                    # 创建空的Excel文件
+                    try:
+                        import pandas as pd
+                        # 创建一个包含说明的工作表
+                        empty_df = pd.DataFrame({
+                            "说明": ["这是一个空的Excel文件，因为没有找到表格数据"],
+                            "生成时间": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+                            "PDF文件夹": [pdf_folder],
+                            "银行名称": [bank_name or "未知"]
+                        })
+                        empty_df.to_excel(str(excel_path), index=False, engine='openpyxl')
+                        print(f"✅ 已创建空的Excel文件: {excel_path}")
+                        return True, str(excel_path), "创建了空的Excel文件"
+                    except Exception as e:
+                        print(f"❌ 创建空Excel文件失败: {e}")
+                        return False, None, f"创建空Excel文件失败: {str(e)}"
+
+            # 5. 聚合器不为空，保存Excel
+            print(f"🔄 开始保存Excel文件...")
+            print(f"  - 表格数量: {len(aggregator)}")
+            print(f"  - 输出路径: {excel_path}")
+
+            try:
+                # 调用聚合器的保存方法
+                success = aggregator.save_to_excel(str(excel_path), metadata_list=None)
+
+                if success:
+                    print(f"✅ Excel文件保存成功: {excel_path}")
+
+                    # 验证文件确实存在
+                    if excel_path.exists():
+                        file_size = excel_path.stat().st_size
+                        print(f"✅ 文件已确认存在，大小: {file_size} 字节")
+                        return True, str(excel_path), None
                     else:
                         print(f"❌ 文件保存成功但文件不存在: {excel_path}")
                         return False, None, "文件保存成功但文件不存在"
@@ -612,18 +740,9 @@ class TableProcessingWorker:
 
         return result
 
-
     def _safe_generate_excel(self, job_id, pdf_folder, image_paths, table_type, bank_name, progress_tracker,
                              skipped_images):
         """安全的Excel生成函数 - 修正参数传递问题"""
-
-        print(f"\n{'=' * 60}")
-        print(f"🤔 Excel生成决策")
-        print(f"{'=' * 60}")
-
-        # ✅ 关键修复1：传递正确的图片列表
-        # 从日志看，image_paths可能是空的，但我们需要处理的是原始图片
-        # 应该使用process_single_task中计算的images_to_process
 
         # 获取原始的所有图片（从任务数据中获取）
         all_image_paths = []  # 这里应该从任务数据获取
@@ -747,7 +866,6 @@ class TableProcessingWorker:
             # 尝试创建空的Excel文件
             return self._fallback_generate_excel(job_id, pdf_folder, bank_name)
 
-
     def _verify_excel_file_generated(self, pdf_folder):
         """使用EXCEL_DATA_DIR验证Excel文件是否生成"""
         print(f"\n{'=' * 60}")
@@ -816,7 +934,6 @@ class TableProcessingWorker:
             print(f"❌ Excel文件验证失败: {e}")
             import traceback
             traceback.print_exc()
-
 
     def _update_job_status_original(self, job_id: str, status_data: Dict[str, Any]):
         """原始的Redis更新方法 - 修复布尔值问题，包含所有字段"""
@@ -911,152 +1028,509 @@ class TableProcessingWorker:
             self.redis_client.expire(pdf_key, 604800)
             print(f"  📁 同时更新PDF状态: {pdf_folder}")
 
-    def update_job_status(self, job_id: str, status_data: Dict[str, Any]):
-        """更新任务状态到Redis - 增强调试版本"""
-
-        print(f"\n📤 更新任务状态到Redis:")
-        print(f"  - job_id: {job_id}")
-        print(f"  - 原始文件名: {status_data.get('original_filename', '未设置')}")
-        print(f"  - 开始时间: {status_data.get('started_at', '未设置')}")
-        print(f"  - PDF文件夹: {status_data.get('pdf_folder', '未设置')}")
-
+    def _get_database_path(self):
+        """获取数据库路径"""
+        # 这里需要根据您的项目结构调整
         try:
-            # 1. ✅ 确保有原始文件名
-            if "original_filename" not in status_data:
-                # 尝试从pdf_folder推断
-                pdf_folder = status_data.get("pdf_folder")
-                if pdf_folder:
-                    status_data["original_filename"] = f"{pdf_folder}.pdf"
-                    print(f"  ✅ 添加推断的原始文件名: {status_data['original_filename']}")
-                else:
-                    status_data["original_filename"] = job_id
+            from backend.utils.constants import DATABASE_PATH
+            return DATABASE_PATH
+        except ImportError:
+            # 默认路径
+            import os
+            from pathlib import Path
+            project_root = Path(__file__).parent.parent.parent.parent
+            return os.path.join(project_root, "data", "database.db")
 
-            # 2. ✅ 确保有开始时间
-            if "started_at" not in status_data:
-                from datetime import datetime
-                status_data["started_at"] = datetime.now().isoformat()
-                print(f"  ✅ 添加开始时间: {status_data['started_at']}")
+    def update_table_job(self, job_id: str, updates: Dict[str, Any]):
+        """
+        更新表格任务状态 - 与 table_processor.py 的进度更新兼容
+        此方法会被 process_images_with_real_time_updates 调用
 
-            if "skipped_images" not in status_data:
-                status_data["skipped_images"] = 0
+        参数:
+            job_id: 任务ID
+            updates: 更新数据字典，包含 status, progress, message, processed_images, total_images, current_image 等字段
+        """
+        try:
+            # 提取关键字段
+            status = updates.get("status", "processing")
+            progress = updates.get("progress", 0)
+            message = updates.get("message", "")
+            processed_images = updates.get("processed_images", 0)
+            total_images = updates.get("total_images", 0)
+            current_image = updates.get("current_image", "")
 
-            # 3. 确保关键字段存在
-            if "processed_images" not in status_data and "progress" in status_data:
-                # 尝试从progress计算processed_images
-                progress = status_data.get("progress", 0)
-                if isinstance(progress, str) and progress.endswith("%"):
-                    progress = int(progress.replace("%", ""))
-                elif isinstance(progress, (int, float)):
-                    progress = int(progress)
+            # 计算进度百分比
+            progress_percent = 0
+            if total_images > 0 and processed_images >= 0:
+                progress_percent = int((processed_images / total_images) * 100)
+                progress_percent = min(100, max(0, progress_percent))  # 限制在0-100之间
 
-                # 如果有total_images，计算processed_images
-                total_images = status_data.get("total_images", 0)
-                if total_images and progress and progress > 0:
-                    processed = int((progress / 100) * int(total_images))
-                    status_data["processed_images"] = processed
-                    print(f"  - 计算得到 processed_images: {processed}/{total_images}")
+            # 使用现有的 update_job_status 方法
+            self.update_job_status(job_id, {
+                "status": status,
+                "progress": str(progress_percent),
+                "progress_percentage": progress_percent,
+                "message": message,
+                "processed_images": str(processed_images),
+                "total_images": str(total_images),
+                "skipped_images": updates.get("skipped_images", "0"),
+                "current_image": current_image,
+                "current_image_index": str(processed_images),
+                "current_image_name": current_image
+            })
 
-            # 4. 记录关键字段
-            key_fields = ["status", "progress", "processed_images", "total_images", "message",
-                          "original_filename", "started_at", "pdf_folder", "skipped_images"]
-            for field in key_fields:
-                if field in status_data:
-                    print(f"  - {field}: {status_data[field]}")
-
-            # 5. 调用原始的Redis更新逻辑
-            self._update_job_status_original(job_id, status_data)
-
-            print(f"✅ Redis状态更新完成")
+            print(f"✅ update_table_job 完成: {job_id} - {progress_percent}%")
 
         except Exception as e:
-            print(f"❌ 更新Redis状态失败: {e}")
+            print(f"❌ update_table_job 异常: {e}")
             import traceback
             traceback.print_exc()
 
-    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
-        """处理单个任务 - 修复版本：查询原始文件名并记录开始时间"""
-
-        from datetime import datetime
-        import sqlite3
-
-        # 提取参数
-        job_id = task_data["job_id"]
-        pdf_folder = task_data["pdf_folder"]  # 这个应该是 filename（数据库中的filename字段）
-        image_paths = task_data["image_paths"]
-        table_type = task_data.get("table_type", "financial")
-        bank_name = task_data.get("bank_name", "")
-
-        # ✅ 第一步：添加参数调试
-        print(f"\n🔍 第一步：验证任务参数")
-        print(f"  - job_id: {job_id}")
-        print(f"  - pdf_folder: {pdf_folder}")
-        print(f"  - 参数类型: {type(pdf_folder)}")
-        print(f"  - 是否是UUID格式: {'是' if len(pdf_folder) == 36 and '-' in pdf_folder else '否'}")
-        print(f"  - 是否是带扩展名的文件名: {'是' if '.pdf' in pdf_folder else '否'}")
-        print(f"  - 原始任务数据的所有字段: {list(task_data.keys())}")
-
-        # 检查是否有其他相关字段
-        for key in ['filename', 'disk_name', 'pdf_disk_name', 'folder_name']:
-            if key in task_data:
-                print(f"  - 找到额外字段 {key}: {task_data[key]}")
-
-        self.current_job = job_id
+    def update_job_status(self, job_id: str, status_data: Dict[str, Any]):
+        """更新任务状态到Redis - 修复时间字段问题，防止前端Invalid time value错误"""
 
         try:
-            # 1. ✅ 新增：查询原始文件名
-            print(f"🔍 开始查询原始文件名，pdf_folder: {pdf_folder}")
+            # ✅ 1. 获取当前有效时间戳
+            current_iso_time = datetime.now().isoformat()
+            current_timestamp = str(time.time())
+
+            # ✅ 2. 确保关键字段存在
+            if status_data.get("status") in ["completed", "success"]:
+                # 确保进度是100%
+                status_data["progress"] = "100"
+                status_data["progress_percentage"] = 100
+
+                # 确保有图片数量信息
+                if "processed_images" not in status_data:
+                    status_data["processed_images"] = "0"
+                if "skipped_images" not in status_data:
+                    status_data["skipped_images"] = "0"
+                if "total_images" not in status_data:
+                    # 计算总数
+                    processed = int(status_data.get("processed_images", "0") or 0)
+                    skipped = int(status_data.get("skipped_images", "0") or 0)
+                    status_data["total_images"] = str(processed + skipped)
+
+            processed_data = {}
+
+            # 自动填充缺失的关键字段
+            field_defaults = {
+                "status": "unknown",
+                "progress": "0",
+                "progress_percentage": 0,
+                "message": "",
+                "original_filename": "",
+                "pdf_folder": "",
+                "started_at": "",  # 先设为空，后面处理
+                "completed_at": "",  # 先设为空，后面处理
+                "worker_id": self.worker_id,
+                "total_images": "0",
+                "processed_images": "0",
+                "skipped_images": "0",
+                "current_image": "",
+                "current_image_index": "0",
+                "current_image_name": "",
+                "last_updated": current_iso_time,  # 使用当前有效时间
+                "timestamp": current_timestamp
+            }
+
+            # ✅ 3. 合并默认值和传入数据
+            for field, default_value in field_defaults.items():
+                if field in status_data and status_data[field] is not None:
+                    processed_data[field] = status_data[field]
+                else:
+                    processed_data[field] = default_value
+
+            # ✅ 4. 关键修复：确保时间字段是有效的ISO格式字符串
+            def ensure_valid_time(time_str, default_time=current_iso_time):
+                """确保时间字符串有效"""
+                if not time_str or time_str in ["", "None", "null", "undefined", "Invalid Date"]:
+                    return default_time
+
+                # 尝试解析时间字符串
+                try:
+                    # 如果是时间戳字符串
+                    if time_str.replace('.', '', 1).isdigit():
+                        timestamp = float(time_str)
+                        if timestamp > 0:
+                            return datetime.fromtimestamp(timestamp).isoformat()
+
+                    # 如果是ISO格式字符串
+                    datetime.fromisoformat(time_str.replace('Z', '+00:00').replace('z', '+00:00'))
+                    return time_str
+                except (ValueError, TypeError, OverflowError):
+                    return default_time
+
+            # ✅ 5. 修复时间字段
+            time_fields_to_fix = [
+                ("started_at", processed_data["status"] in ["queued", "processing", "starting", "pending"]),
+                ("completed_at", processed_data["status"] in ["completed", "failed", "cancelled"]),
+                ("task_start_time", "task_start_time" in processed_data),
+                ("last_updated", True)  # 总是更新
+            ]
+
+            for field_name, should_fix in time_fields_to_fix:
+                if should_fix and field_name in processed_data:
+                    if not processed_data[field_name] or processed_data[field_name] in ["", "None", "null"]:
+                        processed_data[field_name] = current_iso_time
+                    else:
+                        processed_data[field_name] = ensure_valid_time(processed_data[field_name])
+
+            # ✅ 6. 特殊处理：原始文件名推断
+            if not processed_data["original_filename"] and processed_data["pdf_folder"]:
+                # 从pdf_folder推断原始文件名
+                pdf_folder = processed_data["pdf_folder"]
+                if pdf_folder.endswith(".pdf"):
+                    processed_data["original_filename"] = pdf_folder
+                else:
+                    processed_data["original_filename"] = f"{pdf_folder}.pdf"
+
+            # ✅ 7. 特殊处理：开始时间
+            if processed_data["status"] in ["processing", "starting"] and not processed_data["started_at"]:
+                processed_data["started_at"] = current_iso_time
+
+            # ✅ 8. 特殊处理：结束时间
+            if processed_data["status"] in ["completed", "failed"] and not processed_data["completed_at"]:
+                processed_data["completed_at"] = current_iso_time
+
+            # ✅ 9. 修复进度计算百分比
+            if ("processed_images" in processed_data and "total_images" in processed_data and
+                    processed_data["total_images"] and int(processed_data["total_images"]) > 0):
+
+                try:
+                    processed = int(processed_data["processed_images"])
+                    skipped = int(processed_data["skipped_images"])
+                    total = int(processed_data["total_images"])
+
+                    if total > 0:
+                        # ✅ 关键修复：已处理总数 = 新处理 + 跳过
+                        total_processed = processed + skipped
+                        progress_percent = int((total_processed / total) * 100)
+
+                        # 确保进度在0-100之间
+                        progress_percent = max(0, min(100, progress_percent))
+                        processed_data["progress"] = str(progress_percent)
+                        processed_data["progress_percentage"] = progress_percent
+
+                        # ✅ 关键修复2：任务完成时进度强制为100%
+                        if processed_data["status"] in ["completed", "success"]:
+                            processed_data["progress"] = "100"
+                            processed_data["progress_percentage"] = 100
+                            # 更新消息
+                            processed_data[
+                                "message"] = f"任务完成。处理 {processed} 张新图片，跳过 {skipped} 张已处理图片"
+
+                        # 如果提供了message但没有进度信息，更新message
+                        if "正在处理" in processed_data.get("message", ""):
+                            current_image = processed_data.get("current_image", "")
+                            processed_data["message"] = f"正在处理第 {processed}/{total} 张图片: {current_image}"
+                except (ValueError, ZeroDivisionError) as e:
+                    print(f"⚠️ 进度计算错误: {e}")
+                    processed_data["progress"] = "0"
+                    processed_data["progress_percentage"] = 0
+
+            # ✅ 10. 转换数据类型为字符串
+            redis_data = {}
+            for key, value in processed_data.items():
+                if value is None:
+                    redis_data[key] = ""
+                elif isinstance(value, bool):
+                    redis_data[key] = str(value).lower()  # True -> "true"
+                elif isinstance(value, (int, float)):
+                    # 确保数字不会太大导致溢出
+                    try:
+                        redis_data[key] = str(value)
+                    except Exception:
+                        redis_data[key] = "0"
+                elif isinstance(value, (dict, list)):
+                    try:
+                        redis_data[key] = json.dumps(value, ensure_ascii=False)
+                    except Exception:
+                        redis_data[key] = "{}"
+                else:
+                    redis_data[key] = str(value)
+
+            # ✅ 11. 额外安全处理：确保时间字段不为空
+            time_fields = ["started_at", "completed_at", "last_updated", "task_start_time", "created_at"]
+            for field in time_fields:
+                if field in redis_data and (not redis_data[field] or redis_data[field] in ["", "None", "null"]):
+                    redis_data[field] = "1970-01-01T00:00:00.000Z"
+
+            # ✅ 13. 更新到Redis
+            redis_key = f"table:job:{job_id}"
+
+            try:
+                # 使用兼容函数更新Redis
+                from backend.utils.redis_util import redis_hset_compatible
+                success = redis_hset_compatible(self.redis_client, redis_key, redis_data)
+
+                if success:
+                    # 设置过期时间（7天）
+                    self.redis_client.expire(redis_key, 7 * 24 * 60 * 60)
+                else:
+                    print(f"⚠️ Redis HSET操作失败")
+
+            except Exception as redis_error:
+                print(f"❌ Redis更新异常: {redis_error}")
+                import traceback
+                traceback.print_exc()
+
+            # ✅ 在SSE消息部分之前添加状态转换函数
+            def get_frontend_status(backend_status):
+                """将后端状态转换为前端支持的status值"""
+                status_map = {
+                    "queued": "",  # 排队中 -> 空状态
+                    "processing": "",  # 处理中 -> 空状态
+                    "generating_excel": "",  # 生成Excel -> 空状态
+                    "completed": "success",  # 已完成 -> 成功
+                    "success": "success",  # 成功 -> 成功
+                    "failed": "exception",  # 失败 -> 异常
+                    "exception": "exception"  # 异常 -> 异常
+                }
+                return status_map.get(backend_status, "")
+
+            def get_safe_progress(progress_str):
+                """确保进度在0-100范围内"""
+                try:
+                    progress = int(progress_str) if progress_str else 0
+                    return max(0, min(100, progress))  # 限制在0-100
+                except (ValueError, TypeError):
+                    return 0
+
+
+            # ✅ 14. 发布SSE消息 - 修复：确保立即发布
+            try:
+                # 确保SSE消息中的时间字段有效
+                # 获取并转换状态
+                backend_status = redis_data.get("status", "")
+                frontend_status = get_frontend_status(backend_status)
+                safe_progress = get_safe_progress(redis_data.get("progress", "0"))
+
+                # 确保SSE消息中的时间字段有效
+                sse_data = {
+                    "job_id": job_id,
+                    "status": frontend_status,  # ✅ 使用转换后的状态
+                    "progress": str(safe_progress),
+                    "progress_percentage": safe_progress,
+                    "message": redis_data.get("message", ""),
+                    "original_filename": redis_data.get("original_filename", ""),
+                    "pdf_folder": redis_data.get("pdf_folder", ""),
+                    "started_at": redis_data.get("started_at", datetime.now().isoformat()),
+                    "processed_images": int(redis_data.get("processed_images", "0") or 0),
+                    "skipped_images": int(redis_data.get("skipped_images", "0") or 0),
+                    "total_images": int(redis_data.get("total_images", "0") or 0),
+                    "current_image": redis_data.get("current_image", ""),
+                    "current_image_index": int(redis_data.get("current_image_index", "0") or 0),
+                    "current_image_name": redis_data.get("current_image_name", ""),
+                    "worker_id": redis_data.get("worker_id", ""),
+                    "timestamp": current_iso_time
+                }
+
+                # ✅ 关键修复：任务完成时强制设置进度为100%
+                if backend_status in ["completed", "success"]:
+                    sse_data["progress"] = "100"
+                    sse_data["progress_percentage"] = 100
+                    sse_data["status"] = "success"  # ✅ 确保前端显示为success
+
+                    # 计算已处理总数用于显示
+                    processed = sse_data["processed_images"]
+                    skipped = sse_data["skipped_images"]
+                    total = sse_data["total_images"] if sse_data["total_images"] > 0 else (processed + skipped)
+
+                    # 更新消息
+                    sse_data["message"] = f"任务完成。处理 {processed} 张新图片，跳过 {skipped} 张已处理图片"
+
+                sse_message = {
+                    "job_id": job_id,
+                    "type": "progress_update",
+                    "event_type": "table_progress",
+                    "data": sse_data
+                }
+
+                # ✅ 关键修复1：立即发布到Redis频道，不要延迟
+                message_json = json.dumps(sse_message, ensure_ascii=False)
+
+                # ✅ 关键修复2：使用publish命令，这是Redis的发布-订阅机制
+                published_count = self.redis_client.publish(f"table:progress:{job_id}", message_json)
+
+                # ✅ 关键修复3：强制刷新缓冲区，确保消息立即发送
+                try:
+                    # 使用ping保持连接活跃
+                    self.redis_client.ping()
+                except:
+                    pass
+
+                # 调试信息
+                print(
+                    f"📤 SSE推送[实时]: 进度={sse_data['progress']}%, 状态={sse_data['status']}, 消息={sse_data['message']}")
+                print(f"📤 频道: table:progress:{job_id}, 订阅者: {published_count}")
+
+                # ✅ 关键修复4：如果状态是processing，额外发送一个心跳消息
+                if sse_data["status"] == "processing":
+                    heartbeat_msg = {
+                        "job_id": job_id,
+                        "type": "heartbeat",
+                        "event_type": "table_progress",
+                        "data": {"status": "processing", "heartbeat": datetime.now().isoformat()}
+                    }
+                    self.redis_client.publish(f"table:progress:{job_id}", json.dumps(heartbeat_msg, ensure_ascii=False))
+                    print(f"💓 发送心跳消息")
+
+            except Exception as sse_error:
+                print(f"⚠️ SSE推送失败: {sse_error}")
+                import traceback
+                traceback.print_exc()
+
+            # ✅ 15. 同时更新PDF级别的状态
+            pdf_folder = redis_data.get("pdf_folder")
+            if pdf_folder:
+                try:
+                    pdf_key = f"pdf:{pdf_folder}:current_status"
+                    pdf_data = {
+                        "job_id": job_id,
+                        "status": redis_data.get("status", "unknown"),
+                        "progress": redis_data.get("progress", "0"),
+                        "processed_images": redis_data.get("processed_images", "0"),
+                        "total_images": redis_data.get("total_images", "0"),
+                        "message": redis_data.get("message", ""),
+                        "original_filename": redis_data.get("original_filename", ""),
+                        "started_at": redis_data.get("started_at", datetime.now().isoformat()),
+                        "current_image": redis_data.get("current_image", ""),
+                        "last_updated": current_iso_time
+                    }
+
+                    self.redis_client.hmset(pdf_key, pdf_data)
+                    self.redis_client.expire(pdf_key, 7 * 24 * 60 * 60)
+
+                    print(f"  📁 同时更新PDF状态: {pdf_folder}")
+
+                except Exception as pdf_error:
+                    print(f"⚠️ 更新PDF状态失败: {pdf_error}")
+
+            print(f"✅ 状态更新完成")
+
+        except Exception as e:
+            print(f"❌ update_job_status 异常: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def check_and_update_progress(self, job_id: str, check_interval: float = 0.5):
+        """
+        定时检查并更新进度状态
+        这个方法可以在单独的线程中运行
+        """
+
+        while self.running:
+            try:
+                # 从Redis获取当前状态
+                redis_key = f"table:job:{job_id}"
+                current_data = self.redis_client.hgetall(redis_key)
+
+                if current_data:
+                    # 解析数据
+                    current_data = {k.decode('utf-8'): v.decode('utf-8') for k, v in current_data.items()}
+
+                    status = current_data.get("status", "")
+                    processed = int(current_data.get("processed_images", "0") or 0)
+                    total = int(current_data.get("total_images", "0") or 0)
+                    message = current_data.get("message", "")
+
+                    # 如果还在处理中，发送心跳消息
+                    if status == "processing" and total > 0:
+                        progress = int((processed / total) * 100) if total > 0 else 0
+
+                        # 发送心跳消息
+                        heartbeat_msg = {
+                            "job_id": job_id,
+                            "type": "progress_update",
+                            "event_type": "table_progress",
+                            "data": {
+                                "status": "processing",
+                                "progress": str(progress),
+                                "message": f"心跳检测: {message}",
+                                "processed_images": processed,
+                                "total_images": total,
+                                "timestamp": datetime.now().isoformat()
+                            }
+                        }
+
+                        self.redis_client.publish(f"table:progress:{job_id}",
+                                                  json.dumps(heartbeat_msg, ensure_ascii=False))
+
+
+                    # 如果完成，退出循环
+                    elif status in ["completed", "failed", "success"]:
+                        print(f"✅ 任务 {job_id} 完成，停止进度检查")
+                        break
+
+            except Exception as e:
+                print(f"⚠️ 进度检查异常: {e}")
+
+            # 短暂等待后继续检查
+            time.sleep(check_interval)
+
+    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
+        """处理单个表格处理任务 - 增强版：支持图片级实时进度更新"""
+
+        # 提取任务参数
+        job_id = task_data.get("job_id", "")
+        pdf_folder = task_data.get("pdf_folder", "")
+        image_paths = task_data.get("image_paths", [])
+        png_names = task_data.get("png_names", [])
+        table_type = task_data.get("table_type", "financial")
+        bank_name = task_data.get("bank_name", "")
+        filtered_tables_dir = task_data.get("filtered_tables_dir", "")
+        use_ocr = task_data.get("use_ocr", True)
+
+        if not job_id or not pdf_folder:
+            print(f"❌ 任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}")
+            self.update_job_status(job_id, {
+                "status": "failed",
+                "progress": "0",
+                "message": f"任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}"
+            })
+            return False
+
+        self.current_job = job_id
+        task_start_time = time.time()
+
+        try:
+            # ✅ 1. 获取原始文件名
+            print(f"🔍 查询原始文件名: {pdf_folder}")
             original_filename = pdf_folder
-            db_path = None
             db_connection_success = False
 
             try:
-                # 尝试获取数据库路径
+                from backend.models.unified_db import UnifiedDatabaseManager
                 db_manager = UnifiedDatabaseManager()
-
-                # 获取数据库路径
                 if hasattr(db_manager, 'db_path'):
-                    # print(os.getcwd())
-                    print("PROJECT_ROOT_STR----------->:", PROJECT_ROOT_STR)
-                    db_path = f"{PROJECT_ROOT_STR}/{db_manager.db_path}"
-                    # db_path = db_manager.db_path
-                    print(f"✅ 获取到数据库路径: {db_path}")
+                    db_path = self._get_database_path()
+                    print(f"✅ 数据库路径: {db_path}")
 
-                    # 检查数据库文件是否存在
                     if os.path.exists(db_path):
-                        print(f"✅ 数据库文件存在: {db_path}")
-
-                        # 连接到数据库
                         conn = sqlite3.connect(db_path)
                         conn.row_factory = sqlite3.Row
                         cursor = conn.cursor()
 
-                        # 方法1：精确匹配 filename
-                        cursor.execute("SELECT raw_filename FROM files WHERE filename = ?", (pdf_folder+".pdf",))
+                        # 查询原始文件名
+                        cursor.execute("SELECT raw_filename FROM files WHERE filename = ?", (pdf_folder + ".pdf",))
                         result = cursor.fetchone()
 
                         if result and result['raw_filename']:
                             original_filename = result['raw_filename']
-                            print(f"✅ 精确匹配到原始文件名: {original_filename}")
+                            print(f"✅ 查询到原始文件名: {original_filename}")
                             db_connection_success = True
                         else:
-                            # 方法2：模糊匹配
-                            print(f"⚠️ 精确匹配未找到，尝试模糊匹配: {pdf_folder}")
+                            # 模糊匹配
                             cursor.execute("SELECT filename, raw_filename FROM files WHERE filename LIKE ?",
                                            (f"%{pdf_folder}%",))
                             all_results = cursor.fetchall()
-
                             if all_results:
-                                print(f"🔍 找到 {len(all_results)} 个匹配的文件:")
-                                for i, row in enumerate(all_results):
-                                    print(
-                                        f"  {i + 1}. filename: {row['filename']}..., raw_filename: {row['raw_filename']}...")
-
-                                # 使用第一个匹配结果
                                 original_filename = all_results[0]['raw_filename']
                                 db_connection_success = True
-                                print(f"✅ 使用模糊匹配结果: {original_filename}")
+                                print(f"✅ 模糊匹配到原始文件名: {original_filename}")
                             else:
-                                print(f"⚠️ 数据库中未找到相关文件记录")
+                                print(f"⚠️ 数据库中未找到记录")
                                 original_filename = pdf_folder
 
                         conn.close()
@@ -1064,133 +1538,277 @@ class TableProcessingWorker:
                         print(f"❌ 数据库文件不存在: {db_path}")
                 else:
                     print(f"⚠️ DatabaseManager没有db_path属性")
-
-            except ImportError as e:
-                print(f"⚠️ 无法导入DatabaseManager: {e}")
-            except sqlite3.Error as e:
-                print(f"❌ 数据库连接错误: {e}")
             except Exception as e:
-                print(f"❌ 查询原始文件名异常: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"❌ 查询数据库异常: {e}")
 
-            if not db_connection_success:
-                print(f"⚠️ 数据库查询失败，使用默认文件名: {pdf_folder}")
-
-            # 2. 计算总图片数
-            total_all_images = len(image_paths)
-            task_start_time = time.time()
-            job_start_time = datetime.now().isoformat()
-
-            # 3. 使用增量处理器获取实际需要处理的图片
+            # ✅ 2. 增量处理：过滤已处理的图片
+            print(f"\n🔍 增量处理检查...")
             image_names = [os.path.basename(img_path) for img_path in image_paths]
 
+            # 导入增量处理器
             try:
-                # ✅ 关键修复：获取需要处理的新图片
+                from backend.src.incremental_processor import incremental_processor
                 images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)
-
-                # ✅ 计算跳过的图片
                 skipped_images_names = [img for img in image_names if img not in images_to_process_names]
 
-                # ✅ 正确的计数计算
-                total_new_images = len(images_to_process_names)  # 新图片数
-                total_skipped_images = len(skipped_images_names)  # 跳过图片数
-                total_processed = total_new_images + total_skipped_images  # 总处理数
+                # 筛选出需要处理的图片路径
+                images_to_process = [
+                    img_path for img_path in image_paths
+                    if os.path.basename(img_path) in images_to_process_names
+                ]
 
-                print(f"📊 增量处理统计:")
-                print(f"  - 总图片: {total_all_images}")
+                total_new_images = len(images_to_process)
+                total_skipped_images = len(skipped_images_names)
+                total_processed = total_new_images + total_skipped_images
+
+                print(f"📊 增量处理结果:")
+                print(f"  - 总图片: {len(image_paths)}")
                 print(f"  - 新图片: {total_new_images}")
                 print(f"  - 跳过图片: {total_skipped_images}")
 
+                if skipped_images_names:
+                    print(f"⏭️ 跳过的图片 (前5张):")
+                    for i, img_name in enumerate(skipped_images_names[:5]):
+                        print(f"    {i + 1}. {img_name}")
+                    if len(skipped_images_names) > 5:
+                        print(f"    ... 等 {len(skipped_images_names) - 5} 张")
+
             except Exception as e:
-                print(f"⚠️ 增量处理失败，处理所有图片: {e}")
-                total_new_images = total_all_images
+                print(f"⚠️ 增量处理器导入失败，处理所有图片: {e}")
+                images_to_process = image_paths
+                total_new_images = len(image_paths)
                 total_skipped_images = 0
-                total_processed = total_all_images
-                images_to_process_names = image_names
+                total_processed = len(image_paths)
                 skipped_images_names = []
 
-            # 4. ✅ 初始状态更新 - 包含原始文件名和开始时间
+            # ✅ 3. 初始化任务状态 - 包含完整的进度信息
+            job_start_time = datetime.now().isoformat()
             self.update_job_status(job_id, {
                 "status": "processing",
                 "progress": "0",
-                "message": f"开始处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片",
+                "progress_percentage": 0,
+                "message": f"任务开始处理: {total_new_images}张新图片 + {total_skipped_images}张已处理图片",
                 "started_at": job_start_time,
                 "worker_id": self.worker_id,
                 "total_images": str(total_processed),  # 总图片数
-                "processed_images": "0",  # 初始为0
+                "total_to_process": str(total_new_images),  # 需要处理的新图片数
+                "processed_images": "0",  # 初始已处理数为0
                 "skipped_images": str(total_skipped_images),  # 跳过图片数
+                "current_image": "",  # 当前处理的图片
+                "current_image_index": "0",  # 当前索引
+                "current_image_name": "",  # 当前图片名称
                 "pdf_folder": pdf_folder,
-                # ✅ 新增：原始文件名
                 "original_filename": original_filename,
-                # ✅ 新增：数据库文件名
                 "db_filename": pdf_folder,
-                # ✅ 新增：任务开始时间
                 "task_start_time": job_start_time,
-                # ✅ 新增：数据库查询状态
                 "db_query_success": str(db_connection_success)
             })
 
-            print(f"✅ 初始状态已更新:")
-            print(f"  - 原始文件名: {original_filename}")
-            print(f"  - 数据库文件名: {pdf_folder}")
-            print(f"  - 开始时间: {job_start_time}")
 
-            # 5. 在Flask上下文中处理
-            with app.app_context():
-                # 处理图片
-                process_table_images_real(
-                    job_id=job_id,
-                    pdf_folder=pdf_folder,
-                    image_paths=image_paths,  # 传递所有图片
-                    table_type=table_type,
-                    bank_name=bank_name,
-                    progress_tracker=progress_tracker,
-                    skipped_images=[],  # 传递空数组
-                    existing_sheets=None
-                )
+            # ✅ 4. 核心：使用优化后的图片处理函数（带实时进度更新）
+            if total_new_images > 0:
 
-            # 6. 最终状态更新 - 使用正确的计数
+                images_processed = 0
+                tables_added = 0
+                success = True
+                errors = []
+
+                # ✅ 关键修复：遍历每张图片，但通过定时检查控制流程
+                for i, image_path in enumerate(images_to_process):
+                    try:
+                        image_name = os.path.basename(image_path)
+                        current_processed = i + 1
+                        progress_percentage = int((current_processed / total_new_images) * 100)
+
+                        # ✅ 1. 立即更新状态
+                        self.update_job_status(job_id, {
+                            "status": "processing",
+                            "progress": str(progress_percentage),
+                            "progress_percentage": progress_percentage,
+                            "message": f"正在处理第 {current_processed}/{total_new_images} 张图片: {image_name}",
+                            "processed_images": str(current_processed),
+                            "total_images": str(total_new_images),
+                            "skipped_images": str(total_skipped_images),
+                            "current_image": image_name,
+                            "current_image_index": str(current_processed),
+                            "current_image_name": image_name
+                        })
+
+                        # ✅ 2. 处理图片，不延迟
+                        try:
+                            from backend.api.convert.table_processor import process_single_table_image
+
+                            # 异步处理图片（不阻塞主线程）
+                            result = process_single_table_image(
+                                pdf_folder=pdf_folder,
+                                image_path=image_path,
+                                table_type=table_type,
+                                bank_name=bank_name
+                            )
+
+                            if result.get("success", False):
+                                images_processed += 1
+                                if "tables" in result and len(result["tables"]) > 0:
+                                    tables_added += len(result["tables"])
+                                print(f"  ✅ 处理成功")
+                            else:
+                                error_msg = result.get("error", "未知错误")
+                                errors.append(f"{image_name}: {error_msg}")
+                                print(f"  ⚠️ 处理失败: {error_msg}")
+
+                        except Exception as img_error:
+                            error_msg = f"图片处理异常: {str(img_error)}"
+                            errors.append(f"{image_name}: {error_msg}")
+                            print(f"  ❌ 处理异常: {img_error}")
+
+                    except Exception as loop_error:
+                        print(f"❌ 图片处理循环异常: {loop_error}")
+                        import traceback
+                        traceback.print_exc()
+                        continue
+
+                # 处理结果汇总
+                processing_result = {
+                    "success": success and len(errors) == 0,
+                    "images_processed": images_processed,
+                    "tables_added": tables_added,
+                    "need_generate_excel": images_processed > 0 or total_skipped_images > 0,
+                    "excel_exists": False,
+                    "next_action": "generate_excel" if images_processed > 0 else "skip",
+                    "errors": errors
+                }
+            else:
+                print(f"ℹ️ 没有新图片需要处理")
+                # 直接进入Excel生成阶段
+                processing_result = {
+                    "success": True,
+                    "images_processed": 0,
+                    "tables_added": 0,
+                    "need_generate_excel": True,  # 即使没有新图片，也可能需要生成Excel
+                    "excel_exists": False
+                }
+
+            # ✅ 5. 生成Excel文件
+            excel_generated = False
+            excel_path = ""
+
+            try:
+                # 更新状态：开始生成Excel
+                self.update_job_status(job_id, {
+                    "status": "generating_excel",
+                    "progress": "95",
+                    "message": "正在生成Excel文件...",
+                    "processed_images": str(total_new_images),
+                    "current_image": "正在生成Excel"
+                })
+
+                # ✅ 关键：获取PDF聚合器并生成Excel
+                aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+
+                if len(aggregator) > 0:
+                    print(f"📊 聚合器中有 {len(aggregator)} 个表格需要保存")
+
+                    # 生成Excel
+                    success, excel_path, error_msg = pdf_aggregator_manager.finalize_pdf(
+                        pdf_folder=pdf_folder,
+                        output_dir=EXCEL_DATA_DIR,
+                        force=False,
+                        metadata_list=[]
+                    )
+
+                    if success and excel_path and os.path.exists(excel_path):
+                        excel_generated = True
+                        file_size = os.path.getsize(excel_path)
+                    else:
+                        print(f"❌ Excel文件生成失败: {error_msg}")
+                else:
+                    print(f"⚠️ 聚合器中没有表格数据")
+
+                    # 检查是否已有Excel文件
+                    import glob
+                    excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
+                    if os.path.exists(excel_dir):
+                        excel_files = glob.glob(os.path.join(excel_dir, "*.xlsx"))
+                        if excel_files:
+                            existing_excel_path = excel_files[0]
+                            if os.path.getsize(existing_excel_path) > 0:
+                                excel_generated = True
+                                excel_path = existing_excel_path
+                                print(f"✅ 使用现有Excel文件: {excel_path}")
+                            else:
+                                print(f"⚠️ 现有Excel文件为空: {existing_excel_path}")
+                        else:
+                            print(f"⚠️ 没有找到Excel文件")
+                    else:
+                        print(f"⚠️ Excel目录不存在: {excel_dir}")
+
+            except Exception as excel_error:
+                print(f"❌ 生成Excel异常: {excel_error}")
+                import traceback
+                traceback.print_exc()
+                excel_generated = False
+
+            # ✅ 6. 最终状态更新
             duration = time.time() - task_start_time
-            self.update_job_status(job_id, {
-                "status": "completed",
-                "progress": "100",
-                "message": f"任务完成。处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片，已生成Excel文件",
+            final_status = "completed" if excel_generated else "failed"
+            final_message = (
+                f"任务完成。处理 {total_new_images} 张新图片，跳过 {total_skipped_images} 张已处理图片"
+                if excel_generated else
+                f"任务失败。处理了 {total_new_images} 张图片，但生成Excel失败"
+            )
+
+            # 记录任务详细信息
+            task_details = {
+                "status": final_status,
+                "progress": "100" if excel_generated else "0",
+                "progress_percentage": 100 if excel_generated else 0,
+                "message": final_message,
                 "completed_at": datetime.now().isoformat(),
                 "duration": f"{duration:.2f}秒",
-                "total_processed": str(total_processed),  # 总处理数
-                "total_images": str(total_processed),  # 总图片数
-                "processed_images": str(total_new_images),  # 新处理图片数
-                "skipped_images": str(total_skipped_images),  # 跳过图片数
-                "excel_generated": "true",
-                # ✅ 包含原始文件名
+                "total_processed": str(total_processed),
+                "total_images": str(total_processed),
+                "processed_images": str(total_new_images),
+                "skipped_images": str(total_skipped_images),
+                "excel_generated": str(excel_generated).lower(),
+                "excel_path": excel_path if excel_generated else "",
                 "original_filename": original_filename,
                 "db_filename": pdf_folder,
-                "task_start_time": job_start_time
-            })
+                "task_start_time": job_start_time,
+                "processing_summary": {
+                    "total_images": len(image_paths),
+                    "new_images_processed": total_new_images,
+                    "skipped_images": total_skipped_images,
+                    "aggregator_tables": len(pdf_aggregator_manager.get_aggregator(pdf_folder,
+                                                                                   bank_name)) if 'pdf_aggregator_manager' in locals() else 0,
+                    "excel_created": excel_generated,
+                    "processing_time": f"{duration:.2f}秒",
+                    "images_per_second": f"{total_new_images / duration:.2f}" if duration > 0 else "0"
+                }
+            }
 
-            print(f"✅ 任务处理完成: {job_id}")
-            print(f"⏱️ 耗时: {duration:.2f}秒")
-            print(f"📁 原始文件名: {original_filename}")
+            # 如果有错误信息，也记录下来
+            if 'errors' in locals() and errors:
+                task_details["errors"] = errors
 
-            return True
+            self.update_job_status(job_id, task_details)
+
+            return excel_generated
 
         except Exception as e:
             print(f"❌ 任务处理异常: {e}")
             import traceback
             traceback.print_exc()
 
-            # 更新为失败状态
+            # 异常时更新状态
             try:
                 self.update_job_status(job_id, {
                     "status": "failed",
                     "progress": "0",
-                    "message": f"任务失败: {str(e)}",
+                    "message": f"任务处理异常: {str(e)}",
                     "error": str(e),
                     "completed_at": datetime.now().isoformat(),
                     "original_filename": original_filename if 'original_filename' in locals() else pdf_folder,
-                    "db_filename": pdf_folder,
-                    "task_start_time": job_start_time if 'job_start_time' in locals() else datetime.now().isoformat()
+                    "db_filename": pdf_folder
                 })
             except:
                 pass

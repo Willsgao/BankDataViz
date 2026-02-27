@@ -300,7 +300,6 @@
 
 
 
-
 <script setup>
 // 导入组件
 import { ref, computed, watch } from 'vue'
@@ -560,29 +559,6 @@ const processingFiles = computed(() => {
 })
 
 
-// 分组：已完成（进度100% 或 状态为 completed/success）
-const completedFiles000 = computed(() => {
-  return props.otherPdfs.filter(pdf => {
-    const diskName = pdf.disk_name
-
-    // 条件1：进度为100%
-    if (getFileProgress(diskName) === 100) {
-      return true
-    }
-
-    // 条件2：状态为 completed 或 success
-    const parsingData = props.parsingProgressMap[diskName]
-    const persistentData = props.persistentFileStatus[diskName]
-
-    return parsingData?.status === 'completed' ||
-           parsingData?.status === 'success' ||
-           persistentData?.status === 'completed' ||
-           persistentData?.status === 'success'
-  })
-})
-
-
-
 // 分组：待处理（进度<=20% 且 不在处理中）
 const pendingFiles = computed(() => {
   return props.otherPdfs.filter(pdf => {
@@ -598,7 +574,6 @@ const pendingFiles = computed(() => {
     return progress <= 20
   })
 })
-
 
 
 // 简化版本，只使用后端实际返回的字段
@@ -668,7 +643,7 @@ const getProcessingStatus = (diskName) => {
   // 5. 处理中状态 - 使用后端返回的progress字段
   if (progressData && progressData.progress > 0 && progressData.progress < 100) {
     if (actualTotal > 0) {
-      return `处理中 ${processed}+${skipped}/${actualTotal}`
+      return `处理中 ${processed}/${actualTotal}`
     }
     return `处理中 ${progressData.progress}%`
   }
@@ -676,7 +651,7 @@ const getProcessingStatus = (diskName) => {
   // 6. 已完成状态
   if (progressData?.progress === 100 || progressData?.status === 'completed' || progressData?.status === 'success') {
     if (actualTotal > 0) {
-      return `${processed}+${skipped}/${actualTotal}`
+      return `${processed}/${actualTotal}`
     }
     return '已完成'
   }
@@ -700,102 +675,6 @@ const getProcessingStatus = (diskName) => {
 
   return '待处理'
 }
-
-
-const getProcessingStatus00000 = (diskName) => {
-  // 🔴 1. 优先检查持久化状态（长期保存的状态）
-  const persistentStatus = props.persistentFileStatus?.[diskName]
-  if (persistentStatus && (persistentStatus.status === 'completed' || persistentStatus.status === 'success')) {
-    console.log('📁 使用持久化状态:', persistentStatus)
-
-    // 尝试从持久化状态中获取进度显示
-    if (persistentStatus.progress_display) {
-      return persistentStatus.progress_display
-    }
-
-    // 尝试从消息中提取
-    if (persistentStatus.message) {
-      const newMatch = persistentStatus.message.match(/处理 (\d+) 张新图片/)
-      const skipMatch = persistentStatus.message.match(/跳过 (\d+) 张/)
-      if (newMatch && skipMatch) {
-        const newProcessed = parseInt(newMatch[1])
-        const skipped = parseInt(skipMatch[1])
-        return `${newProcessed}+${skipped}/${newProcessed + skipped}`
-      }
-    }
-
-    // 如果都没有，显示"已完成"
-    return '已完成'
-  }
-
-  // 2. 检查实时进度数据
-  const progressData = props.parsingProgressMap[diskName]
-  const hasConverted = getHasConvertCache.value(diskName)
-  const hasScreened = props.hasScreenedImages[diskName]
-
-  // 🔴 简化调试信息
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 getProcessingStatus 调用:', {
-      diskName,
-      hasPersistent: !!persistentStatus,
-      hasProgressData: !!progressData
-    })
-  }
-
-  // 3. 如果有进度显示格式，直接使用
-  if (progressData?.progress_display) {
-    return progressData.progress_display
-  }
-
-  // 4. ✅ 修复：只使用后端实际返回的字段
-  const processed = progressData?.processed_images || 0
-  const skipped = progressData?.skipped_images || 0
-  const totalImages = progressData?.total_images || 0
-
-  // 计算实际总数
-  const actualTotal = totalImages > 0 ? totalImages : (processed + skipped)
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('📊 后端字段值:', { processed, skipped, totalImages, actualTotal })
-  }
-
-  // 5. 处理中状态 - 使用后端返回的progress字段
-  if (progressData && progressData.progress > 0 && progressData.progress < 100) {
-    if (actualTotal > 0) {
-      return `处理中 ${processed}+${skipped}/${actualTotal}`
-    }
-    return `处理中 ${progressData.progress}%`
-  }
-
-  // 6. 已完成状态
-  if (progressData?.progress === 100 || progressData?.status === 'completed' || progressData?.status === 'success') {
-    if (actualTotal > 0) {
-      return `${processed}+${skipped}/${actualTotal}`
-    }
-    return '已完成'
-  }
-
-  // 7. 失败状态
-  if (progressData?.status === 'failed' || progressData?.status === 'exception') {
-    return '处理失败'
-  }
-
-  // 8. 如果已有持久化状态但状态不确定
-  if (persistentStatus) {
-    return persistentStatus.status === 'completed' ? '已完成' : '处理中'
-  }
-
-  // 9. 其他状态
-  if (hasScreened) {
-    return '已筛选'
-  } else if (hasConverted) {
-    return '已转图'
-  }
-
-  return '待处理'
-}
-
-
 
 
 // 获取进度百分比
@@ -810,7 +689,6 @@ const getProcessingProgress = (diskName) => {
 }
 
 
-
 // 检查文件是否正在处理中（不可删除）
 const isProcessing = (diskName) => {
   return props.convertingObj[diskName] ||
@@ -818,25 +696,6 @@ const isProcessing = (diskName) => {
          props.cropLoading[diskName]
 }
 
-
-
-// 分组：处理中（进度>20%且<100%）
-const processingFiles0000 = computed(() => {
-  return props.otherPdfs.filter(pdf => {
-    const diskName = pdf.disk_name
-    const progress = getFileProgress(diskName)
-    return progress > 20 && progress < 100
-  })
-})
-
-// 分组：待处理（进度<=20%）
-const pendingFiles0000 = computed(() => {
-  return props.otherPdfs.filter(pdf => {
-    const diskName = pdf.disk_name
-    const progress = getFileProgress(diskName)
-    return progress <= 20
-  })
-})
 
 // 统计数量
 const completedCount = computed(() => {

@@ -586,7 +586,6 @@ class PDFAggregatorManager:
 
             try:
                 from pathlib import Path
-                import os
                 from datetime import datetime
 
                 # 使用EXCEL_DATA_DIR
@@ -1717,11 +1716,6 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
     # ========== 添加入口日志 ==========
     print("\n" + "=" * 80)
     print("🔄 submit_table_processing_task 函数被调用")
-    print(f"📁 PDF文件夹: {pdf_folder}")
-    print(f"📁 过滤表格目录: {filtered_tables_dir}")
-    print(f"👤 请求方法: {request.method}")
-    print(f"📄 内容类型: {request.content_type}")
-    print("=" * 80)
 
     try:
         print(f"📥📥 提交表格处理任务: pdf_folder={pdf_folder}")
@@ -1944,8 +1938,6 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
                     print(f"🔍 回退模式：增量处理检查")
                     print(f"{'=' * 60}")
 
-                    # 提取图片名称
-                    import os
                     image_names = [os.path.basename(img_path) for img_path in image_paths]
 
                     images_to_process = image_paths
@@ -2003,11 +1995,6 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
                         print(f"{'=' * 60}")
 
                         try:
-                            # 检查是否有现有Excel文件
-                            # from backend.api.convert.table_processor import EXCEL_DATA_DIR
-                            # import os
-                            # from datetime import datetime
-
                             excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
                             if os.path.exists(excel_dir):
                                 import glob
@@ -2432,11 +2419,6 @@ def process_images_with_real_time_updates(
         "errors": List[str]             # 错误信息列表
     }
     """
-    import os
-    import time
-    from pathlib import Path
-    from datetime import datetime
-    from typing import Dict, Any, List, Optional, Tuple
 
     start_time = time.time()
 
@@ -2468,13 +2450,6 @@ def process_images_with_real_time_updates(
     }
 
     try:
-        print(f"\n{'=' * 60}")
-        print(f"🎯 重构版图片处理函数启动")
-        print(f"📁 PDF文件夹: {pdf_folder}")
-        print(f"📸 接收图片数: {len(image_paths)}")
-        print(f"🏦 银行名称: {bank_name}")
-        print(f"{'=' * 60}")
-
         # ========== 阶段1：状态检查和初始化 ==========
         print(f"\n🔍 阶段1：状态检查和初始化")
 
@@ -2517,11 +2492,6 @@ def process_images_with_real_time_updates(
             result["details"]["images_filtered"] = len(image_names)
             result["details"]["images_to_process"] = len(images_to_process_names)
             result["details"]["images_skipped"] = len(skipped_images_names)
-
-            print(f"📊 增量处理结果:")
-            print(f"  - 总图片: {len(image_names)}")
-            print(f"  - 待处理: {len(images_to_process_names)}")
-            print(f"  - 已处理: {len(skipped_images_names)} (跳过)")
 
         except Exception as e:
             print(f"⚠️ 增量处理器检查失败: {e}")

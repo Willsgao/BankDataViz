@@ -10,24 +10,31 @@ from contextlib import closing
 from datetime import datetime
 
 # ============ 导入配置 ============
-
+from pathlib import Path
+current_file = Path(__file__).resolve()  # 获取当前文件的绝对路径
+MAIN_ROOT = current_file.parent.parent.parent  # 向上回退3层
 try:
-    from backend.configs.config import (
+    from backend.utils.constants import (
         PROJECT_ROOT_STR,
-        UPLOAD_FOLDER,
-        PNG_OUTPUT_ROOT,
-        EXCEL_OUTPUT_ROOT,
-        DATABASE,  # ✅ 使用 config.py 中的路径
+        UPLOAD_DIR,
+        PNG_OUTPUT_DIR,
+        EXCEL_DATA_DIR,
+        # DATABASE,  # ✅ 使用 config.py 中的路径
+        DATABASE_PATH,
         ALLOWED_EXTENSIONS
     )
+
 except ImportError as e:
     print(f"❌ 无法导入配置: {e}")
     # 回退到默认值（与 config.py 一致）
-    PROJECT_ROOT_STR = os.getcwd()
-    UPLOAD_FOLDER = 'data/backend/static/uploads'
-    PNG_OUTPUT_ROOT = 'data/backend/static/pdf2pngs'
-    EXCEL_OUTPUT_ROOT = 'data/backend/static/excel_data'
-    DATABASE = 'data/database.db'  # ✅ 统一使用这个路径
+    from pathlib import Path
+    # 方法2：使用 pathlib
+    current_file = Path(__file__).resolve()  # 获取当前文件的绝对路径
+    PROJECT_ROOT_STR = current_file.parent.parent.parent  # 向上回退3层
+    UPLOAD_DIR = f'{PROJECT_ROOT_STR}/data/backend/static/uploads'
+    PNG_OUTPUT_DIR = f'{PROJECT_ROOT_STR}/data/backend/static/pdf2pngs'
+    EXCEL_DATA_DIR = f'{PROJECT_ROOT_STR}/data/backend/static/excel_data'
+    DATABASE_PATH = f'{PROJECT_ROOT_STR}/data/database.db'  # ✅ 统一使用这个路径
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 
@@ -61,16 +68,12 @@ class UnifiedDatabaseManager:
     def __init__(self):
         """初始化 - 使用 utils/config.py 中的配置"""
         # ✅ 使用从 config.py 导入的 DATABASE
-        self.db_path = DATABASE
-        # ✅ 使用从 config.py 导入的 UPLOAD_FOLDER
-        self.uploads_dir = UPLOAD_FOLDER
+        self.db_path = DATABASE_PATH
+        self.uploads_dir = UPLOAD_DIR
 
         # 确保目录存在
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         os.makedirs(self.uploads_dir, exist_ok=True)
-
-        print(f"✅ 数据库路径: {self.db_path}")
-        print(f"✅ 上传目录: {self.uploads_dir}")
 
     # ============ 来自 database_manager.py 的方法 ============
     def init_database(self):
@@ -606,7 +609,7 @@ class DatabaseManager(UnifiedDatabaseManager):
         if db_path is not None:
             print(f"⚠️ 注意：DatabaseManager 现在使用 config.py 中的路径")
             print(f"     传入的路径 '{db_path}' 将被忽略")
-            print(f"     实际使用路径: {DATABASE}")
+            print(f"     实际使用路径: {DATABASE_PATH}")
 
         print("⚠️ DatabaseManager 已弃用，请使用 UnifiedDatabaseManager")
         super().__init__()

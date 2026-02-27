@@ -3,7 +3,6 @@
 确保所有模块共享相同的状态
 """
 
-import time
 import logging
 
 logger = logging.getLogger(__name__)

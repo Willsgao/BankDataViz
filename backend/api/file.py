@@ -265,10 +265,6 @@ def get_file_by_id(file_id):
         disk_name = file_info["disk_name"]
         PDF_DIR = Path(MAIN_ROOT) / UPLOAD_FOLDER
 
-        # 🔥 调试：打印路径信息
-        print(f"🔍 查找文件路径: {PDF_DIR}")
-        print(f"🔍 文件名: {disk_name}")
-
         # 检查文件是否存在
         file_path = PDF_DIR / disk_name
         print(f"🔍 完整文件路径: {file_path}")
@@ -335,8 +331,6 @@ def get_excel_sheets(file_id):
                         return jsonify({"excel_files": []})
                 else:
                     return jsonify({"excel_files": []})
-
-        print(f"✅ Excel目录存在: {excel_dir}")
 
         # 3. 查找目录中的所有Excel文件
         excel_files = []

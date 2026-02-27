@@ -1,17 +1,15 @@
 # -*- coding:utf-8 -*-
 
-import os
 from pathlib import Path
 
-MAIN_ROOT = os.getcwd()
-print("MAIN_ROOT:, MAIN_ROOT", MAIN_ROOT)
-
+# 方法2：使用 pathlib
+current_file = Path(__file__).resolve()  # 获取当前文件的绝对路径
+MAIN_ROOT = current_file.parent.parent.parent  # 向上回退3层
 
 # 🔥 新增：正确计算项目根目录
 def get_project_root():
     """获取项目根目录"""
     try:
-        # constants.py 在 backend/utils/constants.py
         # 向上3级：constants.py → utils → backend → 项目根目录
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent.parent
@@ -64,7 +62,6 @@ PNG_OUTPUT_ROOT = r'data/backend/static/pdf2pngs'
 EXCEL_OUTPUT_ROOT = r'data/backend/static/excel_data'
 JOINED_TABLES_ROOT = r'data/backend/static/joined_tables'
 DATABASE = r'data/database.db'
-# DATABASE = 'data/backend/database.db'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 # ⭐⭐⭐ 新增：完整的静态文件路径常量 ⭐⭐⭐
