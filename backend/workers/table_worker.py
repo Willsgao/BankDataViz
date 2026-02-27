@@ -23,7 +23,6 @@ sys.path.insert(0, str(project_root))
 # ==================================================
 
 from backend.utils.redis_util import redis_hset_compatible
-from backend.models.unified_db import UnifiedDatabaseManager
 
 try:
     # 使用工厂模式创建Flask应用

@@ -435,20 +435,6 @@ const imageStats = computed(() => {
 })
 
 
-const getProgressPercentage0000 = (task) => {
-  if (task.progress !== undefined) return task.progress
-  if (task.percentage !== undefined) return task.percentage
-
-  // 从图片处理数量计算
-  if (task.processed_images !== undefined && task.total_images !== undefined) {
-    if (task.total_images > 0) {
-      return Math.round((task.processed_images / task.total_images) * 100)
-    }
-  }
-
-  return 0
-}
-
 const getProgressStatus = (task) => {
   const status = task.status || task.original_status
   if (status === 'processing') return ''
