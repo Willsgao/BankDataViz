@@ -1468,122 +1468,6 @@ class TableProcessingWorker:
             # 短暂等待后继续检查
             time.sleep(check_interval)
 
-
-
-    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
-        """处理单个表格处理任务 - 重构版：主流程清晰"""
-
-        # 提取任务参数
-        job_id = task_data.get("job_id", "")
-        pdf_folder = task_data.get("pdf_folder", "")
-        image_paths = task_data.get("image_paths", [])
-        table_type = task_data.get("table_type", "financial")
-        bank_name = task_data.get("bank_name", "")
-
-        if not job_id or not pdf_folder or not image_paths:
-            print(f"❌ 任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}")
-            self.update_job_status(job_id, {
-                "status": "failed",
-                "progress": "0",
-                "message": f"任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}"
-            })
-            return False
-
-        self.current_job = job_id
-        task_start_time = time.time()
-
-        try:
-            # 阶段1: 获取原始文件名
-            print(f"\n{'=' * 60}")
-            print(f"阶段1: 获取原始文件名")
-            print(f"{'=' * 60}")
-
-            original_filename, db_connection_success = self._get_original_filename(pdf_folder)
-
-            # 阶段2: 增量过滤图片
-            print(f"\n{'=' * 60}")
-            print(f"阶段2: 增量过滤图片")
-            print(f"{'=' * 60}")
-
-            filter_result = self._filter_images_incrementally(pdf_folder, image_paths)
-
-            total_all_images = len(image_paths)
-            total_skipped_images = filter_result.get("total_skipped_images", 0)
-            total_new_images = filter_result.get("total_new_images", 0)
-            images_to_process = filter_result.get("images_to_process", [])
-            skipped_images_names = filter_result.get("skipped_images_names", [])
-
-            print(f"📊 过滤结果: 总{total_all_images}张, 新{total_new_images}张, 跳过{total_skipped_images}张")
-
-            # 阶段3: 初始化任务状态
-            print(f"\n{'=' * 60}")
-            print(f"阶段3: 初始化任务状态")
-            print(f"{'=' * 60}")
-
-            self._initialize_job_status(
-                job_id, pdf_folder, original_filename, db_connection_success,
-                total_all_images, total_skipped_images, total_new_images
-            )
-
-            # 阶段4: 处理图片
-            print(f"\n{'=' * 60}")
-            print(f"阶段4: 处理图片")
-            print(f"{'=' * 60}")
-
-            processing_result = {}
-            if total_new_images > 0:
-                processing_result = self._process_all_images(
-                    job_id, pdf_folder, images_to_process,
-                    total_skipped_images, total_all_images,
-                    table_type, bank_name
-                )
-            else:
-                print("ℹ️ 没有新图片需要处理")
-                processing_result = {
-                    "success": True,
-                    "images_processed": 0,
-                    "tables_added": 0,
-                    "errors": []
-                }
-
-            images_processed = processing_result.get("images_processed", 0)
-            tables_added = processing_result.get("tables_added", 0)
-            errors = processing_result.get("errors", [])
-
-            # 阶段5: 生成Excel文件
-            print(f"\n{'=' * 60}")
-            print(f"阶段5: 生成Excel文件")
-            print(f"{'=' * 60}")
-
-            excel_generated, excel_path = self._generate_excel_file(
-                job_id, pdf_folder, bank_name,
-                total_skipped_images, images_processed
-            )
-
-            # 阶段6: 更新最终状态
-            print(f"\n{'=' * 60}")
-            print(f"阶段6: 更新最终状态")
-            print(f"{'=' * 60}")
-
-            self._update_final_status(
-                job_id, pdf_folder, original_filename,
-                excel_generated, excel_path,
-                total_all_images, total_skipped_images, images_processed,
-                task_start_time, errors
-            )
-
-            print(f"\n✅ 任务处理完成: {'成功' if excel_generated else '失败'}")
-            return excel_generated
-
-        except Exception as e:
-            print(f"❌ 任务处理异常: {e}")
-            import traceback
-            traceback.print_exc()
-
-            # 异常处理
-            self._handle_task_exception(job_id, pdf_folder, e)
-            return False
-
     # ========== 提取的功能函数 ==========
 
     def _get_original_filename(self, pdf_folder: str) -> Tuple[str, bool]:
@@ -1961,7 +1845,7 @@ class TableProcessingWorker:
             "completed_at": datetime.now().isoformat(),
             "duration": f"{duration:.2f}秒",
             "total_images": str(total_all_images),
-            "processed_images": str(total_processed_total),
+            "processed_images": str(total_new_processed),
             "skipped_images": str(total_skipped),
             "new_processed": str(total_new_processed),
             "excel_generated": str(excel_generated).lower(),
@@ -1990,6 +1874,124 @@ class TableProcessingWorker:
             })
         except:
             pass
+
+
+
+
+    def process_single_task(self, task_data: Dict[str, Any]) -> bool:
+        """处理单个表格处理任务 - 重构版：主流程清晰"""
+
+        # 提取任务参数
+        job_id = task_data.get("job_id", "")
+        pdf_folder = task_data.get("pdf_folder", "")
+        image_paths = task_data.get("image_paths", [])
+        table_type = task_data.get("table_type", "financial")
+        bank_name = task_data.get("bank_name", "")
+
+        if not job_id or not pdf_folder or not image_paths:
+            print(f"❌ 任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}")
+            self.update_job_status(job_id, {
+                "status": "failed",
+                "progress": "0",
+                "message": f"任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}"
+            })
+            return False
+
+        self.current_job = job_id
+        task_start_time = time.time()
+
+        try:
+            # 阶段1: 获取原始文件名
+            print(f"\n{'=' * 60}")
+            print(f"阶段1: 获取原始文件名")
+            print(f"{'=' * 60}")
+
+            original_filename, db_connection_success = self._get_original_filename(pdf_folder)
+
+            # 阶段2: 增量过滤图片
+            print(f"\n{'=' * 60}")
+            print(f"阶段2: 增量过滤图片")
+            print(f"{'=' * 60}")
+
+            filter_result = self._filter_images_incrementally(pdf_folder, image_paths)
+
+            total_all_images = len(image_paths)
+            total_skipped_images = filter_result.get("total_skipped_images", 0)
+            total_new_images = filter_result.get("total_new_images", 0)
+            images_to_process = filter_result.get("images_to_process", [])
+            skipped_images_names = filter_result.get("skipped_images_names", [])
+
+            print(f"📊 过滤结果: 总{total_all_images}张, 新{total_new_images}张, 跳过{total_skipped_images}张")
+
+            # 阶段3: 初始化任务状态
+            print(f"\n{'=' * 60}")
+            print(f"阶段3: 初始化任务状态")
+            print(f"{'=' * 60}")
+
+            self._initialize_job_status(
+                job_id, pdf_folder, original_filename, db_connection_success,
+                total_all_images, total_skipped_images, total_new_images
+            )
+
+            # 阶段4: 处理图片
+            print(f"\n{'=' * 60}")
+            print(f"阶段4: 处理图片")
+            print(f"{'=' * 60}")
+
+            processing_result = {}
+            if total_new_images > 0:
+                processing_result = self._process_all_images(
+                    job_id, pdf_folder, images_to_process,
+                    total_skipped_images, total_all_images,
+                    table_type, bank_name
+                )
+            else:
+                print("ℹ️ 没有新图片需要处理")
+                processing_result = {
+                    "success": True,
+                    "images_processed": 0,
+                    "tables_added": 0,
+                    "errors": []
+                }
+
+            images_processed = processing_result.get("images_processed", 0)
+            tables_added = processing_result.get("tables_added", 0)
+            errors = processing_result.get("errors", [])
+
+            # 阶段5: 生成Excel文件
+            print(f"\n{'=' * 60}")
+            print(f"阶段5: 生成Excel文件")
+            print(f"{'=' * 60}")
+
+            excel_generated, excel_path = self._generate_excel_file(
+                job_id, pdf_folder, bank_name,
+                total_skipped_images, images_processed
+            )
+
+            # 阶段6: 更新最终状态
+            print(f"\n{'=' * 60}")
+            print(f"阶段6: 更新最终状态")
+            print(f"{'=' * 60}")
+
+            self._update_final_status(
+                job_id, pdf_folder, original_filename,
+                excel_generated, excel_path,
+                total_all_images, total_skipped_images, images_processed,
+                task_start_time, errors
+            )
+
+            print(f"\n✅ 任务处理完成: {'成功' if excel_generated else '失败'}")
+            return excel_generated
+
+        except Exception as e:
+            print(f"❌ 任务处理异常: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # 异常处理
+            self._handle_task_exception(job_id, pdf_folder, e)
+            return False
+
 
 
     def run(self):
@@ -2068,48 +2070,6 @@ class TableProcessingWorker:
                 time.sleep(10)
 
         print(f"🛑 Worker {self.worker_id} 已停止")
-
-
-
-def main():
-    """主函数"""
-    import argparse
-
-    parser = argparse.ArgumentParser(description='表格处理Worker')
-    parser.add_argument('--id', type=str, help='Worker ID')
-    parser.add_argument('--count', type=int, default=1, help='启动Worker数量')
-    args = parser.parse_args()
-
-    workers = []
-
-    # 启动指定数量的Worker
-    for i in range(args.count):
-        worker_id = args.id or f"worker_{i + 1}_{int(time.time())}"
-        worker = TableProcessingWorker(worker_id)
-
-        if args.count > 1:
-            # 启动多个Worker线程
-            thread = threading.Thread(
-                target=worker.run,
-                name=f"TableWorker-{worker_id}",
-                daemon=True
-            )
-
-            thread.start()
-            workers.append((worker, thread))
-        else:
-            # 单Worker直接运行
-            worker.run()
-
-    # 等待所有Worker线程
-    if args.count > 1:
-        try:
-            for worker, thread in workers:
-                thread.join()
-        except KeyboardInterrupt:
-            print("\n🛑 收到中断信号，停止所有Worker...")
-            for worker, _ in workers:
-                worker.running = False
 
 
 
