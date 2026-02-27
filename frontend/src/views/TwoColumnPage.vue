@@ -1465,6 +1465,7 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
     const eventSource = new EventSource(`/api/table-progress-sse/${jobId}`)
 
     // 监听消息
+    // 监听消息
     eventSource.onmessage = (event) => {
       try {
         const progressData = JSON.parse(event.data)
@@ -1953,17 +1954,17 @@ const fetchAllParsingTasks = async () => {
 }
 
 
-
 // 新增辅助函数：处理单个任务数据
 function processTaskData(key, taskData, tasks, processedJobIds) {
-  // ✅ 内联定义安全日期转换函数
+  // ✅ 内联定义安全日期转换函数 - 修复：返回当前时间而不是1970年
   const safeToISOString = (dateValue) => {
+    // ✅ 修复：如果是无效值，返回当前时间
     if (!dateValue ||
         dateValue === "None" ||
         dateValue === "null" ||
         dateValue === "undefined" ||
         dateValue === "") {
-      return "1970-01-01T00:00:00.000Z";
+      return new Date().toISOString();  // ✅ 返回当前时间
     }
 
     try {
@@ -1987,6 +1988,10 @@ function processTaskData(key, taskData, tasks, processedJobIds) {
       }
       // 如果是ISO字符串
       else if (typeof dateValue === 'string') {
+        // ✅ 新增：检查是否为1970年时间，如果是也返回当前时间
+        if (dateValue.includes("1970-01-01")) {
+          return new Date().toISOString();  // ✅ 返回当前时间
+        }
         date = new Date(dateValue);
       }
       // 其他情况
@@ -1996,13 +2001,18 @@ function processTaskData(key, taskData, tasks, processedJobIds) {
 
       // 验证日期是否有效
       if (isNaN(date.getTime())) {
-        return "1970-01-01T00:00:00.000Z";
+        return new Date().toISOString();  // ✅ 返回当前时间
+      }
+
+      // 检查是否是1970年
+      if (date.getFullYear() === 1970) {
+        return new Date().toISOString();  // ✅ 返回当前时间
       }
 
       return date.toISOString();
     } catch (e) {
       console.error("日期转换错误:", e, "原始值:", dateValue);
-      return "1970-01-01T00:00:00.000Z";
+      return new Date().toISOString();  // ✅ 返回当前时间
     }
   };
 
@@ -2074,24 +2084,82 @@ function processTaskData(key, taskData, tasks, processedJobIds) {
   }
 
   // ✅ 修复：统一时间字段，使用安全的日期转换
-  if (!task.started_at) {
+  if (!task.started_at || task.started_at === "1970-01-01T00:00:00.000Z") {
     if (task.timestamp) {
-      // 使用安全的日期转换函数
-      task.started_at = safeToISOString(task.timestamp);
-    } else if (task.start_time) {
-      // 同样需要安全检查
-      task.started_at = safeToISOString(task.start_time);
+      const startedAt = safeToISOString(task.timestamp);
+      // 如果是有效时间，使用它
+      if (startedAt && !startedAt.includes("1970-01-01")) {
+        task.started_at = startedAt;
+      } else {
+        // 否则使用当前时间
+        task.started_at = new Date().toISOString();
+      }
     } else {
+      // 直接使用当前时间
+      task.started_at = new Date().toISOString();
+    }
+  } else {
+    // 如果已经有时间但可能是1970年，检查并修复
+    const existingTime = safeToISOString(task.started_at);
+    if (existingTime.includes("1970-01-01")) {
       task.started_at = new Date().toISOString();
     }
   }
 
   // ✅ 修复：确保其他时间字段也是安全的
-  ['completed_at', 'last_updated', 'task_start_time'].forEach(field => {
+  ['completed_at', 'last_updated', 'task_start_time', 'created_at'].forEach(field => {
     if (task[field]) {
-      task[field] = safeToISOString(task[field]);
+      const safeTime = safeToISOString(task[field]);
+      // 如果返回的是1970年，使用当前时间
+      if (safeTime && !safeTime.includes("1970-01-01")) {
+        task[field] = safeTime;
+      } else {
+        // 对于 completed_at，只有已完成的任务才需要设置
+        if (field === 'completed_at' && (task.status === 'completed' || task.status === 'success')) {
+          task[field] = new Date().toISOString();
+        } else if (field !== 'completed_at') {
+          task[field] = new Date().toISOString();
+        }
+      }
+    } else {
+      // 如果字段不存在，根据情况设置
+      if (field === 'created_at') {
+        task[field] = new Date().toISOString(); // 创建时间总是需要的
+      } else if (field === 'last_updated') {
+        task[field] = new Date().toISOString(); // 最后更新时间总是需要的
+      }
     }
   });
+
+  // ✅ 确保所有任务都有创建时间
+  if (!task.created_at) {
+    task.created_at = new Date().toISOString();
+  }
+
+  // ✅ 修复：计算正确的图片处理数量
+  const processed = parseInt(task.processed_images) || 0;
+  const skipped = parseInt(task.skipped_images) || 0;
+  const total = parseInt(task.total_images) || (processed + skipped);
+
+  // 计算已处理总数
+  const totalProcessed = processed + skipped;
+
+  // ✅ 修复：任务完成时强制设置进度为100%
+  if (task.status === 'completed' || task.status === 'success') {
+    task.progress = 100;
+    task.percentage = 100;
+  } else if (total > 0) {
+    // 计算实时进度
+    const progress = Math.round((totalProcessed / total) * 100);
+    task.progress = progress;
+    task.percentage = progress;
+  } else {
+    task.progress = task.progress || 0;
+    task.percentage = task.percentage || 0;
+  }
+
+  // ✅ 添加图片处理显示格式
+  task.progress_display = `${totalProcessed}/${total}`;
 
   // ✅ 为任务添加文件信息
   if (task.pdf_folder || task.pdfDiskName) {

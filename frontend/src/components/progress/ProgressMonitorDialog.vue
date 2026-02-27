@@ -398,42 +398,19 @@ const getStatusText = (task) => {
   return statusMap[status] || status
 }
 
-// 修改 getProgressPercentage 函数
 const getProgressPercentage = (task) => {
   if (task.progress !== undefined) return task.progress
   if (task.percentage !== undefined) return task.percentage
 
-  // ✅ 修复：从图片处理数量计算，包括跳过的图片
-  if (task.processed_images !== undefined || task.skipped_images !== undefined || task.total_images !== undefined) {
-    const processed = parseInt(task.processed_images) || 0
-    const skipped = parseInt(task.skipped_images) || 0
-    const total = parseInt(task.total_images) || (processed + skipped)
-
-    if (total > 0) {
-      // ✅ 已处理总数 = 新处理 + 跳过
-      const totalProcessed = processed + skipped
-      return Math.round((totalProcessed / total) * 100)
+  // 从图片处理数量计算
+  if (task.processed_images !== undefined && task.total_images !== undefined) {
+    if (task.total_images > 0) {
+      return Math.round((task.processed_images / task.total_images) * 100)
     }
   }
 
   return 0
 }
-
-// 修改图片处理统计显示逻辑
-const imageStats = computed(() => {
-  return (task) => {
-    const processed = parseInt(task.processed_images) || 0
-    const skipped = parseInt(task.skipped_images) || 0
-    const total = parseInt(task.total_images) || (processed + skipped)
-
-    // ✅ 正确显示：总处理数/总数
-    if (total > 0) {
-      return `${processed + skipped}/${total}`
-    }
-    return '-'
-  }
-})
-
 
 const getProgressStatus = (task) => {
   const status = task.status || task.original_status
@@ -467,67 +444,31 @@ const getElapsedTime = (task) => {
 }
 
 
-// 智能格式化：根据时间远近决定显示格式
+// 修改格式化时间函数
 const formatDateTime = (timestamp) => {
   if (!timestamp) return '-'
-
   try {
     const date = new Date(timestamp)
 
+    // ✅ 检查是否是有效的日期
     if (isNaN(date.getTime())) {
       return '无效时间'
     }
 
+    // ✅ 检查是否是1970年（无效时间）
     if (date.getFullYear() === 1970 && date.getMonth() === 0 && date.getDate() === 1) {
       return '未记录'
     }
 
-    const now = new Date()
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) {
-      // 今天：只显示时间
-      return `今天 ${date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })}`
-    } else if (diffDays === 1) {
-      // 昨天
-      return `昨天 ${date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })}`
-    } else if (diffDays < 7) {
-      // 一周内：显示星期几
-      const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-      const weekday = weekdays[date.getDay()]
-      return `${weekday} ${date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })}`
-    } else if (date.getFullYear() === now.getFullYear()) {
-      // 今年：显示月-日 时:分:秒
-      return date.toLocaleString('zh-CN', {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
-    } else {
-      // 跨年：显示完整的年月日
-      return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
-    }
+    // ✅ 修复：添加年份显示
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',      // ✅ 添加年份
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
   } catch (e) {
     console.error('时间格式化错误:', e, timestamp)
     return '时间错误'
