@@ -6,7 +6,7 @@ GET /api/layout/<pdf_folder>/<png_name>
 from pathlib import Path
 from flask import Blueprint, jsonify
 from backend.utils.constants import PNG_OUTPUT_ROOT
-from backend.service.layout_service import layout_detect
+from backend.services.layout_service import layout_detect
 
 layout_bp = Blueprint('layout', __name__)
 

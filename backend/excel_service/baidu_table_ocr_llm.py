@@ -1,14 +1,12 @@
+
 import base64
 import urllib
 import requests
-import sys
 import os
 import json
-from typing import Dict, Any, Optional
-
+from typing import Dict, Any
 
 from backend.utils.constants import BAIDU_OCR_CONFIG, BAIDU_APP_CONFIG
-
 
 
 class TableOCRService:

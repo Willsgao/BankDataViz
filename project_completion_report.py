@@ -53,8 +53,8 @@ def generate_completion_report():
                 "files_migrated": [
                     "backend/api/file.py",
                     "backend/api/search_save_services.py",
-                    "backend/service/non_financial_table_service.py",
-                    "backend/service/table_llm_service.py"
+                    "backend/services/non_financial_table_service.py",
+                    "backend/services/table_llm_service.py"
                 ],
                 "description": "安全迁移所有核心文件"
             }

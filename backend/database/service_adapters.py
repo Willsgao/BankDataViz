@@ -5,8 +5,6 @@
 import os
 import sqlite3
 from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Any, Optional
 import hashlib
 import uuid
 
@@ -87,7 +85,7 @@ class FileUploadServiceAdapter:
     def extract_bank_name(self, filename):
         """完全复制原始方法"""
         try:
-            from backend.src.services.table_processor.get_bank_name import SimpleBankNameExtractor
+            from backend.core.table_processor import SimpleBankNameExtractor
             extractor = SimpleBankNameExtractor()
             bank_name = extractor.extract_bank_name(filename)
             return bank_name if bank_name else ""
@@ -328,7 +326,7 @@ class FileUploadServiceAdapter:
         if existing_raw_name != raw_filename:
             ext = os.path.splitext(raw_filename)[1].lower()
             try:
-                from backend.service.file_mapping_service import file_mapping_service
+                from backend.services.file_mapping_service import file_mapping_service
                 file_mapping_service.add_mapping(existing_file_id, raw_filename, ext[1:].lower())
                 print(f"✅ 新文件名映射添加成功")
             except Exception as e:
@@ -375,7 +373,7 @@ class FileUploadServiceAdapter:
         # 添加文件映射
         ext = os.path.splitext(raw_filename)[1].lower()
         try:
-            from backend.service.file_mapping_service import file_mapping_service
+            from backend.services.file_mapping_service import file_mapping_service
             file_mapping_service.add_mapping(result["file_id"], raw_filename, ext[1:].lower())
             print(f"✅ 新文件映射添加成功")
         except Exception as e:

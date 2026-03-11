@@ -161,6 +161,7 @@ class Config:
         os.makedirs(self.SNAPSHOT_ROOT, exist_ok=True)   # 启动即自动建好
 
         # LLM配置（通用）
+        print("self._config:", list(self._config.keys()))
         self.LLM_DEFAULT_BASE_URL = self._config['llm']['defaultBaseUrl']
         self.LLM_DEFAULT_MODEL_ID = self._config['llm']['defaultModelId']
         self.LLM_MAX_TOKENS = self._config['llm']['maxTokens']

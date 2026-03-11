@@ -7,7 +7,7 @@ import sqlite3
 # 添加当前目录到Python路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from backend.service.file_mapping_service import file_mapping_service
+from backend.services.file_mapping_service import file_mapping_service
 from backend.utils.constants import UPLOAD_FOLDER, DATABASE
 
 

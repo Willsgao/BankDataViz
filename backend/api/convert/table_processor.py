@@ -14,16 +14,16 @@ from datetime import datetime
 
 from backend.utils.constants import DATABASE_PATH, FILTERED_TABLES_DIR, EXCEL_DATA_DIR, DATABASE
 from backend.models.unified_db import NewDatabaseManager
-from backend.src.services.table_processor.table_rebuilder import TableReconstructor
-from backend.src.services.table_processor.ocr_gateway import TableOCRService
-from backend.src.services.table_processor.llm_table_structure_parser import EnhancedFinancialTableAnalyzer
+from backend.core.table_processor import TableReconstructor
+from backend.core.table_processor import EnhancedFinancialTableAnalyzer
 
-from backend.src.incremental_processor import incremental_processor
+from backend.excel_service.baidu_table_ocr_llm import TableOCRService
+
+from backend.core.incremental_processor import incremental_processor
 from pathlib import Path
 
 
 # ========== 1. 导入表格处理管道 ==========
-from backend.src.services.table_processor.end_to_end_pipeline import batch_example
 from backend.configs.config import tableconfig
 PIPELINE_AVAILABLE = True
 
@@ -224,7 +224,7 @@ class PDFDataAggregator:
                 # 导入并调用TableReconstructor的保存方法
                 # 尝试不同的导入路径
                 try:
-                    from backend.src.services.table_processor.table_rebuilder import TableReconstructor
+                    from backend.core.table_processor import TableReconstructor
                     reconstructor = TableReconstructor()
                 except ImportError:
                     try:
@@ -1895,7 +1895,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
                     try:
                         # # 尝试导入增量处理器
-                        # from backend.src.incremental_processor import incremental_processor
+                        # from backend.core.incremental_processor import incremental_processor
 
                         # 过滤已处理的图片
                         images_to_process_names = incremental_processor.filter_processed_images(
@@ -2765,7 +2765,7 @@ def get_available_steps():
     """API: 获取可用步骤"""
     from flask import jsonify
     try:
-        from backend.service.layout_service import processing_pipeline
+        from backend.services.layout_service import processing_pipeline
         steps = processing_pipeline.get_available_steps()
         return jsonify({
             "success": True,

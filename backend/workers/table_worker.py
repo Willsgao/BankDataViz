@@ -38,7 +38,7 @@ except ImportError as e:
 try:
     from backend.api.convert.table_processor import TableProcessingService, process_table_images_real, process_images_with_real_time_updates,pdf_aggregator_manager
     from backend.api.convert_apis import progress_tracker
-    from backend.src.incremental_processor import incremental_processor
+    from backend.core.incremental_processor import incremental_processor
 
     print("✅ 导入业务模块成功")
 except ImportError as e:
@@ -754,7 +754,7 @@ class TableProcessingWorker:
 
             try:
                 # 尝试从增量处理器获取已处理的图片
-                # from backend.src.incremental_processor import incremental_processor
+                # from backend.core.incremental_processor import incremental_processor
 
                 # 获取已处理的图片名称
                 if hasattr(incremental_processor, 'records'):
@@ -1539,7 +1539,7 @@ class TableProcessingWorker:
         image_names = [os.path.basename(img_path) for img_path in image_paths]
 
         try:
-            from backend.src.incremental_processor import incremental_processor
+            from backend.core.incremental_processor import incremental_processor
 
             # 过滤已处理的图片
             images_to_process_names = incremental_processor.filter_processed_images(pdf_folder, image_names)

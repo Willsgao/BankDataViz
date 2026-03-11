@@ -530,7 +530,7 @@ def api_batch_screen_folders():
 
         # 导入筛选模块
         try:
-            from backend.src.services.table_screening.table_detection_screening import (
+            from backend.core.services.table_screening.table_detection_screening import (
                 TableScreeningPipeline
             )
         except ImportError as e:

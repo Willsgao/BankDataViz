@@ -57,7 +57,7 @@ def detect_layout(pdf_folder, png_name, output_dir):
         return jsonify({"error": "PNG not found"}), 404
 
     try:
-        from backend.service.layout_service import layout_detect
+        from backend.services.layout_service import layout_detect
         result = layout_detect(png_path)
         return jsonify(result)
     except Exception as e:
@@ -81,7 +81,7 @@ def batch_cut_tables_handler(task_id, output_dir, request):
             }), 400
 
         steps = data.get('steps')
-        from backend.service.layout_service import batch_cut_tables
+        from backend.services.layout_service import batch_cut_tables
         batch_result = batch_cut_tables(
             pdf_folder=pdf_folder,
             png_names=png_names,

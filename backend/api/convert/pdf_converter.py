@@ -4,7 +4,7 @@ PDF转图模块
 import uuid
 import sqlite3
 from flask import jsonify
-from backend.service.pdf_convert_service import background_convert_all_pages
+from backend.services.pdf_convert_service import background_convert_all_pages
 
 def convert_pdf_async(pdf_name, upload_dir, output_dir, db_manager, progress_tracker):
     """接收中文或 UUID 文件名 → 返回 jobId"""

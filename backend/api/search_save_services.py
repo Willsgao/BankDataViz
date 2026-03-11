@@ -7,7 +7,7 @@
 
 from pathlib import Path
 from backend.utils.constants import MAIN_ROOT, EXCEL_OUTPUT_ROOT, DATABASE
-from backend.service.file_mapping_service import file_mapping_service
+from backend.services.file_mapping_service import file_mapping_service
 
 from backend.database.export import OldDatabaseManagerAdapter
 db = OldDatabaseManagerAdapter(DATABASE)

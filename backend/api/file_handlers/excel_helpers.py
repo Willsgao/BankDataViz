@@ -1,17 +1,13 @@
 # -*- coding:utf-8 -*-
 
-import traceback
-from typing import List, Dict, Any
-import pandas as pd
-
 
 # 尝试导入转换器，提供多种导入路径
 CONVERTER_AVAILABLE = False
 FinalDataConverter = None
 
 try:
-    # 尝试从 backend.src.services.table_processor 导入
-    from backend.src.services.table_processor.long_format_converter import FinalDataConverter as FC
+    # 尝试从 backend.core.services.table_processor 导入
+    from backend.core.table_processor import FinalDataConverter as FC
     FinalDataConverter = FC
     CONVERTER_AVAILABLE = True
     print("✅ long_format_converter 从标准路径导入成功")

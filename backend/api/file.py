@@ -4,12 +4,11 @@
 from flask import Blueprint, request, jsonify, send_from_directory, make_response, send_file
 from backend.utils.constants import UPLOAD_FOLDER, MAIN_ROOT, DATABASE, EXCEL_OUTPUT_ROOT
 from pathlib import Path
-from datetime import datetime
 import sqlite3
 import os
 
 # 新增导入
-from backend.service.file_mapping_service import file_mapping_service
+from backend.services.file_mapping_service import file_mapping_service
 
 from .file_handlers.excel_data_handler import ExcelDataHandler
 excel_data_handler = ExcelDataHandler(MAIN_ROOT, EXCEL_OUTPUT_ROOT)
@@ -25,8 +24,8 @@ CONVERTER_AVAILABLE = False
 FinalDataConverter = None
 
 try:
-    # 尝试从 backend.src.services.table_processor 导入
-    from backend.src.services.table_processor.long_format_converter import FinalDataConverter as FC
+    # 尝试从 backend.core.services.table_processor 导入
+    from backend.core.table_processor import FinalDataConverter as FC
     FinalDataConverter = FC
     CONVERTER_AVAILABLE = True
     print("✅ long_format_converter 从标准路径导入成功")

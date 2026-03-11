@@ -17,8 +17,8 @@ def view_specific_code():
     # 重点关注的文件（根据第一步分析结果）
     focus_files = [
         "backend/models/database_manager.py",
-        "backend/service/non_financial_table_service.py",
-        "backend/service/table_llm_service.py",
+        "backend/services/non_financial_table_service.py",
+        "backend/services/table_llm_service.py",
         "backend/api/file.py",
         "backend/api/search_save_services.py"
     ]

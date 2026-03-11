@@ -2,8 +2,6 @@
 数据库迁移工具 - 第五步：安全的迁移策略和工具
 """
 
-import os
-import sys
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -46,7 +44,7 @@ class DatabaseMigrationTool:
         # 只搜索关键目录，避免遍历整个项目
         search_dirs = [
             self.project_root / "backend",
-            self.project_root / "src",
+            self.project_root / "core",
             self.project_root
         ]
 

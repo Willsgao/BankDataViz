@@ -16,35 +16,35 @@ llm_bp = Blueprint('llm', __name__)
 logger = logging.getLogger(__name__)
 
 
-from backend.llm_services.connection_service import (
+from backend.services.llm.connection_service import (
     _test_connection_internal,
     get_available_models,
     health_check_internal,
     check_llm_config
 )
 
-from backend.llm_services.config_service import (
+from backend.services.llm.config_service import (
     configure_llm,
     get_processor_status
 )
 
-from backend.llm_services.single_table_service import (
+from backend.services.llm.single_table_service import (
     _process_single_image,
     _process_non_financial_table,
     recognize_table_internal
 )
 
-from backend.llm_services.batch_processing_service import (
+from backend.services.llm.batch_processing_service import (
     _batch_process_images_sync,
 )
 
-from backend.llm_services.excel_service import (
+from backend.services.llm.excel_service import (
     check_excel_internal,
     get_excel_data_internal,
     get_excel_content_internal
 )
 
-from backend.llm_services.task_management_service import (
+from backend.services.llm.task_management_service import (
     get_processing_status,
     cleanup_tasks,
     get_task_result,

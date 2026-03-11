@@ -664,68 +664,6 @@ class DatabaseCleaner:
         finally:
             conn.close()
 
-    def clear_uploaded_files00000(self, confirm: bool = False) -> bool:
-        """
-        清空上传的文件
-
-        Args:
-            confirm: 是否需要确认
-
-        Returns:
-            bool: 是否成功
-        """
-        if not os.path.exists(self.uploads_dir):
-            print(f"❌❌ 上传目录不存在: {self.uploads_dir}")
-            return False
-
-        if not confirm:
-            print(f"⚠️⚠️⚠️ 警告：这将删除目录 '{self.uploads_dir}' 中的所有文件！")
-            response = input("请输入 'DELETE_FILES' 确认操作: ")
-            if response != "DELETE_FILES":
-                print("操作已取消")
-                return False
-
-
-        try:
-            print("self.uploads_dir:", self.uploads_dir)
-            # 获取文件列表
-            files = []
-            for root, dirs, filenames in os.walk(self.uploads_dir):
-                for filename in filenames:
-                    file_path = os.path.join(root, filename)
-                    if os.path.isfile(file_path):
-                        files.append(file_path)
-
-
-            print("filesfiles:", files)
-
-            if not files:
-                print("ℹℹ️ 上传目录已经是空的")
-                return True
-
-
-            print(f"🔍🔍 找到 {len(files)} 个文件")
-
-            # 删除文件
-            deleted_count = 0
-            error_count = 0
-
-            for file_path in files:
-                try:
-                    os.remove(file_path)
-                    deleted_count += 1
-                    print(f"🗑🗑️ 已删除: {os.path.basename(file_path)}")
-                except Exception as e:
-                    print(f"❌❌ 删除文件失败 {file_path}: {e}")
-                    error_count += 1
-
-            print(f"✅ 文件清理完成！删除了 {deleted_count} 个文件，{error_count} 个失败")
-            return error_count == 0
-
-        except Exception as e:
-            print(f"❌❌❌❌ 清空上传文件失败: {e}")
-            return False
-
     def clear_uploaded_files(self, confirm: bool = False) -> bool:
         """
         清空上传的文件 - 修复版（支持多级目录清理）
@@ -941,70 +879,6 @@ class DatabaseCleaner:
             return [], 0
         finally:
             conn.close()
-
-    def clear_data_comprehensive00000(self, confirm: bool = False) -> bool:
-        """
-        一键完成综合清理：清空所有表 + 清空上传文件 + 重置文件映射缓存
-
-        Args:
-            confirm: 是否需要确认
-
-        Returns:
-            bool: 是否成功
-        """
-        if not confirm:
-            print("⚠️⚠️⚠️ 警告：这将执行综合清理操作！")
-            print("⚠️⚠️⚠️ 包含以下三个步骤：")
-            print("  1. 清空所有数据库表（危险操作！）")
-            print("  3. 清空上传文件")
-            print("  5. 重置文件映射缓存（清空所有JSON文件内容）")
-            print("⚠️⚠️⚠️ 此操作不可逆！")
-
-            response = input("请输入 'CLEAR_ALL' 确认执行综合清理: ")
-            if response != "CLEAR_ALL":
-                print("操作已取消")
-                return False
-
-        print("🚀🚀🚀🚀 开始执行综合清理...")
-
-        # 步骤1：创建备份
-        print("\n📋 步骤1: 创建数据库备份")
-        backup_file = self.create_backup()
-        if not backup_file:
-            print("❌ 备份失败，操作中止")
-            return False
-
-        # 步骤2：清空所有表
-        print("\n📋 步骤2: 清空所有数据库表")
-        table_result = self.clear_all_tables(confirm=True)  # 直接调用现有的方法
-
-        if not table_result:
-            return False
-
-        # 步骤3：清空上传文件 - 使用您原有的清理逻辑
-        print("\n📋 步骤3: 清空上传文件")
-        upload_result = self.clear_uploaded_files(confirm=True)  # 直接调用现有的方法
-
-        # 步骤4：重置文件映射缓存
-        print("\n📋 步骤4: 重置文件映射缓存")
-        mapping_result = self.reset_file_mapping_cache(confirm=True)  # 直接调用现有的方法
-
-        # 汇总结果
-        print("\n" + "=" * 60)
-        print("📊 综合清理完成汇总:")
-        print("=" * 60)
-        print(f"✅ 数据库备份: {backup_file}")
-        print(f"✅ 清空数据库表: {'成功' if table_result else '失败'}")
-        print(f"✅ 清空上传文件: {'成功' if upload_result else '失败'}")
-        print(f"✅ 重置文件映射缓存: {'成功' if mapping_result else '失败'}")
-
-        overall_success = table_result and upload_result and mapping_result
-        if overall_success:
-            print("🎉 综合清理完成！所有步骤均成功执行")
-        else:
-            print("⚠️ 综合清理完成，但部分步骤失败")
-
-        return overall_success
 
     def clear_data_comprehensive(self, confirm: bool = False) -> bool:
         """

@@ -264,7 +264,7 @@ def health_check():
             'success': True,
             'message': '百度OCR服务正常',
             'data': {
-                'service': 'baidu_ocr',
+                'services': 'baidu_ocr',
                 'status': 'healthy',
                 'has_token': bool(token)
             }

@@ -38,7 +38,7 @@ class ExcelFlattenHandler:
         try:
             # 🔥🔥🔥 导入银行名称提取器
             # 根据你的实际路径调整导入
-            from backend.src.services.table_processor.get_bank_name import get_bank_name_from_document
+            from backend.core.table_processor import get_bank_name_from_document
 
             print(f"🤖 调用LLM识别银行名称: {filename}")
 
