@@ -85,27 +85,6 @@ def _find_object_by_key(key: str) -> Path:
     raise FileNotFoundError(f"对象不存在: {key}")
 
 
-def put_object000(key: str, body: bytes, pdf_uuid: str = None):
-    """保存对象 - 保持原有接口，仅添加可选UUID参数"""
-    if STORE_TYPE == "local":
-        # 确定文件路径
-        file_path = _local_path(key, pdf_uuid)
-
-        # 确保目录存在
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_bytes(body)
-
-        # 🔥🔥🔥 新增：记录UUID信息（不影响功能）
-        if pdf_uuid and _is_valid_uuid(pdf_uuid):
-            print(f"[object_store] 保存到PDF UUID目录: {file_path} [UUID: {pdf_uuid}]")
-        else:
-            print(f"[object_store] 保存到本地: {file_path}")
-
-    else:  # s3
-        import boto3
-        boto3.client('s3').put_object(Bucket=BUCKET, Key=key, Body=body)
-        print(f"[object_store] 保存到S3: {BUCKET}/{key}")
-
 def put_object(key: str, body: bytes, pdf_uuid: str = None):
     """保存对象，支持PDF UUID文件夹和类型子目录"""
     if STORE_TYPE == "local":
@@ -140,32 +119,6 @@ def put_object(key: str, body: bytes, pdf_uuid: str = None):
         boto3.client('s3').put_object(Bucket=BUCKET, Key=key, Body=body)
         print(f"[object_store] 保存到S3: {BUCKET}/{key}")
 
-
-def get_object00(key: str, pdf_uuid: str = None) -> bytes:
-    """获取对象 - 保持原有接口，仅添加可选UUID参数"""
-    # try:
-    if STORE_TYPE == "local":
-        # 🔥🔥🔥 新增：如果提供了UUID，先尝试UUID路径
-        if pdf_uuid and _is_valid_uuid(pdf_uuid):
-            uuid_path = LOCAL_ROOT / pdf_uuid / key
-            if uuid_path.exists():
-                print(f"[object_store] 从PDF UUID目录读取: {uuid_path} [UUID: {pdf_uuid}]")
-                return uuid_path.read_bytes()
-            else:
-                print(f"[object_store] PDF UUID路径不存在: {uuid_path}，尝试传统路径")
-
-        # ✅✅✅ 保持原有逻辑不变
-        file_path = _find_object_by_key(key)
-        return file_path.read_bytes()
-
-    else:  # s3
-        import boto3
-        return boto3.client('s3').get_object(Bucket=BUCKET, Key=key)["Body"].read()
-
-    # except Exception as e:
-    #     error_msg = f"获取对象失败 [key={key}, pdf_uuid={pdf_uuid}]: {e}"
-    #     print(f"[object_store] {error_msg}")
-    #     raise FileNotFoundError(error_msg)
 
 
 def get_object(key: str, pdf_uuid: str = None) -> bytes:
