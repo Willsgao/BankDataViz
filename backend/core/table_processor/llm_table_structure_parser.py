@@ -480,7 +480,8 @@ class EnhancedFinancialTableAnalyzer:
         """分析单张图片中的所有表格"""
         base64_image = TableImageUtils.encode_image_to_base64(image_path)
         md5 = hashlib.md5(base64_image.encode()).hexdigest()
-        provider_key = f"llm_services:{self.model_name}"
+        # provider_key = f"llm_services:{self.model_name}"
+        provider_key = f"llm:{self.model_name}"
 
         # 提取序号
         filename = os.path.basename(image_path)
@@ -527,7 +528,8 @@ class EnhancedFinancialTableAnalyzer:
         compressed = gzip.compress(json.dumps(llm_result).encode())
 
         # s3_key = f"llm/{md5}.json.gz"
-        s3_key = f"llm_services/{sequence_number}_{md5}.json.gz"
+        # s3_key = f"llm_services/{sequence_number}_{md5}.json.gz"
+        s3_key = f"llm/{sequence_number}_{md5}.json.gz"
 
         pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
         put_object(s3_key, compressed, pdf_uuid)

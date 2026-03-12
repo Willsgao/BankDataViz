@@ -17,8 +17,8 @@ from backend.models.unified_db import NewDatabaseManager
 from backend.core.table_processor import TableReconstructor
 from backend.core.table_processor import EnhancedFinancialTableAnalyzer
 
-from backend.excel_service.baidu_table_ocr_llm import TableOCRService
-
+# from backend.excel_service.baidu_table_ocr_llm import TableOCRService
+from backend.core.table_processor.ocr_gateway import TableOCRService
 from backend.core.incremental_processor import incremental_processor
 from pathlib import Path
 

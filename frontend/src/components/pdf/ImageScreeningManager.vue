@@ -200,29 +200,46 @@
             >
 
               <!-- 修改后的正确代码 -->
-                <div class="thumbnail-wrapper">
-                  <!-- 图片元素 -->
-                  <img
-                    :src="getImageUrl(image)"
-                    class="thumbnail-img"
-                    loading="lazy"
-                    @error="handleImageError(image, $event)"
-                  />
+                <el-popover
+                  placement="right"
+                  :width="500"
+                  trigger="hover"
+                  popper-class="image-preview-popover"
+                >
+                  <template #reference>
+                    <div class="thumbnail-wrapper">
+                      <!-- 图片元素 -->
+                      <img
+                        :src="getImageUrl(image)"
+                        class="thumbnail-img"
+                        loading="lazy"
+                        @error="handleImageError(image, $event)"
+                      />
 
-                  <div class="thumbnail-overlay">
-                    <el-tag
-                      size="mini"
-                      :type="getCategoryType(image.type)"
-                      class="category-tag"
-                    >
-                      {{ getCategoryLabel(image.type) }}
-                    </el-tag>
+                      <div class="thumbnail-overlay">
+                        <el-tag
+                          size="mini"
+                          :type="getCategoryType(image.type)"
+                          class="category-tag"
+                        >
+                          {{ getCategoryLabel(image.type) }}
+                        </el-tag>
+                      </div>
+                      <!-- 多选模式下的选中标记 -->
+                      <div v-if="isMultiSelectMode && selectedImages.has(image.name)" class="multi-select-checkmark">
+                        <i class="el-icon-check"></i>
+                      </div>
+                    </div>
+                  </template>
+                  <!-- 悬停时显示完整大图 -->
+                  <div class="preview-image-container">
+                    <img
+                      :src="getImageUrl(image)"
+                      class="preview-full-image"
+                      loading="lazy"
+                    />
                   </div>
-                  <!-- 多选模式下的选中标记 -->
-                  <div v-if="isMultiSelectMode && selectedImages.has(image.name)" class="multi-select-checkmark">
-                    <i class="el-icon-check"></i>
-                  </div>
-                </div>
+                </el-popover>
 
 
               <div class="thumbnail-info">
@@ -1223,6 +1240,11 @@ nextTick(() => {
               border-color: #409eff;
               box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
               transform: translateY(-2px);
+
+              /* 悬停时图片放大 */
+              .thumbnail-wrapper .thumbnail-img {
+                transform: scale(5);
+              }
             }
 
             &.selected {
@@ -1238,11 +1260,11 @@ nextTick(() => {
               background: #f5f7fa;
 
               .thumbnail-img {
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-                transition: transform 0.3s;
-              }
+                  width: 100%;
+                  height: 100%;
+                  object-fit: contain;
+                  transition: transform 0.3s ease;
+                }
 
               .thumbnail-overlay {
                 position: absolute;
@@ -1711,6 +1733,26 @@ nextTick(() => {
   color: #409eff;
   font-weight: 600;
   margin-left: 8px;
+}
+
+/* 悬停预览浮层样式 */
+.preview-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.preview-full-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+/* 调整 popover 样式 */
+:deep(.image-preview-popover) {
+  padding: 8px;
 }
 
 </style>
