@@ -346,23 +346,12 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         clearTimeout(window.autoSaveTimer)
       }
 
-      // 设置新的定时器，5秒后触发全局自动保存
-      window.autoSaveTimer = setTimeout(() => {
-        console.log('🎯 [useExcelEdit] 5秒定时到达，触发全局自动保存')
-
-        if (typeof window !== 'undefined' && window.triggerGlobalAutoSave) {
-          try {
-            window.triggerGlobalAutoSave()
-          } catch (error) {
-            console.error('❌ [useExcelEdit] 触发全局自动保存失败:', error)
-            // 备用方案：尝试执行本地自动保存
-            performAutoSaveAsFallback()
-          }
-        } else {
-          console.warn('⚠️ [useExcelEdit] 全局自动保存函数未定义，使用备用方案')
-          performAutoSaveAsFallback()
-        }
-      }, 5000) // 5秒后执行
+      // 修改为：不自动保存到后台，由用户手动保存
+      // 移除5秒自动保存定时器
+      // window.autoSaveTimer = setTimeout(() => {
+      //   console.log('🎯 [useExcelEdit] 5秒定时到达，触发全局自动保存')
+      //   ...
+      // }, 5000)
     }
 
     /**
@@ -505,11 +494,11 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
         clearTimeout(autoSaveTimer);
       }
 
-      // 设置新的定时器，5秒后触发自动保存
-      autoSaveTimer = setTimeout(() => {
-        // 执行自动保存
-        performAutoSave();
-      }, 5000); // 5秒后执行
+      // 修改为：不自动保存到后台，由用户手动保存
+      // 移除5秒自动保存定时器
+      // autoSaveTimer = setTimeout(() => {
+      //   performAutoSave();
+      // }, 5000);
 
       // 🔥🔥🔥🔥🔥 新增：安全发射事件
       try {
@@ -520,7 +509,9 @@ export default function useExcelEdit(externalGetHotInstance, onCellChangeCallbac
             hasChanges: hasChanges.value,
             modifiedCellsCount: modifiedCellsCount.value,
             source: source,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isEditMode: true,
+            allChanges: modifiedCellsArray
           });
         }
       } catch (error) {

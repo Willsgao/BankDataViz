@@ -5,6 +5,40 @@
 
 
       <div class="toolbar-section left-section">
+          <!-- 撤销/重做按钮 -->
+          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
+            <el-button
+              size="small"
+              @click="handleUndo"
+            >
+              <el-icon><RefreshLeft /></el-icon>撤销
+            </el-button>
+          </el-tooltip>
+
+          <el-tooltip content="重做 (Ctrl+Y)" placement="bottom">
+            <el-button
+              size="small"
+              @click="handleRedo"
+            >
+              <el-icon><RefreshRight /></el-icon>重做
+            </el-button>
+          </el-tooltip>
+
+          <el-divider direction="vertical" />
+
+          <!-- 向下填充按钮 -->
+          <el-tooltip content="向下填充 (将选中单元格的值填充到下方所有选中区域)" placement="bottom">
+            <el-button
+              size="small"
+              @click="handleFillDown"
+              :disabled="!canFillDown"
+            >
+              <el-icon><Bottom /></el-icon>向下填充
+            </el-button>
+          </el-tooltip>
+
+          <el-divider direction="vertical" />
+
           <el-button
             type="primary"
             size="small"
@@ -143,8 +177,8 @@
           :height="tableHeight"
           licenseKey="non-commercial-and-evaluation"
           :language="currentLanguage"
-          :filters="false"
-          :dropdownMenu="true"
+          :filters="true"
+          :dropdownMenu="['filter_by_condition', 'filter_by_value', 'filter_action_bar']"
           :contextMenu="true"
           :manualColumnResize="true"
           :manualRowResize="true"
@@ -159,6 +193,8 @@
           :key="langKey"
           :allowInsertColumn="true"
           :allowRemoveColumn="true"
+          :undo="true"
+          :redo="true"
           @afterFilter="onFilter"
           @after-change="onDataChange"
           @after-init="onHotInit"
@@ -190,7 +226,7 @@ import 'handsontable/styles/handsontable.css'
 
 import {
   Download, Edit, View, Grid, Menu, DataAnalysis,
-  Close, Position, DataBoard
+  Close, Position, DataBoard, RefreshLeft, RefreshRight, Bottom
 } from '@element-plus/icons-vue'
 
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -210,6 +246,10 @@ import { getApiUrl } from '@/utils/config'
 
 // 在现有的import语句后添加
 import Handsontable from 'handsontable';
+import Filters from 'handsontable/plugins/filters';
+
+Handsontable.plugins = Handsontable.plugins || {};
+Handsontable.plugins.Filters = Filters;
 
 
 // 在组件顶部添加这些变量定义
@@ -1373,7 +1413,12 @@ defineExpose({
   },
   clearSearch: () => {
     clearExcelContentHighlight()
-  }
+  },
+  // 暴露撤销/重做栈，供父组件保存/恢复
+  getUndoStack: () => undoStack.value,
+  setUndoStack: (stack) => { undoStack.value = stack },
+  getRedoStack: () => redoStack.value,
+  setRedoStack: (stack) => { redoStack.value = stack }
 })
 
 // 保留原有的 useExcelViewerExpose 调用（不要删除）
@@ -1434,11 +1479,16 @@ const onHotInit = () => {
       hotController.setInstance(hot)
       window.__excelHotInstance = hot
 
+      // 🔥 检查 undoRedo 插件状态
       console.log('⚡⚡ Handsontable 实例已立即暴露', {
         行数: hot.countRows(),
         列数: hot.countCols(),
         实例ID: hot.guid,
-        时间戳: Date.now()
+        时间戳: Date.now(),
+        undoRedo存在: !!hot.undoRedo,
+        undoRedo类型: typeof hot.undoRedo,
+        undo方法存在: typeof hot.undo,
+        redo方法存在: typeof hot.redo
       })
 
       // ================== 🔥 关键修改开始 ==================
@@ -1595,6 +1645,410 @@ const onHotInit = () => {
     setupSelectionSumListener()
   }, 100)
 }
+
+// ========== 自定义撤销/重做功能（不依赖 Handsontable 内置） ==========
+const undoStack = ref([])  // 撤销栈
+const redoStack = ref([])  // 重做栈
+const MAX_UNDO_STACK_SIZE = 50  // 最大撤销次数
+
+// 监听数据变化，记录到撤销栈
+const setupCustomUndoRedo = (hot) => {
+  if (!hot) return
+  
+  // 监听 afterChange 事件（单元格编辑）
+  hot.addHook('afterChange', (changes, source) => {
+    // 只记录用户手动编辑的操作
+    if (!changes || source === 'loadData' || source === 'restore' || source === 'undo' || source === 'redo') {
+      return
+    }
+    
+    // 记录每个变化到撤销栈
+    changes.forEach(([row, col, oldVal, newVal]) => {
+      if (oldVal !== newVal) {
+        const historyItem = {
+          type: 'cell',
+          row,
+          col,
+          oldValue: oldVal,
+          newValue: newVal,
+          timestamp: Date.now()
+        }
+        
+        // 添加到撤销栈
+        undoStack.value.push(historyItem)
+        
+        // 限制撤销栈大小
+        if (undoStack.value.length > MAX_UNDO_STACK_SIZE) {
+          undoStack.value.shift()
+        }
+        
+        // 清空重做栈（因为有了新操作）
+        redoStack.value = []
+        
+        // 保存到 window，供 forceRefresh 时恢复
+        window.customUndoStack = undoStack.value
+        window.customRedoStack = redoStack.value
+        
+        console.log('📝 记录单元格编辑到撤销栈:', historyItem)
+      }
+    })
+  })
+   
+  // 监听删除行事件（必须在删除前保存数据）
+  hot.addHook('beforeRemoveRow', (index, amount, physicalRows) => {
+    // 保存被删除的行数据（在删除之前）
+    const sourceData = hot.getSourceData() || []
+    const deletedRows = []
+    for (let i = 0; i < amount; i++) {
+      if (sourceData[index + i]) {
+        deletedRows.push([...sourceData[index + i]])
+      }
+    }
+    
+    const historyItem = {
+      type: 'removeRows',
+      index,
+      amount,
+      deletedRows,
+      timestamp: Date.now()
+    }
+    
+    undoStack.value.push(historyItem)
+    if (undoStack.value.length > MAX_UNDO_STACK_SIZE) {
+      undoStack.value.shift()
+    }
+    redoStack.value = []
+    
+    // 保存到 window，供 forceRefresh 时恢复
+    window.customUndoStack = undoStack.value
+    window.customRedoStack = redoStack.value
+    
+    console.log('📝 记录删除行到撤销栈:', historyItem, '全局栈长度:', window.customUndoStack?.length)
+  })
+  
+  // 监听删除列事件（必须在删除前保存数据）
+  hot.addHook('beforeRemoveCol', (index, amount, physicalColumns) => {
+    // 保存被删除的列数据（在删除之前）
+    const sourceData = hot.getSourceData() || []
+    const deletedCols = []
+    for (let col = 0; col < amount; col++) {
+      const colData = []
+      for (let row = 0; row < sourceData.length; row++) {
+        if (sourceData[row] && sourceData[row][index + col] !== undefined) {
+          colData.push(sourceData[row][index + col])
+        }
+      }
+      deletedCols.push(colData)
+    }
+    
+    const historyItem = {
+      type: 'removeCols',
+      index,
+      amount,
+      deletedCols,
+      timestamp: Date.now()
+    }
+    
+    undoStack.value.push(historyItem)
+    if (undoStack.value.length > MAX_UNDO_STACK_SIZE) {
+      undoStack.value.shift()
+    }
+    redoStack.value = []
+    
+    // 保存到 window，供 forceRefresh 时恢复
+    window.customUndoStack = undoStack.value
+    window.customRedoStack = redoStack.value
+    
+    console.log('📝 记录删除列到撤销栈:', historyItem)
+  })
+}
+
+// 向下填充功能
+const canFillDown = ref(false)
+let lastSelectedArea = null // 保存最后一次选中的区域
+
+// 通过监听表格的选中事件来更新
+const updateCanFillDown = () => {
+  const hot = getSafeHotInstance()
+  if (hot) {
+    const selected = hot.getSelected()
+    if (selected && selected.length > 0) {
+      lastSelectedArea = [...selected[0]] // 保存选区
+      const [startRow, , endRow] = selected[0]
+      canFillDown.value = endRow > startRow
+      console.log('🔍 选中区域变化:', { startRow, endRow, canFillDown: canFillDown.value })
+    } else {
+      // 保持最后一次的选区信息，因为点击按钮时会先触发 deselect
+      if (lastSelectedArea) {
+        const [, , endRow] = lastSelectedArea
+        canFillDown.value = endRow > 0
+      } else {
+        canFillDown.value = false
+      }
+    }
+  }
+}
+
+// 延迟设置钩子，确保表格已初始化
+const setupFillDownHooks = () => {
+  const hot = getSafeHotInstance()
+  if (hot) {
+    hot.addHook('afterSelection', updateCanFillDown)
+    hot.addHook('afterDeselect', updateCanFillDown)
+    console.log('✅ 向下填充钩子已设置')
+  }
+}
+
+// 在 onMounted 中延迟设置
+onMounted(() => {
+  setTimeout(setupFillDownHooks, 2000)
+})
+
+const handleFillDown = () => {
+  console.log('🔽 点击了向下填充按钮')
+  const hot = getSafeHotInstance()
+  console.log('🔽 hot实例:', hot)
+  if (!hot) {
+    console.warn('无法获取 hot 实例')
+    return
+  }
+  
+  // 使用保存的最后选区
+  let selected = hot.getSelected()
+  if ((!selected || selected.length === 0) && lastSelectedArea) {
+    selected = [lastSelectedArea]
+  }
+  
+  console.log('🔽 选中区域:', selected)
+  if (!selected || selected.length === 0) {
+    console.warn('没有选中的单元格')
+    return
+  }
+  
+  const [startRow, startCol, endRow, endCol] = selected[0]
+  console.log('🔽 选中坐标:', { startRow, startCol, endRow, endCol })
+  
+  // 获取起始单元格的值
+  const startValue = hot.getDataAtCell(startRow, startCol)
+  
+  console.log('🔽 向下填充:', {
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+    startValue
+  })
+  
+  // 设置标志阻止强制刷新（填充操作完成后会重置）
+  window.skipForceRefresh = true
+  
+  // 使用批量修改确保数据被正确提交
+  hot.batch(() => {
+    // 从第二行开始填充到结束行
+    for (let row = startRow + 1; row <= endRow; row++) {
+      for (let col = startCol; col <= endCol; col++) {
+        hot.setDataAtCell(row, col, startValue, 'fillDown')
+      }
+    }
+  })
+  
+  // 刷新表格
+  hot.render()
+  
+  // 延迟重置标志，让数据变化事件处理完毕
+  setTimeout(() => {
+    window.skipForceRefresh = false
+    console.log('🔽 已重置 skipForceRefresh 标志')
+  }, 1000)
+  
+  console.log('🔽 填充完成，表格已刷新')
+  
+  // 记录到撤销栈
+  const historyItem = {
+    type: 'fillDown',
+    startRow,
+    startCol,
+    endRow,
+    endCol,
+    fillValue: startValue,
+    timestamp: Date.now()
+  }
+  undoStack.value.push(historyItem)
+  
+  console.log('🔽 向下填充完成，已记录到撤销栈')
+}
+
+// 自定义撤销
+const handleUndo = () => {
+  try {
+    const hot = hotTable.value?.hotInstance
+    if (!hot) {
+      console.warn('无法获取 hot 实例')
+      return
+    }
+    
+    if (undoStack.value.length === 0) {
+      console.log('撤销栈为空，无法撤销')
+      return
+    }
+    
+    // 取出最后一个操作
+    const historyItem = undoStack.value.pop()
+    
+    console.log('🔙 执行撤销，操作:', historyItem)
+    
+    // 根据操作类型执行撤销
+    if (historyItem.type === 'cell') {
+      // 单元格编辑撤销
+      hot.setDataAtCell(historyItem.row, historyItem.col, historyItem.oldValue, 'undo')
+      console.log('🔙 自定义撤销成功（单元格）:', historyItem)
+    } else if (historyItem.type === 'removeRows') {
+      // 删除行撤销 - 直接恢复数据（包含插入行的操作）
+      const sourceData = hot.getSourceData() || []
+      const newData = []
+      
+      console.log('🔙 撤销删除行 - 原始数据:', sourceData.length, '行')
+      console.log('🔙 撤销删除行 - 被删除的行:', historyItem.deletedRows)
+      console.log('🔙 撤销删除行 - 插入位置:', historyItem.index)
+      
+      // 遍历当前数据，在删除位置插入被删除的行
+      for (let i = 0; i < sourceData.length; i++) {
+        // 到达删除位置时，先插入被删除的行
+        if (i === historyItem.index) {
+          for (let j = 0; j < historyItem.deletedRows.length; j++) {
+            newData.push([...historyItem.deletedRows[j]])
+          }
+        }
+        // 然后添加当前行
+        newData.push([...sourceData[i]])
+      }
+      
+      // 如果删除的是末尾几行，需要额外添加被删除的行
+      if (historyItem.index >= sourceData.length) {
+        for (let j = 0; j < historyItem.deletedRows.length; j++) {
+          newData.push([...historyItem.deletedRows[j]])
+        }
+      }
+      
+      console.log('🔙 撤销删除行 - 恢复后数据:', newData.length, '行')
+      hot.loadData(newData)
+      console.log('🔙 自定义撤销成功（删除行）:', historyItem)
+    } else if (historyItem.type === 'removeCols') {
+      // 删除列撤销 - 直接恢复数据（包含插入列的操作）
+      const sourceData = hot.getSourceData() || []
+      // 恢复被删除的列数据
+      const newData = sourceData.map((row, rowIdx) => {
+        const newRow = [...row]
+        for (let colIdx = 0; colIdx < historyItem.amount; colIdx++) {
+          const colData = historyItem.deletedCols[colIdx]
+          if (colData && colData[rowIdx] !== undefined) {
+            newRow.splice(historyItem.index + colIdx, 0, colData[rowIdx])
+          }
+        }
+        return newRow
+      })
+      hot.loadData(newData)
+      console.log('🔙 自定义撤销成功（删除列）:', historyItem)
+    } else if (historyItem.type === 'fillDown') {
+      // 向下填充撤销 - 清空填充的单元格
+      for (let row = historyItem.startRow + 1; row <= historyItem.endRow; row++) {
+        for (let col = historyItem.startCol; col <= historyItem.endCol; col++) {
+          hot.setDataAtCell(row, col, '', 'undo')
+        }
+      }
+      hot.render()
+      console.log('🔙 自定义撤销成功（向下填充）:', historyItem)
+    }
+    
+    // 添加到重做栈
+    redoStack.value.push(historyItem)
+  } catch (e) {
+    console.warn('撤销操作失败:', e)
+  }
+}
+
+// 自定义重做
+const handleRedo = () => {
+  try {
+    const hot = hotTable.value?.hotInstance
+    if (!hot) {
+      console.warn('无法获取 hot 实例')
+      return
+    }
+    
+    if (redoStack.value.length === 0) {
+      console.log('重做栈为空，无法重做')
+      return
+    }
+    
+    // 取出最后一个操作
+    const historyItem = redoStack.value.pop()
+    
+    // 根据操作类型执行重做
+    if (historyItem.type === 'cell') {
+      // 单元格编辑重做
+      hot.setDataAtCell(historyItem.row, historyItem.col, historyItem.newValue, 'redo')
+      console.log('🔨 自定义重做成功（单元格）:', historyItem)
+    } else if (historyItem.type === 'removeRows') {
+      // 删除行重做 - 重新删除这些行
+      const sourceData = hot.getSourceData() || []
+      const newData = sourceData.filter((_, idx) => {
+        const idxInDeleted = idx - historyItem.index
+        return idxInDeleted < 0 || idxInDeleted >= historyItem.amount
+      })
+      hot.loadData(newData)
+      console.log('🔨 自定义重做成功（删除行）:', historyItem)
+    } else if (historyItem.type === 'removeCols') {
+      // 删除列重做 - 重新删除这些列
+      const sourceData = hot.getSourceData() || []
+      const newData = sourceData.map(row => {
+        return row.filter((_, colIdx) => {
+          const idxInDeleted = colIdx - historyItem.index
+          return idxInDeleted < 0 || idxInDeleted >= historyItem.amount
+        })
+      })
+      hot.loadData(newData)
+      console.log('🔨 自定义重做成功（删除列）:', historyItem)
+    } else if (historyItem.type === 'fillDown') {
+      // 向下填充重做 - 重新填充
+      for (let row = historyItem.startRow + 1; row <= historyItem.endRow; row++) {
+        for (let col = historyItem.startCol; col <= historyItem.endCol; col++) {
+          hot.setDataAtCell(row, col, historyItem.fillValue, 'redo')
+        }
+      }
+      hot.render()
+      console.log('🔨 自定义重做成功（向下填充）:', historyItem)
+    }
+    
+    // 添加到撤销栈
+    undoStack.value.push(historyItem)
+  } catch (e) {
+    console.warn('重做操作失败:', e)
+  }
+}
+
+// 初始化时设置自定义撤销/重做
+onMounted(() => {
+  // 延迟设置，确保 hot 实例已创建（延迟2秒与表格初始化同步）
+  setTimeout(() => {
+    const hot = hotTable.value?.hotInstance
+    if (hot) {
+      setupCustomUndoRedo(hot)
+      
+      // 从 window 恢复撤销栈
+      if (window.customUndoStack && window.customUndoStack.length > 0) {
+        undoStack.value = window.customUndoStack
+        console.log('✅ 从 window 恢复 undo 栈:', undoStack.value.length)
+      }
+      if (window.customRedoStack && window.customRedoStack.length > 0) {
+        redoStack.value = window.customRedoStack
+        console.log('✅ 从 window 恢复 redo 栈:', redoStack.value.length)
+      }
+      
+      console.log('✅ 自定义撤销/重做已初始化')
+    }
+  }, 2000)
+})
 
 
 // 在 HandsontableExcelViewer.vue 中添加处理函数

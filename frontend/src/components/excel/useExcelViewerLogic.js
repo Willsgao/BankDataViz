@@ -1199,7 +1199,8 @@ export default function useExcelViewerLogic(
       emit('data-changed', {
         totalChanges: 0,
         hasChanges: false,
-        modifiedCellsCount: 0
+        modifiedCellsCount: 0,
+        isEditMode: isEditMode.value
       })
       return
     }

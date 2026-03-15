@@ -340,6 +340,30 @@ const handleExcelContentSearch = (searchData) => {
 // 专门用于导航切换的简单函数 - 放在 ThreeColumnPage.vue 的 setup 函数中
 const navigateToSheet = async (sheet, excelFile) => {
 
+  // 新增：检测是否有未保存的修改，切换Sheet时必须手动保存
+  if (hasUnsavedChangesInCurrentTable()) {
+    try {
+      await ElMessageBox.confirm(
+        '切换Sheet会导致未保存的修改，是否保存到后台？',
+        '手动保存确认',
+        {
+          confirmButtonText: '保存',
+          cancelButtonText: '不保存',
+          type: 'warning',
+          distinguishCancelAndClose: true
+        }
+      )
+      // 用户点击"保存"
+      await saveData()
+      ElMessage.success('保存成功')
+    } catch (action) {
+      if (action === 'cancel' || action === 'close') {
+        // 用户选择不保存，继续切换
+        console.log('用户选择不保存，继续切换Sheet')
+      }
+    }
+  }
+
   try {
     // 1. 安全检查
     if (!sheet || !excelFile) {
@@ -746,10 +770,11 @@ const handleCellChanged = (cellInfo) => {
     }
   }
 
-  // 5秒后自动保存到后台
-  setTimeout(() => {
-    autoSaveDraft();
-  }, 5000); // 5秒后执行
+  // 修改为：不自动保存到后台，只由用户手动保存
+  // 移除自动保存定时器，让用户手动保存
+  // setTimeout(() => {
+  //   autoSaveDraft();
+  // }, 50);
 
   // 🔍 新增诊断代码（放在函数末尾）
   console.log('=== 缓存诊断开始 ===')
@@ -776,12 +801,12 @@ const autoSaveDraft = async () => {
   // 检查是否有未保存的修改
   const tableType = showFlatMode.value ? 'flattened' : 'original';
 
-  // 🔥 修改：同时检查单元格修改和删除行操作
+  // 检查单元格修改和删除行操作
   const hasCellChanges = window.unsavedCells?.[tableType]?.size > 0;
   const hasRowRemovals = window.unsavedRowRemovals?.[tableType] > 0;
   const hasChanges = hasCellChanges || hasRowRemovals;
 
-  console.log('⏰ 自动保存检查:', {
+  console.log('⏰ 自动保存检查（仅保存到本地）:', {
     表类型: tableType,
     单元格修改: hasCellChanges,
     删除行修改: hasRowRemovals,
@@ -789,111 +814,37 @@ const autoSaveDraft = async () => {
   });
 
   if (hasChanges) {
-    // 🔥🔥 新增：如果是纯删除行操作，延迟2秒保存
-    if (hasRowRemovals && !hasCellChanges) {
-      console.log('⏳ 检测到纯删除行操作，等待2秒后保存...', {
-        删除行数: window.unsavedRowRemovals?.[tableType] || 0
-      });
+    // 只保存到本地草稿，不调用后台 API
+    console.log('💾 保存到本地草稿...');
 
-      // 🔥 只增加一个时间延迟
-      setTimeout(async () => {
-        console.log('🔄🔄 2秒延迟后，开始自动保存删除行修改...', {
-          单元格修改数: window.unsavedCells?.[tableType]?.size || 0,
-          删除行数: window.unsavedRowRemovals?.[tableType] || 0,
-          表类型: tableType
-        });
+    try {
+      const draftKey = ExcelKey.getDraftKey(
+        selectedPdf.value.id,
+        selectedExcelFile.value,
+        selectedSheet.value.name,
+        tableType
+      );
 
-        try {
-          // 调用修改后的 saveData 函数，传递 true 表示自动保存
-          const result = await saveData(true);
+      const hot = getActiveHotInstance();
+      if (hot && !hot.isDestroyed) {
+        const fullData = hot.getSourceData() || [];
+        const modifications = Array.from(window.unsavedCells[tableType] || []);
 
-          if (result.success) {
-            console.log('✅✅ 删除行自动保存成功（2秒延迟后）');
-
-            // 保存成功后，也保存到本地草稿作为备份
-            const draftKey = ExcelKey.getDraftKey(
-              selectedPdf.value.id,
-              selectedExcelFile.value,
-              selectedSheet.value.name,
-              tableType
-            );
-
-            const hot = getActiveHotInstance();
-            if (hot && !hot.isDestroyed) {
-              const fullData = hot.getSourceData() || [];
-              const modifications = Array.from(window.unsavedCells[tableType] || []);
-
-              const draft = {
-                fullData,
-                modifications,
-                savedAt: Date.now(),
-                tableType,
-                backendSaved: true
-              };
-              localStorage.setItem(draftKey, JSON.stringify(draft));
-            }
-          } else {
-            console.warn('⚠️⚠️ 删除行自动保存到后台失败，只保存到本地草稿');
-            // 后台保存失败时，只保存到本地草稿
-            saveToLocalDraftOnly(tableType);
-          }
-        } catch (error) {
-          console.error('❌❌ 删除行自动保存过程出错:', error);
-          // 出错时也保存到本地草稿
-          saveToLocalDraftOnly(tableType);
-        }
-      }, 2000); // 🔥 2秒延迟
-
-    } else {
-      // 其他修改（单元格修改或混合修改）立即保存
-      console.log('🔄🔄 检测到未保存修改，开始自动保存到后台...', {
-        单元格修改数: window.unsavedCells?.[tableType]?.size || 0,
-        删除行数: window.unsavedRowRemovals?.[tableType] || 0,
-        表类型: tableType
-      });
-
-      try {
-        // 调用修改后的 saveData 函数，传递 true 表示自动保存
-        const result = await saveData(true);
-
-        if (result.success) {
-          console.log('✅✅ 自动保存到后台成功');
-
-          // 保存成功后，也保存到本地草稿作为备份
-          const draftKey = ExcelKey.getDraftKey(
-            selectedPdf.value.id,
-            selectedExcelFile.value,
-            selectedSheet.value.name,
-            tableType
-          );
-
-          const hot = getActiveHotInstance();
-          if (hot && !hot.isDestroyed) {
-            const fullData = hot.getSourceData() || [];
-            const modifications = Array.from(window.unsavedCells[tableType] || []);
-
-            const draft = {
-              fullData,
-              modifications,
-              savedAt: Date.now(),
-              tableType,
-              backendSaved: true
-            };
-            localStorage.setItem(draftKey, JSON.stringify(draft));
-          }
-        } else {
-          console.warn('⚠️⚠️ 自动保存到后台失败，只保存到本地草稿');
-          // 后台保存失败时，只保存到本地草稿
-          saveToLocalDraftOnly(tableType);
-        }
-      } catch (error) {
-        console.error('❌❌ 自动保存过程出错:', error);
-        // 出错时也保存到本地草稿
-        saveToLocalDraftOnly(tableType);
+        const draft = {
+          fullData,
+          modifications,
+          savedAt: Date.now(),
+          tableType,
+          backendSaved: false  // 标记为未保存到后台
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+        console.log('✅✅ 本地草稿保存成功');
       }
+    } catch (error) {
+      console.error('❌❌ 本地草稿保存失败:', error);
     }
   } else {
-    console.log('⏸️ 无未保存修改，跳过自动保存');
+    console.log('⏸️ 无未保存修改，跳过保存');
   }
 };
 
@@ -978,8 +929,8 @@ const handleDataChanged = (dataInfo) => {
     // 更新保存状态
     updateSaveStatus();
 
-    // 触发自动保存
-    autoSaveDraft();
+    // 修改为：不自动保存到后台，由用户手动保存
+    // autoSaveDraft();
 
     return; // 特殊处理完毕，返回
   }
@@ -990,24 +941,41 @@ const handleDataChanged = (dataInfo) => {
     return;
   }
 
-  // 原有逻辑：检查是否已经有活跃上下文，如果有说明已经处理过
+  // 原有逻辑：检查是否已经有活跃上下文
   const context = sheetStateManager.getActiveContext();
-  if (context &&
-      context.pdfId === selectedPdf.value.id &&
-      context.excelFile === selectedExcelFile.value &&
-      context.sheetName === selectedSheet.value.name &&
-      context.tableType === currentTableType) {
+  if (!context ||
+      context.pdfId !== selectedPdf.value.id ||
+      context.excelFile !== selectedExcelFile.value ||
+      context.sheetName !== selectedSheet.value.name ||
+      context.tableType !== currentTableType) {
+    // 初始化 DataManager 上下文
+    initDataManagerContext(selectedPdf.value, selectedSheet.value, selectedExcelFile.value);
 
-    console.log('✅ 已有正确上下文，跳过批量记录以避免重复');
-    return;
+    // 设置 sheetStateManager 活跃上下文
+    sheetStateManager.setActiveContext(
+      selectedPdf.value.id,
+      selectedExcelFile.value,
+      selectedSheet.value.name,
+      currentTableType
+    );
+    console.log('🔧 设置 sheetStateManager 活跃上下文');
   }
 
   console.log(`🔄 批量记录 ${dataInfo.allChanges?.length || 0} 个修改（${currentTableType}表）`);
 
-  // 初始化 DataManager 上下文
-  initDataManagerContext(selectedPdf.value, selectedSheet.value, selectedExcelFile.value);
-
   if (dataInfo.allChanges && dataInfo.allChanges.length > 0) {
+    // 确保 window.unsavedCells 存在且结构正确
+    if (!window.unsavedCells) {
+      window.unsavedCells = { original: new Set(), flattened: new Set() };
+    }
+    // 确保两个 Set 都存在
+    if (!window.unsavedCells.original) {
+      window.unsavedCells.original = new Set();
+    }
+    if (!window.unsavedCells.flattened) {
+      window.unsavedCells.flattened = new Set();
+    }
+
     dataInfo.allChanges.forEach((change) => {
       // 关键修复：检查新值是否有效，避免空值覆盖
       if (change.newValue !== null && change.newValue !== '') {
@@ -1026,6 +994,18 @@ const handleDataChanged = (dataInfo) => {
           change.newValue,
           currentTableType
         );
+
+        // 记录到 window.unsavedCells
+        const cellKey = ExcelKey.getCellKey(
+          selectedPdf.value.id,
+          selectedExcelFile.value,
+          selectedSheet.value.name,
+          currentTableType,
+          change.row,
+          change.col
+        );
+        window.unsavedCells[currentTableType].add(cellKey);
+        console.log('🔑 添加到 window.unsavedCells:', cellKey);
       } else {
         console.log(`⏸️ 跳过空值修改: [${change.row},${change.col}]`);
       }
@@ -1034,7 +1014,8 @@ const handleDataChanged = (dataInfo) => {
 
   updateSaveStatus();
   updateExcelContent();
-  autoSaveDraft();
+  // 修改为：不自动保存到后台，由用户手动保存
+  // autoSaveDraft();
 
   // ✅ 批量改动也要置锁
   if (dataInfo.allChanges?.length) {
@@ -2005,26 +1986,26 @@ const updateSaveStatus = () => {
 const hasUnsavedChangesInCurrentTable = () => {
   // 1. 必须选中有表格
   if (!selectedSheet.value) {
-    console.log('❌ 没有选中表格，保存按钮禁用')
+    console.log('❌ 没有选中表格')
     return false
   }
 
-  // 2. 直接看当前表格的实际数据（这是最可靠的）
+  // 2. 获取当前表格类型
   const tableType = showFlatMode.value ? 'flattened' : 'original'
 
-  /* ===== 新增：最终保存锁定（只影响 final，不影响 draft） ===== */
-  const lastFinal = sheetStateManager.getLastFinalSavedCount(tableType)
-  if (lastFinal !== null) {
-    const nowSaved = sheetStateManager.getSavedCount(tableType)
-    if (nowSaved <= lastFinal) {
-      console.log('🔒 已最终保存，无新修改，锁定存后台按钮')
-      return false          // 直接锁死，下面逻辑不再走
-    }
-  }
-  /* =========================================================== */
-  const currentData = showFlatMode.value ? excelContentRef.value?.flatData ?? [] : excelContentRef.value?.tableData ?? []
+  // 3. 直接检查全局修改状态（不依赖最终保存锁定）
+  const hasCellChanges = window.unsavedCells?.[tableType]?.size > 0
+  const hasRowRemovals = window.unsavedRowRemovals?.[tableType] > 0
+  const hasChanges = hasCellChanges || hasRowRemovals
 
-  // 3. 关键修复：直接检查 sheetStateManager 中当前表格的修改
+  console.log('🔍 hasUnsavedChangesInCurrentTable 检查:', {
+    表格类型: tableType,
+    单元格修改: hasCellChanges,
+    删除行修改: hasRowRemovals,
+    总修改: hasChanges
+  })
+
+  // 4. 如果状态管理器中有记录，也检查一下
   if (sheetStateManager) {
     const context = sheetStateManager.getActiveContext()
     if (context &&
@@ -2032,25 +2013,13 @@ const hasUnsavedChangesInCurrentTable = () => {
         context.excelFile === selectedExcelFile.value &&
         context.sheetName === selectedSheet.value.name &&
         context.tableType === tableType) {
-
-      const hasChanges = sheetStateManager.hasUnsavedChanges(tableType)
-      console.log('✅ sheetStateManager 确认有修改:', hasChanges)
-      return hasChanges
+      const managerHasChanges = sheetStateManager.hasUnsavedChanges(tableType)
+      console.log('🔍 sheetStateManager 检查:', managerHasChanges)
+      return hasChanges || managerHasChanges
     }
   }
 
-  // 4. 如果状态管理器没找到，再看全局状态
-    const hasCellChanges = window.unsavedCells?.[tableType]?.size > 0
-    const hasRowRemovals = window.unsavedRowRemovals?.[tableType] > 0
-    const hasGlobalChanges = hasCellChanges || hasRowRemovals
-
-    console.log('🌍 使用全局状态判断:', {
-      单元格修改: hasCellChanges,
-      删除行修改: hasRowRemovals,
-      总修改: hasGlobalChanges
-    })
-
-    return hasGlobalChanges
+  return hasChanges
 }
 
 // 添加一个强制更新的 key
@@ -4164,23 +4133,36 @@ watch(excelFiles, (newFiles) => {
 
 
 
-onBeforeUnmount(() => {
+onBeforeUnmount(async () => {
   // 检查是否有未保存修改
   if (hasUnsavedChangesInCurrentTable()) {
-    console.log('⚠️ 页面离开，有未保存修改')
+    console.log('⚠️ 页面离开，有未保存修改，弹窗确认')
 
-    // 自动保存草稿（静默保存）
-    const autoSave = async () => {
-      try {
-        await saveData()
-        console.log('✅ 自动保存草稿成功')
-      } catch (error) {
-        console.error('❌ 自动保存失败:', error)
+    // 弹窗让用户手动确认
+    try {
+      await ElMessageBox.confirm(
+        '您有未保存的修改，是否保存到后台？',
+        '手动保存确认',
+        {
+          confirmButtonText: '保存',
+          cancelButtonText: '不保存',
+          type: 'warning',
+          distinguishCancelAndClose: true  // 区分关闭和取消
+        }
+      )
+      // 用户点击"保存"
+      await saveData()
+      ElMessage.success('保存成功')
+    } catch (action) {
+      if (action === 'cancel') {
+        // 用户点击"不保存"，静默离开
+        console.log('用户选择不保存，直接离开')
+      } else if (action === 'close') {
+        // 用户点击关闭按钮，静默离开
+        console.log('用户关闭弹窗，直接离开')
       }
+      // 其他情况也静默离开
     }
-
-    // 延迟保存，避免阻塞页面跳转
-    setTimeout(autoSave, 100)
   }
 })
 

@@ -100,7 +100,7 @@ export function debounce(func, wait) {
 }
 
 // 事件发射器辅助函数
-export function emitCellChanges(emit, changes, props, source = 'user') {
+export function emitCellChanges(emit, changes, props, source = 'user', isEditMode = true) {
   if (!changes || changes.length === 0) return
 
   changes.forEach(change => {
@@ -120,6 +120,7 @@ export function emitCellChanges(emit, changes, props, source = 'user') {
     hasChanges: true,
     allChanges: changes,
     modifiedCellsCount: changes.length,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    isEditMode: isEditMode
   })
 }

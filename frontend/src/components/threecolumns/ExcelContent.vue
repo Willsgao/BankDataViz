@@ -1066,11 +1066,70 @@ const forceRefreshHandsontable = () => {
       return
     }
 
+    // 🔥🔥 保存当前 undo 历史栈，避免刷新后丢失
+    let undoStack = []
+    let redoStack = []
+    // 保存自定义撤销/重做栈
+    let customUndoStack = []
+    let customRedoStack = []
+    try {
+      if (hotInstance.undoRedo) {
+        undoStack = hotInstance.undoRedo.undoStack ? [...hotInstance.undoRedo.undoStack] : []
+        redoStack = hotInstance.undoRedo.redoStack ? [...hotInstance.undoRedo.redoStack] : []
+        console.log('💾 保存 undo 历史:', undoStack.length, 'redo 历史:', redoStack.length)
+      }
+      // 保存自定义撤销栈（从 window 获取）
+      try {
+        customUndoStack = window.customUndoStack || []
+        customRedoStack = window.customRedoStack || []
+        console.log('💾 保存自定义 undo 历史:', customUndoStack.length, 'redo 历史:', customRedoStack.length, '从window获取')
+      } catch (e) {
+        console.warn('⚠️ 获取自定义 undo 栈失败:', e)
+      }
+    } catch (e) {
+      console.warn('⚠️ 保存 undo 历史失败:', e)
+    }
+
     hotInstance.render()
     hotInstance.updateSettings({}, false)
 
-    if (props.excelData && props.excelData.length > 0) {
+    // 🔥 只有数据真正变化时才 loadData，避免不必要的刷新
+    // 但如果是在填充操作后，临时跳过刷新
+    if (window.skipForceRefresh) {
+      console.log('⏭️ 跳过强制刷新（填充操作中）')
+      return
+    }
+
+    const currentData = hotInstance.getSourceData ? hotInstance.getSourceData() : []
+    const newData = props.excelData || []
+    
+    // 简单比较：如果行数或第一行不同，才重新加载
+    const needsReload = currentData.length !== newData.length || 
+      (currentData.length > 0 && newData.length > 0 && 
+       JSON.stringify(currentData[0]) !== JSON.stringify(newData[0]))
+    
+    if (needsReload && props.excelData && props.excelData.length > 0) {
+      console.log('🔄 数据变化，执行 loadData...')
       hotInstance.loadData(props.excelData)
+    } else {
+      console.log('⏭️ 数据无变化，跳过 loadData')
+    }
+
+    // 🔥🔥 恢复 undo 历史栈
+    try {
+      if (hotInstance.undoRedo && (undoStack.length > 0 || redoStack.length > 0)) {
+        hotInstance.undoRedo.undoStack = undoStack
+        hotInstance.undoRedo.redoStack = redoStack
+        console.log('✅ 恢复 undo 历史:', undoStack.length, 'redo 历史:', redoStack.length)
+      }
+      // 恢复自定义撤销栈（设置到 window）
+      if (customUndoStack.length > 0 || customRedoStack.length > 0) {
+        window.customUndoStack = customUndoStack
+        window.customRedoStack = customRedoStack
+        console.log('✅ 恢复自定义 undo 历史:', customUndoStack.length, 'redo 历史:', customRedoStack.length, '设置到window')
+      }
+    } catch (e) {
+      console.warn('⚠️ 恢复 undo 历史失败:', e)
     }
 
     console.log('✅ 表格强制刷新完成')
