@@ -37,6 +37,8 @@
       @screen-images-completed="handleScreenImagesCompleted"
       @parse-tables-completed="handleParseTablesCompleted"
       @show-progress-dialog="showProgressDialog"
+      @search-tasks="showProgressDialogWithSearch"
+      @clear-task-search="progressSearchKeyword = ''"
     />
 
   <!-- 确保全局组件在正确的位置 -->
@@ -95,6 +97,7 @@
         :tasks="allParsingTasks"
         :summary="tasksSummary"
         :loading="false"
+        :search-keyword="progressSearchKeyword"
         @refresh="refreshTasks"
         @cancel="cancelTask"
         @view-result="handleViewResult"
@@ -208,7 +211,9 @@ const emit = defineEmits([
   'parse-tables-completed',
   'update-step-status',
   'smart-process-pdf',
-  'show-progress-dialog'
+  'show-progress-dialog',
+  'search-tasks',
+  'clear-task-search'
 ])
 
 
@@ -479,7 +484,23 @@ const handleViewResult = (jobId) => {
   // 查找任务对应的PDF
   const task = allParsingTasks.value.find(t => t.job_id === jobId)
   if (task) {
-    const pdfDiskName = task.pdfDiskName || extractPdfFromJobId(jobId)
+    console.log('🔍 任务数据:', task)
+    console.log('🔍 所有可用字段:', Object.keys(task))
+    
+    // 优先使用 pdfDiskName，其次使用 pdf_folder，最后尝试从 original_filename 提取
+    let pdfDiskName = task.pdfDiskName || task.pdf_folder || task.original_filename
+    if (!pdfDiskName) {
+      // 尝试从 job_id 中提取
+      pdfDiskName = extractPdfFromJobId(jobId)
+    }
+    
+    if (pdfDiskName && !pdfDiskName.endsWith('.pdf')) {
+      pdfDiskName = pdfDiskName + '.pdf'
+    }
+    
+    console.log('🔍 最终 pdfDiskName:', pdfDiskName)
+    console.log('🔍 files.value:', files.value.map(f => f.disk_name))
+    
     if (pdfDiskName) {
       // 切换到该PDF
       switchToPdfByDiskName(pdfDiskName)
@@ -507,7 +528,12 @@ const handleRetryTask = async (jobId) => {
       return
     }
 
-    const pdfDiskName = task.pdfDiskName || extractPdfFromJobId(jobId)
+    // 优先使用 pdfDiskName，其次使用 pdf_folder（需要加上 .pdf 后缀）
+    let pdfDiskName = task.pdfDiskName || task.pdf_folder
+    if (pdfDiskName && !pdfDiskName.endsWith('.pdf')) {
+      pdfDiskName = pdfDiskName + '.pdf'
+    }
+    
     if (!pdfDiskName) {
       ElMessage.error('无法获取PDF信息')
       return
@@ -529,6 +555,20 @@ const handleRetryTask = async (jobId) => {
 
 // 3. 查看任务详情
 const handleViewTaskDetail = (task) => {
+  // 解析时间戳
+  const parseTimestamp = (ts) => {
+    if (!ts) return '-'
+    try {
+      let date = new Date(ts)
+      if (isNaN(date.getTime()) && typeof ts === 'string' && /^\d+(\.\d+)?$/.test(ts)) {
+        date = new Date(parseFloat(ts) * 1000)
+      }
+      if (isNaN(date.getTime())) return '-'
+      return date.toLocaleString('zh-CN')
+    } catch {
+      return '-'
+    }
+  }
 
   // 打开任务详情弹窗
   ElMessageBox.alert(
@@ -538,8 +578,8 @@ const handleViewTaskDetail = (task) => {
       <p><strong>PDF文件:</strong> ${getPdfFilename(task)}</p>
       <p><strong>状态:</strong> ${task.status || task.original_status || 'unknown'}</p>
       <p><strong>进度:</strong> ${task.progress || task.percentage || 0}%</p>
-      <p><strong>已处理图片:</strong> ${task.processed || task.processed_images || 0}/${task.total || task.total_images || 0}</p>
-      <p><strong>开始时间:</strong> ${new Date(task.timestamp || task.start_time).toLocaleString()}</p>
+      <p><strong>已处理图片:</strong> ${task.processed_images || task.processed || 0}${task.skipped_images ? '(' + task.skipped_images + ')' : ''}/${task.total_images || task.total || 0}</p>
+      <p><strong>开始时间:</strong> ${parseTimestamp(task.timestamp || task.started_at)}</p>
       <p><strong>最后消息:</strong> ${task.message || '无'}</p>
     </div>
     `,
@@ -600,6 +640,18 @@ const handleClearCompletedTasks = () => {
 const extractPdfFromJobId = (jobId) => {
   if (!jobId) return null
 
+  // 先从任务列表中查找
+  const task = allParsingTasks.value.find(t => t.job_id === jobId)
+  if (task) {
+    let pdfName = task.pdfDiskName || task.pdf_folder
+    if (pdfName) {
+      if (!pdfName.endsWith('.pdf')) {
+        pdfName = pdfName + '.pdf'
+      }
+      return pdfName
+    }
+  }
+
   // 查找对应的PDF
   for (const pdf of files.value) {
     if (pdf.disk_name && jobId.includes(pdf.disk_name.replace('.pdf', ''))) {
@@ -612,6 +664,9 @@ const extractPdfFromJobId = (jobId) => {
 
 // 6. 工具函数：获取PDF文件名
 const getPdfFilename = (task) => {
+  // 优先使用 original_filename（这是从任务数据中解析出来的完整文件名）
+  if (task.original_filename) return task.original_filename
+  
   if (task.filename) return task.filename
 
   if (task.pdfDiskName) {
@@ -1473,10 +1528,10 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
 
         if (progressData.job_id === jobId) {
           // ✅ 计算正确的图片数量
-          const processed = parseInt(progressData.processed_images) || 0
+          const newProcessed = parseInt(progressData.new_processed || progressData.processed_images) || 0
           const skipped = parseInt(progressData.skipped_images) || 0
-          const total = parseInt(progressData.total_images) || (processed + skipped)
-          const actualTotal = total > 0 ? total : processed + skipped
+          const total = parseInt(progressData.total_images) || (newProcessed + skipped)
+          const actualTotal = total > 0 ? total : (newProcessed + skipped)
 
           // ✅ 计算正确的进度
           let progress = parseInt(progressData.progress) || 0
@@ -1486,7 +1541,7 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
             progress = 100
           } else if (actualTotal > 0) {
             // 计算已处理总数
-            const totalProcessed = processed + skipped
+            const totalProcessed = newProcessed + skipped
             progress = Math.round((totalProcessed / actualTotal) * 100)
           }
 
@@ -1504,14 +1559,14 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
             percentage: progress,
 
             // ✅ 关键修复：包含所有图片数量字段
-            processed_images: processed,
-            skipped_images: skipped,
-            total_images: actualTotal,
+            processed_images: newProcessed,  // 新处理的图片数
+            skipped_images: skipped,  // 跳过的图片数
+            total_images: actualTotal,  // 总数
 
-            // 计算显示格式
-            processed: processed + skipped,  // 总处理数
+            // 计算显示格式: 新处理+跳过/总数
+            processed: newProcessed,  // 新处理
             total: actualTotal,  // 总数
-            progress_display: `${processed + skipped}/${actualTotal}`,
+            progress_display: `${newProcessed}+${skipped}/${actualTotal}`,
 
             // 状态字段
             element_status: elementStatus,
@@ -1654,12 +1709,84 @@ const handleParseTables = async (pdfDiskName) => {
 
     const pdfFolder = pdfDiskName.replace(/\.pdf$/i, '')
 
+    // ========== 先检查是否有已有任务 ==========
+    let shouldRerun = false
+    try {
+      const checkResponse = await axios.get(getSmartUrl(`/api/check-table-task/${pdfFolder}`))
+      const checkData = checkResponse.data
+      
+      if (checkData.has_existing) {
+        const status = checkData.status
+        const isProcessing = ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel'].includes(status)
+        const isCompleted = ['completed', 'success'].includes(status)
+        
+        if (isProcessing) {
+          // 任务进行中，提示用户
+          await ElMessageBox.confirm(
+            `该文件已有任务正在处理中 (状态: ${status})，是否查看现有进度？`,
+            '任务进行中',
+            {
+              confirmButtonText: '查看进度',
+              cancelButtonText: '取消',
+              type: 'info'
+            }
+          )
+          // 打开进度弹窗
+          openProgressDialog()
+          isParsing.value = false
+          return
+        } else if (isCompleted) {
+          // 已完成，询问是否重跑
+          const action = await ElMessageBox.confirm(
+            `该文件已解析完成，是否重新解析？（选择"重新解析"将覆盖现有结果）`,
+            '已解析完成',
+            {
+              confirmButtonText: '重新解析',
+              cancelButtonText: '查看结果',
+              distinguishCancelAndClose: true,
+              type: 'info'
+            }
+          )
+          
+          if (action === 'confirm') {
+            // 用户选择重新解析
+            shouldRerun = true
+          } else {
+            // 用户选择查看结果
+            openProgressDialog()
+            isParsing.value = false
+            return
+          }
+        } else {
+          // 失败状态，询问是否重跑
+          const action = await ElMessageBox.confirm(
+            `该文件上次解析失败，是否重新解析？`,
+            '解析失败',
+            {
+              confirmButtonText: '重新解析',
+              cancelButtonText: '取消',
+              type: 'warning'
+            }
+          )
+          
+          if (action !== 'confirm') {
+            isParsing.value = false
+            return
+          }
+          shouldRerun = true
+        }
+      }
+    } catch (checkError) {
+      console.warn('⚠️ 检查已有任务失败，继续提交:', checkError.message)
+    }
+
 
     // 简化请求：后端会自动获取png_names
     const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
       table_type: tableType.value,
       use_ocr: true,
-      force_refresh: false
+      force_refresh: false,
+      rerun: shouldRerun
     }, {
       headers: {
         'Content-Type': 'application/json'
@@ -1667,6 +1794,39 @@ const handleParseTables = async (pdfDiskName) => {
     })
 
     console.log('✅ 收到响应:', response.data)
+
+    // 处理后端返回的特殊情况
+    if (response.data.action === 'already_completed') {
+      // 已完成且用户没有选择重新解析
+      await ElMessageBox.confirm(
+        `该文件已解析完成，是否查看结果？`,
+        '已解析完成',
+        {
+          confirmButtonText: '查看结果',
+          cancelButtonText: '取消',
+          type: 'success'
+        }
+      )
+      openProgressDialog()
+      isParsing.value = false
+      return
+    }
+
+    if (response.data.action === 'waiting') {
+      // 任务进行中
+      await ElMessageBox.confirm(
+        `该文件已有任务正在处理中，是否查看进度？`,
+        '任务进行中',
+        {
+          confirmButtonText: '查看进度',
+          cancelButtonText: '取消',
+          type: 'info'
+        }
+      )
+      openProgressDialog()
+      isParsing.value = false
+      return
+    }
 
     if (response.data.success) {
       const jobId = response.data.job_id
@@ -1830,6 +1990,7 @@ async function pollTableProgress(jobId, pdfDiskName) {
 // 在现有的数据声明部分添加以下内容
 // ============ 新增：进度监控相关状态 ============
 const progressDialogVisible = ref(false)  // 控制弹窗显示
+const progressSearchKeyword = ref('')     // 进度弹窗搜索关键词
 const allParsingTasks = ref([])           // 存储所有任务数据
 const tasksSSE = ref(null)                // 用于存储SSE连接实例
 const tasksSummary = ref({                // 任务统计摘要
@@ -1854,13 +2015,66 @@ const showProgressDialog = () => {
   connectToTasksSSE()
 }
 
+// 1.1 带搜索关键词显示进度弹窗
+const showProgressDialogWithSearch = (keyword) => {
+  console.log('📊 显示进度弹窗，搜索关键词:', keyword)
+  progressSearchKeyword.value = keyword || ''
+  progressDialogVisible.value = true
+
+  // 弹窗打开时立即获取一次任务列表
+  fetchAllParsingTasks()
+
+  // 建立SSE连接用于实时更新
+  connectToTasksSSE()
+}
 
 
-// 修改现有的 fetchAllParsingTasks 方法
+
+// 修改现有的 fetchAllParsingTasks 方法 - 优先从 API 获取所有任务
 const fetchAllParsingTasks = async () => {
   try {
-    // ========== 第一步：诊断 parsingProgressMap 数据 ==========
-    console.log('🔍=== 第一步：诊断 parsingProgressMap 数据 ===')
+    // ========== 第一步：优先调用 API 获取所有任务 ==========
+    console.log('🔍=== 从 API 获取所有任务 ===')
+    
+    try {
+      const response = await axios.get('/api/active-tasks')
+      if (response.data && response.data.success) {
+        let tasks = response.data.tasks || []
+        console.log(`📥 从API获取到 ${tasks.length} 个任务`)
+        
+        // 处理每个任务的时间字段
+        tasks = tasks.map(task => {
+          processTaskData(task.job_id || task.jobId, task, [], new Set())
+          return task
+        })
+        
+        // 按时间排序（最新的在前）
+        tasks.sort((a, b) => {
+          const timeA = a.timestamp || a.started_at || a.start_time || 0
+          const timeB = b.timestamp || b.started_at || b.start_time || 0
+          const dateA = timeA ? new Date(timeA).getTime() : 0
+          const dateB = timeB ? new Date(timeB).getTime() : 0
+          return dateB - dateA
+        })
+        
+        allParsingTasks.value = tasks
+        
+        // 更新统计摘要
+        if (response.data.summary) {
+          updateTasksSummaryFromSummary(response.data.summary)
+        } else {
+          updateTasksSummary(tasks)
+        }
+        
+        console.log('✅ 从API获取任务成功')
+        return
+      }
+    } catch (apiError) {
+      console.warn('⚠️ API获取失败，回退到parsingProgressMap:', apiError.message)
+    }
+    
+    // ========== 第二步：API 失败时回退到 parsingProgressMap ==========
+    console.log('🔍=== 回退到 parsingProgressMap ===')
 
     // 1. 获取所有任务ID
     const allKeys = Object.keys(parsingProgressMap.value)
@@ -1872,7 +2086,7 @@ const fetchAllParsingTasks = async () => {
     allKeys.forEach(key => {
       const task = parsingProgressMap.value[key]
       if (task) {
-        // ✅ 跳过引用条目
+        // 跳过引用条目
         if (task.is_reference === true) {
           return
         }
@@ -1892,15 +2106,15 @@ const fetchAllParsingTasks = async () => {
     if (latestJobId) {
       const latestTask = parsingProgressMap.value[latestJobId]
     } else {
-      console.log('🔍 未找到最新任务')
+      console.log('未找到最新任务')
     }
 
     // 3. 列出所有任务及其关键字段
-    console.log('📋 当前所有任务列表:')
+    console.log('当前所有任务列表:')
     allKeys.forEach((key, index) => {
       const task = parsingProgressMap.value[key]
     })
-    console.log('🔍=== 诊断结束 ===\n')
+
     // ========== 诊断结束 ==========
 
     const tasks = []
@@ -1910,14 +2124,8 @@ const fetchAllParsingTasks = async () => {
     Object.entries(parsingProgressMap.value).forEach(([key, taskData]) => {
       if (!taskData) return
 
-      console.log(`  🔍 处理key: "${key}"`)
-
-      // ✅ 方案2核心：跳过引用条目
+      // 方案2核心：跳过引用条目
       if (taskData.is_reference === true) {
-        console.log(`  ⏭️ 跳过引用条目: ${key} -> ${taskData.referenced_to || '未知'}`)
-
-        // ✅ 关键修复：引用条目有文件名，但我们不处理它
-        // 主数据会通过jobId被处理
         return
       }
 
@@ -1942,13 +2150,8 @@ const fetchAllParsingTasks = async () => {
     // 更新统计摘要
     updateTasksSummary(tasks)
 
-    // 打印任务统计
-    const activeCount = tasks.filter(t => t.is_active).length
-    const completedCount = tasks.filter(t => t.status === 'completed' || t.status === 'success').length
-    const failedCount = tasks.filter(t => t.status === 'failed' || t.status === 'exception').length
-
   } catch (error) {
-    console.error('❌ 获取任务列表失败:', error)
+    console.error('获取任务列表失败:', error)
     // 不显示错误消息，避免干扰用户
   }
 }
@@ -2084,28 +2287,63 @@ function processTaskData(key, taskData, tasks, processedJobIds) {
   }
 
   // ✅ 修复：统一时间字段，使用安全的日期转换
-  if (!task.started_at || task.started_at === "1970-01-01T00:00:00.000Z") {
-    if (task.timestamp) {
-      const startedAt = safeToISOString(task.timestamp);
-      // 如果是有效时间，使用它
-      if (startedAt && !startedAt.includes("1970-01-01")) {
-        task.started_at = startedAt;
-      } else {
-        // 否则使用当前时间
-        task.started_at = new Date().toISOString();
+  // 优先使用 timestamp，因为 started_at 可能是无效的 1970 年
+  console.log('🔍 处理任务时间字段:', task.job_id, 'started_at:', task.started_at, 'timestamp:', task.timestamp)
+  
+  // 优先使用 timestamp（更可靠），其次用 started_at
+  let timeToUse = null
+  
+  // 如果 started_at 存在且不是 1970 年，使用它
+  if (task.started_at && task.started_at.indexOf('1970-01-01') === -1) {
+    timeToUse = task.started_at
+  }
+  // 否则使用 timestamp
+  else if (task.timestamp) {
+    timeToUse = task.timestamp
+  }
+  // 再用其他时间字段
+  else {
+    timeToUse = task.task_start_time || task.created_at
+  }
+  
+  console.log('🔍 最终使用的时间:', timeToUse)
+  
+  if (timeToUse) {
+    // 尝试多种方式解析
+    let parsedDate = null
+    
+    // 方式1: 直接尝试解析
+    parsedDate = new Date(timeToUse)
+    
+    // 方式2: 如果是数字时间戳字符串
+    if (isNaN(parsedDate.getTime()) && typeof timeToUse === 'string' && /^\d+(\.\d+)?$/.test(timeToUse)) {
+      parsedDate = new Date(parseFloat(timeToUse) * 1000)
+    }
+    
+    // 方式3: 如果是数字时间戳
+    if (isNaN(parsedDate.getTime()) && typeof timeToUse === 'number') {
+      if (timeToUse < 10000000000) { // 秒级时间戳
+        parsedDate = new Date(timeToUse * 1000)
+      } else { // 毫秒级时间戳
+        parsedDate = new Date(timeToUse)
       }
+    }
+    
+    // 如果是有效日期且不是 1970 年，使用它
+    if (!isNaN(parsedDate.getTime()) && parsedDate.getFullYear() > 2020) {
+      task.started_at = parsedDate.toISOString()
+      console.log('✅ 解析成功:', task.started_at)
     } else {
-      // 直接使用当前时间
-      task.started_at = new Date().toISOString();
+      // 否则使用当前时间
+      task.started_at = new Date().toISOString()
+      console.log('⚠️ 解析失败，使用当前时间')
     }
   } else {
-    // 如果已经有时间但可能是1970年，检查并修复
-    const existingTime = safeToISOString(task.started_at);
-    if (existingTime.includes("1970-01-01")) {
-      task.started_at = new Date().toISOString();
-    }
+    // 没有时间字段，使用当前时间
+    task.started_at = new Date().toISOString()
+    console.log('⚠️ 没有时间字段，使用当前时间')
   }
-
+     
   // ✅ 修复：确保其他时间字段也是安全的
   ['completed_at', 'last_updated', 'task_start_time', 'created_at'].forEach(field => {
     if (task[field]) {
@@ -2137,29 +2375,30 @@ function processTaskData(key, taskData, tasks, processedJobIds) {
   }
 
   // ✅ 修复：计算正确的图片处理数量
-  const processed = parseInt(task.processed_images) || 0;
+  const newProcessed = parseInt(task.new_processed || task.processed_images) || 0;
   const skipped = parseInt(task.skipped_images) || 0;
-  const total = parseInt(task.total_images) || (processed + skipped);
+  const total = parseInt(task.total_images) || (newProcessed + skipped);
 
   // 计算已处理总数
-  const totalProcessed = processed + skipped;
+  const totalProcessed = newProcessed + skipped;
 
   // ✅ 修复：任务完成时强制设置进度为100%
   if (task.status === 'completed' || task.status === 'success') {
     task.progress = 100;
-    task.percentage = 100;
+    task.percentage = 100;  // 确保是数字类型
   } else if (total > 0) {
     // 计算实时进度
     const progress = Math.round((totalProcessed / total) * 100);
     task.progress = progress;
-    task.percentage = progress;
+    task.percentage = progress;  // 确保是数字类型
   } else {
-    task.progress = task.progress || 0;
-    task.percentage = task.percentage || 0;
+    task.progress = parseInt(task.progress) || 0;
+    task.percentage = parseInt(task.percentage) || 0;
   }
 
-  // ✅ 添加图片处理显示格式
-  task.progress_display = `${totalProcessed}/${total}`;
+  // ✅ 修复：显示格式应为 新处理+跳过/总数
+  task.progress_display = `${newProcessed}+${skipped}/${total}`;
+  task.processed = newProcessed;  // 新处理的图片数
 
   // ✅ 为任务添加文件信息
   if (task.pdf_folder || task.pdfDiskName) {
@@ -2246,11 +2485,28 @@ const updateTasksSummary = (tasks) => {
   tasksSummary.value = summary
 }
 
+// 新增：直接从 API 返回的 summary 更新统计（无需遍历任务）
+const updateTasksSummaryFromSummary = (apiSummary) => {
+  tasksSummary.value = {
+    total: apiSummary.total || 0,
+    processing: apiSummary.processing || 0,
+    completed: apiSummary.completed || 0,
+    failed: apiSummary.failed || 0,
+    queued: apiSummary.queued || 0
+  }
+  console.log('📊 更新统计摘要:', tasksSummary.value)
+}
+
 // 4. 连接SSE获取实时更新
+let sseReconnectTimer = null
+
 const connectToTasksSSE = () => {
-  // 先关闭现有的连接
+  // 先关闭现有的连接和定时器
   if (tasksSSE.value) {
     tasksSSE.value.close()
+  }
+  if (sseReconnectTimer) {
+    clearInterval(sseReconnectTimer)
   }
 
   try {
@@ -2260,25 +2516,53 @@ const connectToTasksSSE = () => {
     tasksSSE.value.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-
+        
         // 更新任务列表
-        updateTaskInList(data)
+        if (data.tasks) {
+          updateTaskInList(data)
+        }
+        
+        // 如果有summary，也更新统计
+        if (data.summary) {
+          updateTasksSummaryFromSummary(data.summary)
+        }
 
       } catch (error) {
-        console.error('❌ 解析任务更新数据失败:', error)
+        console.error('解析任务更新数据失败:', error)
       }
     }
 
     tasksSSE.value.onerror = (error) => {
-      console.error('❌ 任务进度SSE连接错误:', error)
-      // 可以在这里实现重连逻辑
+      console.warn('任务进度SSE连接错误，3秒后自动重连...')
+      
+      // 关闭当前连接
+      if (tasksSSE.value) {
+        tasksSSE.value.close()
+        tasksSSE.value = null
+      }
+      
+      // 设置定时器，定期调用API作为后备
+      sseReconnectTimer = setInterval(() => {
+        console.log('🔄 SSE连接失败，通过API获取任务...')
+        fetchAllParsingTasks()
+      }, 5000) // 每5秒调用一次API
     }
 
     tasksSSE.value.onopen = () => {
+      console.log('✅ SSE连接成功')
+      // 连接成功时清除定时器
+      if (sseReconnectTimer) {
+        clearInterval(sseReconnectTimer)
+        sseReconnectTimer = null
+      }
     }
 
   } catch (error) {
-    console.error('❌ 建立任务进度SSE连接失败:', error)
+    console.error('建立任务进度SSE连接失败:', error)
+    // 即使SSE失败，也设置定时器定期获取任务
+    sseReconnectTimer = setInterval(() => {
+      fetchAllParsingTasks()
+    }, 5000)
   }
 }
 
@@ -2290,6 +2574,11 @@ const updateTaskInList = (taskData) => {
   if (!jobId && !pdfDiskName) {
     console.warn('⚠️ 更新任务数据缺少标识符:', taskData)
     return
+  }
+
+  // 处理时间字段
+  if (jobId) {
+    processTaskData(jobId, taskData, [], new Set())
   }
 
   // 查找现有任务

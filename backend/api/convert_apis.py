@@ -139,6 +139,14 @@ def api_process_tables(pdf_folder: str):
         progress_tracker
     )
 
+# ---------------- 13.1 检查表格处理任务状态 ----------------
+@convert_bp.route('/api/check-table-task/<pdf_folder>', methods=['GET'])
+def api_check_table_task(pdf_folder: str):
+    """检查指定PDF是否有已存在的表格处理任务"""
+    result = table_processor.check_existing_table_task(pdf_folder)
+    return jsonify(result)
+
+
 # ---------------- 14. 查询表格处理任务状态 ----------------
 @convert_bp.get('/api/table-progress/<job_id>')
 def api_table_progress(job_id: str):

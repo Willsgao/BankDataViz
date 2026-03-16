@@ -98,6 +98,22 @@
             </div>
           </div>
           <div class="header-right">
+            <!-- 搜索任务输入框 -->
+            <el-input
+              v-model="taskSearchKeyword"
+              size="small"
+              placeholder="搜索任务..."
+              prefix-icon="el-icon-search"
+              clearable
+              style="width: 160px; margin-right: 10px;"
+              @keyup.enter="handleSearchTasks"
+              @clear="handleClearSearch"
+            >
+              <template #append>
+                <el-button icon="el-icon-search" @click="handleSearchTasks" />
+              </template>
+            </el-input>
+
             <!-- 新增：查看解析进度按钮 -->
             <el-button
               size="small"
@@ -310,6 +326,21 @@ import CurrentPdfStatus from '@/components/pdf/CurrentPdfStatus.vue'
 
 // 控制文件列表展开状态
 const fileListExpanded = ref(false)
+const taskSearchKeyword = ref('')  // 任务搜索关键词
+
+// 搜索任务
+const handleSearchTasks = () => {
+  if (taskSearchKeyword.value) {
+    // 触发搜索事件，让父组件打开弹窗并传入搜索关键词
+    emit('search-tasks', taskSearchKeyword.value)
+  }
+}
+
+// 清除搜索
+const handleClearSearch = () => {
+  taskSearchKeyword.value = ''
+  emit('clear-task-search')
+}
 
 // 切换文件列表展开状态
 const toggleFileList = () => {
@@ -428,7 +459,9 @@ defineEmits([
   'parse-tables',
   'parseTables',
   'tableTypeChange',
-  'show-progress-dialog'
+  'show-progress-dialog',
+  'search-tasks',
+  'clear-task-search'
 ])
 
 

@@ -1492,6 +1492,114 @@ def get_bank_name_from_database(pdf_folder):
         return ""
 
 
+def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
+    """
+    检查同一 pdf_folder 是否已有解析任务
+    
+    返回:
+        {
+            "has_existing": True/False,
+            "status": "processing/completed/failed/None",
+            "job_id": "xxx",
+            "message": "提示信息",
+            "can_rerun": True/False
+        }
+    """
+    try:
+        import redis
+        from backend.configs.config import REDIS_CONFIG
+        
+        redis_client = redis.Redis(
+            host=REDIS_CONFIG.get('host', 'localhost'),
+            port=REDIS_CONFIG.get('port', 6379),
+            db=REDIS_CONFIG.get('db', 0),
+            decode_responses=True
+        )
+        
+        # 查找该 pdf_folder 相关的所有任务
+        task_keys = redis_client.keys("table:job:*")
+        
+        existing_task = None
+        for key in task_keys:
+            task_data = redis_client.hgetall(key)
+            if task_data and task_data.get('pdf_folder') == pdf_folder:
+                job_id = key.replace("table:job:", "")
+                status = task_data.get('status', 'unknown')
+                
+                # 找到最近的任务
+                if existing_task is None:
+                    existing_task = {
+                        'job_id': job_id,
+                        'status': status,
+                        'progress': task_data.get('progress', '0'),
+                        'completed_at': task_data.get('completed_at', ''),
+                        'original_filename': task_data.get('original_filename', '')
+                    }
+                else:
+                    # 比较时间，取最新的
+                    existing_time = existing_task.get('created_at', '')
+                    new_time = task_data.get('created_at', '')
+                    if new_time > existing_time:
+                        existing_task = {
+                            'job_id': job_id,
+                            'status': status,
+                            'progress': task_data.get('progress', '0'),
+                            'completed_at': task_data.get('completed_at', ''),
+                            'original_filename': task_data.get('original_filename', '')
+                        }
+        
+        if existing_task:
+            status = existing_task['status']
+            is_processing = status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel']
+            is_completed = status in ['completed', 'success']
+            is_failed = status in ['failed', 'exception']
+            
+            if is_processing:
+                return {
+                    "has_existing": True,
+                    "status": status,
+                    "job_id": existing_task['job_id'],
+                    "message": f"该文件已有任务正在处理中 (状态: {status})",
+                    "can_rerun": True
+                }
+            elif is_completed:
+                return {
+                    "has_existing": True,
+                    "status": status,
+                    "job_id": existing_task['job_id'],
+                    "message": f"该文件已解析完成 (任务ID: {existing_task['job_id']})",
+                    "can_rerun": True
+                }
+            elif is_failed:
+                return {
+                    "has_existing": True,
+                    "status": status,
+                    "job_id": existing_task['job_id'],
+                    "message": f"该文件上次解析失败 (任务ID: {existing_task['job_id']})",
+                    "can_rerun": True
+                }
+        
+        return {
+            "has_existing": False,
+            "status": None,
+            "job_id": None,
+            "message": "没有找到已有的任务",
+            "can_rerun": False
+        }
+        
+    except Exception as e:
+        print(f"⚠️ 检查已有任务失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "has_existing": False,
+            "status": None,
+            "job_id": None,
+            "message": f"检查任务时出错: {str(e)}",
+            "can_rerun": False
+        }
+
+
 def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, progress_tracker):
     """提交表格处理任务 - 更新调用方式"""
     try:
@@ -1689,6 +1797,38 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
         print(f"📊 请求数据: {data}")
 
+        # ========== 检查是否有已有任务 ==========
+        rerun = data.get('rerun', False)
+        if not rerun:
+            existing_check = check_existing_table_task(pdf_folder)
+            if existing_check['has_existing']:
+                status = existing_check['status']
+                if status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel']:
+                    # 进行中
+                    print(f"⚠️ 该文件已有任务进行中: {existing_check['job_id']}")
+                    return jsonify({
+                        "success": False,
+                        "error": existing_check['message'],
+                        "existing_job_id": existing_check['job_id'],
+                        "existing_status": status,
+                        "action": "waiting",
+                        "can_rerun": True
+                    }), 200
+                elif status in ['completed', 'success']:
+                    # 已完成
+                    print(f"ℹ️ 该文件已解析完成: {existing_check['job_id']}")
+                    return jsonify({
+                        "success": True,
+                        "message": existing_check['message'],
+                        "existing_job_id": existing_check['job_id'],
+                        "existing_status": status,
+                        "action": "already_completed",
+                        "can_rerun": True
+                    }), 200
+                elif status in ['failed', 'exception']:
+                    # 失败过，允许重新执行
+                    print(f"ℹ️ 该文件上次解析失败，允许重新执行: {existing_check['job_id']}")
+        
         table_type = data.get('table_type', 'financial')
         use_ocr = data.get('use_ocr', True)
 

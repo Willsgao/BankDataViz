@@ -168,10 +168,11 @@
           <el-table-column label="图片处理" width="140">
             <template #default="{ row }">
               <div class="image-stats">
-                <div v-if="row.processed !== undefined || row.processed_images !== undefined">
-                  <span class="processed">{{ row.processed || row.processed_images || 0 }}</span>
+                <div v-if="row.total_images !== undefined || row.total !== undefined">
+                  <span class="processed">{{ row.processed_images || row.processed || 0 }}</span>
+                  <span class="skipped" v-if="row.skipped_images">({{ row.skipped_images }})</span>
                   <span class="separator">/</span>
-                  <span class="total">{{ row.total || row.total_images || 0 }}</span>
+                  <span class="total">{{ row.total_images || row.total || 0 }}</span>
                 </div>
                 <div v-else class="no-stats">-</div>
               </div>
@@ -182,7 +183,7 @@
           <el-table-column label="开始时间" width="150">
               <template #default="{ row }">
                 <div class="time-cell">
-                  {{ formatDateTime(row.started_at) }}
+                  {{ formatDateTime(row.timestamp || row.started_at) }}
                 </div>
               </template>
             </el-table-column>
@@ -255,6 +256,18 @@
           <el-option label="失败" value="failed" />
         </el-select>
 
+        <el-date-picker
+          v-model="dateFilter"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          size="small"
+          clearable
+          style="width: 240px; margin-right: 8px;"
+          value-format="YYYY-MM-DD"
+        />
+
         <el-input
           v-model="searchKeyword"
           size="small"
@@ -307,6 +320,10 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  searchKeyword: {
+    type: String,
+    default: ''
   }
 })
 
@@ -323,6 +340,7 @@ const emit = defineEmits([
 // 本地状态
 const statusFilter = ref('')
 const searchKeyword = ref('')
+const dateFilter = ref(null)  // 日期筛选 [开始日期, 结束日期]
 const autoRefresh = ref(true)
 let autoRefreshTimer = null
 
@@ -338,13 +356,43 @@ const filteredTasks = computed(() => {
     })
   }
 
-  // 关键词搜索
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
+  // 日期筛选
+  if (dateFilter.value && dateFilter.value.length === 2) {
+    const [startDate, endDate] = dateFilter.value
+    const start = new Date(startDate).setHours(0, 0, 0, 0)
+    const end = new Date(endDate).setHours(23, 59, 59, 999)
+    
+    result = result.filter(task => {
+      const timestamp = task.timestamp || task.started_at
+      if (!timestamp) return false
+      
+      let taskDate = null
+      if (typeof timestamp === 'number') {
+        taskDate = new Date(timestamp * 1000).getTime()
+      } else if (typeof timestamp === 'string') {
+        // 处理带小数的数字字符串
+        const num = parseFloat(timestamp)
+        if (!isNaN(num)) {
+          taskDate = new Date(num * 1000).getTime()
+        } else {
+          taskDate = new Date(timestamp).getTime()
+        }
+      }
+      
+      if (!taskDate || isNaN(taskDate)) return false
+      return taskDate >= start && taskDate <= end
+    })
+  }
+
+  // 关键词搜索 - 优先使用外部传入的搜索关键词
+  const keyword = props.searchKeyword || searchKeyword.value
+  if (keyword) {
+    const lowerKeyword = keyword.toLowerCase()
     result = result.filter(task => {
       const filename = getPdfFilename(task).toLowerCase()
-      return filename.includes(keyword) ||
-             (task.job_id && task.job_id.toLowerCase().includes(keyword))
+      return filename.includes(lowerKeyword) ||
+             (task.job_id && task.job_id.toLowerCase().includes(lowerKeyword)) ||
+             (task.original_filename && task.original_filename.toLowerCase().includes(lowerKeyword))
     })
   }
 
@@ -399,13 +447,21 @@ const getStatusText = (task) => {
 }
 
 const getProgressPercentage = (task) => {
-  if (task.progress !== undefined) return task.progress
-  if (task.percentage !== undefined) return task.percentage
+  // 优先使用 percentage（数字类型）
+  if (task.percentage !== undefined) {
+    return typeof task.percentage === 'number' ? task.percentage : parseInt(task.percentage) || 0
+  }
+  // 其次使用 progress，确保转换为数字
+  if (task.progress !== undefined) {
+    return typeof task.progress === 'number' ? task.progress : parseInt(task.progress) || 0
+  }
 
   // 从图片处理数量计算
   if (task.processed_images !== undefined && task.total_images !== undefined) {
-    if (task.total_images > 0) {
-      return Math.round((task.processed_images / task.total_images) * 100)
+    const processed = parseInt(task.processed_images) || 0
+    const total = parseInt(task.total_images) || 0
+    if (total > 0) {
+      return Math.round((processed / total) * 100)
     }
   }
 
@@ -446,18 +502,32 @@ const getElapsedTime = (task) => {
 
 // 修改格式化时间函数
 const formatDateTime = (timestamp) => {
-  if (!timestamp) return '-'
+  if (!timestamp || timestamp === 'null' || timestamp === 'undefined' || timestamp === '') return '-'
   try {
-    const date = new Date(timestamp)
-
-    // ✅ 检查是否是有效的日期
+    let date = null
+    
+    // 尝试多种解析方式
+    // 1. 直接解析
+    date = new Date(timestamp)
+    
+    // 2. 如果无效，尝试数字时间戳（秒）- 支持小数
+    if (isNaN(date.getTime()) && typeof timestamp === 'string' && /^\d+(\.\d+)?$/.test(timestamp)) {
+      date = new Date(parseFloat(timestamp) * 1000)
+    }
+    
+    // 3. 如果无效，尝试数字时间戳（毫秒）
+    if (isNaN(date.getTime()) && typeof timestamp === 'number' && timestamp < 10000000000) {
+      date = new Date(timestamp * 1000)
+    }
+    
+    // 检查是否是有效的日期
     if (isNaN(date.getTime())) {
-      return '无效时间'
+      return '-'
     }
 
-    // ✅ 检查是否是1970年（无效时间）
+    // 检查是否是1970年（无效时间）
     if (date.getFullYear() === 1970 && date.getMonth() === 0 && date.getDate() === 1) {
-      return '未记录'
+      return '-'
     }
 
     // ✅ 修复：添加年份显示
@@ -470,8 +540,7 @@ const formatDateTime = (timestamp) => {
       second: '2-digit'
     })
   } catch (e) {
-    console.error('时间格式化错误:', e, timestamp)
-    return '时间错误'
+    return '-'
   }
 }
 

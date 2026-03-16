@@ -78,40 +78,119 @@ def get_progress_from_redis(job_id):
 @progress_sse_bp.route('/api/table-progress-sse/<job_id>')
 def table_progress_sse(job_id):
     """
-    SSE进度流端点
+    SSE进度流端点 - 使用Redis Pub/Sub实现实时推送
     客户端通过EventSource连接此端点获取实时进度
     """
-
+    
+    channel_name = f"table:progress:{job_id}"
+    
     def generate():
-        last_progress = None
-
-        while True:
+        pubsub = None
+        redis_client = None
+        last_progress_str = ""
+        
+        try:
+            # 创建独立的Redis连接用于Pub/Sub
+            redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=0,
+                decode_responses=True,
+                socket_keepalive=True,
+                socket_timeout=30
+            )
+            
+            # 创建Pub/Sub客户端
+            pubsub = redis_client.pubsub()
+            
+            # 订阅进度频道
+            pubsub.subscribe(channel_name)
+            print(f"📡 已订阅频道: {channel_name}")
+            
+            # 首先从Redis Hash获取初始状态
+            initial_progress = get_progress_from_redis(job_id)
+            if initial_progress:
+                # 发送初始状态
+                progress_str = json.dumps(initial_progress, ensure_ascii=False)
+                yield f"data: {progress_str}\n\n"
+                last_progress_str = progress_str
+                print(f"📤 发送初始进度: {initial_progress.get('progress', 0)}%")
+                
+                # 如果已完成，直接退出
+                if initial_progress.get('status') in ['completed', 'failed', 'success']:
+                    print(f"✅ 任务已完成，直接退出")
+                    return
+            else:
+                # 任务还不存在，发送错误信息并等待
+                yield f"data: {json.dumps({'error': '任务不存在或正在创建', 'waiting': True})}\n\n"
+            
+            # 设置超时时间（秒）
+            timeout_seconds = 60
+            start_time = time.time()
+            last_message_time = time.time()
+            
+            # 监听Pub/Sub消息
+            for message in pubsub.listen():
+                try:
+                    # 检查超时
+                    if time.time() - start_time > timeout_seconds:
+                        print(f"⏱️ SSE连接超时 ({timeout_seconds}秒)")
+                        yield f"data: {json.dumps({'error': '连接超时', 'timeout': True})}\n\n"
+                        break
+                    
+                    if message['type'] == 'message':
+                        # 解析消息
+                        data = json.loads(message['data'])
+                        print(f"📥 收到Pub/Sub消息: {data}")
+                        
+                        # 提取进度数据
+                        progress_data = data.get('data') if isinstance(data, dict) else data
+                        if not progress_data:
+                            progress_data = data
+                        
+                        # 转换为JSON字符串
+                        progress_str = json.dumps(progress_data, ensure_ascii=False)
+                        
+                        # 只有进度变化时才发送（避免重复发送相同数据）
+                        if progress_str != last_progress_str:
+                            yield f"data: {progress_str}\n\n"
+                            last_progress_str = progress_str
+                            last_message_time = time.time()
+                            
+                            # 检查任务是否完成
+                            status = progress_data.get('status', '')
+                            if status in ['completed', 'failed', 'success']:
+                                print(f"✅ 任务{job_id}完成，状态: {status}")
+                                break
+                    elif message['type'] == 'subscribe':
+                        print(f"📡 订阅确认: {message['channel']}")
+                        
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ 消息解析失败: {e}")
+                except Exception as e:
+                    print(f"⚠️ 处理消息异常: {e}")
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    break
+            
+            print(f"📴 SSE连接结束")
+            
+        except Exception as e:
+            print(f"❌ SSE流生成异常: {e}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        
+        finally:
+            # 清理资源
             try:
-                # 从Redis获取当前进度
-                current_progress = get_progress_from_redis(job_id)
-
-                if not current_progress:
-                    # 任务不存在
-                    yield f"data: {json.dumps({'error': '任务不存在'})}\n\n"
-                    break
-
-                # 只在进度变化时发送
-                if current_progress != last_progress:
-                    yield f"data: {json.dumps(current_progress)}\n\n"
-                    last_progress = current_progress
-
-                # 任务完成或失败时结束流
-                if current_progress['status'] in ['completed', 'failed']:
-                    print(f"✅ 任务{job_id}完成，关闭SSE连接")
-                    break
-
-                # 等待1秒后继续检查
-                time.sleep(1)
-
+                if pubsub:
+                    pubsub.unsubscribe()
+                    pubsub.close()
+                    print(f"🧹 已清理Pub/Sub连接")
+                if redis_client:
+                    redis_client.close()
             except Exception as e:
-                print(f"❌ SSE流生成异常: {e}")
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                break
+                print(f"⚠️ 清理连接异常: {e}")
 
     return Response(
         stream_with_context(generate()),
@@ -128,76 +207,216 @@ def table_progress_sse(job_id):
 def all_tasks_progress_sse():
     """
     SSE推送所有表格处理任务的实时进度
-    用于前端进度监控弹窗
+    使用Pub/Sub实现实时推送 - 订阅全局进度频道
     """
-
+    
     def generate():
-        import json
-        import time
-
-        while True:
+        pubsub = None
+        redis_client = None
+        
+        try:
+            # 创建独立的Redis连接
+            redis_client = redis.Redis(
+                host='localhost',
+                port=6379,
+                db=0,
+                decode_responses=True,
+                socket_keepalive=True,
+                socket_timeout=30
+            )
+            
+            # 创建Pub/Sub客户端
+            pubsub = redis_client.pubsub()
+            
+            # 订阅全局进度频道（当有任何任务更新时，会收到通知）
+            pubsub.subscribe('table:progress:all')
+            print("📡 已订阅全局进度频道: table:progress:all")
+            
+            # 首先立即发送一次当前所有任务的状态
             try:
-                # 获取所有任务
-                redis_client = redis.Redis(
-                    host='localhost',
-                    port=6379,
-                    db=0,
-                    decode_responses=True
-                )
-
-                # 1. 获取所有表格任务
                 tasks = []
                 task_keys = redis_client.keys("table:job:*")
-
-                for key in task_keys[:50]:  # 限制数量防止性能问题
+                
+                for key in task_keys[:50]:
                     try:
                         job_id = key.replace("table:job:", "")
                         task_data = redis_client.hgetall(key)
-
+                        
                         if task_data:
                             task_data['job_id'] = job_id
                             task_data['timestamp'] = time.time()
                             tasks.append(task_data)
-
                     except Exception as e:
                         print(f"⚠️ 处理任务键 {key} 失败: {e}")
-
-                # 2. 获取PDF级状态
+                
+                # 获取PDF级状态
                 pdf_tasks = []
                 pdf_keys = redis_client.keys("pdf:*:current_status")
-
+                
                 for key in pdf_keys[:20]:
                     try:
                         pdf_folder = key.replace("pdf:", "").replace(":current_status", "")
                         pdf_data = redis_client.hgetall(key)
-
+                        
                         if pdf_data:
                             pdf_data['pdf_folder'] = pdf_folder
                             pdf_data['status_type'] = 'pdf_level'
                             pdf_data['timestamp'] = time.time()
                             pdf_tasks.append(pdf_data)
-
                     except Exception as e:
                         print(f"⚠️ 处理PDF键 {key} 失败: {e}")
-
-                # 3. 合并任务列表
+                
                 all_tasks = tasks + pdf_tasks
-
-                # 4. 推送数据
+                
+                # 统计摘要
+                summary = {
+                    "total": len(all_tasks),
+                    "processing": 0,
+                    "queued": 0,
+                    "completed": 0,
+                    "failed": 0
+                }
+                
+                for task in all_tasks:
+                    status = task.get('status', 'unknown')
+                    if status in ['processing', 'running']:
+                        summary['processing'] += 1
+                    elif status == 'queued':
+                        summary['queued'] += 1
+                    elif status in ['completed', 'success']:
+                        summary['completed'] += 1
+                    elif status in ['failed', 'exception']:
+                        summary['failed'] += 1
+                    elif status in ['pending', 'starting', 'generating_excel', '']:
+                        summary['processing'] += 1
+                
+                # 发送初始数据
                 data = {
                     "type": "all_tasks_update",
                     "timestamp": time.time(),
                     "total": len(all_tasks),
-                    "tasks": all_tasks
+                    "tasks": all_tasks,
+                    "summary": summary
                 }
-
+                
                 yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
-
+                print(f"📤 发送初始任务列表: {len(all_tasks)} 个任务")
+                
             except Exception as e:
-                print(f"❌ 生成所有任务进度失败: {e}")
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-            time.sleep(3)  # 3秒推送一次
+                print(f"⚠️ 获取初始任务列表失败: {e}")
+            
+            # 设置超时时间（秒）
+            timeout_seconds = 300  # 5分钟超时
+            start_time = time.time()
+            last_update_time = time.time()
+            
+            # 监听Pub/Sub消息
+            for message in pubsub.listen():
+                try:
+                    # 检查超时
+                    if time.time() - start_time > timeout_seconds:
+                        print(f"⏱️ SSE连接超时 ({timeout_seconds}秒)")
+                        yield f"data: {json.dumps({'error': '连接超时', 'timeout': True})}\n\n"
+                        break
+                    
+                    if message['type'] == 'message':
+                        print(f"📥 收到全局进度更新通知")
+                        
+                        # 收到通知后，立即获取所有任务数据
+                        tasks = []
+                        task_keys = redis_client.keys("table:job:*")
+                        
+                        for key in task_keys[:50]:
+                            try:
+                                job_id = key.replace("table:job:", "")
+                                task_data = redis_client.hgetall(key)
+                                
+                                if task_data:
+                                    task_data['job_id'] = job_id
+                                    task_data['timestamp'] = time.time()
+                                    tasks.append(task_data)
+                            except Exception as e:
+                                pass
+                        
+                        # 获取PDF级状态
+                        pdf_tasks = []
+                        pdf_keys = redis_client.keys("pdf:*:current_status")
+                        
+                        for key in pdf_keys[:20]:
+                            try:
+                                pdf_folder = key.replace("pdf:", "").replace(":current_status", "")
+                                pdf_data = redis_client.hgetall(key)
+                                
+                                if pdf_data:
+                                    pdf_data['pdf_folder'] = pdf_folder
+                                    pdf_data['status_type'] = 'pdf_level'
+                                    pdf_data['timestamp'] = time.time()
+                                    pdf_tasks.append(pdf_data)
+                            except Exception as e:
+                                pass
+                        
+                        all_tasks = tasks + pdf_tasks
+                        
+                        # 统计摘要
+                        summary = {
+                            "total": len(all_tasks),
+                            "processing": 0,
+                            "queued": 0,
+                            "completed": 0,
+                            "failed": 0
+                        }
+                        
+                        for task in all_tasks:
+                            status = task.get('status', 'unknown')
+                            if status in ['processing', 'running']:
+                                summary['processing'] += 1
+                            elif status == 'queued':
+                                summary['queued'] += 1
+                            elif status in ['completed', 'success']:
+                                summary['completed'] += 1
+                            elif status in ['failed', 'exception']:
+                                summary['failed'] += 1
+                            elif status in ['pending', 'starting', 'generating_excel', '']:
+                                summary['processing'] += 1
+                        
+                        # 发送更新数据
+                        data = {
+                            "type": "all_tasks_update",
+                            "timestamp": time.time(),
+                            "total": len(all_tasks),
+                            "tasks": all_tasks,
+                            "summary": summary
+                        }
+                        
+                        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                        print(f"📤 推送任务更新: {len(all_tasks)} 个任务, 统计: {summary}")
+                        last_update_time = time.time()
+                        
+                    elif message['type'] == 'subscribe':
+                        print(f"📡 订阅确认: {message['channel']}")
+                        
+                except Exception as e:
+                    print(f"⚠️ 处理消息异常: {e}")
+            
+            print(f"📴 SSE连接结束")
+            
+        except Exception as e:
+            print(f"❌ SSE流生成异常: {e}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        
+        finally:
+            # 清理资源
+            try:
+                if pubsub:
+                    pubsub.unsubscribe()
+                    pubsub.close()
+                    print(f"🧹 已清理Pub/Sub连接")
+                if redis_client:
+                    redis_client.close()
+            except Exception as e:
+                print(f"⚠️ 清理连接异常: {e}")
 
     return Response(
         stream_with_context(generate()),
@@ -262,6 +481,10 @@ def get_active_tasks():
                 summary['completed'] += 1
             elif status in ['failed', 'exception']:
                 summary['failed'] += 1
+            elif status in ['pending', 'starting', 'generating_excel', '']:
+                # 正在处理中，归入处理中统计
+                summary['processing'] += 1
+            # unknown 或其他状态不统计，避免总数不一致
 
         return jsonify({
             "success": True,

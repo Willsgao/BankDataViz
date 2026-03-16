@@ -1364,6 +1364,20 @@ class TableProcessingWorker:
                     f"📤 SSE推送[实时]: 进度={sse_data['progress']}%, 状态={sse_data['status']}, 消息={sse_data['message']}")
                 print(f"📤 频道: table:progress:{job_id}, 订阅者: {published_count}")
 
+                # ✅ 发送全局进度更新通知（用于 all-tasks-progress SSE）
+                try:
+                    global_notify_msg = {
+                        "job_id": job_id,
+                        "type": "global_progress_update",
+                        "timestamp": time.time(),
+                        "status": sse_data.get("status", ""),
+                        "progress": sse_data.get("progress", "0")
+                    }
+                    self.redis_client.publish("table:progress:all", json.dumps(global_notify_msg, ensure_ascii=False))
+                    print(f"📢 已发送全局进度通知")
+                except Exception as notify_error:
+                    print(f"⚠️ 发送全局通知失败: {notify_error}")
+
                 # ✅ 关键修复4：如果状态是processing，额外发送一个心跳消息
                 if sse_data["status"] == "processing":
                     heartbeat_msg = {
@@ -1587,9 +1601,9 @@ class TableProcessingWorker:
         """
         job_start_time = datetime.now().isoformat()
 
-        # 计算初始进度
-        current_processed_total = total_skipped_images
-        progress_percentage = int((current_processed_total / total_all_images * 100)) if total_all_images > 0 else 0
+        # 计算初始进度: 已处理 = 跳过的图片数（新处理的图片数为0）
+        new_processed_count = 0  # 刚开始处理，新处理的数量为0
+        progress_percentage = int((total_skipped_images / total_all_images * 100)) if total_all_images > 0 else 0
 
         self.update_job_status(job_id, {
             "status": "processing",
@@ -1600,9 +1614,9 @@ class TableProcessingWorker:
             "worker_id": self.worker_id,
             "total_images": str(total_all_images),
             "total_new_images": str(total_new_images),
-            "processed_images": str(current_processed_total),
-            "skipped_images": str(total_skipped_images),
-            "new_processed": "0",
+            "processed_images": str(new_processed_count),  # 新处理的图片数（刚开始为0）
+            "skipped_images": str(total_skipped_images),  # 跳过的图片数（已处理过的）
+            "new_processed": str(new_processed_count),
             "current_image": "",
             "current_image_index": "0",
             "current_image_name": "",
@@ -1677,6 +1691,25 @@ class TableProcessingWorker:
 
         except Exception as e:
             error_msg = f"图片处理异常: {str(e)}"
+            
+            # 重要：即使处理失败也要更新任务状态
+            try:
+                current_total_processed = total_skipped_images + current_index
+                progress_percentage = int((current_total_processed / total_all_images * 100)) if total_all_images > 0 else 0
+                
+                self.update_job_status(job_id, {
+                    "status": "processing",
+                    "progress": str(progress_percentage),
+                    "progress_percentage": progress_percentage,
+                    "message": f"处理失败: {image_name} - {error_msg}",
+                    "current_image": image_name,
+                    "current_image_index": str(current_index),
+                    "current_image_name": image_name,
+                    "last_error": error_msg
+                })
+            except:
+                pass
+            
             return {
                 "success": False,
                 "tables_added": 0,
