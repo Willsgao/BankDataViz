@@ -64,7 +64,7 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const loading = ref(false)
 const loginForm = ref()
-const reloadUserInfo = inject('reloadUserInfo')
+const reloadUserInfo = inject('reloadUserInfo', () => {})
 
 
 // 定义测试账户
@@ -79,6 +79,9 @@ const testAccounts = {
   admin: [
     { username: 'admin', password: 'admin123', role: 'admin' },
     { username: 'root', password: 'root123', role: 'admin' },
+    { username: '15618421568', password: 'wangxianshuang', role: 'admin' },
+    { username: '13161130322', password: 'wenxueyang', role: 'admin' },
+    { username: '15358866605', password: 'hanjiao', role: 'admin' },
     { username: 'superadmin', password: 'super123', role: 'admin' }
   ]
 }
@@ -103,6 +106,16 @@ const rules = {
 
 // 模拟登录验证
 const mockLogin = (username, password, role) => {
+  // 先在所有角色数组中查找匹配的账户
+  const allAccounts = [...(testAccounts.user || []), ...(testAccounts.admin || [])]
+  const account = allAccounts.find(acc => acc.username === username && acc.password === password)
+  
+  // 如果找到了账户，按账户自身的角色登录（忽略下拉框选择）
+  if (account) {
+    return account
+  }
+  
+  // 如果没找到，才在下拉框选择的角色中查找（兼容旧逻辑）
   const accounts = testAccounts[role] || []
   return accounts.find(acc => acc.username === username && acc.password === password)
 }

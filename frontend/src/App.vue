@@ -641,6 +641,9 @@ provide('excelContentSearchState', excelContentSearchState)
 provide('handleExcelContentSearch', handleExcelContentSearch)
 provide('handleExcelContentSearchClear', handleExcelContentSearchClear)
 
+// 提供reloadUserInfo给登录页使用
+provide('reloadUserInfo', updateUserInfo)
+
 onMounted(() => {
   console.log('🚀🚀🚀🚀 App.vue 组件已挂载')
 })
