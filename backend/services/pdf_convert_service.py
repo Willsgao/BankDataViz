@@ -7,6 +7,7 @@ date   : 2025-10-17  最新融合版
 """
 from __future__ import annotations
 
+import time
 import logging
 from pathlib import Path
 from typing import List
@@ -425,7 +426,7 @@ class PdfConvertService:
 
 # -------------------- 简单自测 -------------------- #
 if __name__ == "__main__":
-    import traceback, time
+    import traceback
 
     test_pdf = Path(r"E:\Datas\bank_data\images\601939建设银行2024年年度报告.pdf")
     out_dir = test_pdf.parent / "pngs"
