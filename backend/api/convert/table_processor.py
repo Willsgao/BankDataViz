@@ -1507,12 +1507,11 @@ def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
     """
     try:
         import redis
-        from backend.configs.config import REDIS_CONFIG
         
         redis_client = redis.Redis(
-            host=REDIS_CONFIG.get('host', 'localhost'),
-            port=REDIS_CONFIG.get('port', 6379),
-            db=REDIS_CONFIG.get('db', 0),
+            host='localhost',
+            port=6379,
+            db=0,
             decode_responses=True
         )
         

@@ -1468,12 +1468,39 @@ def api_smart_process_pdf(pdf_disk_name: str):
                 progress_tracker
             )
 
-            if not conversion_result.get('success', False):
+            # 处理返回值类型：可能是 (response, status_code) 元组，或直接是 response
+            if isinstance(conversion_result, tuple):
+                conversion_result = conversion_result[0]  # 取第一个元素（response）
+
+            # 从 response 中提取 JSON 数据
+            try:
+                result_data = conversion_result.get_json()
+                if not result_data:
+                    # 如果没有 JSON 数据，检查状态码
+                    print(f"❌ 转图失败，状态码: {conversion_result.status_code}")
+                    return jsonify({
+                        "success": False,
+                        "error": f"转图失败，状态码: {conversion_result.status_code}",
+                        "step": "pdf_conversion"
+                    }), 500
+            except Exception as e:
+                print(f"❌ 转图结果解析失败: {str(e)}")
                 return jsonify({
                     "success": False,
-                    "error": f"转图失败: {conversion_result.get('error', '未知错误')}",
+                    "error": f"转图结果解析失败: {str(e)}",
                     "step": "pdf_conversion"
                 }), 500
+
+            if not result_data.get('success', False):
+                error_msg = result_data.get('error', result_data.get('message', '未知错误'))
+                print(f"❌ 转图失败: {error_msg}")
+                return jsonify({
+                    "success": False,
+                    "error": f"转图失败: {error_msg}",
+                    "step": "pdf_conversion"
+                }), 500
+
+            print(f"✅ 转图成功")
 
             # 等待转图完成（简化处理，实际应该轮询进度）
             import time

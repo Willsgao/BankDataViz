@@ -117,8 +117,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 // 在现有的import部分添加
 import { screeningApi } from '@/api/screening'
-// 或者使用 convertApi 中的方法
-import { convertApi } from '@/api/convert'
 // 在已有的import语句后面添加
 import ImageScreeningManager from '@/components/pdf/ImageScreeningManager.vue'
 

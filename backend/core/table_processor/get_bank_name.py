@@ -40,7 +40,7 @@ class SimpleBankNameExtractor:
 
         try:
             response = self.client.chat.completions.create(
-                model="your_model_name",  # 替换为实际模型名
+                model=config.TABLE_LLM_MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=50

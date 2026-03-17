@@ -166,6 +166,16 @@ export const parseCellKey = (cellKey) => {
   };
 };
 
+/**
+ * 生成索引键（预留函数）
+ * @param {string} pdfId - PDF文档ID
+ * @param {string} excelFile - Excel文件名
+ * @returns {string} 索引键
+ */
+export const getIndexKey = (pdfId, excelFile) => {
+  return `excel_draft_index_${pdfId}_${excelFile}`;
+};
+
 export default {
   getDraftKey,
   getCellKey,
@@ -173,5 +183,6 @@ export default {
   getBizCellKey,
   getPrefixKey,
   parseCellKey,
-  parseBizCellKey
+  parseBizCellKey,
+  getIndexKey
 };

@@ -1,4 +1,4 @@
-import { layoutDetect, fetchFileBlob } from '@/api/layout'
+import { layoutDetect, fetchPngBlob as fetchFileBlob } from '@/api/layout'
 import { ElMessage } from 'element-plus'
 
 export async function useCrop(filename, loadingRef, resultRef) {
