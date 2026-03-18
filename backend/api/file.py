@@ -1449,95 +1449,27 @@ def merge_sheets():
                 'error': error_msg
             }), 400
 
-        # ========== 第三步：验证表头一致性 ==========
-        print(f"🔍 验证表头一致性...")
+        # ========== 第三步：验证列数一致性 ==========
+        print(f"🔍 验证列数一致性...")
 
-        # 1. 获取前面表格的表头
-        previous_header = []
-        if target_data and len(target_data) > 0:
-            previous_header = target_data[0]
-            print(f"  前面表格表头: {previous_header}")
-
-        # 2. 检查当前表格是否有表头
-        current_has_header = False
-        current_header = []
+        # 只检查列数，不检查表头内容
+        current_col_count = 0
         if current_data and len(current_data) > 0:
+            # 直接取第一行的列数（无论是表头还是数据）
             first_row = current_data[0]
-            # 检查第一行是否可能是表头
-            is_header_row = True
-            for cell in first_row:
-                if cell is not None and str(cell).strip() != "":
-                    cell_str = str(cell).strip()
-                    # 检查是否是纯数字（可能是数据）
-                    if cell_str.replace('.', '').replace(',', '').isdigit():
-                        is_header_row = False
-                        break
-                    # 检查文本长度（表头通常较短）
-                    if len(cell_str) > 50:
-                        is_header_row = False
-                        break
+            current_col_count = len(first_row) if first_row else 0
 
-            if is_header_row:
-                current_has_header = True
-                current_header = first_row
-                print(f"  当前表格有表头: {current_header}")
-            else:
-                print(f"  当前表格没有表头，第一行是数据: {first_row}")
+        previous_col_count = len(previous_header) if previous_header else 0
 
-        # 3. 验证表头一致性
-        if current_has_header:
-            # 情况B：当前表格有表头，必须与前面表格表头完全相同
-            if len(previous_header) != len(current_header):
-                error_msg = f'表头列数不一致：前面表格{len(previous_header)}列，当前表格{len(current_header)}列'
-                print(f"❌ {error_msg}")
-                return jsonify({
-                    'success': False,
-                    'error': error_msg
-                }), 400
+        if current_col_count != previous_col_count:
+            error_msg = f'列数不一致：前面表格{previous_col_count}列，当前表格{current_col_count}列'
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            }), 400
 
-            # 检查每个列名是否一致
-            mismatched_columns = []
-            for i, (prev_col, curr_col) in enumerate(zip(previous_header, current_header)):
-                prev_str = str(prev_col).strip() if prev_col is not None else ''
-                curr_str = str(curr_col).strip() if curr_col is not None else ''
-
-                if prev_str != curr_str:
-                    mismatched_columns.append({
-                        'index': i + 1,
-                        'previous': prev_str,
-                        'current': curr_str
-                    })
-
-            if mismatched_columns:
-                error_msg = '表头不匹配:\n' + '\n'.join([
-                    f'  第{col["index"]}列: 前面"{col["previous"]}"，当前"{col["current"]}"'
-                    for col in mismatched_columns[:5]
-                ])
-                if len(mismatched_columns) > 5:
-                    error_msg += f'\n  ... 还有{len(mismatched_columns) - 5}个不匹配'
-
-                print(f"❌ {error_msg}")
-                return jsonify({
-                    'success': False,
-                    'error': error_msg
-                }), 400
-
-            print(f"✅ 表头完全一致，可以合并")
-        else:
-            # 情况A：当前表格没有表头
-            print(f"✅ 当前表格没有表头，可以合并（前提是列数一致）")
-
-        # 4. 验证列数一致性
-        if not current_has_header and current_data and len(current_data) > 0:
-            # 当前表格没有表头，需要验证数据行与前面表格的列数是否一致
-            first_data_row = current_data[0]
-            if first_data_row and len(first_data_row) != len(previous_header):
-                error_msg = f'列数不一致：前面表格{len(previous_header)}列，当前表格数据{len(first_data_row)}列'
-                print(f"❌ {error_msg}")
-                return jsonify({
-                    'success': False,
-                    'error': error_msg
-                }), 400
+        print(f"✅ 列数一致，可以合并")
 
         # ========== 第四步：数据合并 ==========
         print(f"🔄 开始合并数据...")
@@ -1592,11 +1524,8 @@ def merge_sheets():
             print(f"  所有数据行: {len(previous_before_marker)}行")
 
         # 3. 处理当前表格（源表格）数据
-        # 确定当前表格的数据起始位置
+        # 不再区分表头，包含所有数据行
         current_data_start = 0
-        if current_has_header:
-            # 如果有表头，从第二行开始
-            current_data_start = 1
 
         # 获取当前表格的有效数据
         current_valid_data = current_data[current_data_start:] if current_data else []
@@ -1745,7 +1674,7 @@ def merge_sheets():
                 'originalRows': len(target_data),
                 'currentRows': len(current_keep_data),
                 'mergedRows': len(merged_data),
-                'headerConsistent': current_has_header
+                'headerConsistent': True  # 列数已验证一致
             }
         }
 

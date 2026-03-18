@@ -70,7 +70,7 @@ export default function useExcelViewerLogic(
   // 计算属性
   const colWidths = computed(() =>
     Array.from({ length: tableData.value[0]?.length || 0 }, (_, i) =>
-      i === 0 ? 180 : 120
+      i < 2 ? undefined : 120
     )
   )
 
