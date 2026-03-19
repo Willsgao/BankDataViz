@@ -78,28 +78,6 @@
       </div>
     </div>
 
-    <!-- 当前单元格信息（有值才显示） -->
-    <template v-if="currentCell.position">
-      <div class="cell-info-container">
-        <el-tag size="small">{{ currentCell.position }}</el-tag>
-        <el-tag size="small" :type="currentCell.isRange ? 'warning' : 'info'">
-          {{ currentCell.isRange ? '选区' : currentCell.type }}
-        </el-tag>
-
-        <template v-if="currentCell.isRange">
-          <span class="cell-txt">
-            {{ currentCell.content }}
-            <span v-if="currentCell.rangeInfo" class="range-details">
-              ({{ currentCell.rangeInfo.rowCount }}行 × {{ currentCell.rangeInfo.colCount }}列)
-            </span>
-          </span>
-        </template>
-        <template v-else>
-          <span class="cell-txt">{{ currentCell.content }}</span>
-        </template>
-      </div>
-    </template>
-
     <!-- 🔥 新增：选中区域统计信息 -->
     <div v-if="selectionSumData.visible" class="selection-summary-bar">
       <div class="sum-info">

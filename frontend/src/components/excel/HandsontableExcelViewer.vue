@@ -26,6 +26,18 @@
 
           <el-divider direction="vertical" />
 
+          <!-- 相反数按钮 -->
+          <el-tooltip content="将选中区域的数值变为相反数（正数变负数，负数变正数）" placement="bottom">
+            <el-button
+              size="small"
+              @click="handleNegate"
+            >
+              <el-icon><Switch /></el-icon>相反数
+            </el-button>
+          </el-tooltip>
+
+          <el-divider direction="vertical" />
+
           <!-- 向下填充按钮 -->
           <el-tooltip content="向下填充 (将选中单元格的值填充到下方所有选中区域)" placement="bottom">
             <el-button
@@ -151,17 +163,6 @@
           <el-button size="small" type="info" link @click="clearSelection" title="清除选择" class="clear-btn"><el-icon><Close /></el-icon></el-button>
         </div>
       </div>
-
-      <!-- 右侧：当前单元格完整信息（合并进来，不省略） -->
-      <div v-if="selectedCell.position" class="action-group current-cell-inline">
-        <el-tag size="small" type="info" style="white-space: normal; line-height: 1.4;">
-          <el-icon><Position /></el-icon>
-          <span class="cell-pos">{{ selectedCell.position }}</span> |
-          <span class="cell-type">{{ selectedCell.type }}</span> |
-          <span class="cell-content">{{ selectedCell.content || '[空]' }}</span>
-          <span v-if="selectedCell.isModified" style="color: #f56c6c;">（已修改）</span>
-        </el-tag>
-      </div>
     </div>
 
     <!-- 表格区域（完全不动） :contextMenu="getContextMenuConfig" -->
@@ -226,7 +227,7 @@ import 'handsontable/styles/handsontable.css'
 
 import {
   Download, Edit, View, Grid, Menu, DataAnalysis,
-  Close, Position, DataBoard, RefreshLeft, RefreshRight, Bottom
+  Close, Position, DataBoard, RefreshLeft, RefreshRight, Bottom, Switch
 } from '@element-plus/icons-vue'
 
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -1804,6 +1805,111 @@ onMounted(() => {
   setTimeout(setupFillDownHooks, 2000)
 })
 
+// 相反数功能
+const handleNegate = () => {
+  console.log('➕ 点击了相反数按钮')
+  const hot = getSafeHotInstance()
+  if (!hot) {
+    console.warn('无法获取 hot 实例')
+    return
+  }
+  
+  // 获取选中区域
+  let selected = hot.getSelected()
+  if ((!selected || selected.length === 0) && lastSelectedArea) {
+    selected = [lastSelectedArea]
+  }
+  
+  console.log('➕ 选中区域:', selected)
+  if (!selected || selected.length === 0) {
+    ElMessage.warning('请先选中单元格区域')
+    return
+  }
+  
+  // 解析单元格字符串为数值（支持千位分隔符和括号）
+  const parseNumber = (str) => {
+    if (str === null || str === undefined || str === '') return null
+    let s = String(str).trim()
+    
+    // 检查是否为负数（以负号开头或以括号表示）
+    const isNegative = s.startsWith('(') || s.startsWith('-')
+    
+    // 移除千位分隔符、负号、括号
+    s = s.replace(/,/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '')
+    
+    const num = parseFloat(s)
+    if (isNaN(num)) return null
+    
+    return isNegative ? -Math.abs(num) : Math.abs(num)
+  }
+  
+  // 将数值格式化为字符串（保持原来的格式风格）
+  const formatNumber = (num) => {
+    const isNegative = num < 0
+    const absNum = Math.abs(num)
+    
+    // 尝试保持千位分隔符格式
+    const parts = absNum.toFixed(2).split('.')
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    let formatted = parts.join('.')
+    
+    if (isNegative) {
+      formatted = '-' + formatted
+    }
+    
+    return formatted
+  }
+  
+  // 获取选区范围内的所有数值并取反
+  const changes = []
+  const data = hot.getSourceData()
+  
+  for (const selection of selected) {
+    const [startRow, startCol, endRow, endCol] = selection
+    
+    for (let row = startRow; row <= endRow; row++) {
+      for (let col = startCol; col <= endCol; col++) {
+        const cellValue = data[row]?.[col]
+        
+        if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+          const num = parseNumber(cellValue)
+          if (num !== null) {
+            // 取反
+            const negatedNum = -num
+            const newValue = formatNumber(negatedNum)
+            changes.push([row, col, newValue])
+          }
+        }
+      }
+    }
+  }
+  
+  if (changes.length === 0) {
+    ElMessage.warning('选区中没有数值')
+    return
+  }
+  
+  console.log('➕ 相反数变化:', changes)
+  
+  // 执行变化
+  hot.setDataAtCell(changes, 'negate')
+  
+  // 记录到撤销栈
+  const historyItem = {
+    type: 'negate',
+    changes: changes.map(([row, col, newValue]) => {
+      const oldValue = data[row]?.[col]
+      return { row, col, oldValue, newValue }
+    })
+  }
+  undoStack.value.push(historyItem)
+  redoStack.value = []
+  window.customUndoStack = undoStack.value
+  window.customRedoStack = redoStack.value
+  
+  ElMessage.success(`已将 ${changes.length} 个数值取反`)
+}
+
 const handleFillDown = () => {
   console.log('🔽 点击了向下填充按钮')
   const hot = getSafeHotInstance()
@@ -1958,6 +2064,12 @@ const handleUndo = () => {
       }
       hot.render()
       console.log('🔙 自定义撤销成功（向下填充）:', historyItem)
+    } else if (historyItem.type === 'negate') {
+      // 相反数撤销 - 恢复原值
+      for (const change of historyItem.changes) {
+        hot.setDataAtCell(change.row, change.col, change.oldValue, 'undo')
+      }
+      console.log('🔙 自定义撤销成功（相反数）:', historyItem)
     }
     
     // 添加到重做栈
@@ -2018,6 +2130,12 @@ const handleRedo = () => {
       }
       hot.render()
       console.log('🔨 自定义重做成功（向下填充）:', historyItem)
+    } else if (historyItem.type === 'negate') {
+      // 相反数重做 - 重新取反
+      for (const change of historyItem.changes) {
+        hot.setDataAtCell(change.row, change.col, change.newValue, 'redo')
+      }
+      console.log('🔨 自定义重做成功（相反数）:', historyItem)
     }
     
     // 添加到撤销栈
