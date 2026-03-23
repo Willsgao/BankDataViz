@@ -1459,6 +1459,9 @@ def merge_sheets():
             first_row = current_data[0]
             current_col_count = len(first_row) if first_row else 0
 
+        # 获取目标表格的表头（用于列数验证）
+        previous_header = target_data[0] if target_data and len(target_data) > 0 else []
+
         previous_col_count = len(previous_header) if previous_header else 0
 
         if current_col_count != previous_col_count:
