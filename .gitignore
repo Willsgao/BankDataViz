@@ -51,3 +51,5 @@ Thumbs.db
 # 测试文件
 test_codes/
 test_data/.workbuddy/
+.workbuddy/
+test_data/
