@@ -873,7 +873,7 @@ class TableReconstructor:
         return table
 
 
-    def step5_add_column_headers(self, table, col_headers):
+    def step5_add_column_headers(self, table, col_headers, ocr_cells=None):
         """
         优化版：清理和验证列标题，调整列数匹配
         """
@@ -924,15 +924,221 @@ class TableReconstructor:
         self._validate_cleaned_headers(cleaned_headers)
 
         # 3. 调整列数匹配
-        # 情况1：OCR列数 > LLM列数（需要删除左侧多余的列）
+        # 情况1：OCR列数 > LLM列数（需要删除多余的空列/分隔列）
         if current_cols > target_cols:
             excess_cols = current_cols - target_cols
-            print(f"需要删除左侧{excess_cols}列")
+            print(f"需要删除{excess_cols}个多余列")
 
-            for i in range(len(table)):
-                table[i] = table[i][excess_cols:]
+            # [重构-20260403] 智能空列检测：
+            # 遍历所有列，找到真正完全为空的列（仅含None/空字符串/纯空白）
+            # 注意：含中文的文本（年份"2024年1-6月"、中文标签）不是"空"，不能删
+            empty_col_indices = []
+            for col_idx in range(current_cols):
+                is_empty = True
+                for row_idx in range(1, min(len(table), 20)):
+                    if col_idx < len(table[row_idx]):
+                        cell = table[row_idx][col_idx]
+                        if cell is not None and str(cell).strip() != '':
+                            # 检查是否含中文，含中文 = 标签/年份文本，不是空
+                            if any('\u4e00' <= ch <= '\u9fff' for ch in str(cell)):
+                                is_empty = False  # 含中文，是有效列
+                                break
+                            # 纯数字/带逗号的数字 = 有效数据列
+                            clean = str(cell).replace(',', '').replace(' ', '')
+                            if clean.replace('.', '').replace('-', '').replace('(', '').replace(')', '').replace(' ', '').isdigit():
+                                is_empty = False
+                                break
+                            # 其他非空字符串（不含中文非数字）—— 也视为有效
+                            is_empty = False
+                            break
+                if is_empty:
+                    empty_col_indices.append(col_idx)
 
-            current_cols = target_cols
+            print(f"  [step5_safety] 检测到空列索引: {empty_col_indices} (共{len(empty_col_indices)}个)")
+
+            if len(empty_col_indices) >= excess_cols:
+                # 有足够的空列可以删除
+                # [修复-20260404] 优先删除右侧空列（OCR span 产生的冗余列通常在右侧）
+                cols_to_delete = sorted(empty_col_indices, reverse=True)[:excess_cols]
+                print(f"  [step5_safety] 删除空列索引(优先右侧): {cols_to_delete}")
+                for i in range(len(table)):
+                    # 从右向左删除，避免索引偏移
+                    for col_idx in sorted(cols_to_delete, reverse=True):
+                        if col_idx < len(table[i]):
+                            del table[i][col_idx]
+                current_cols = target_cols
+                print(f"  [step5_safety] 空列删除完成，剩余{current_cols}列")
+            elif len(empty_col_indices) > 0 and len(empty_col_indices) < excess_cols:
+                # [修复-20260404] 部分空列：有但不够，尝试用 OCR span 信息找到更多冗余列
+                still_need = excess_cols - len(empty_col_indices)
+                print(f"  [step5_safety] 部分空列不足（找到{len(empty_col_indices)}个 < 需删除{excess_cols}个），尝试OCR span补充...")
+
+                span_redundant = []
+                if ocr_cells:
+                    # 找到被 span 覆盖的冗余列：该列在数据行(row 2+)全为空，
+                    # 但被某个 span>1 的 OCR cell 覆盖（即该列是另一个数据列的 span 尾部）
+                    for col_idx in range(current_cols):
+                        if col_idx in empty_col_indices:
+                            continue  # 已经标记为空列
+                        # 检查数据行是否全空
+                        data_rows_empty = True
+                        for row_idx in range(2, min(len(table), 20)):
+                            if col_idx < len(table[row_idx]):
+                                cell = table[row_idx][col_idx]
+                                if cell is not None and str(cell).strip() != '':
+                                    data_rows_empty = False
+                                    break
+                        if not data_rows_empty:
+                            continue  # 数据行有值，不是冗余列
+                        # 检查该列是否被某个 span>1 的 cell 覆盖
+                        covered_by_span = False
+                        for cell in ocr_cells:
+                            cs = cell['col_start']
+                            ce = cell['col_end']
+                            if ce - cs > 1 and cs <= col_idx < ce:
+                                covered_by_span = True
+                                break
+                        if covered_by_span:
+                            span_redundant.append(col_idx)
+                            print(f"    col {col_idx}: 数据行全空，被OCR span覆盖 -> 冗余列")
+
+                    if span_redundant and len(span_redundant) >= still_need:
+                        # 优先删除右侧冗余列
+                        extra_delete = sorted(span_redundant, reverse=True)[:still_need]
+                        all_delete = sorted(empty_col_indices + extra_delete, reverse=True)
+                        print(f"  [step5_safety] 补充删除span冗余列: {extra_delete}")
+                        print(f"  [step5_safety] 最终删除索引: {all_delete}")
+                        for i in range(len(table)):
+                            for col_idx in all_delete:
+                                if col_idx < len(table[i]):
+                                    del table[i][col_idx]
+                        current_cols = target_cols
+                        print(f"  [step5_safety] 空列+span冗余列删除完成，剩余{current_cols}列")
+                    else:
+                        print(f"  [WARN step5_safety] span冗余列也不足（找到{len(span_redundant)}个 < 需{still_need}个），跳过删除")
+                else:
+                    print(f"  [WARN step5_safety] 部分空列不足（找到{len(empty_col_indices)}个 < 需删除{excess_cols}个），跳过删除")
+            elif len(empty_col_indices) == 0 and excess_cols > 0:
+                # [重构-20260404] Primary 完全失败（找到0个空列），尝试 fallback
+                # 策略1（有 OCR cells）：利用 span 信息找到被同一 cell 覆盖的冗余列
+                # 策略2：查找所有行都完全为 None 的列
+                # 策略3：查找内容完全重复的列对
+                print(f"  [WARN step5_safety] 空列为0（primary 失败），执行 fallback...")
+
+                col_to_delete = None
+
+                # 策略1：利用 OCR span 信息
+                if ocr_cells and col_to_delete is None:
+                    # 统计每列被不同 cell 的 span 覆盖的次数
+                    # 关键洞察：真正需要删除的冗余列，是被不同数据源（不同 cell）的 span
+                    # 同时覆盖的列（比如 col2 被 2025-header span 和 2024-data span 覆盖）
+                    span_covering_cells = {}  # col_idx -> set of (row_start, col_start, col_end) tuples
+                    for col_idx in range(current_cols):
+                        span_covering_cells[col_idx] = set()
+                    for cell in ocr_cells:
+                        col_start = cell['col_start']
+                        col_end = cell['col_end']
+                        if col_end > col_start:  # span 宽度 >= 1
+                            cell_key = (cell['row_start'], col_start, col_end)
+                            for c in range(col_start, col_end):
+                                if c in span_covering_cells:
+                                    span_covering_cells[c].add(cell_key)
+
+                    # 统计每列被不同 cell span 覆盖的次数
+                    coverage_count = {c: len(cells) for c, cells in span_covering_cells.items()}
+                    print(f"  [fallback] 各列被不同span覆盖数: {coverage_count}")
+
+                    # 被覆盖次数最多的列最可能是冗余列
+                    max_cov = max(coverage_count.values())
+                    candidates = [c for c, v in coverage_count.items() if v == max_cov]
+                    print(f"  [fallback] 最大覆盖列(候选): {candidates}")
+
+                    # 进一步筛选：在候选列中，找到在数据行中被覆盖但单列cell最少的列
+                    # 即该列的数据主要来自其他列的span溢出，而非独立数据
+                    best_candidate = None
+                    best_score = -1  # 越小越可能是冗余列
+                    independent_values_map = {}
+                    span_overlap_map = {}
+                    for col_idx in candidates:
+                        # 计算该列有多少独立（非span溢出）的有值cell
+                        independent_values = 0
+                        for cell in ocr_cells:
+                            if cell['col_start'] == col_idx and cell['col_end'] == col_idx + 1:
+                                # 单列 cell
+                                if cell['words'] and str(cell['words']).strip():
+                                    independent_values += 1
+                        # 该列的总有值cell数
+                        total_values = 0
+                        for row_idx in range(len(table)):
+                            if col_idx < len(table[row_idx]):
+                                cell = table[row_idx][col_idx]
+                                if cell is not None and str(cell).strip():
+                                    total_values += 1
+                        # 差值 = 独立值 - 来自其他span的值，越小越可能是冗余
+                        overlap_values = total_values - independent_values
+                        score = independent_values  # 独立值越少，越可能冗余
+                        independent_values_map[col_idx] = independent_values
+                        span_overlap_map[col_idx] = overlap_values
+                        print(f"  [fallback] col {col_idx}: 独立值={independent_values}, 总值={total_values}, span溢出值={overlap_values}")
+                        if score < best_score or best_candidate is None:
+                            best_score = score
+                            best_candidate = col_idx
+
+                    if best_candidate is not None:
+                        # 在独立值同为最少的候选列中，选择span溢出值最少的
+                        # （该列本身数据最少，更可能是冗余列）
+                        min_independent = min(independent_values_map.values())
+                        lowest_candidates = [c for c in candidates
+                                           if independent_values_map.get(c, 999) == min_independent]
+                        best = min(lowest_candidates, key=lambda c: span_overlap_map.get(c, 0))
+                        col_to_delete = best
+
+                # 策略2：查找所有行都完全为 None 的列
+                if col_to_delete is None:
+                    for col_idx in range(current_cols):
+                        all_none = True
+                        for row_idx in range(len(table)):
+                            cell = table[row_idx][col_idx] if col_idx < len(table[row_idx]) else None
+                            if cell is not None and str(cell).strip() != '':
+                                all_none = False
+                                break
+                        if all_none:
+                            col_to_delete = col_idx
+                            print(f"  [fallback] 发现全空列: col {col_idx}")
+                            break
+
+                # 策略3：查找内容完全重复的列对
+                if col_to_delete is None:
+                    for col_a in range(current_cols):
+                        if col_to_delete is not None:
+                            break
+                        for col_b in range(col_a + 1, current_cols):
+                            is_duplicate = True
+                            for row_idx in range(len(table)):
+                                val_a = table[row_idx][col_a] if col_a < len(table[row_idx]) else None
+                                val_b = table[row_idx][col_b] if col_b < len(table[row_idx]) else None
+                                va = str(val_a).strip() if val_a is not None else ''
+                                vb = str(val_b).strip() if val_b is not None else ''
+                                if va != vb:
+                                    is_duplicate = False
+                                    break
+                            if is_duplicate:
+                                print(f"  [fallback] 发现重复列: col {col_a} 和 col {col_b}")
+                                col_to_delete = col_b
+                                break
+
+                if col_to_delete is not None:
+                    print(f"  [fallback] 删除列: col {col_to_delete}")
+                    for i in range(len(table)):
+                        if col_to_delete < len(table[i]):
+                            del table[i][col_to_delete]
+                    current_cols = target_cols
+                    print(f"  [fallback] 列删除完成，剩余{current_cols}列")
+                else:
+                    print(f"  [WARN step5_safety] fallback 也无法确定，跳过删除")
+            else:
+                # primary 部分成功（找到一些但不够），跳过删除
+                print(f"  [WARN step5_safety] 部分空列不足（找到{len(empty_col_indices)}个 < 需删除{excess_cols}个），跳过删除")
 
         # 情况2：OCR列数 < LLM列数（需要补充左侧空列）
         elif current_cols < target_cols:
@@ -1368,7 +1574,7 @@ class TableReconstructor:
 
         # 第5步：添加列标题
         col_headers = merged_data.get('headers', {}).get('cols', [])
-        table_with_cols = self.step5_add_column_headers(base_table, col_headers)
+        table_with_cols = self.step5_add_column_headers(base_table, col_headers, merged_data.get('cells', []))
 
         # 第6步：添加行标题
         row_headers = merged_data.get('headers', {}).get('rows', [])
@@ -1694,7 +1900,7 @@ class TableReconstructor:
 
             # 第5步：添加列标题
             col_headers = merged_data.get('headers', {}).get('cols', [])
-            table_with_cols = self.step5_add_column_headers(base_table, col_headers)
+            table_with_cols = self.step5_add_column_headers(base_table, col_headers, merged_data.get('cells', []))
 
             # 第6步：添加行标题
             row_headers = merged_data.get('headers', {}).get('rows', [])
