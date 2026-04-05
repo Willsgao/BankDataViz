@@ -660,6 +660,8 @@ def search_excel_sheets():
     file_id = request.args.get('file_id', '')
     keyword = request.args.get('keyword', '').strip()
 
+    print(f"🔍🔍🔍 search_excel_sheets 收到请求: file_id={file_id}, keyword={keyword}")
+
     if not file_id or not keyword:
         return jsonify({"success": False, "error": "缺少 file_id 或 keyword 参数"}), 400
 
@@ -668,8 +670,10 @@ def search_excel_sheets():
 
         # 解析 pdf_id（与 get_excel_data_api 相同逻辑）
         clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
+        print(f"🔍🔍🔍 clean_file_id: {clean_file_id} (原始: {file_id})")
 
         excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+        print(f"🔍🔍🔍 excel_dir: {excel_dir}, exists: {excel_dir.exists()}")
         if not excel_dir.exists():
             return jsonify({"success": False, "error": "Excel目录不存在"}), 404
 

@@ -573,13 +573,12 @@ provide('performExcelContentSearch', (keyword) => {
   // 1. 高亮Sheet名称（中间栏）
   highlightSheetNames(keyword)
 
-  // 2. 通过全局事件高亮Sheet内容（右侧栏）
+  // 2. 通过全局事件触发搜索（ThreeColumnPage 负责调 API 更新 matchCount）
   window.dispatchEvent(new CustomEvent('excel-content-search', {
     detail: { keyword }
   }))
 
-  // 3. 更新匹配计数
-  updateMatchCount(keyword)
+  // 注意：不再调用 updateMatchCount，matchCount 由 ThreeColumnPage 的 API 搜索结果设置
 })
 
 // 实现Sheet名称高亮函数
