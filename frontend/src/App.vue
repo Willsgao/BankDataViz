@@ -156,6 +156,11 @@ const excelContentSearchState = reactive({
   matchedSheetsList: []    // 匹配 Sheet 列表 [{excel_file, sheet_name}]
 })
 
+// 暴露到 window，供 ThreeColumnPage 事件监听器更新 matchCount
+if (typeof window !== 'undefined') {
+  window.excelContentSearchState = excelContentSearchState
+}
+
 
 
 // 计算属性

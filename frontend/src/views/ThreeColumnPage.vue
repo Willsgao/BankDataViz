@@ -4421,7 +4421,13 @@ onMounted(() => {
 
   // ============ 2. 跨Sheet内容搜索：调用后端批量接口并导航 ============
   let _crossSheetSearchTimer = null
+  let _isNavigatingFromSearch = false  // 防止导航后重发事件导致递归
   const _handleCrossSheetSearch = (event) => {
+    // 防止递归：如果是导航后的延迟高亮事件，跳过
+    if (_isNavigatingFromSearch) {
+      // 仅用于高亮，不走搜索逻辑
+      return
+    }
     const keyword = event?.detail?.keyword
     if (!keyword) return
 
@@ -4446,6 +4452,15 @@ onMounted(() => {
           // 导航到第一个匹配 Sheet
           const firstMatch = result.matches[0]
           await _navigateToMatchedSheet(firstMatch)
+
+          // 导航完成后，延迟重新触发高亮（确保数据已加载到 DOM）
+          _isNavigatingFromSearch = true
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('excel-content-search', {
+              detail: { keyword }
+            }))
+            _isNavigatingFromSearch = false
+          }, 500)
         } else {
           if (window.excelContentSearchState) {
             window.excelContentSearchState.matchCount = 0
@@ -4464,6 +4479,18 @@ onMounted(() => {
     const { excel_file, sheet_name } = event?.detail || {}
     if (!excel_file || !sheet_name) return
     await _navigateToMatchedSheet({ excel_file, sheet_name })
+
+    // 导航完成后，延迟重新触发高亮（仅高亮，不触发搜索）
+    const currentKeyword = window.excelContentSearchState?.keyword || ''
+    if (currentKeyword) {
+      _isNavigatingFromSearch = true
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('excel-content-search', {
+          detail: { keyword: currentKeyword }
+        }))
+        _isNavigatingFromSearch = false
+      }, 500)
+    }
   }
   window.addEventListener('excel-search-goto', _handleSearchGoto)
 
