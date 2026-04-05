@@ -1918,12 +1918,23 @@ class TableProcessingWorker:
             if len(aggregator) > 0:
                 print(f"📊 聚合器中有 {len(aggregator)} 个表格需要保存")
 
+                # 从 aggregator.image_refs 提取 metadata 构建 metadata_list
+                metadata_list = []
+                if hasattr(aggregator, 'image_refs') and aggregator.image_refs:
+                    for ref in aggregator.image_refs:
+                        meta = ref.get('metadata', {})
+                        # 若 metadata 中缺少 bank_name，从 aggregator 补入
+                        if not meta.get('bank_name') and aggregator.bank_name:
+                            meta = dict(meta, bank_name=aggregator.bank_name)
+                        metadata_list.append(meta)
+                    print(f"📋 从 image_refs 提取 {len(metadata_list)} 条元数据")
+
                 # 生成Excel
                 success, excel_path, error_msg = pdf_aggregator_manager.finalize_pdf(
                     pdf_folder=pdf_folder,
                     output_dir=EXCEL_DATA_DIR,
                     force=False,
-                    metadata_list=[]
+                    metadata_list=metadata_list
                 )
 
                 if success and excel_path and os.path.exists(excel_path):
