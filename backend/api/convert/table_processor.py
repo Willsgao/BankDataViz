@@ -1798,6 +1798,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
         # ========== 检查是否有已有任务 ==========
         rerun = data.get('rerun', False)
+        print(f"🔍🔍🔍 API 收到 rerun 参数: rerun={rerun}, type={type(rerun)}, data_keys={list(data.keys())}")  # 🛠️ 调试
         if not rerun:
             existing_check = check_existing_table_task(pdf_folder)
             if existing_check['has_existing']:
@@ -1975,6 +1976,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
             # 推送到Redis队列
             print(f"📤 推送到Redis队列: table_parse_queue")
+            print(f"🔍 DEBUG queue_task 内容: rerun={queue_task.get('rerun')}, job_id={queue_task.get('job_id')}")  # 🛠️ 调试日志
             redis_client.lpush("table_parse_queue", json_module.dumps(queue_task, ensure_ascii=False).encode('utf-8'))
             current_queue_length = redis_client.llen("table_parse_queue")
 

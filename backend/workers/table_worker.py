@@ -2094,6 +2094,8 @@ class TableProcessingWorker:
         table_type = task_data.get("table_type", "financial")
         bank_name = task_data.get("bank_name", "")
         rerun = task_data.get("rerun", False)  # 🛠️ 修复：提取 rerun 参数
+        
+        print(f"🔍 DEBUG worker 收到任务: job_id={job_id}, rerun={rerun}, task_data_keys={list(task_data.keys())}")  # 🛠️ 调试日志
 
         if not job_id or not pdf_folder or not image_paths:
             print(f"❌ 任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}")
@@ -2105,10 +2107,13 @@ class TableProcessingWorker:
             return False
 
         # 🛠️ 修复：当 rerun=True 时，删除现有 Excel 并重置处理状态
+        print(f"🔍🔍🔍 rerun 检查: rerun={rerun}, type={type(rerun)}")  # 🛠️ 调试
         if rerun:
             print(f"🔄 检测到 rerun=True，清除现有 Excel 和处理状态...")
             self._clear_existing_excel(pdf_folder)
             self._clear_processed_images(pdf_folder)
+        else:
+            print(f"⚠️⚠️⚠️ rerun=False，不会清除旧数据！")  # 🛠️ 调试
 
         self.current_job = job_id
         task_start_time = time.time()
