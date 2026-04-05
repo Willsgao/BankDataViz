@@ -1505,6 +1505,9 @@ def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
             "can_rerun": True/False
         }
     """
+    existing_task = None
+    redis_error = None
+    
     try:
         import redis
         
@@ -1518,7 +1521,6 @@ def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
         # 查找该 pdf_folder 相关的所有任务
         task_keys = redis_client.keys("table:job:*")
         
-        existing_task = None
         for key in task_keys:
             task_data = redis_client.hgetall(key)
             if task_data and task_data.get('pdf_folder') == pdf_folder:
@@ -1546,79 +1548,77 @@ def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
                             'completed_at': task_data.get('completed_at', ''),
                             'original_filename': task_data.get('original_filename', '')
                         }
-        
-        # ========== 修复：同时检查 Excel 文件夹 ==========
-        # 即使 Redis 数据过期，只要 Excel 文件存在就说明有已有任务
-        excel_dir = Path(EXCEL_DATA_DIR) / pdf_folder
-        has_excel_files = False
-        excel_count = 0
-        if excel_dir.exists():
-            # 统计 Excel 文件数量
-            excel_files = list(excel_dir.glob("*.xlsx")) + list(excel_dir.glob("*.xls"))
-            excel_count = len(excel_files)
-            has_excel_files = excel_count > 0
-        
-        if existing_task:
-            status = existing_task['status']
-            is_processing = status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel']
-            is_completed = status in ['completed', 'success']
-            is_failed = status in ['failed', 'exception']
-            
-            if is_processing:
-                return {
-                    "has_existing": True,
-                    "status": status,
-                    "job_id": existing_task['job_id'],
-                    "message": f"该文件已有任务正在处理中 (状态: {status})",
-                    "can_rerun": True
-                }
-            elif is_completed:
-                return {
-                    "has_existing": True,
-                    "status": status,
-                    "job_id": existing_task['job_id'],
-                    "message": f"该文件已解析完成 (任务ID: {existing_task['job_id']})",
-                    "can_rerun": True
-                }
-            elif is_failed:
-                return {
-                    "has_existing": True,
-                    "status": status,
-                    "job_id": existing_task['job_id'],
-                    "message": f"该文件上次解析失败 (任务ID: {existing_task['job_id']})",
-                    "can_rerun": True
-                }
-        
-        # ========== 修复核心：如果没有 Redis 记录但有 Excel 文件，说明已完成 ==========
-        if has_excel_files:
-            print(f"🔍 检测到 Excel 文件存在 (Redis记录已过期): {excel_dir}, 共 {excel_count} 个文件")
-            return {
-                "has_existing": True,
-                "status": "completed",  # 假设已完成（因为有 Excel 文件）
-                "job_id": None,
-                "message": f"检测到已有解析结果 ({excel_count} 个Excel文件)，可选择重新解析",
-                "can_rerun": True
-            }
-        
-        return {
-            "has_existing": False,
-            "status": None,
-            "job_id": None,
-            "message": "没有找到已有的任务",
-            "can_rerun": False
-        }
-        
+    except redis.exceptions.ConnectionError as e:
+        print(f"⚠️ Redis 连接失败: {e}，继续检查 Excel 文件")
+        redis_error = e
     except Exception as e:
-        print(f"⚠️ 检查已有任务失败: {e}")
+        print(f"⚠️ 检查 Redis 任务时出错: {e}，继续检查 Excel 文件")
         import traceback
         traceback.print_exc()
+        redis_error = e
+
+    # ========== 修复：Excel 文件检查移到 try-except 块外面 ==========
+    # 即使 Redis 检查失败，也要检查 Excel 文件是否存在
+    excel_dir = Path(EXCEL_DATA_DIR) / pdf_folder
+    has_excel_files = False
+    excel_count = 0
+    if excel_dir.exists():
+        # 统计 Excel 文件数量
+        excel_files = list(excel_dir.glob("*.xlsx")) + list(excel_dir.glob("*.xls"))
+        excel_count = len(excel_files)
+        has_excel_files = excel_count > 0
+    else:
+        print(f"📁 Excel 目录不存在: {excel_dir}")
+
+    if existing_task:
+        status = existing_task['status']
+        is_processing = status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel']
+        is_completed = status in ['completed', 'success']
+        is_failed = status in ['failed', 'exception']
+        
+        if is_processing:
+            return {
+                "has_existing": True,
+                "status": status,
+                "job_id": existing_task['job_id'],
+                "message": f"该文件已有任务正在处理中 (状态: {status})",
+                "can_rerun": True
+            }
+        elif is_completed:
+            return {
+                "has_existing": True,
+                "status": status,
+                "job_id": existing_task['job_id'],
+                "message": f"该文件已解析完成 (任务ID: {existing_task['job_id']})",
+                "can_rerun": True
+            }
+        elif is_failed:
+            return {
+                "has_existing": True,
+                "status": status,
+                "job_id": existing_task['job_id'],
+                "message": f"该文件上次解析失败 (任务ID: {existing_task['job_id']})",
+                "can_rerun": True
+            }
+    
+    # ========== 修复核心：如果没有 Redis 记录但有 Excel 文件，说明已完成 ==========
+    if has_excel_files:
+        print(f"🔍 检测到 Excel 文件存在 (Redis记录已过期): {excel_dir}, 共 {excel_count} 个文件")
         return {
-            "has_existing": False,
-            "status": None,
+            "has_existing": True,
+            "status": "completed",  # 假设已完成（因为有 Excel 文件）
             "job_id": None,
-            "message": f"检查任务时出错: {str(e)}",
-            "can_rerun": False
+            "message": f"检测到已有解析结果 ({excel_count} 个Excel文件)，可选择重新解析",
+            "can_rerun": True
         }
+    
+    return {
+        "has_existing": False,
+        "status": None,
+        "job_id": None,
+        "message": "没有找到已有的任务",
+        "can_rerun": False
+    }
 
 
 def submit_table_processing_task_old(pdf_folder, filtered_tables_dir, request, progress_tracker):
