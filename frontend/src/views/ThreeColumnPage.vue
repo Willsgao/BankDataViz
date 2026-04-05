@@ -4403,7 +4403,71 @@ onMounted(() => {
     }
   })
 
-  // ============ 2. 强制修复 window.unsavedCells 结构 ============
+  // ============ 辅助函数：导航到匹配的Sheet ============
+  const _navigateToMatchedSheet = async ({ excel_file, sheet_name }) => {
+    if (!excelFiles.value || !sheet_name) return
+
+    // 从 excelFiles 中查找对应的 sheet 对象
+    for (const ef of excelFiles.value) {
+      if (ef.excel_file !== excel_file) continue
+      const sheet = ef.sheets?.find(s => s.name === sheet_name)
+      if (sheet) {
+        await navigateToSheet(sheet, excel_file)
+        return
+      }
+    }
+    console.warn('⚠️ 未找到匹配的 Sheet:', { excel_file, sheet_name })
+  }
+
+  // ============ 2. 跨Sheet内容搜索：调用后端批量接口并导航 ============
+  let _crossSheetSearchTimer = null
+  const _handleCrossSheetSearch = (event) => {
+    const keyword = event?.detail?.keyword
+    if (!keyword) return
+
+    clearTimeout(_crossSheetSearchTimer)
+    _crossSheetSearchTimer = setTimeout(async () => {
+      const pdfId = selectedPdf.value?.disk_name || selectedPdf.value?.id
+      if (!pdfId) return
+
+      try {
+        const url = getApiUrl(`/excel/search-sheets?file_id=${encodeURIComponent(pdfId)}&keyword=${encodeURIComponent(keyword)}`)
+        const response = await fetch(url)
+        const result = await response.json()
+
+        if (result.success && result.matches && result.matches.length > 0) {
+          // 更新 App.vue 的搜索状态
+          if (window.excelContentSearchState) {
+            window.excelContentSearchState.matchCount = result.total
+            window.excelContentSearchState.matchedSheetsList = result.matches
+            window.excelContentSearchState.matchIndex = 0
+          }
+
+          // 导航到第一个匹配 Sheet
+          const firstMatch = result.matches[0]
+          await _navigateToMatchedSheet(firstMatch)
+        } else {
+          if (window.excelContentSearchState) {
+            window.excelContentSearchState.matchCount = 0
+            window.excelContentSearchState.matchedSheetsList = []
+          }
+        }
+      } catch (error) {
+        console.error('❌ 跨Sheet搜索失败:', error)
+      }
+    }, 400)
+  }
+  window.addEventListener('excel-content-search', _handleCrossSheetSearch)
+
+  // ============ 3. 搜索导航「下一个」按钮 ============
+  const _handleSearchGoto = async (event) => {
+    const { excel_file, sheet_name } = event?.detail || {}
+    if (!excel_file || !sheet_name) return
+    await _navigateToMatchedSheet({ excel_file, sheet_name })
+  }
+  window.addEventListener('excel-search-goto', _handleSearchGoto)
+
+  // ============ 4. 强制修复 window.unsavedCells 结构 ============
   console.log('🔧 检查 window.unsavedCells 结构...')
   console.log('初始 window.unsavedCells:', window.unsavedCells)
   console.log('是Set吗:', window.unsavedCells instanceof Set)
@@ -4701,6 +4765,16 @@ window.triggerGlobalAutoSave = async (saveDataFromEdit) => {
     if (window.autoSaveTimer) {
       clearTimeout(window.autoSaveTimer)
       console.log('✅ 清除自动保存定时器')
+    }
+    clearTimeout(_crossSheetSearchTimer)
+
+    // 移除跨Sheet搜索事件监听器
+    try {
+      window.removeEventListener('excel-content-search', _handleCrossSheetSearch)
+      window.removeEventListener('excel-search-goto', _handleSearchGoto)
+      console.log('✅ 跨Sheet搜索事件监听器已移除')
+    } catch (error) {
+      console.warn('⚠️ 移除搜索事件监听器失败:', error)
     }
 
     // 删除全局函数

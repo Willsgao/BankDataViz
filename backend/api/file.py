@@ -645,6 +645,104 @@ def get_excel_data_api(file_id, excel_file_name, sheet_name):
 
 
 
+@file_bp.get('/api/excel/search-sheets')
+def search_excel_sheets():
+    """
+    批量搜索所有Excel Sheet的前两列内容。
+    查询参数:
+      - file_id: PDF的UUID或数字ID
+      - keyword: 搜索关键词
+    返回:
+      - success: 是否成功
+      - matches: [{excel_file, sheet_name, matched_rows}] 匹配列表
+      - total: 匹配总数
+    """
+    file_id = request.args.get('file_id', '')
+    keyword = request.args.get('keyword', '').strip()
+
+    if not file_id or not keyword:
+        return jsonify({"success": False, "error": "缺少 file_id 或 keyword 参数"}), 400
+
+    try:
+        import pandas as pd
+
+        # 解析 pdf_id（与 get_excel_data_api 相同逻辑）
+        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
+
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+        if not excel_dir.exists():
+            return jsonify({"success": False, "error": "Excel目录不存在"}), 404
+
+        # 扫描目录下所有 .xlsx 文件
+        excel_files = list(excel_dir.glob("*.xlsx"))
+        if not excel_files:
+            return jsonify({"success": False, "error": "未找到Excel文件"}), 404
+
+        matches = []
+
+        for excel_path in excel_files:
+            excel_file_name = excel_path.name
+
+            # 获取所有 sheet 名称
+            try:
+                all_sheets = pd.read_excel(excel_path, sheet_name=None, header=None, dtype=str).keys()
+            except Exception as e:
+                print(f"⚠️ 读取Excel文件失败 {excel_file_name}: {e}")
+                continue
+
+            for sheet_name in all_sheets:
+                try:
+                    df = pd.read_excel(
+                        excel_path,
+                        sheet_name=sheet_name,
+                        header=None,
+                        dtype=str,
+                        na_values=['']
+                    ).fillna('')
+
+                    # 只扫描前两列
+                    col_count = min(2, df.shape[1])
+                    matched_rows = []
+
+                    for row_idx, row in df.iterrows():
+                        for col_idx in range(col_count):
+                            cell_value = str(row.iloc[col_idx]).strip()
+                            if keyword in cell_value:
+                                matched_rows.append({
+                                    "row": int(row_idx),
+                                    "col": int(col_idx),
+                                    "value": cell_value[:100]  # 截断，避免过长
+                                })
+                                break  # 该行已匹配，跳过同列检查
+
+                    if matched_rows:
+                        matches.append({
+                            "excel_file": excel_file_name,
+                            "sheet_name": sheet_name,
+                            "match_count": len(matched_rows),
+                            "matched_rows": matched_rows[:10]  # 最多返回前10个匹配行
+                        })
+
+                except Exception as e:
+                    print(f"⚠️ 读取Sheet失败 {sheet_name}: {e}")
+                    continue
+
+        print(f"✅ 搜索完成: 关键词={keyword}, 匹配数={len(matches)}")
+        return jsonify({
+            "success": True,
+            "matches": matches,
+            "total": len(matches),
+            "keyword": keyword
+        })
+
+    except Exception as e:
+        print(f"❌ 搜索Excel Sheet失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
 @file_bp.route('/api/excel/save-final', methods=['POST'])
 def save_final_excel():
     """统一保存整个表格数据 - 保护其他Sheet"""

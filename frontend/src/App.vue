@@ -51,7 +51,7 @@
             placeholder="搜索Excel内容（表名/前两列）..."
             clearable
             size="small"
-            style="width: 280px;"
+            style="width: 200px;"
             @input="handleExcelContentSearch"
             @clear="handleExcelContentSearchClear"
           >
@@ -68,6 +68,21 @@
               </el-tooltip>
             </template>
           </el-input>
+          <!-- 下一个匹配按钮 -->
+          <el-button
+            v-if="excelContentSearchState.matchCount > 0"
+            size="small"
+            type="primary"
+            plain
+            style="margin-left: 6px; flex-shrink: 0;"
+            @click="goToNextMatch"
+            :title="`跳转到下一个匹配（第 ${excelContentSearchState.matchIndex + 1}/${excelContentSearchState.matchCount} 个）`"
+          >
+            <span style="font-size: 12px;">
+              {{ excelContentSearchState.matchIndex + 1 }}/{{ excelContentSearchState.matchCount }}
+            </span>
+            <el-icon style="margin-left: 2px;"><ArrowRight /></el-icon>
+          </el-button>
         </div>
 
         <!-- 用户信息 -->
@@ -111,7 +126,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, InfoFilled } from '@element-plus/icons-vue'
+import { Search, ArrowDown, InfoFilled, ArrowRight } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -136,7 +151,9 @@ const excelContentSearchState = reactive({
   isSearching: false,
   lastSearchTime: 0,
   matchCount: 0,
-  active: false
+  active: false,
+  matchIndex: 0,           // 当前匹配位置（从0开始）
+  matchedSheetsList: []    // 匹配 Sheet 列表 [{excel_file, sheet_name}]
 })
 
 
@@ -240,6 +257,8 @@ const handleExcelContentSearch = () => {
     excelContentSearchState.matchCount = 0
     excelContentSearchState.active = false
     excelContentSearchState.lastSearchTime = Date.now()
+    excelContentSearchState.matchIndex = 0
+    excelContentSearchState.matchedSheetsList = []
     console.log('🔍 Excel内容搜索：清空搜索条件')
     return
   }
@@ -315,6 +334,30 @@ const handleExcelContentSearch = () => {
   setTimeout(() => {
     excelContentSearchState.isSearching = false
   }, 300)
+}
+
+
+// 跳转到下一个匹配 Sheet
+const goToNextMatch = () => {
+  const { matchIndex, matchedSheetsList } = excelContentSearchState
+  if (!matchedSheetsList || matchedSheetsList.length === 0) return
+
+  // 计算下一个位置（循环）
+  const nextIndex = (matchIndex + 1) % matchedSheetsList.length
+  excelContentSearchState.matchIndex = nextIndex
+
+  // 通知 ThreeColumnPage 跳转到指定 Sheet
+  const match = matchedSheetsList[nextIndex]
+  window.dispatchEvent(new CustomEvent('excel-search-goto', {
+    detail: {
+      excel_file: match.excel_file,
+      sheet_name: match.sheet_name,
+      matchIndex: nextIndex,
+      total: matchedSheetsList.length
+    }
+  }))
+
+  console.log(`🔄 跳转到第 ${nextIndex + 1}/${matchedSheetsList.length} 个匹配:`, match)
 }
 
 
@@ -561,6 +604,8 @@ const handleExcelContentSearchClear = () => {
   excelContentSearchState.matchCount = 0
   excelContentSearchState.active = false
   excelContentSearchState.lastSearchTime = Date.now()
+  excelContentSearchState.matchIndex = 0
+  excelContentSearchState.matchedSheetsList = []
 
   // 清除Sheet高亮
   clearSheetHighlights()
