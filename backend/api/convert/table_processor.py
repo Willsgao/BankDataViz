@@ -1547,6 +1547,17 @@ def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
                             'original_filename': task_data.get('original_filename', '')
                         }
         
+        # ========== 修复：同时检查 Excel 文件夹 ==========
+        # 即使 Redis 数据过期，只要 Excel 文件存在就说明有已有任务
+        excel_dir = Path(EXCEL_DATA_DIR) / pdf_folder
+        has_excel_files = False
+        excel_count = 0
+        if excel_dir.exists():
+            # 统计 Excel 文件数量
+            excel_files = list(excel_dir.glob("*.xlsx")) + list(excel_dir.glob("*.xls"))
+            excel_count = len(excel_files)
+            has_excel_files = excel_count > 0
+        
         if existing_task:
             status = existing_task['status']
             is_processing = status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel']
@@ -1577,6 +1588,17 @@ def check_existing_table_task(pdf_folder: str) -> Dict[str, Any]:
                     "message": f"该文件上次解析失败 (任务ID: {existing_task['job_id']})",
                     "can_rerun": True
                 }
+        
+        # ========== 修复核心：如果没有 Redis 记录但有 Excel 文件，说明已完成 ==========
+        if has_excel_files:
+            print(f"🔍 检测到 Excel 文件存在 (Redis记录已过期): {excel_dir}, 共 {excel_count} 个文件")
+            return {
+                "has_existing": True,
+                "status": "completed",  # 假设已完成（因为有 Excel 文件）
+                "job_id": None,
+                "message": f"检测到已有解析结果 ({excel_count} 个Excel文件)，可选择重新解析",
+                "can_rerun": True
+            }
         
         return {
             "has_existing": False,

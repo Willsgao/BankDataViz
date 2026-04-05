@@ -1787,6 +1787,9 @@ const handleParseTables = async (pdfDiskName) => {
       const checkResponse = await axios.get(getSmartUrl(`/api/check-table-task/${pdfFolder}`))
       const checkData = checkResponse.data
       
+      console.log('🔍 DEBUG 前端检查任务: has_existing=', checkData.has_existing, ', status=', checkData.status)
+      console.log('🔍 DEBUG 前端检查任务: checkData=', checkData)
+      
       if (checkData.has_existing) {
         const status = checkData.status
         const isProcessing = ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel'].includes(status)
@@ -1854,6 +1857,7 @@ const handleParseTables = async (pdfDiskName) => {
 
 
     // 简化请求：后端会自动获取png_names
+    console.log('🔍 DEBUG 前端提交请求: pdfFolder=', pdfFolder, ', shouldRerun=', shouldRerun)
     const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
       table_type: tableType.value,
       use_ocr: true,
