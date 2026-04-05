@@ -67,6 +67,7 @@
           :is-parsing="isParsing"
           :has-results="hasResults"
           :has-batch-results="hasBatchResults"
+          :persistent-file-status="persistentFileStatus"
           @convert="$emit('convert-and-preview', $event)"
           @screen-images="$emit('handle-screen-images', $event)"
           @open-classification="$emit('handle-open-classification', $event)"

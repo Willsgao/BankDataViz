@@ -220,6 +220,8 @@ onMounted(async () => {
   await loadFiles()
   await loadPersistentFileStatus()
 
+  // 硬伤2修复：通过后端 API 恢复前端内存状态（转图、筛选）
+  await restoreProcessingStatusFromBackend()
 })
 
 // 监听智能处理事件
@@ -1468,6 +1470,78 @@ const loadPersistentFileStatus = async () => {
 }
 
 
+
+
+// ✅ 硬伤2修复：从后端 API 恢复前端内存状态
+const restoreProcessingStatusFromBackend = async () => {
+  if (files.value.length === 0) return
+
+  console.log('🔄 开始从后端恢复处理状态...')
+
+  for (const file of files.value) {
+    const pdfDiskName = file.disk_name
+    const cacheKey = pdfDiskName.replace(/\.pdf$/i, '')
+
+    // 如果内存中已有转图缓存，跳过（正常操作流程中已设置）
+    if (convertCache.value[cacheKey]) continue
+
+    try {
+      const statusResponse = await axios.get(`/api/pdf-process-status/${pdfDiskName}`)
+      const status = statusResponse.data
+
+      if (!status.success) continue
+
+      // 恢复转图状态
+      if (status.conversion && status.conversion.converted) {
+        const pngCount = status.conversion.png_count || 0
+        if (pngCount > 0 && !convertCache.value[cacheKey]) {
+          try {
+            // 通过 API 获取真实 png 列表，避免后续操作传无效数据
+            const pngResult = await getPngList(cacheKey)
+            if (pngResult && pngResult.pngs && pngResult.pngs.length > 0) {
+              convertCache.value[cacheKey] = pngResult.pngs
+            } else {
+              // API 获取失败时用占位数组标记已转图
+              convertCache.value[cacheKey] = Array(pngCount).fill('')
+            }
+          } catch (pngError) {
+            console.warn(`⚠️ 获取 png 列表失败: ${pdfDiskName}`, pngError.message)
+            convertCache.value[cacheKey] = Array(pngCount).fill('')
+          }
+        }
+        recordStepCompletion(pdfDiskName, 'convert', { timestamp: Date.now() })
+        console.log(`✅ 恢复转图状态: ${pdfDiskName} (${pngCount}张图片)`)
+      }
+
+      // 恢复筛选状态
+      if (status.classification && status.classification.classified) {
+        hasScreenedImages.value[pdfDiskName] = true
+        const tableCount = status.classification.tables_count || 0
+        const noTableCount = status.classification.no_tables_count || 0
+        screeningResultMap.value[pdfDiskName] = {
+          success: true,
+          pdfDiskName,
+          total_count: status.classification.total_expected || (tableCount + noTableCount),
+          has_table_count: tableCount,
+          no_table_count: noTableCount
+        }
+        recordStepCompletion(pdfDiskName, 'screen', { timestamp: Date.now() })
+        console.log(`✅ 恢复筛选状态: ${pdfDiskName} (${tableCount}张有表格, ${noTableCount}张无表格)`)
+      }
+
+    } catch (error) {
+      // 单个文件检查失败不影响其他文件
+      console.warn(`⚠️ 恢复状态失败: ${pdfDiskName}`, error.message)
+    }
+  }
+
+  // 强制响应式更新
+  convertCache.value = { ...convertCache.value }
+  hasScreenedImages.value = { ...hasScreenedImages.value }
+  screeningResultMap.value = { ...screeningResultMap.value }
+
+  console.log('🔄 后端状态恢复完成')
+}
 
 
 // ✅ 新增：获取文件的持久化状态

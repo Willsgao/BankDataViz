@@ -130,13 +130,13 @@
         <!-- 表格解析按钮 -->
         <el-button
           size="mini"
-          type="primary"
-          icon="el-icon-document"
+          :type="parseButtonType"
+          :icon="parseButtonIcon"
           :loading="isParsing"
           @click="handleParseTables"
-          :title="hasScreened ? '基于筛选结果解析表格' : '解析所有图片中的表格'"
+          :title="parseButtonTitle"
         >
-          {{ hasResults ? '重新解析' : '表格解析' }}
+          {{ parseButtonText }}
         </el-button>
 
         <!-- 清除缓存按钮 -->
@@ -216,6 +216,12 @@ const props = defineProps({
   hasBatchResults: {
     type: Boolean,
     default: false
+  },
+
+  // 持久化文件状态
+  persistentFileStatus: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -255,6 +261,33 @@ const screeningResult = computed(() => {
 const screeningComplete = computed(() => {
   if (!screeningResult.value) return false
   return screeningResult.value.has_table_count > 0 || screeningResult.value.no_table_count > 0
+})
+
+// 硬伤3修复：表格解析按钮状态计算
+const isParseCompleted = computed(() => {
+  if (!props.currentPdf?.disk_name) return false
+  const status = props.persistentFileStatus?.[props.currentPdf.disk_name]
+  return status && (status.status === 'completed' || status.status === 'success')
+})
+
+const parseButtonType = computed(() => {
+  if (isParseCompleted.value || props.hasResults) return 'success'
+  return 'primary'
+})
+
+const parseButtonIcon = computed(() => {
+  if (isParseCompleted.value || props.hasResults) return 'el-icon-document-checked'
+  return 'el-icon-document'
+})
+
+const parseButtonText = computed(() => {
+  if (isParseCompleted.value || props.hasResults) return '重新解析'
+  return '表格解析'
+})
+
+const parseButtonTitle = computed(() => {
+  if (isParseCompleted.value || props.hasResults) return '重新解析表格数据'
+  return '基于筛选结果解析表格'
 })
 
 // 事件处理函数

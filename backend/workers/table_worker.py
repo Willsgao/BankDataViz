@@ -1767,6 +1767,120 @@ class TableProcessingWorker:
             "errors": errors
         }
 
+    def _restore_aggregator_from_cache(self, job_id: str, pdf_folder: str,
+                                       skipped_images_names: List[str],
+                                       image_paths: List[str],
+                                       total_all_images: int,
+                                       table_type: str, bank_name: str) -> Dict[str, Any]:
+        """
+        从缓存恢复数据到聚合器（当所有图片被跳过但聚合器为空时使用）
+
+        复用 _process_single_image 逐张处理被跳过的图片，OCR/LLM 走缓存不产生额外费用，
+        仅重跑 table_rebuilder 重构逻辑将表格数据填入聚合器。
+
+        Args:
+            job_id: 任务ID
+            pdf_folder: PDF文件夹名称
+            skipped_images_names: 被跳过的图片文件名列表
+            image_paths: 原始任务中的所有图片完整路径列表
+            total_all_images: 总图片数
+            table_type: 表格类型
+            bank_name: 银行名称
+
+        Returns:
+            Dict: 处理结果（images_processed, tables_added, errors）
+        """
+        # 防御性检查：先确认聚合器确实为空
+        try:
+            from backend.api.convert.table_processor import pdf_aggregator_manager
+            aggregator = pdf_aggregator_manager.get_aggregator(pdf_folder, bank_name)
+            if len(aggregator) > 0:
+                print("ℹ️ 聚合器已有数据，跳过缓存恢复")
+                return {
+                    "success": True,
+                    "images_processed": 0,
+                    "tables_added": 0,
+                    "errors": []
+                }
+        except Exception as e:
+            print(f"⚠️ 检查聚合器状态失败: {e}")
+
+        # 根据 image_paths 重建被跳过图片的完整路径
+        skipped_name_set = set(skipped_images_names)
+        skipped_paths = [
+            p for p in image_paths
+            if os.path.basename(p) in skipped_name_set
+        ]
+
+        if not skipped_paths:
+            print("⚠️ 没有找到被跳过图片的完整路径，跳过缓存恢复")
+            return {
+                "success": True,
+                "images_processed": 0,
+                "tables_added": 0,
+                "errors": []
+            }
+
+        print(f"🔄 从缓存恢复数据到聚合器: 共 {len(skipped_paths)} 张图片")
+
+        # 更新状态
+        self.update_job_status(job_id, {
+            "status": "restoring_from_cache",
+            "progress": "10",
+            "progress_percentage": 10,
+            "message": f"从缓存恢复 {len(skipped_paths)} 张图片的数据..."
+        })
+
+        images_processed = 0
+        tables_added = 0
+        errors = []
+
+        for i, image_path in enumerate(skipped_paths, 1):
+            image_name = os.path.basename(image_path)
+            progress_percentage = int((i / len(skipped_paths)) * 90) + 5  # 5% ~ 95%
+
+            try:
+                # 复用 _process_single_image，内部会走 OCR/LLM 缓存
+                result = self._process_single_image(
+                    job_id, pdf_folder, image_path, i, len(skipped_paths),
+                    0, len(skipped_paths),  # total_skipped=0, total_all=skipped总数
+                    table_type, bank_name
+                )
+
+                if result["success"]:
+                    images_processed += 1
+                    tables_added += result["tables_added"]
+                else:
+                    error_msg = result.get("error", "未知错误")
+                    errors.append(error_msg)
+                    print(f"⚠️ 缓存恢复失败: {image_name} - {error_msg}")
+            except Exception as e:
+                error_msg = f"{image_name}: {str(e)}"
+                errors.append(error_msg)
+                print(f"⚠️ 缓存恢复异常: {error_msg}")
+                # 单张失败不阻塞整体流程
+
+        # 更新恢复完成状态
+        self.update_job_status(job_id, {
+            "status": "processing",
+            "progress": "95",
+            "progress_percentage": 95,
+            "message": f"缓存恢复完成。恢复 {images_processed} 张图片，添加 {tables_added} 个表格",
+            "processed_images": str(images_processed),
+            "new_processed": str(images_processed)
+        })
+
+        print(f"📊 缓存恢复结果: 成功 {images_processed} 张, 添加 {tables_added} 个表格")
+        if errors:
+            print(f"❌ 恢复失败 {len(errors)} 张")
+
+        return {
+            "success": images_processed > 0 or tables_added > 0,
+            "images_processed": images_processed,
+            "tables_added": tables_added,
+            "errors": errors
+        }
+
     def _mark_image_processed(self, pdf_folder: str, image_name: str) -> None:
         """标记图片为已处理"""
         try:
@@ -1986,6 +2100,17 @@ class TableProcessingWorker:
                     "tables_added": 0,
                     "errors": []
                 }
+
+                # 缓存恢复：当所有图片被跳过时，尝试从缓存恢复数据填充聚合器
+                if total_skipped_images > 0 and skipped_images_names:
+                    print(f"🔄 检测到 {total_skipped_images} 张已处理图片，尝试从缓存恢复数据到聚合器...")
+                    restore_result = self._restore_aggregator_from_cache(
+                        job_id, pdf_folder, skipped_images_names,
+                        image_paths, total_all_images,
+                        table_type, bank_name
+                    )
+                    # 用恢复结果更新 processing_result
+                    processing_result = restore_result
 
             images_processed = processing_result.get("images_processed", 0)
             tables_added = processing_result.get("tables_added", 0)
