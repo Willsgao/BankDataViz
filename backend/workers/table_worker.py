@@ -2172,16 +2172,23 @@ class TableProcessingWorker:
                     "errors": []
                 }
 
-                # 缓存恢复：当所有图片被跳过时，尝试从缓存恢复数据填充聚合器
-                if total_skipped_images > 0 and skipped_images_names:
-                    print(f"🔄 检测到 {total_skipped_images} 张已处理图片，尝试从缓存恢复数据到聚合器...")
-                    restore_result = self._restore_aggregator_from_cache(
-                        job_id, pdf_folder, skipped_images_names,
-                        image_paths, total_all_images,
-                        table_type, bank_name
-                    )
-                    # 用恢复结果更新 processing_result
+            # 🔧 修复：无论是否有新图片处理成功，只要有缓存数据，都尝试从缓存恢复
+            # 这样即使新图片处理失败，也能用缓存数据生成 Excel
+            if total_skipped_images > 0 and skipped_images_names:
+                print(f"🔄 检测到 {total_skipped_images} 张已处理图片，尝试从缓存恢复数据到聚合器...")
+                restore_result = self._restore_aggregator_from_cache(
+                    job_id, pdf_folder, skipped_images_names,
+                    image_paths, total_all_images,
+                    table_type, bank_name
+                )
+                # 合并处理结果：优先使用新处理的，如果没有新处理成功则使用缓存恢复的结果
+                if processing_result.get("images_processed", 0) == 0:
                     processing_result = restore_result
+                else:
+                    # 如果有新处理成功，合并结果
+                    processing_result["images_processed"] += restore_result.get("images_processed", 0)
+                    processing_result["tables_added"] += restore_result.get("tables_added", 0)
+                    processing_result["errors"].extend(restore_result.get("errors", []))
 
             images_processed = processing_result.get("images_processed", 0)
             tables_added = processing_result.get("tables_added", 0)
