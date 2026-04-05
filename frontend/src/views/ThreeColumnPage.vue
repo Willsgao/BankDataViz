@@ -49,7 +49,7 @@
           </div>
         </div>
 
-        <div class="section-header">
+        <div class="section-header" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="section-title">表格名称列表</span>
           <el-tag type="info" size="small">{{ tableCount }} 个表格</el-tag>
         </div>
@@ -107,7 +107,43 @@
 
 
     <template #right>
-      <ExcelContent
+      <!-- 右侧栏标题栏（与中间栏 section-header 风格一致） -->
+      <div class="section-header" style="flex-shrink: 0;">
+        <span class="section-title">Excel 内容</span>
+        <div class="header-right">
+          <!-- 搜索翻页按钮 -->
+          <div v-if="excelContentSearchState?.keyword" class="search-pagination" style="display: flex; align-items: center; gap: 4px; background: #e6f7ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #91d5ff;">
+            <template v-if="excelContentSearchState.matchCount > 0">
+              <el-button
+                size="small"
+                circle
+                plain
+                :disabled="excelContentSearchState.matchCount <= 1"
+                @click="goToPrevMatch"
+                title="上一个匹配"
+              >
+                <el-icon><ArrowLeft /></el-icon>
+              </el-button>
+              <span style="font-size: 12px; color: #1890ff; min-width: 40px; text-align: center; font-weight: 500;">
+                {{ (excelContentSearchState.matchIndex || 0) + 1 }}/{{ excelContentSearchState.matchCount }}
+              </span>
+              <el-button
+                size="small"
+                circle
+                type="primary"
+                :disabled="excelContentSearchState.matchCount <= 1"
+                @click="goToNextMatch"
+                title="下一个匹配"
+              >
+                <el-icon><ArrowRight /></el-icon>
+              </el-button>
+            </template>
+            <span v-else style="font-size: 11px; color: #999;">无匹配</span>
+          </div>
+        </div>
+      </div>
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;">
+        <ExcelContent
           ref="excelContent"
           :key="`excel-content-${excelContentKey}`"
           :selected-sheet="selectedSheet"
@@ -135,6 +171,7 @@
           @navigate-sheet="handleNavigateSheet"
           @update-flat-data="handleUpdateFlatData"
         />
+      </div>
     </template>
 
 
@@ -146,7 +183,7 @@
 
 
 // 这个应该放在最前面
-import { ref, inject, computed, watch, onMounted, onUnmounted, nextTick, onBeforeUnmount, onUpdated, defineEmits, provide } from 'vue'
+import { ref, reactive, inject, computed, watch, onMounted, onUnmounted, nextTick, onBeforeUnmount, onUpdated, defineEmits, provide } from 'vue'
 import * as ExcelKey from '@/utils/excelKeyUtils.js'
 
 // 然后是组件导入
@@ -167,7 +204,7 @@ import { useDataManager } from '@/components/threecolumns/useDataManager'
 import { useSheetOperations } from '@/components/threecolumns/useSheetOperations'
 
 // 导入图标
-import { Download, Close, Document, Grid, Loading, Timer } from '@element-plus/icons-vue'
+import { Download, Close, Document, Grid, Loading, Timer, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 
 // 导入工具
 import excelDataCache from '@/utils/excelDataCache'
@@ -3799,6 +3836,48 @@ const emit = defineEmits([
 const handleSearch = inject('handleSearch', null)
 const searchResults = inject('searchResults', [])
 const isSearching = inject('isSearching', false)
+
+// 注入 Excel 内容搜索状态（来自 App.vue）
+const injectedSearchState = inject('excelContentSearchState', null)
+
+// 确保 excelContentSearchState 始终是一个有效对象
+const excelContentSearchState = injectedSearchState || window.excelContentSearchState || reactive({
+  keyword: '',
+  matchCount: 0,
+  matchIndex: 0,
+  matchedSheetsList: []
+})
+
+// 翻页函数
+const goToPrevMatch = () => {
+  if (!excelContentSearchState.matchedSheetsList || excelContentSearchState.matchedSheetsList.length === 0) return
+  const prevIndex = (excelContentSearchState.matchIndex - 1 + excelContentSearchState.matchedSheetsList.length) % excelContentSearchState.matchedSheetsList.length
+  excelContentSearchState.matchIndex = prevIndex
+  const match = excelContentSearchState.matchedSheetsList[prevIndex]
+  window.dispatchEvent(new CustomEvent('excel-search-goto', {
+    detail: {
+      excel_file: match.excel_file,
+      sheet_name: match.sheet_name,
+      matchIndex: prevIndex,
+      total: excelContentSearchState.matchedSheetsList.length
+    }
+  }))
+}
+
+const goToNextMatch = () => {
+  if (!excelContentSearchState.matchedSheetsList || excelContentSearchState.matchedSheetsList.length === 0) return
+  const nextIndex = (excelContentSearchState.matchIndex + 1) % excelContentSearchState.matchedSheetsList.length
+  excelContentSearchState.matchIndex = nextIndex
+  const match = excelContentSearchState.matchedSheetsList[nextIndex]
+  window.dispatchEvent(new CustomEvent('excel-search-goto', {
+    detail: {
+      excel_file: match.excel_file,
+      sheet_name: match.sheet_name,
+      matchIndex: nextIndex,
+      total: excelContentSearchState.matchedSheetsList.length
+    }
+  }))
+}
 
 watch(searchResults, (newVal) => {
   console.log('🔍🔍 ThreeColumnPage searchResults 变化:', newVal)

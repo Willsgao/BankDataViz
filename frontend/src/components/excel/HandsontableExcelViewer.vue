@@ -2291,6 +2291,21 @@ const highlightSheetNames = (keyword) => {
 
 // 🔥🔥🔥 新增：更新匹配统计
 const updateMatchCount = () => {
+  // 如果后端跨 Sheet 搜索已经返回了结果（matchedSheetsList 非空），
+  // 则不再用本组件的 matchedSheets 来计算 matchCount，避免覆盖后端正确结果。
+  // 本地搜索只负责更新 matchedCells（单元格高亮）和 matchedSheets（当前 sheet 表名高亮）。
+  const hasBackendResults = excelContentSearchState?.matchedSheetsList?.length > 0
+
+  if (hasBackendResults) {
+    console.log('📊 匹配统计（保留后端结果）:', {
+      后端matchedSheetsList长度: excelContentSearchState.matchedSheetsList.length,
+      本地单元格匹配数: highlightState.matchedCells.length,
+      matchCount保持不变: excelContentSearchState.matchCount
+    })
+    // 只更新本地 matchedCells 相关的高亮，matchCount 由后端结果决定
+    return
+  }
+
   const totalMatches = highlightState.matchedSheets.length + highlightState.matchedCells.length
   highlightState.matchCount = totalMatches
 
