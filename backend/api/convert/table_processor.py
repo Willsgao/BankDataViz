@@ -2080,7 +2080,7 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
                     # 如果没有新图片需要处理，直接生成Excel文件
                     if not images_to_process and skipped_images:
                         print(f"\n{'=' * 60}")
-                        print(f"🔄 回退模式：没有新图片，直接生成/检查Excel文件")
+                        print(f"🔄 回退模式：没有新图片，检查/生成Excel文件")
                         print(f"{'=' * 60}")
 
                         try:
@@ -2106,8 +2106,32 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
                                     print(f"🎉🎉 表格处理任务完成（使用现有文件）: {job_id}")
                                     return
+                                else:
+                                    print(f"⚠️ Excel目录为空（文件已被删除），需要重新生成")
+                            else:
+                                print(f"⚠️ Excel目录不存在（从未生成或已被删除），需要重新生成")
                         except Exception as e:
                             print(f"⚠️ 检查现有Excel文件失败: {e}")
+
+                        # ========== 🛠️ BUG 修复：Excel 不存在时仍需生成 ==========
+                        # Fallback 模式下：
+                        # 1. 图片全部在增量处理器中标记为"已处理"
+                        # 2. 但聚合器中可能仍有之前保存的表格数据（内存中）
+                        # 3. 即使聚合器为空，process_table_images_real 也会正确失败
+                        #    而不是静默退出导致任务状态不明
+                        print(f"🔄 执行 process_table_images_real（即使无新图片也要尝试生成Excel）")
+                        process_table_images_real(
+                            job_id=job_id,
+                            pdf_folder=pdf_folder,
+                            image_paths=skipped_images,  # 使用已处理的图片，让聚合器重新加载数据
+                            table_type=table_type,
+                            bank_name=bank_name,
+                            progress_tracker=progress_tracker,
+                            skipped_images=None,
+                            existing_sheets=None
+                        )
+                        print(f"🎉🎉 表格处理任务完成（fallback重新生成）: {job_id}")
+                        return
 
                     # ========== ✅ 修复点：传递正确的参数 ==========
                     process_table_images_real(
