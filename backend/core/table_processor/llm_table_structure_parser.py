@@ -372,23 +372,47 @@ class EnhancedFinancialTableAnalyzer:
         }
 
     def _call_llm_global(self, base64_image: str, prompt: str) -> Dict[str, Any]:
-        """调用LLM进行全局分析 - 修复版本"""
+        """调用LLM进行全局分析 - 带限流重试机制"""
         start_time = time.time()
-
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                ]
-            }],
-            temperature=0,
-            top_p=0.1,
-            seed=42,
-            response_format={"type": "json_object"}
-        )
+        
+        # 限流重试配置
+        max_retries = 5
+        base_delay = 2  # 基础等待时间（秒）
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
+                        ]
+                    }],
+                    temperature=0,
+                    top_p=0.1,
+                    seed=42,
+                    response_format={"type": "json_object"}
+                )
+                break  # 成功，跳出重试循环
+                
+            except Exception as e:
+                error_str = str(e)
+                
+                # 检查是否是限流错误 (429)
+                if "429" in error_str or "RateLimit" in error_str or "TooManyRequests" in error_str:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)  # 指数退避: 2, 4, 8, 16, 32秒
+                        print(f"⏳ LLM API 限流 (429)，等待 {delay} 秒后重试... (尝试 {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        print(f"❌ LLM API 限流重试 {max_retries} 次后仍然失败")
+                        raise
+                else:
+                    # 其他错误直接抛出
+                    raise
 
         elapsed = time.time() - start_time
         content = response.choices[0].message.content.strip()
