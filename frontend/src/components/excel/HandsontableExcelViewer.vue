@@ -2291,34 +2291,41 @@ const highlightSheetNames = (keyword) => {
 
 // 🔥🔥🔥 新增：更新匹配统计
 const updateMatchCount = () => {
-  // 如果后端跨 Sheet 搜索已经返回了结果（matchedSheetsList 非空），
-  // 则不再用本组件的 matchedSheets 来计算 matchCount，避免覆盖后端正确结果。
-  // 本地搜索只负责更新 matchedCells（单元格高亮）和 matchedSheets（当前 sheet 表名高亮）。
+  // 情况1：后端跨 Sheet 搜索已经返回了结果（matchedSheetsList 非空），
+  // matchCount 由后端决定（导航单位是 sheet），本地只负责高亮单元格。
   const hasBackendResults = excelContentSearchState?.matchedSheetsList?.length > 0
 
   if (hasBackendResults) {
-    console.log('📊 匹配统计（保留后端结果）:', {
+    console.log('📊 匹配统计（后端结果）:', {
       后端matchedSheetsList长度: excelContentSearchState.matchedSheetsList.length,
       本地单元格匹配数: highlightState.matchedCells.length,
-      matchCount保持不变: excelContentSearchState.matchCount
+      matchCount保持: excelContentSearchState.matchCount
     })
-    // 只更新本地 matchedCells 相关的高亮，matchCount 由后端结果决定
     return
   }
 
-  const totalMatches = highlightState.matchedSheets.length + highlightState.matchedCells.length
-  highlightState.matchCount = totalMatches
-
-  // 更新全局搜索状态
-  if (excelContentSearchState) {
-    excelContentSearchState.matchCount = totalMatches
+  // 情况2：后端没有返回 sheet 列表（关键词在表名中没有匹配），
+  // 则用本地 matchedCells 数量作为 matchCount。
+  // 加上「只有本地有匹配才更新」的保护，避免多个 Handsontable 实例
+  // 竞争时，无数据的实例把有数据的实例结果覆盖成 0。
+  const localMatchCount = highlightState.matchedCells.length
+  if (localMatchCount > 0) {
+    highlightState.matchCount = localMatchCount
+    if (excelContentSearchState) {
+      excelContentSearchState.matchCount = localMatchCount
+    }
+    console.log('📊 匹配统计（本地结果）:', {
+      单元格匹配数: localMatchCount,
+      matchCount: localMatchCount
+    })
+  } else {
+    // 本地也没有匹配（数据未加载时常见），不清零——保留之前已有的值
+    // 避免竞态：后加载的 Handsontable 实例把有效结果覆盖为 0
+    console.log('📊 匹配统计（本地无数据，跳过更新）:', {
+      当前matchCount: excelContentSearchState?.matchCount,
+      原因: 'matchedCells为空，不覆盖'
+    })
   }
-
-  console.log('📊 匹配统计:', {
-    表名匹配数: highlightState.matchedSheets.length,
-    单元格匹配数: highlightState.matchedCells.length,
-    总匹配数: totalMatches
-  })
 }
 
 

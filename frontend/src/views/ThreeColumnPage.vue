@@ -138,6 +138,9 @@
                 <el-icon><ArrowRight /></el-icon>
               </el-button>
             </template>
+            <span v-else-if="isSheetSearchLoading" style="font-size: 11px; color: #909399;">
+              <el-icon class="is-loading" style="margin-right: 2px;"><Loading /></el-icon>搜索中…
+            </span>
             <span v-else style="font-size: 11px; color: #999;">无匹配</span>
           </div>
         </div>
@@ -3848,6 +3851,9 @@ const excelContentSearchState = injectedSearchState || window.excelContentSearch
   matchedSheetsList: []
 })
 
+// 跨 Sheet 后端搜索进行中状态（控制 loading 显示）
+const isSheetSearchLoading = ref(false)
+
 // 翻页函数
 const goToPrevMatch = () => {
   if (!excelContentSearchState.matchedSheetsList || excelContentSearchState.matchedSheetsList.length === 0) return
@@ -4518,9 +4524,11 @@ onMounted(() => {
       console.log('🔍🔍🔍 跨Sheet搜索开始: keyword=', keyword, 'pdfId=', pdfId)
       if (!pdfId) {
         console.log('⚠️⚠️⚠️ pdfId 为空，跳过搜索！selectedPdf=', selectedPdf.value)
+        isSheetSearchLoading.value = false
         return
       }
 
+      isSheetSearchLoading.value = true
       try {
         const url = getApiUrl(`/excel/search-sheets?file_id=${encodeURIComponent(pdfId)}&keyword=${encodeURIComponent(keyword)}`)
         console.log('🔗 请求URL:', url)
@@ -4549,6 +4557,7 @@ onMounted(() => {
               detail: { keyword }
             }))
             _isNavigatingFromSearch = false
+            isSheetSearchLoading.value = false
           }, 500)
         } else {
           console.log('❌ 搜索无结果: result.success=', result.success, 'matches=', result.matches)
@@ -4556,11 +4565,13 @@ onMounted(() => {
             window.excelContentSearchState.matchCount = 0
             window.excelContentSearchState.matchedSheetsList = []
           }
+          isSheetSearchLoading.value = false
         }
       } catch (error) {
         console.error('❌❌❌ 跨Sheet搜索失败:', error)
+        isSheetSearchLoading.value = false
       }
-    }, 400)
+    }, 200)
   }
   window.addEventListener('excel-content-search', _handleCrossSheetSearch)
 
