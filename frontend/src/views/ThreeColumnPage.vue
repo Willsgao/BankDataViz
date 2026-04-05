@@ -4423,9 +4423,11 @@ onMounted(() => {
   let _crossSheetSearchTimer = null
   let _isNavigatingFromSearch = false  // 防止导航后重发事件导致递归
   const _handleCrossSheetSearch = (event) => {
+    console.log('🔔🔔🔔 ThreeColumnPage 收到 excel-content-search 事件:', event?.detail, '_isNavigatingFromSearch:', _isNavigatingFromSearch)
+
     // 防止递归：如果是导航后的延迟高亮事件，跳过
     if (_isNavigatingFromSearch) {
-      // 仅用于高亮，不走搜索逻辑
+      console.log('⏭️ _isNavigatingFromSearch=true, 跳过搜索，仅用于高亮')
       return
     }
     const keyword = event?.detail?.keyword
@@ -4434,19 +4436,27 @@ onMounted(() => {
     clearTimeout(_crossSheetSearchTimer)
     _crossSheetSearchTimer = setTimeout(async () => {
       const pdfId = selectedPdf.value?.disk_name || selectedPdf.value?.id
-      if (!pdfId) return
+      console.log('🔍🔍🔍 跨Sheet搜索开始: keyword=', keyword, 'pdfId=', pdfId)
+      if (!pdfId) {
+        console.log('⚠️⚠️⚠️ pdfId 为空，跳过搜索！selectedPdf=', selectedPdf.value)
+        return
+      }
 
       try {
         const url = getApiUrl(`/excel/search-sheets?file_id=${encodeURIComponent(pdfId)}&keyword=${encodeURIComponent(keyword)}`)
+        console.log('🔗 请求URL:', url)
         const response = await fetch(url)
         const result = await response.json()
+        console.log('📥 API返回:', JSON.stringify(result).substring(0, 500))
 
         if (result.success && result.matches && result.matches.length > 0) {
+          console.log('✅ 搜索成功! total=', result.total, '设置 matchCount')
           // 更新 App.vue 的搜索状态
           if (window.excelContentSearchState) {
             window.excelContentSearchState.matchCount = result.total
             window.excelContentSearchState.matchedSheetsList = result.matches
             window.excelContentSearchState.matchIndex = 0
+            console.log('✅✅✅ matchCount 已设置为:', window.excelContentSearchState.matchCount)
           }
 
           // 导航到第一个匹配 Sheet
@@ -4462,13 +4472,14 @@ onMounted(() => {
             _isNavigatingFromSearch = false
           }, 500)
         } else {
+          console.log('❌ 搜索无结果: result.success=', result.success, 'matches=', result.matches)
           if (window.excelContentSearchState) {
             window.excelContentSearchState.matchCount = 0
             window.excelContentSearchState.matchedSheetsList = []
           }
         }
       } catch (error) {
-        console.error('❌ 跨Sheet搜索失败:', error)
+        console.error('❌❌❌ 跨Sheet搜索失败:', error)
       }
     }, 400)
   }

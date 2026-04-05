@@ -45,55 +45,52 @@
       <!-- 右侧区域：Excel 搜索 + 用户信息 -->
       <div class="right-section">
         <!-- Excel 内容搜索框（右侧） -->
-        <div class="search-box excel-content-search">
+        <div class="excel-search-group">
           <el-input
             v-model="excelContentSearchState.keyword"
-            placeholder="搜索Excel内容（表名/前两列）..."
+            placeholder="搜索Excel内容..."
             clearable
             size="small"
-            style="width: 200px;"
+            style="width: 200px; flex-shrink: 0;"
             @input="handleExcelContentSearch"
             @clear="handleExcelContentSearchClear"
           >
             <template #prefix>
               <el-icon><Search /></el-icon>
             </template>
-            <template #suffix>
-              <el-tooltip
-                effect="dark"
-                content="搜索当前表格的表名和前两列内容"
-                placement="top"
-              >
-                <el-icon><InfoFilled /></el-icon>
-              </el-tooltip>
-            </template>
           </el-input>
-          <!-- 翻页按钮组：上一页 / 计数 / 下一页 -->
-          <template v-if="excelContentSearchState.matchCount > 0">
-            <el-button
-              size="small"
-              plain
-              style="margin-left: 6px; flex-shrink: 0; padding: 0 8px;"
-              :disabled="excelContentSearchState.matchCount <= 1"
-              @click="goToPrevMatch"
-              title="上一个匹配"
-            >
-              <el-icon><ArrowLeft /></el-icon>
-            </el-button>
-            <span style="font-size: 12px; color: #606266; white-space: nowrap; margin: 0 2px;">
-              {{ excelContentSearchState.matchIndex + 1 }}/{{ excelContentSearchState.matchCount }}
-            </span>
-            <el-button
-              size="small"
-              type="primary"
-              plain
-              style="flex-shrink: 0; padding: 0 8px;"
-              @click="goToNextMatch"
-              title="下一个匹配"
-            >
-              <el-icon><ArrowRight /></el-icon>
-            </el-button>
-          </template>
+          <!-- 翻页按钮：← N/M → -->
+          <el-button
+            v-if="excelContentSearchState.keyword.trim().length > 0"
+            size="small"
+            circle
+            plain
+            style="margin-left: 2px; flex-shrink: 0;"
+            :disabled="excelContentSearchState.matchCount <= 1"
+            @click="goToPrevMatch"
+            title="上一个匹配Sheet"
+          >
+            <el-icon><ArrowLeft /></el-icon>
+          </el-button>
+          <span
+            v-if="excelContentSearchState.keyword.trim().length > 0"
+            style="font-size: 11px; color: #909399; white-space: nowrap; min-width: 32px; text-align: center;"
+          >
+            {{ excelContentSearchState.matchCount > 0 ? (excelContentSearchState.matchIndex + 1 + '/' + excelContentSearchState.matchCount) : '-' }}
+          </span>
+          <el-button
+            v-if="excelContentSearchState.keyword.trim().length > 0"
+            size="small"
+            circle
+            type="primary"
+            plain
+            style="flex-shrink: 0;"
+            :disabled="excelContentSearchState.matchCount <= 1"
+            @click="goToNextMatch"
+            title="下一个匹配Sheet"
+          >
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
         </div>
 
         <!-- 用户信息 -->
@@ -137,7 +134,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, InfoFilled, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Search, ArrowDown, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -342,10 +339,17 @@ const handleExcelContentSearch = () => {
     return true
   }
 
-  // 按优先级执行搜索策略
+  // 按优先级执行搜索策略（高亮当前表格）
   if (!enhancedRouteSearch() && !useGlobalSearch()) {
     useEventEmit()
   }
+
+  // 始终发射跨Sheet搜索事件，确保 ThreeColumnPage 能更新 matchCount 和翻页按钮
+  // （enhancedRouteSearch 只做当前表格高亮，不负责跨Sheet搜索和计数）
+  console.log('📡📡📡 App.vue 发射 excel-content-search 事件, keyword=', keyword)
+  window.dispatchEvent(new CustomEvent('excel-content-search', {
+    detail: { keyword }
+  }))
 
   setTimeout(() => {
     excelContentSearchState.isSearching = false
@@ -777,18 +781,11 @@ window.addEventListener('storage', (e) => {
   align-items: center;
 }
 
-.search-box.excel-content-search {
-  position: relative;
-}
-
-/* 高亮状态指示器 */
-.search-box.excel-content-search .el-input__wrapper {
-  transition: all 0.3s ease;
-}
-
-.search-box.excel-content-search:has(.el-input__wrapper:focus-within) {
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
-  border-radius: 4px;
+/* Excel搜索框 + 翻页按钮组 */
+.excel-search-group {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .user-info, .login-prompt {
