@@ -1974,6 +1974,54 @@ class TableProcessingWorker:
 
         return False, ""
 
+    def _clear_existing_excel(self, pdf_folder: str) -> bool:
+        """🛠️ 修复 rerun 问题：删除现有的 Excel 文件"""
+        import glob
+        from backend.utils.constants import EXCEL_DATA_DIR
+
+        try:
+            excel_dir = os.path.join(EXCEL_DATA_DIR, pdf_folder)
+            if os.path.exists(excel_dir):
+                excel_files = glob.glob(os.path.join(excel_dir, "*.xlsx"))
+                if excel_files:
+                    for excel_file in excel_files:
+                        try:
+                            os.remove(excel_file)
+                            print(f"  🗑️ 已删除现有Excel: {excel_file}")
+                        except Exception as e:
+                            print(f"  ⚠️ 删除Excel失败: {excel_file}, 错误: {e}")
+                    return True
+                else:
+                    print(f"  ℹ️ Excel目录为空，无需删除")
+            else:
+                print(f"  ℹ️ Excel目录不存在，无需删除")
+            return False
+        except Exception as e:
+            print(f"  ⚠️ 清除Excel目录失败: {e}")
+            return False
+
+    def _clear_processed_images(self, pdf_folder: str) -> bool:
+        """🛠️ 修复 rerun 问题：清除增量处理器中的处理状态，强制重新处理所有图片"""
+        try:
+            if hasattr(self, 'incremental_processor') and self.incremental_processor:
+                # 调用增量处理器的清除方法
+                if hasattr(self.incremental_processor, 'clear_pdf_records'):
+                    self.incremental_processor.clear_pdf_records(pdf_folder)
+                    print(f"  🗑️ 已清除处理状态: {pdf_folder}")
+                    return True
+                elif hasattr(self.incremental_processor, 'clear'):
+                    self.incremental_processor.clear(pdf_folder)
+                    print(f"  🗑️ 已清除增量处理器: {pdf_folder}")
+                    return True
+                else:
+                    print(f"  ⚠️ 增量处理器没有清除方法，保留现有处理状态")
+            else:
+                print(f"  ℹ️ 没有增量处理器，无需清除")
+            return False
+        except Exception as e:
+            print(f"  ⚠️ 清除处理状态失败: {e}")
+            return False
+
     def _update_final_status(self, job_id: str, pdf_folder: str, original_filename: str,
                              excel_generated: bool, excel_path: str,
                              total_all_images: int, total_skipped: int,
@@ -2045,6 +2093,7 @@ class TableProcessingWorker:
         image_paths = task_data.get("image_paths", [])
         table_type = task_data.get("table_type", "financial")
         bank_name = task_data.get("bank_name", "")
+        rerun = task_data.get("rerun", False)  # 🛠️ 修复：提取 rerun 参数
 
         if not job_id or not pdf_folder or not image_paths:
             print(f"❌ 任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}")
@@ -2054,6 +2103,12 @@ class TableProcessingWorker:
                 "message": f"任务数据不完整: job_id={job_id}, pdf_folder={pdf_folder}"
             })
             return False
+
+        # 🛠️ 修复：当 rerun=True 时，删除现有 Excel 并重置处理状态
+        if rerun:
+            print(f"🔄 检测到 rerun=True，清除现有 Excel 和处理状态...")
+            self._clear_existing_excel(pdf_folder)
+            self._clear_processed_images(pdf_folder)
 
         self.current_job = job_id
         task_start_time = time.time()

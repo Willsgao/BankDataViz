@@ -1963,11 +1963,13 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
                 "image_paths": image_paths,
                 "png_names": png_names,
                 "use_ocr": use_ocr,
+                "rerun": rerun,  # 🛠️ 修复：传递 rerun 参数给 worker
                 "created_at": time.time(),
                 "request_data": {
                     "table_type": table_type,
                     "use_ocr": use_ocr,
-                    "bank_name": bank_name
+                    "bank_name": bank_name,
+                    "rerun": rerun  # 🛠️ 修复：传递 rerun 参数
                 }
             }
 
