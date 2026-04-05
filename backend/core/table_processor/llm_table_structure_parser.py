@@ -376,7 +376,7 @@ class EnhancedFinancialTableAnalyzer:
         start_time = time.time()
         
         # 限流重试配置
-        max_retries = 5
+        max_retries = 2  # 最多重试2次
         base_delay = 2  # 基础等待时间（秒）
         
         for attempt in range(max_retries):
@@ -403,7 +403,7 @@ class EnhancedFinancialTableAnalyzer:
                 # 检查是否是限流错误 (429)
                 if "429" in error_str or "RateLimit" in error_str or "TooManyRequests" in error_str:
                     if attempt < max_retries - 1:
-                        delay = base_delay * (2 ** attempt)  # 指数退避: 2, 4, 8, 16, 32秒
+                        delay = base_delay * (2 ** attempt)  # 指数退避: 2, 4秒
                         print(f"⏳ LLM API 限流 (429)，等待 {delay} 秒后重试... (尝试 {attempt + 1}/{max_retries})")
                         time.sleep(delay)
                         continue
