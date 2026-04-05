@@ -6,6 +6,7 @@
 """
 
 import re
+import shutil
 from pathlib import Path
 from typing import List
 import json
@@ -269,6 +270,19 @@ class SimpleIncrementalProcessor:
             del self.records[pdf_folder]
             self._save_records()
             print(f"🧹🧹🧹🧹 清空处理记录: {pdf_folder}")
+        
+        # ========== 关键修复：同时清除 LLM 缓存目录 ==========
+        # 因为 is_image_processed() 依赖 LLM 缓存文件判断是否已处理
+        llm_dir = Path(OBJ_CACHE_PATH) / pdf_folder / "llm"
+        if llm_dir.exists():
+            import shutil
+            try:
+                shutil.rmtree(llm_dir)
+                print(f"🗑️🗑️🗑️🗑️ 已清除LLM缓存目录: {llm_dir}")
+            except Exception as e:
+                print(f"⚠️ 清除LLM缓存目录失败: {e}")
+        else:
+            print(f"ℹ️ LLM缓存目录不存在，无需清除: {llm_dir}")
 
     def clear_all_records(self):
         """清空所有处理记录"""
