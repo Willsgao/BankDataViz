@@ -68,21 +68,32 @@
               </el-tooltip>
             </template>
           </el-input>
-          <!-- 下一个匹配按钮 -->
-          <el-button
-            v-if="excelContentSearchState.matchCount > 0"
-            size="small"
-            type="primary"
-            plain
-            style="margin-left: 6px; flex-shrink: 0;"
-            @click="goToNextMatch"
-            :title="`跳转到下一个匹配（第 ${excelContentSearchState.matchIndex + 1}/${excelContentSearchState.matchCount} 个）`"
-          >
-            <span style="font-size: 12px;">
+          <!-- 翻页按钮组：上一页 / 计数 / 下一页 -->
+          <template v-if="excelContentSearchState.matchCount > 0">
+            <el-button
+              size="small"
+              plain
+              style="margin-left: 6px; flex-shrink: 0; padding: 0 8px;"
+              :disabled="excelContentSearchState.matchCount <= 1"
+              @click="goToPrevMatch"
+              title="上一个匹配"
+            >
+              <el-icon><ArrowLeft /></el-icon>
+            </el-button>
+            <span style="font-size: 12px; color: #606266; white-space: nowrap; margin: 0 2px;">
               {{ excelContentSearchState.matchIndex + 1 }}/{{ excelContentSearchState.matchCount }}
             </span>
-            <el-icon style="margin-left: 2px;"><ArrowRight /></el-icon>
-          </el-button>
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              style="flex-shrink: 0; padding: 0 8px;"
+              @click="goToNextMatch"
+              title="下一个匹配"
+            >
+              <el-icon><ArrowRight /></el-icon>
+            </el-button>
+          </template>
         </div>
 
         <!-- 用户信息 -->
@@ -126,7 +137,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, InfoFilled, ArrowRight } from '@element-plus/icons-vue'
+import { Search, ArrowDown, InfoFilled, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -342,27 +353,40 @@ const handleExcelContentSearch = () => {
 }
 
 
-// 跳转到下一个匹配 Sheet
-const goToNextMatch = () => {
-  const { matchIndex, matchedSheetsList } = excelContentSearchState
+// 跳转到指定索引的匹配 Sheet（公共逻辑）
+const goToMatchByIndex = (index) => {
+  const { matchedSheetsList } = excelContentSearchState
   if (!matchedSheetsList || matchedSheetsList.length === 0) return
 
-  // 计算下一个位置（循环）
-  const nextIndex = (matchIndex + 1) % matchedSheetsList.length
-  excelContentSearchState.matchIndex = nextIndex
+  excelContentSearchState.matchIndex = index
 
-  // 通知 ThreeColumnPage 跳转到指定 Sheet
-  const match = matchedSheetsList[nextIndex]
+  const match = matchedSheetsList[index]
   window.dispatchEvent(new CustomEvent('excel-search-goto', {
     detail: {
       excel_file: match.excel_file,
       sheet_name: match.sheet_name,
-      matchIndex: nextIndex,
+      matchIndex: index,
       total: matchedSheetsList.length
     }
   }))
 
-  console.log(`🔄 跳转到第 ${nextIndex + 1}/${matchedSheetsList.length} 个匹配:`, match)
+  console.log(`🔄 跳转到第 ${index + 1}/${matchedSheetsList.length} 个匹配:`, match)
+}
+
+// 跳转到下一个匹配 Sheet
+const goToNextMatch = () => {
+  const { matchIndex, matchedSheetsList } = excelContentSearchState
+  if (!matchedSheetsList || matchedSheetsList.length === 0) return
+  const nextIndex = (matchIndex + 1) % matchedSheetsList.length
+  goToMatchByIndex(nextIndex)
+}
+
+// 跳转到上一个匹配 Sheet
+const goToPrevMatch = () => {
+  const { matchIndex, matchedSheetsList } = excelContentSearchState
+  if (!matchedSheetsList || matchedSheetsList.length === 0) return
+  const prevIndex = (matchIndex - 1 + matchedSheetsList.length) % matchedSheetsList.length
+  goToMatchByIndex(prevIndex)
 }
 
 
