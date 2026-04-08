@@ -21,9 +21,11 @@ class EnhancedFinancialTableAnalyzer:
     """增强版金融表格分析器 - 表格结构分析"""
 
     def __init__(self):
+        # 禁用 SDK 自动重试，由代码手动控制重试逻辑
         self.client = OpenAI(
             base_url=config.TABLE_LLM_BASE_URL,
-            api_key=config.TABLE_LLM_API_KEY
+            api_key=config.TABLE_LLM_API_KEY,
+            max_retries=0  # 禁用自动重试，避免短时间内产生大量请求
         )
         self.model_name = config.TABLE_LLM_MODEL_NAME
         self.max_sample_rows = 3
@@ -376,7 +378,7 @@ class EnhancedFinancialTableAnalyzer:
         start_time = time.time()
         
         # 限流重试配置
-        max_retries = 2  # 最多重试2次
+        max_retries = 3  # 最多访问3次（首次 + 2次重试）
         base_delay = 2  # 基础等待时间（秒）
         
         for attempt in range(max_retries):

@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 
+import os
 from pathlib import Path
 
 # 方法2：使用 pathlib
@@ -126,6 +127,18 @@ TABLE_TYPES = {
 
 
 ARK_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+
+
+# ============================================================
+# 银行数据仓库 Feature Flag
+# ============================================================
+# 设置为 True 时，Table Worker 处理完 PDF 后会自动将数据写入银行数据仓库
+# 设置为 False 时，不写入数据仓库
+# 也可以通过环境变量 ENABLE_BANK_WAREHOUSE=true 覆盖此设置
+
+ENABLE_BANK_WAREHOUSE = True
+# ENABLE_BANK_WAREHOUSE = os.environ.get('ENABLE_BANK_WAREHOUSE',
+#     'true').lower() == 'true'
 
 
 

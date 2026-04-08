@@ -21,6 +21,13 @@
             >
               三栏布局
             </el-button>
+            <el-button
+              :type="$route.name === 'BankWarehouse' ? 'primary' : ''"
+              @click="$router.push('/bank-warehouse')"
+              size="small"
+            >
+              🏦 数据仓库
+            </el-button>
           </el-button-group>
         </div>
 

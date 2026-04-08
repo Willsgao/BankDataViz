@@ -2,7 +2,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import TwoColumnPage from '@/views/TwoColumnPage.vue'
 import ThreeColumnPage from '@/views/ThreeColumnPage.vue'
-import LoginPage from '@/views/LoginPage.vue' // 需要创建这个组件
+import LoginPage from '@/views/LoginPage.vue'
+import BankWarehousePage from '@/views/BankWarehousePage.vue'
 
 const routes = [
   {
@@ -15,6 +16,12 @@ const routes = [
     path: '/three-column',
     name: 'ThreeColumn',
     component: ThreeColumnPage,
+    meta: { requiredRole: 'user' } // 普通用户和管理员都可以访问
+  },
+  {
+    path: '/bank-warehouse',
+    name: 'BankWarehouse',
+    component: BankWarehousePage,
     meta: { requiredRole: 'user' } // 普通用户和管理员都可以访问
   },
   {

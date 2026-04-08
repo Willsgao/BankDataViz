@@ -14,6 +14,7 @@ from backend.api.llm_routes import llm_bp
 from backend.api.baidu_ocr_routes import baidu_ocr_bp
 from backend.api.visualization_api import visualization_bp
 from backend.api.websocket_routes import websocket_bp, init_websocket
+from backend.api.bank_data_api import bank_data_bp  # 银行数据仓库API
 
 # 使用安全的数据库管理器
 from backend.models.safe_unified_db import SafeDatabaseManager
@@ -105,6 +106,9 @@ def create_app() -> Flask:
     app.register_blueprint(visualization_bp)
     app.register_blueprint(baidu_ocr_bp)
     app.register_blueprint(websocket_bp)
+
+    # 注册银行数据仓库API
+    app.register_blueprint(bank_data_bp)
 
     # ----------- 静态文件路由配置（完全复制app.py的配置） -----------
     app.add_url_rule(

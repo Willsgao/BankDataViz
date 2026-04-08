@@ -21,7 +21,7 @@ from backend.core.table_processor.ocr_response_unifier import OCRProviderFactory
 
 # 导入缓存相关模块
 from .cache_gateway import ensure_table, get as cache_get, upsert as cache_upsert
-from .object_store import put_object, extract_pdf_uuid_from_image_path
+from .object_store import put_object, extract_pdf_uuid_from_image_path, _is_valid_uuid
 
 # ========== 从配置统一导入所有参数 ==========
 # Redis配置
@@ -275,16 +275,72 @@ class TableOCRService:
             # 2) DB + 盘存在性检查
             hit = cache_get(md5, self.provider_type)
             if hit:
+                # ====== 调试打印 ======
+                print(f"\n{'='*60}")
+                print(f"[DEBUG] 🔍 缓存查找开始")
+                print(f"[DEBUG] image_path: {image_path}")
+                print(f"[DEBUG] md5: {md5}")
+                print(f"[DEBUG] provider: {self.provider_type}")
+                print(f"{'='*60}")
+
                 # 获取本地对象存储路径
                 pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
-                file_path = Path(LOCAL_OBJECT_STORE) / pdf_uuid / hit["s3_key"]
-                print("LOCAL_OBJECT_STORELOCAL_OBJECT_STORE")
-                print(LOCAL_OBJECT_STORE)
-                print("file_path:", file_path)
+                s3_key = hit["s3_key"]
 
-                if file_path.exists():
+                print(f"[DEBUG] 📋 缓存记录:")
+                print(f"[DEBUG]   pdf_uuid: {pdf_uuid}")
+                print(f"[DEBUG]   s3_key: {s3_key}")
+                print(f"[DEBUG]   LOCAL_OBJECT_STORE: {LOCAL_OBJECT_STORE}")
+
+                # s3_key 可能带有 ocr/ 或 llm/ 前缀，需要去掉
+                key_without_prefix = s3_key
+                if s3_key.startswith("ocr/") or s3_key.startswith("llm/"):
+                    key_without_prefix = s3_key.split("/", 1)[1]  # 去掉前缀
+
+                print(f"[DEBUG]   key_without_prefix: {key_without_prefix}")
+
+                # 尝试多个可能的路径（兼容新旧缓存结构）
+                possible_paths = []
+
+                # 1. 新路径：obj_cache/<uuid>/ocr/<key_without_prefix>（带UUID子目录）
+                if pdf_uuid and _is_valid_uuid(pdf_uuid):
+                    new_path = Path(LOCAL_OBJECT_STORE) / pdf_uuid / "ocr" / key_without_prefix
+                    possible_paths.append(("新路径(uuid/ocr/)", new_path))
+
+                # 2. 旧路径：obj_cache/<uuid>/<key_without_prefix>（UUID目录下无子目录）
+                if pdf_uuid and _is_valid_uuid(pdf_uuid):
+                    old_path = Path(LOCAL_OBJECT_STORE) / pdf_uuid / key_without_prefix
+                    possible_paths.append(("旧路径(uuid/直接)", old_path))
+
+                # 3. 更旧的路径：obj_cache/<key_without_prefix> (根目录，不带UUID)
+                old_path2 = Path(LOCAL_OBJECT_STORE) / key_without_prefix
+                possible_paths.append(("更旧路径(根目录)", old_path2))
+
+                # 4. 最旧的路径：obj_cache/<s3_key> (根目录，带 ocr/ 前缀)
+                old_path3 = Path(LOCAL_OBJECT_STORE) / s3_key
+                possible_paths.append(("最旧路径(根目录/ocr/)", old_path3))
+
+                print(f"\n[DEBUG] 📁 尝试查找以下路径:")
+
+                # 尝试每个可能的路径
+                file_path = None
+                for path_desc, try_path in possible_paths:
+                    exists = try_path.exists()
+                    if exists:
+                        file_path = try_path
+                        print(f"[DEBUG]   ✅ {path_desc}: 存在!")
+                        print(f"[DEBUG]      → {try_path}")
+                    else:
+                        print(f"[DEBUG]   ❌ {path_desc}: 不存在")
+                        print(f"[DEBUG]      → {try_path}")
+
+                print(f"{'='*60}\n")
+
+                if file_path and file_path.exists():
                     try:
                         data = json.loads(gzip.decompress(file_path.read_bytes()))
+                        print(f"[DEBUG] 🎉 缓存命中成功！跳过 OCR 调用")
+
                         # 回写 Redis（仅当Redis可用时）
                         if is_redis_available():
                             try:
@@ -302,9 +358,10 @@ class TableOCRService:
                         return data
                     except Exception as e:
                         print(f"缓存文件读取失败: {e}")
-
                 else:
-                    print("未命中！！！file_path", file_path)
+                    print(f"[DEBUG] 😢 所有缓存路径都未命中，将调用 OCR API")
+            else:
+                print(f"[DEBUG] DB 中没有找到 md5={md5} 的缓存记录")
 
         # ----- 2. 真调用 -----
         try:

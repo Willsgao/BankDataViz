@@ -10,7 +10,8 @@ class SimpleBankNameExtractor:
     def __init__(self):
         self.client = OpenAI(
             base_url=config.TABLE_LLM_BASE_URL,
-            api_key=config.TABLE_LLM_API_KEY
+            api_key=config.TABLE_LLM_API_KEY,
+            max_retries=0  # 禁用自动重试
         )
 
     def extract_bank_name(self, document_name: str) -> Optional[str]:

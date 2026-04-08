@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import time
+import re
 import redis
 import signal
 import sqlite3
@@ -45,7 +46,36 @@ except ImportError as e:
     print(f"❌ 无法导入业务模块: {e}")
     sys.exit(1)
 
-from backend.utils.constants import PROJECT_ROOT_STR, EXCEL_DATA_DIR, DATABASE_PATH
+from backend.utils.constants import PROJECT_ROOT_STR, EXCEL_DATA_DIR, DATABASE_PATH, ENABLE_BANK_WAREHOUSE
+
+# ============================================================
+# Feature Flag: 银行数据仓库开关
+# ============================================================
+# 开关已移至 backend/utils/constants.py
+# 可直接修改该文件中的 ENABLE_BANK_WAREHOUSE 值（默认 True）
+# 也可以通过环境变量 ENABLE_BANK_WAREHOUSE=true 覆盖
+
+if ENABLE_BANK_WAREHOUSE:
+    print("=" * 60)
+    print("FEATURE FLAG: 银行数据仓库已启用")
+    print("=" * 60)
+else:
+    print("=" * 60)
+    print("INFO: 银行数据仓库未启用 (ENABLE_BANK_WAREHOUSE=false)")
+    print("设置环境变量 ENABLE_BANK_WAREHOUSE=true 启用")
+    print("=" * 60)
+
+# 延迟导入银行仓库管理器（避免启动时出错）
+BankWarehouseManager = None
+if ENABLE_BANK_WAREHOUSE:
+    try:
+        from backend.database.bank_warehouse.bank_warehouse import BankWarehouseManager
+        print("OK: BankWarehouseManager loaded")
+    except ImportError as e:
+        print(f"WARNING: Cannot import BankWarehouseManager: {e}")
+        ENABLE_BANK_WAREHOUSE = False
+# ============================================================
+
 
 class TableProcessingWorker:
     """表格处理Worker类"""
@@ -66,6 +96,20 @@ class TableProcessingWorker:
         except ImportError as e:
             print(f"⚠️ 无法导入增量处理器: {e}")
             self.incremental_processor = None
+
+        # 初始化银行数据仓库管理器
+        self.warehouse_manager = None
+        if ENABLE_BANK_WAREHOUSE and BankWarehouseManager:
+            try:
+                self.warehouse_manager = BankWarehouseManager()
+                # 确保数据库表已初始化
+                if not self.warehouse_manager.check_tables_exist():
+                    print("Initializing bank warehouse database tables...")
+                    self.warehouse_manager.init_database()
+                print("OK: BankWarehouseManager initialized")
+            except Exception as e:
+                print(f"WARNING: Cannot initialize BankWarehouseManager: {e}")
+                self.warehouse_manager = None
 
     def signal_handler(self, signum, frame):
         """处理退出信号"""
@@ -1733,6 +1777,13 @@ class TableProcessingWorker:
         errors = []
 
         for i, image_path in enumerate(images_to_process, 1):
+            # 每处理完一张图片后等待一段时间，避免触发 LLM API 限流
+            if i > 1:  # 第一张图片不需要等待
+                import time
+                delay_seconds = 2  # 每 2 秒处理一张图片，1 分钟最多 30 个请求
+                print(f"⏳ 等待 {delay_seconds} 秒后处理下一张图片... ({i}/{len(images_to_process)})")
+                time.sleep(delay_seconds)
+
             result = self._process_single_image(
                 job_id, pdf_folder, image_path, i, len(images_to_process),
                 total_skipped_images, total_all_images, table_type, bank_name
@@ -2066,6 +2117,255 @@ class TableProcessingWorker:
 
         self.update_job_status(job_id, task_details)
 
+    # ============================================================
+    # 银行数据仓库写入
+    # ============================================================
+
+    def _save_to_bank_warehouse(
+        self,
+        job_id: str,
+        pdf_folder: str,
+        bank_name: str,
+        excel_path: str,
+        original_filename: str,
+        table_type: str = None
+    ) -> bool:
+        """
+        将处理结果保存到银行数据仓库
+
+        Args:
+            job_id: 任务ID
+            pdf_folder: PDF文件夹名
+            bank_name: 银行名称
+            excel_path: Excel文件路径
+            original_filename: 原始文件名
+            table_type: 表格类型
+
+        Returns:
+            bool: 是否保存成功
+        """
+        if not ENABLE_BANK_WAREHOUSE or not self.warehouse_manager:
+            return False
+
+        try:
+            print("\n" + "=" * 60)
+            print("DATABASE: 开始保存到银行数据仓库")
+            print("=" * 60)
+
+            # 1. 保存或更新银行信息
+            bank_info = {
+                'bank_code': self._extract_bank_code(original_filename),
+                'bank_name': bank_name or self._extract_bank_name(original_filename),
+                'bank_type': self._infer_bank_type(bank_name),
+                'description': f'来源: {original_filename}'
+            }
+            bank_id = self.warehouse_manager.save_bank(bank_info)
+            print(f"  Bank ID: {bank_id}")
+
+            # 2. 保存报告信息
+            report_info = self._parse_report_info(original_filename)
+            report_info.update({
+                'bank_id': bank_id,
+                'pdf_path': pdf_folder,
+                'pdf_filename': original_filename,
+                'status': 'completed',
+                'excel_output_path': excel_path,
+                'source_pdf_folder': pdf_folder
+            })
+            report_id = self.warehouse_manager.save_report(report_info)
+            print(f"  Report ID: {report_id}")
+
+            # 3. 从Excel读取表格数据并保存
+            if excel_path and os.path.exists(excel_path):
+                data_count = self._save_excel_data_to_warehouse(
+                    report_id,
+                    excel_path,
+                    pdf_folder
+                )
+                print(f"  Table data saved: {data_count} records")
+            else:
+                print(f"  Excel file not found: {excel_path}")
+
+            print("=" * 60)
+            print("DATABASE: 银行数据仓库保存完成")
+            print("=" * 60)
+
+            return True
+
+        except Exception as e:
+            print(f"WARNING: 保存到银行数据仓库失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _extract_bank_code(self, filename: str) -> str:
+        """从文件名提取银行代码"""
+        if not filename:
+            return None
+
+        # 尝试从文件名中提取
+        import re
+        # 匹配常见银行代码模式
+        patterns = [
+            r'([A-Z]{4,6})',  # 4-6位大写字母
+            r'_(\d{6})_',      # 下划线包围的数字
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, filename)
+            if match:
+                return match.group(1)
+
+        return None
+
+    def _extract_bank_name(self, filename: str) -> str:
+        """从文件名提取银行名称"""
+        if not filename:
+            return "未知银行"
+
+        # 移除扩展名
+        name = os.path.splitext(filename)[0]
+        # 移除常见前缀
+        for prefix in ['银行', '年报', '报告', '财务']:
+            name = name.replace(prefix, '')
+        # 移除下划线和数字
+        import re
+        name = re.sub(r'[\d_]+', '', name)
+
+        return name.strip() or "未知银行"
+
+    def _infer_bank_type(self, bank_name: str) -> str:
+        """推断银行类型"""
+        if not bank_name:
+            return "未知"
+
+        bank_type_mapping = {
+            '国有大型银行': ['工商银行', '农业银行', '中国银行', '建设银行', '交通银行', '邮储'],
+            '股份制银行': ['招商', '兴业', '民生', '浦发', '中信', '光大', '华夏', '平安', '浙商', '渤海'],
+            '城市商业银行': ['银行'],
+            '农村商业银行': ['农商', '农村商业'],
+            '民营银行': ['民营'],
+        }
+
+        for btype, keywords in bank_type_mapping.items():
+            for keyword in keywords:
+                if keyword in bank_name:
+                    return btype
+
+        return "未知"
+
+    def _parse_report_info(self, filename: str) -> Dict[str, Any]:
+        """从文件名解析报告信息"""
+        import re
+
+        result = {
+            'report_type': 'annual',
+            'period': 'unknown',
+            'fiscal_year': None,
+            'report_date': None
+        }
+
+        if not filename:
+            return result
+
+        # 匹配年份
+        year_match = re.search(r'(20\d{2})[A-Za-z]', filename)
+        if year_match:
+            result['fiscal_year'] = int(year_match.group(1))
+
+        # 匹配期间标识
+        if 'A' in filename or '年报' in filename:
+            result['report_type'] = 'annual'
+            if year_match:
+                result['period'] = f'{year_match.group(1)}A'
+        elif 'Q1' in filename:
+            result['report_type'] = 'quarter'
+            if year_match:
+                result['period'] = f'{year_match.group(1)}Q1'
+        elif 'Q2' in filename or '半年' in filename:
+            result['report_type'] = 'half'
+            if year_match:
+                result['period'] = f'H1-{year_match.group(1)}'
+        elif 'Q3' in filename:
+            result['report_type'] = 'quarter'
+            if year_match:
+                result['period'] = f'{year_match.group(1)}Q3'
+        elif 'Q4' in filename:
+            result['report_type'] = 'quarter'
+            if year_match:
+                result['period'] = f'{year_match.group(1)}Q4'
+
+        return result
+
+    def _save_excel_data_to_warehouse(
+        self,
+        report_id: int,
+        excel_path: str,
+        pdf_folder: str
+    ) -> int:
+        """
+        从Excel文件读取数据并保存到数据仓库
+
+        Args:
+            report_id: 报告ID
+            excel_path: Excel文件路径
+            pdf_folder: PDF文件夹
+
+        Returns:
+            int: 保存的数据条数
+        """
+        try:
+            import pandas as pd
+
+            # 读取Excel
+            excel_file = pd.ExcelFile(excel_path)
+            total_count = 0
+
+            for sheet_name in excel_file.sheet_names:
+                # 读取工作表
+                df = pd.read_excel(excel_file, sheet_name=sheet_name)
+
+                if df.empty:
+                    continue
+
+                # 准备行数据
+                rows = []
+                for idx, row in df.iterrows():
+                    row_dict = row.to_dict()
+                    row_dict['page_number'] = idx + 1
+
+                    # 转换列名
+                    if '指标名称' in row_dict:
+                        row_dict['indicator_name'] = row_dict.pop('指标名称')
+
+                    # 处理年份列
+                    for col in df.columns:
+                        if isinstance(col, str) and re.match(r'20\d{2}', col):
+                            row_dict[f'value_{col}'] = row_dict.pop(col, None)
+
+                    rows.append(row_dict)
+
+                # 保存到仓库
+                if rows:
+                    count = self.warehouse_manager.save_batch_table_data(
+                        report_id=report_id,
+                        table_name=sheet_name,
+                        rows=rows,
+                        source_info={
+                            'pdf_path': pdf_folder,
+                            'excel_path': excel_path
+                        }
+                    )
+                    total_count += count
+
+            return total_count
+
+        except Exception as e:
+            print(f"WARNING: 保存Excel数据失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+
     def _handle_task_exception(self, job_id: str, pdf_folder: str, exception: Exception) -> None:
         """处理任务异常"""
         try:
@@ -2106,12 +2406,12 @@ class TableProcessingWorker:
             })
             return False
 
-        # 🛠️ 修复：当 rerun=True 时，删除现有 Excel 并重置处理状态
+        # 🛠️ 修复：当 rerun=True 时，只删除 Excel 文件，保留所有 OCR/LLM 缓存
         print(f"🔍🔍🔍 rerun 检查: rerun={rerun}, type={type(rerun)}")  # 🛠️ 调试
         if rerun:
-            print(f"🔄 检测到 rerun=True，清除现有 Excel 和处理状态...")
+            print(f"🔄 检测到 rerun=True，只删除 Excel 文件（保留 OCR/LLM 缓存）...")
             self._clear_existing_excel(pdf_folder)
-            self._clear_processed_images(pdf_folder)
+            # 注意：不清除任何缓存文件，is_image_processed() 会根据 LLM 缓存文件判断是否已处理
         else:
             print(f"⚠️⚠️⚠️ rerun=False，不会清除旧数据！")  # 🛠️ 调试
 
@@ -2215,6 +2515,21 @@ class TableProcessingWorker:
                 total_all_images, total_skipped_images, images_processed,
                 task_start_time, errors
             )
+
+            # 阶段7: 保存到银行数据仓库（如果启用）
+            if ENABLE_BANK_WAREHOUSE and excel_generated:
+                print(f"\n{'=' * 60}")
+                print(f"阶段7: 保存到银行数据仓库")
+                print(f"{'=' * 60}")
+
+                self._save_to_bank_warehouse(
+                    job_id=job_id,
+                    pdf_folder=pdf_folder,
+                    bank_name=bank_name,
+                    excel_path=excel_path,
+                    original_filename=original_filename,
+                    table_type=table_type
+                )
 
             print(f"\n✅ 任务处理完成: {'成功' if excel_generated else '失败'}")
             return excel_generated
