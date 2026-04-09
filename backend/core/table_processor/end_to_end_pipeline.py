@@ -68,6 +68,7 @@ class TableReconstructionPipeline:
 
         print(f"✅ LLM分析完成，识别到{llm_result['processing_stats']['visual_tables_count']}个逻辑表格")
 
+
         # 3. 表格重构
         print("步骤3: 重构表格数据...")
         try:
@@ -80,8 +81,8 @@ class TableReconstructionPipeline:
                 output_excel = str(output_dir / f"{image_name}_reconstructed.xlsx")
 
 
-            # 重构表格
-            success = self.table_reconstructor.process_all_tables(
+            # 重构表格（现在返回 dict 包含 review_results）
+            result = self.table_reconstructor.process_all_tables(
                 ocr_result=ocr_result,
                 llm_result=llm_result,
                 output_file=output_excel,
@@ -89,6 +90,9 @@ class TableReconstructionPipeline:
                 image_path=image_path,
                 bank_name=bank_name
             )
+
+            success = result.get('success', False)
+            review_results = result.get('review_results', [])
 
             if success:
                 processing_time = time.time() - start_time
@@ -103,7 +107,8 @@ class TableReconstructionPipeline:
                     'ocr_result': ocr_result,
                     'llm_result': llm_result,
                     'output_file': output_excel,
-                    'processing_time': processing_time
+                    'processing_time': processing_time,
+                    'review_results': review_results  # 新增审核结果
                 }
             else:
                 print(f"❌ 表格重构失败")

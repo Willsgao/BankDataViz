@@ -1,8 +1,18 @@
 
+
 import re
 import os
 from backend.core.table_processor.long_format_converter import FinalDataConverter
 from backend.core.table_processor.marked_table_processor import MarkedTableProcessor
+
+
+# ========== 审核状态常量 ==========
+class ReviewStatus:
+    """表格审核状态枚举"""
+    AUTO = "auto"           # 自动处理完成（无异常）
+    PENDING_REVIEW = "pending_review"  # 需要人工审核
+    REVIEWED = "reviewed"   # 已人工审核通过
+    NEEDS_REPROCESS = "needs_reprocess"  # 需要重新处理
 
 
 class TableReconstructor:
@@ -1798,6 +1808,7 @@ class TableReconstructor:
         print(f"✅ Excel保存完成: {output_file}")
         return True
 
+
     def _extract_row_marker(self, row):
         """
         从行数据中提取行标记
@@ -1808,6 +1819,201 @@ class TableReconstructor:
 
         last_val = row[-1]
         return last_val
+
+    def detect_table_anomalies(self, table_data, table_name, ocr_result=None, llm_result=None):
+        """
+        检测表格是否存在需要人工审核的异常
+
+        Args:
+            table_data: 表格数据（二维数组）
+            table_name: 表格名称
+            ocr_result: OCR识别结果（可选）
+            llm_result: LLM分析结果（可选）
+
+        Returns:
+            dict: {
+                'status': ReviewStatus,
+                'issues': [异常描述列表],
+                'severity': 'warning' | 'error'
+            }
+        """
+        issues = []
+        severity = 'warning'
+
+        if not table_data or len(table_data) == 0:
+            return {
+                'status': ReviewStatus.AUTO,
+                'issues': [],
+                'severity': 'warning'
+            }
+
+        # 1. 检测列数异常（表头列数与数据列数不匹配）
+        header_row = table_data[0] if len(table_data) > 0 else []
+        col_count = len(header_row) if header_row else 0
+
+        # 检查是否有明显的重复表头（同一表头出现多次）
+        if header_row:
+            header_values = [str(h).strip() if h else '' for h in header_row]
+            non_empty_headers = [h for h in header_values if h and h != '项目0']
+
+            # 检查是否有重复的年份表头
+            seen_headers = {}
+            for h in non_empty_headers:
+                # 提取年份部分进行比较
+                year_match = re.search(r'(\d{4})年', h)
+                if year_match:
+                    year = year_match.group(1)
+                    if year not in seen_headers:
+                        seen_headers[year] = []
+                    seen_headers[year].append(h)
+
+            # 如果同一个年份出现多次（不同的期间如"1-6月"和"12月31日"），标记为需要审核
+            for year, headers in seen_headers.items():
+                if len(headers) > 1:
+                    # 检查是否是不同期间
+                    periods = set()
+                    for h in headers:
+                        period_match = re.search(r'1-6月|12月31日|6月30日', h)
+                        if period_match:
+                            periods.add(period_match.group(0))
+                    if len(periods) > 1:
+                        issues.append(f"检测到多个时间期间的列（{year}年），可能是LLM将多个表格合并识别")
+                        severity = 'warning'
+
+        # 2. 检测空表格
+        if len(table_data) <= 1:
+            issues.append("表格行数过少，可能是空表格")
+            severity = 'error'
+
+        # 3. 检测列数过多或过少
+        expected_cols_range = (4, 15)  # 合理的列数范围
+        if col_count < expected_cols_range[0] or col_count > expected_cols_range[1]:
+            issues.append(f"表格列数异常（{col_count}列），可能在{expected_cols_range[0]}-{expected_cols_range[1]}列之间")
+            severity = 'warning'
+
+        # 4. 检测数据行是否为空
+        data_rows = table_data[1:] if len(table_data) > 1 else []
+        empty_rows = 0
+        for row in data_rows:
+            if row and all(not cell for cell in row):
+                empty_rows += 1
+
+        if data_rows and empty_rows / len(data_rows) > 0.5:
+            issues.append(f"超过50%的数据行为空，可能存在数据缺失")
+            severity = 'warning'
+
+        # 5. 如果LLM返回了列信息，检查是否与OCR不一致
+        if llm_result and 'tables' in llm_result:
+            for llm_table in llm_result['tables']:
+                llm_cols = llm_table.get('headers', {}).get('cols', [])
+                if llm_cols and len(llm_cols) != col_count:
+                    diff = abs(len(llm_cols) - col_count)
+                    if diff >= 2:
+                        issues.append(f"LLM识别的列数({len(llm_cols)})与实际列数({col_count})差异较大，可能存在表格合并问题")
+                        severity = 'warning'
+
+        # 6. 检测表头缺失（跳过前两列，跳过行标题列和多级表头）
+        # 第一列是"项目0"（行标题），第二列通常是"项目"或子表头，不检查
+        if header_row and len(table_data) > 2:
+            missing_header_cols = []
+            for col_idx, header_val in enumerate(header_row):
+                # 跳过前两列（行标题列和多级表头列）
+                if col_idx < 2:
+                    continue
+                    
+                header_str = str(header_val).strip() if header_val else ''
+                # 认为是无效表头：空值、纯数字、通用占位符
+                is_valid_header = (
+                    header_str and 
+                    header_str not in ['nan', 'None', '', '项目0', '项目'] and
+                    not re.match(r'^[\d.]+$', header_str)  # 不是纯数字
+                )
+                if not is_valid_header:
+                    # 检查这一列的数据填充率
+                    col_values = [table_data[row_idx][col_idx] for row_idx in range(1, len(table_data)) if col_idx < len(table_data[row_idx])]
+                    if col_values:
+                        non_empty_count = sum(1 for v in col_values if v and str(v).strip() and str(v).strip() not in ['nan', 'None', ''])
+                        fill_rate = non_empty_count / len(col_values) if col_values else 0
+                        # 只有数据填充率超过70%，才说明这列确实重要但表头没识别出来
+                        if fill_rate > 0.7:
+                            missing_header_cols.append(col_idx + 1)  # 1-based
+
+            if missing_header_cols:
+                issues.append(f"第 {', '.join(map(str, missing_header_cols))} 列缺少有效表头，但数据填充率>70%，可能存在表头识别错误")
+                severity = 'warning'
+
+        # 7. 检测数据缺失（跳过前两列，某列有大量数据缺失）
+        # 只有填充率<15%且行数>15的列才认为是严重缺失
+        if len(table_data) > 3 and col_count > 2:
+            missing_data_cols = []
+            for col_idx in range(2, col_count):  # 跳过前两列
+                col_values = [table_data[row_idx][col_idx] for row_idx in range(1, len(table_data)) if col_idx < len(table_data[row_idx])]
+                if col_values:
+                    non_empty_count = sum(1 for v in col_values if v and str(v).strip() and str(v).strip() not in ['nan', 'None', ''])
+                    fill_rate = non_empty_count / len(col_values) if col_values else 0
+                    # 只有填充率<15%且行数>15，才认为是严重缺失
+                    if fill_rate < 0.15 and len(col_values) > 15:
+                        missing_data_cols.append((col_idx + 1, fill_rate))
+
+            if missing_data_cols:
+                col_info = [f"第{col}列({int(rate*100)}%)" for col, rate in missing_data_cols[:5]]  # 只显示前5个
+                if len(missing_data_cols) > 5:
+                    col_info.append(f"等共{len(missing_data_cols)}列")
+                issues.append(f"以下列数据缺失严重(填充率<15%): {', '.join(col_info)}")
+                severity = 'warning'
+
+        # 8. 返回审核状态
+        if issues:
+            print(f"⚠️ 表格 '{table_name}' 检测到异常:")
+            for issue in issues:
+                print(f"   - {issue}")
+
+            return {
+                'status': ReviewStatus.PENDING_REVIEW,
+                'issues': issues,
+                'severity': severity
+            }
+        else:
+            return {
+                'status': ReviewStatus.AUTO,
+                'issues': [],
+                'severity': 'warning'
+            }
+
+    def detect_all_tables_anomalies(self, tables_data, table_names, ocr_results=None, llm_results=None):
+        """
+        批量检测所有表格的异常
+
+        Args:
+            tables_data: 表格数据列表
+            table_names: 表格名称列表
+            ocr_results: OCR识别结果列表（可选）
+            llm_results: LLM分析结果列表（可选）
+
+        Returns:
+            list: 每个表格的审核状态信息列表
+        """
+        review_results = []
+
+        for idx, (table, name) in enumerate(zip(tables_data, table_names)):
+            ocr = ocr_results[idx] if ocr_results and idx < len(ocr_results) else None
+            llm = llm_results[idx] if llm_results and idx < len(llm_results) else None
+
+            result = self.detect_table_anomalies(table, name, ocr, llm)
+            result['table_name'] = name
+            result['table_index'] = idx
+            review_results.append(result)
+
+            # 打印审核状态
+            status_icon = "⚠️" if result['status'] == ReviewStatus.PENDING_REVIEW else "✅"
+            print(f"  {status_icon} [{idx+1}] {name}: {result['status']}")
+
+        # 统计汇总
+        pending_count = sum(1 for r in review_results if r['status'] == ReviewStatus.PENDING_REVIEW)
+        if pending_count > 0:
+            print(f"\n📋 审核汇总: {pending_count}/{len(review_results)} 个表格需要人工审核")
+
+        return review_results
 
 
     def _extract_page_number_from_image_path(self, image_path):
@@ -2058,7 +2264,10 @@ class TableReconstructor:
             bank_name: 银行名称
 
         Returns:
-            bool: 是否成功
+            dict: {
+                'success': bool,
+                'review_results': list (审核状态列表) - 新增
+            }
         """
         print(f"\n📊📊 处理所有表格...")
 
@@ -2073,7 +2282,7 @@ class TableReconstructor:
 
             if not tables_data:
                 print("❌❌ 没有表格数据生成")
-                return False
+                return {'success': False, 'review_results': []}
 
             print(f"✅ 生成 {len(tables_data)} 个表格")
 
@@ -2091,10 +2300,20 @@ class TableReconstructor:
                 metadata_list  # 新增参数
             )
 
+            # 4. 检测表格异常（新增）
+            review_results = []
+            if success:
+                print("\n🔍 开始审核表格质量...")
+                review_results = self.detect_all_tables_anomalies(
+                    tables_data,
+                    cleaned_table_names,
+                    llm_results=[llm_result] if llm_result else None
+                )
+
             if success:
                 print(f"✅ 表格已保存到: {output_file}")
 
-                # 4. 如果有final_output_file，调用final_data_converter
+                # 5. 如果有final_output_file，调用final_data_converter
                 if final_output_file:
                     print(f"📋📋 生成最终数据文件: {final_output_file}")
                     try:
@@ -2139,7 +2358,7 @@ class TableReconstructor:
                         import traceback
                         traceback.print_exc()
 
-                return True
+                return {'success': True, 'review_results': review_results}
             else:
                 print("❌❌ 保存到Excel失败")
                 return False

@@ -3192,7 +3192,8 @@ class HighVolumeTableProcessor:
         output_dir.mkdir(parents=True, exist_ok=True)
         output_file = str(output_dir / f"{image_name}_reconstructed.xlsx")
 
-        success = reconstructor.process_all_tables(
+        # 调用处理（现在返回 dict 包含 review_results）
+        result = reconstructor.process_all_tables(
             ocr_result=ocr_result,
             llm_result=llm_result,
             output_file=output_file,
@@ -3201,8 +3202,9 @@ class HighVolumeTableProcessor:
         )
 
         return {
-            'success': success,
-            'output_file': output_file if success else None
+            'success': result.get('success', False),
+            'output_file': output_file if result.get('success') else None,
+            'review_results': result.get('review_results', [])  # 新增审核结果
         }
 
     def _aggregate_results(self, all_results: List[Dict], total_images: int) -> Dict[str, Any]:
@@ -3507,8 +3509,8 @@ def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir
 
             effect_png_dir = FILTERED_TABLES_DIR / pdf_folder / png_name
             print("effect_png_dir::::", effect_png_dir)
-            # 执行表格重构
-            success = reconstructor.process_all_tables(
+            # 执行表格重构（现在返回 dict 包含 review_results）
+            result = reconstructor.process_all_tables(
                 ocr_result=ocr_result,
                 llm_result=llm_result,
                 output_file=excel_file,
@@ -3517,11 +3519,13 @@ def execute_reconstruct_step(pdf_folder, png_names, previous_context, output_dir
                 bank_name=""
             )
 
+            success = result.get('success', False)
             if success:
                 results[png_name] = {
                     "success": True,
                     "output_file": excel_file,
-                    "message": "表格重构成功"
+                    "message": "表格重构成功",
+                    "review_results": result.get('review_results', [])  # 新增审核结果
                 }
             else:
                 results[png_name] = {

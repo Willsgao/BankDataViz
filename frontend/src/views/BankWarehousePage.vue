@@ -147,7 +147,7 @@
       <div class="detail-panel empty-panel" v-else>
         <el-empty description="点击左侧银行查看详情">
           <template #image>
-            <el-icon style="font-size: 80px; color: #c0c4cc"><Bank /></el-icon>
+            <el-icon style="font-size: 80px; color: #c0c4cc"><OfficeBuilding /></el-icon>
           </template>
         </el-empty>
       </div>
@@ -227,14 +227,46 @@
         </el-table-column>
         <el-table-column prop="file_size_display" label="文件大小" width="100" align="center" />
         <el-table-column prop="uploader_name" label="上传人" width="100" align="center" />
+        <!-- 审核状态列 -->
+        <el-table-column label="审核状态" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.review_status && row.review_status !== 'auto'"
+              :type="getReviewStatusType(row.review_status)"
+              size="small"
+              effect="plain"
+            >
+              {{ getReviewStatusLabel(row.review_status) }}
+            </el-tag>
+            <span v-else class="review-auto">自动</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="description" label="描述" min-width="150">
           <template #default="{ row }">
             <span class="description-text">{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="上传时间" width="160" align="center" />
-        <el-table-column label="操作" width="120" align="center" fixed="right">
+        <el-table-column label="操作" width="260" align="center" fixed="right">
           <template #default="{ row }">
+            <el-button
+              type="warning"
+              size="small"
+              :icon="Refresh"
+              @click="handleSingleDetect(row)"
+              :loading="row.detecting"
+              title="重新检测"
+            >
+              检测
+            </el-button>
+            <el-button
+              v-if="row.review_status === 'pending_review' || row.review_status === 'needs_reprocess'"
+              type="success"
+              size="small"
+              @click="handleConfirmReview(row)"
+            >
+              确认审核
+            </el-button>
             <el-button
               type="primary"
               size="small"
@@ -246,6 +278,44 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 审核问题详情弹窗 -->
+      <el-dialog v-model="showReviewDialog" title="审核详情" width="600px">
+        <div v-if="currentReviewFile" class="review-dialog-content">
+          <div class="review-file-info">
+            <strong>文件:</strong> {{ currentReviewFile.filename }}
+          </div>
+          <el-divider />
+          <div class="review-status-info">
+            <el-tag :type="getReviewStatusType(currentReviewFile.review_status)" size="large">
+              {{ getReviewStatusLabel(currentReviewFile.review_status) }}
+            </el-tag>
+          </div>
+          <div v-if="currentReviewFile.review_issues && currentReviewFile.review_issues.length > 0" class="review-issues">
+            <h4>检测到的问题:</h4>
+            <ul>
+              <li v-for="(issue, idx) in currentReviewFile.review_issues" :key="idx">
+                {{ issue }}
+              </li>
+            </ul>
+          </div>
+          <div v-if="currentReviewFile.reviewed_by" class="review-meta">
+            <small>审核人: {{ currentReviewFile.reviewed_by }}</small>
+            <br>
+            <small v-if="currentReviewFile.reviewed_at">审核时间: {{ currentReviewFile.reviewed_at }}</small>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="showReviewDialog = false">关闭</el-button>
+          <el-button
+            v-if="currentReviewFile && (currentReviewFile.review_status === 'pending_review' || currentReviewFile.review_status === 'needs_reprocess')"
+            type="success"
+            @click="confirmCurrentReview"
+          >
+            确认审核通过
+          </el-button>
+        </template>
+      </el-dialog>
 
       <!-- 分页 -->
       <div class="excel-pagination" v-if="excelTotal > 0">
@@ -276,7 +346,7 @@
     <!-- 对比分析浮动按钮 -->
     <div class="compare-fab" v-if="compareList.length > 0" @click="showCompareDialog = true">
       <el-badge :value="compareList.length" type="danger">
-        <el-button type="primary" circle size="large" :icon="DataAnalysis" />
+        <el-button type="primary" circle size="large" :icon="DataLine" />
       </el-badge>
       <span class="fab-label">对比分析</span>
     </div>
@@ -312,14 +382,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import {
   DataBoard, Search, Refresh, Download, ArrowRight,
-  Bank, DataAnalysis, TrendCharts, Document, List, Grid, Upload
+  OfficeBuilding, DataLine, Document, List, Grid, Upload
 } from '@element-plus/icons-vue'
 import {
   getBankList, searchBanks, getBankStatistics,
   getBankReports, getReportTables, getTableIndicators,
-  getIndicatorTrend, compareMultipleBanks, seedDemoData
+  getIndicatorTrend, compareMultipleBanks, seedDemoData,
+  getExcelList, getExcelDownloadUrl, updateExcelReview,
+  detectExcelAnomalies, batchDetectExcelAnomalies
 } from '@/api/bank'
-import { getExcelList, getExcelDownloadUrl } from '@/api/excel'
 
 // ============================================================
 // 状态
@@ -356,6 +427,12 @@ const compareList = ref([])
 const showCompareDialog = ref(false)
 const compareIndicator = ref('净利润')
 const compareYear = ref(2024)
+
+// 审核相关状态
+const showReviewDialog = ref(false)
+const currentReviewFile = ref(null)
+const reviewLoading = ref(false)
+const detecting = ref(false)
 
 // ============================================================
 // Excel 数据相关状态
@@ -720,6 +797,58 @@ const loadExcelList = async () => {
   }
 }
 
+// 审核状态相关方法
+const getReviewStatusType = (status) => {
+  const typeMap = {
+    'auto': 'info',
+    'pending_review': 'warning',
+    'reviewed': 'success',
+    'needs_reprocess': 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
+const getReviewStatusLabel = (status) => {
+  const labelMap = {
+    'auto': '自动',
+    'pending_review': '待审核',
+    'reviewed': '已审核',
+    'needs_reprocess': '需重处理'
+  }
+  return labelMap[status] || status
+}
+
+const handleConfirmReview = (row) => {
+  currentReviewFile.value = row
+  showReviewDialog.value = true
+}
+
+const confirmCurrentReview = async () => {
+  if (!currentReviewFile.value) return
+
+  reviewLoading.value = true
+  try {
+    const res = await updateExcelReview(currentReviewFile.value.id, {
+      review_status: 'reviewed',
+      reviewed_by: '系统用户'
+    })
+
+    if (res.success) {
+      ElMessage.success('审核确认成功')
+      showReviewDialog.value = false
+      currentReviewFile.value = null
+      await loadExcelList()  // 刷新列表
+    } else {
+      ElMessage.error(res.error || '审核确认失败')
+    }
+  } catch (e) {
+    console.error('审核确认失败:', e)
+    ElMessage.error('审核确认失败')
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
 const resetExcelFilters = () => {
   excelFilters.value = {
     filename: '',
@@ -728,6 +857,60 @@ const resetExcelFilters = () => {
   }
   excelPage.value = 1
   loadExcelList()
+}
+
+// 批量检测异常
+const handleBatchDetect = async () => {
+  detecting.value = true
+  try {
+    const res = await batchDetectExcelAnomalies()
+    if (res.success) {
+      const { total, detected, anomalies, anomaly_files } = res.data
+      if (anomalies > 0) {
+        ElMessage.warning(`检测完成：共 ${total} 个文件，发现 ${anomalies} 个异常`)
+        // 显示异常文件列表
+        ElMessageBox.alert(
+          `以下文件检测到异常：\n${anomaly_files.map(f => `• ${f.filename}`).join('\n')}`,
+          '异常文件列表',
+          { type: 'warning' }
+        )
+      } else {
+        ElMessage.success(`检测完成：共 ${total} 个文件，全部正常`)
+      }
+      await loadExcelList()  // 刷新列表
+    } else {
+      ElMessage.error(res.error || '检测失败')
+    }
+  } catch (e) {
+    console.error('批量检测失败:', e)
+    ElMessage.error('批量检测失败')
+  } finally {
+    detecting.value = false
+  }
+}
+
+// 单个文件检测
+const handleSingleDetect = async (row) => {
+  row.detecting = true
+  try {
+    const res = await detectExcelAnomalies(row.id)
+    if (res.success) {
+      const { review_status, review_issues } = res.data
+      if (review_status === 'pending_review') {
+        ElMessage.warning(`检测到异常：\n${review_issues.join('\n')}`)
+      } else {
+        ElMessage.success('检测完成，文件正常')
+      }
+      await loadExcelList()  // 刷新列表
+    } else {
+      ElMessage.error(res.error || '检测失败')
+    }
+  } catch (e) {
+    console.error('检测失败:', e)
+    ElMessage.error('检测失败')
+  } finally {
+    row.detecting = false
+  }
 }
 
 const handleDownload = (row) => {
@@ -1015,5 +1198,54 @@ onUnmounted(() => {
 @media (max-width: 1200px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .main-content { grid-template-columns: 260px 1fr; }
+}
+
+/* 审核相关样式 */
+.review-auto {
+  color: #909399;
+  font-size: 12px;
+}
+
+.review-dialog-content {
+  padding: 8px 0;
+}
+
+.review-file-info {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.review-status-info {
+  margin-bottom: 16px;
+}
+
+.review-issues {
+  background: #fdf6ec;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.review-issues h4 {
+  margin: 0 0 8px;
+  color: #e6a23c;
+  font-size: 14px;
+}
+
+.review-issues ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.review-issues li {
+  margin-bottom: 4px;
+}
+
+.review-meta {
+  color: #909399;
+  font-size: 12px;
+  text-align: right;
 }
 </style>

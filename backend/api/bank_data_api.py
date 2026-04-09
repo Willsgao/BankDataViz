@@ -456,3 +456,193 @@ def get_data_versions(table_data_id):
         'data': versions,
         'count': len(versions)
     })
+
+
+# ============================================================
+# Excel 文件审核状态接口
+# ============================================================
+
+@bank_data_bp.route('/excel/list', methods=['GET'])
+def get_excel_files():
+    """
+    获取 Excel 文件列表（支持审核状态筛选）
+
+    Query参数：
+    - page: 页码（默认1）
+    - page_size: 每页数量（默认20）
+    - filename: 文件名筛选
+    - uploader_name: 上传人筛选
+    - start_date: 开始日期
+    - end_date: 结束日期
+    - review_status: 审核状态 (auto/pending_review/reviewed/needs_reprocess)
+    """
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 20))
+
+    filters = {}
+    if request.args.get('filename'):
+        filters['filename'] = request.args.get('filename')
+    if request.args.get('uploader_name'):
+        filters['uploader_name'] = request.args.get('uploader_name')
+    if request.args.get('start_date'):
+        filters['start_date'] = request.args.get('start_date')
+    if request.args.get('end_date'):
+        filters['end_date'] = request.args.get('end_date')
+    if request.args.get('review_status'):
+        filters['review_status'] = request.args.get('review_status')
+
+    # 使用带审核状态的查询方法
+    result = bank_data_service.get_excel_files_with_review_status(filters, page, page_size)
+
+    if result[0]:
+        return jsonify({
+            'success': True,
+            'data': result[1]
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result[1]
+        }), 500
+
+
+@bank_data_bp.route('/excel/<int:file_id>/review', methods=['POST'])
+def update_excel_review(file_id):
+    """
+    更新 Excel 文件的审核状态
+
+    请求体：
+    {
+        "review_status": "reviewed" | "needs_reprocess" | "auto",
+        "review_issues": ["问题1", "问题2"],
+        "reviewed_by": "审核人名称"
+    }
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': '请求体不能为空'
+        }), 400
+
+    review_status = data.get('review_status')
+    if not review_status:
+        return jsonify({
+            'success': False,
+            'error': 'review_status 不能为空'
+        }), 400
+
+    # 验证审核状态值
+    valid_statuses = ['auto', 'pending_review', 'reviewed', 'needs_reprocess']
+    if review_status not in valid_statuses:
+        return jsonify({
+            'success': False,
+            'error': f'review_status 必须是以下值之一: {valid_statuses}'
+        }), 400
+
+    review_issues = data.get('review_issues', [])
+    reviewed_by = data.get('reviewed_by', '系统用户')
+
+    # 更新审核状态
+    result = bank_data_service.update_excel_review_status(
+        file_id=file_id,
+        review_status=review_status,
+        review_issues=review_issues,
+        reviewed_by=reviewed_by
+    )
+
+    if result[0]:
+        return jsonify({
+            'success': True,
+            'message': result[1]
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result[1]
+        }), 400
+
+
+@bank_data_bp.route('/excel/<int:file_id>', methods=['GET'])
+def get_excel_file(file_id):
+    """
+    获取 Excel 文件详情
+    """
+    result = bank_data_service.get_excel_file_detail(file_id)
+
+    if result[0]:
+        return jsonify({
+            'success': True,
+            'data': result[1]
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result[1]
+        }), 404
+
+
+@bank_data_bp.route('/excel/<int:file_id>/detect', methods=['POST'])
+def detect_excel_anomalies(file_id):
+    """
+    重新检测 Excel 文件的异常
+
+    POST /api/bank/excel/<id>/detect
+    """
+    try:
+        result = bank_data_service.detect_excel_anomalies(file_id)
+
+        if result[0]:
+            return jsonify({
+                'success': True,
+                'data': result[1]
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result[1]
+            }), 400
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
+@bank_data_bp.route('/excel/detect-batch', methods=['POST'])
+def batch_detect_excel_anomalies():
+    """
+    批量检测 Excel 文件异常
+
+    POST /api/bank/excel/detect-batch
+    Body (可选):
+    {
+        "file_ids": [1, 2, 3]  // 如果为空则检测所有文件
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        file_ids = data.get('file_ids')
+
+        result = bank_data_service.batch_detect_excel_anomalies(file_ids)
+
+        if result[0]:
+            return jsonify({
+                'success': True,
+                'data': result[1]
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result[1]
+            }), 400
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500

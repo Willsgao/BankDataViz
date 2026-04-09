@@ -83,3 +83,18 @@ export const deleteExcelFile = (fileId) =>
  */
 export const updateExcelDescription = (fileId, description) =>
   http.patch(`/api/excel/${fileId}`, { description })
+
+// ============================================================
+// Excel 异常检测（审核后台使用）
+// ============================================================
+
+/**
+ * 检测 Excel 文件的异常
+ * @param {string} fileId - PDF文件ID (或 disk_name)
+ * @param {string} excelFile - 可选，指定要检测的 Excel 文件名
+ * @returns {Promise} 包含检测结果
+ */
+export const detectExcelSheets = (fileId, excelFile = null) => {
+  const data = excelFile ? { excel_file: excelFile } : {}
+  return http.post(`/api/excel-detect/${fileId}`, data)
+}

@@ -401,6 +401,110 @@ def get_excel_sheets(file_id):
         return jsonify({"error": "获取表格列表失败"}), 500
 
 
+@file_bp.post('/api/excel-detect/<file_id>')
+def detect_excel_anomalies(file_id):
+    """
+    检测 Excel 文件的异常（用于审核后台）
+    检测所有 Excel 文件中的所有 sheet，返回有问题的 sheet 列表
+
+    POST /api/excel-detect/<file_id>
+    Body (可选):
+    {
+        "excel_file": "xxx.xlsx"  // 如果指定，则只检测该文件
+    }
+    """
+    try:
+        print(f"🔍🔍 检测 Excel 异常请求 file_id: {file_id}")
+
+        # 清理 file_id
+        clean_file_id = excel_data_handler.get_correct_pdf_id(file_id, db)
+
+        # 构建 Excel 文件目录路径
+        excel_dir = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT / clean_file_id
+
+        if not excel_dir.exists():
+            return jsonify({"success": False, "error": f"Excel目录不存在: {excel_dir}"}), 400
+
+        # 导入检测器
+        from backend.core.table_processor.table_rebuilder import TableReconstructor, ReviewStatus
+
+        # 获取请求参数
+        data = request.get_json() or {}
+        target_excel_file = data.get('excel_file')
+
+        # 查找 Excel 文件
+        excel_files = []
+        supported_extensions = ['.xlsx', '.xls']
+        for ext in supported_extensions:
+            for excel_file in excel_dir.glob(f"*{ext}"):
+                if excel_file.is_file():
+                    if target_excel_file and excel_file.name != target_excel_file:
+                        continue
+                    excel_files.append({
+                        "file_name": excel_file.name,
+                        "file_path": str(excel_file)
+                    })
+
+        if not excel_files:
+            return jsonify({"success": True, "anomalies": [], "message": "没有找到 Excel 文件"})
+
+        # 检测每个 Excel 文件的每个 sheet
+        import pandas as pd
+        rebuilder = TableReconstructor()
+        all_anomalies = []
+        total_sheets = 0
+
+        for excel_file in excel_files:
+            try:
+                excel_file_obj = pd.ExcelFile(excel_file["file_path"])
+                sheet_names = excel_file_obj.sheet_names
+
+                for sheet_name in sheet_names:
+                    total_sheets += 1
+
+                    # 读取 sheet 数据
+                    df = pd.read_excel(excel_file_obj, sheet_name=sheet_name, header=None)
+                    table_data = df.fillna('').astype(str).values.tolist()
+
+                    # 检测异常
+                    result = rebuilder.detect_table_anomalies(
+                        table_data=table_data,
+                        table_name=sheet_name
+                    )
+
+                    # 如果有异常，记录下来
+                    if result['status'] == ReviewStatus.PENDING_REVIEW:
+                        all_anomalies.append({
+                            "excel_file": excel_file["file_name"],
+                            "sheet_name": sheet_name,
+                            "status": "pending_review",
+                            "issues": result['issues'],
+                            "severity": result.get('severity', 'warning'),
+                            "row_count": len(table_data),
+                            "col_count": len(table_data[0]) if table_data else 0
+                        })
+
+            except Exception as e:
+                print(f"⚠️ 检测文件失败 {excel_file['file_name']}: {e}")
+                continue
+
+        print(f"✅ 检测完成: 共 {total_sheets} 个 sheet，发现 {len(all_anomalies)} 个异常")
+
+        return jsonify({
+            "success": True,
+            "total_sheets": total_sheets,
+            "anomaly_count": len(all_anomalies),
+            "anomalies": all_anomalies,
+            "file_id": clean_file_id
+        })
+
+    except Exception as e:
+        print(f"❌❌ 检测 Excel 异常失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @file_bp.get('/api/file/excel-data/<file_id>/<path:excel_file_name>/<sheet_name>')
 def get_excel_data(file_id, excel_file_name, sheet_name):
     """

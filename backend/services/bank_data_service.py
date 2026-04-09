@@ -544,6 +544,190 @@ class BankDataService:
         """
         return self.warehouse.get_data_versions(table_data_id)
 
+    # ============================================================
+    # Excel 文件审核状态服务
+    # ============================================================
+
+    def get_excel_files_with_review_status(self, filters=None, page=1, page_size=20):
+        """
+        获取 Excel 文件列表（包含审核状态）
+
+        Args:
+            filters: 筛选条件
+            page: 页码
+            page_size: 每页数量
+
+        Returns:
+            (success, { files: [], total: int })
+        """
+        from backend.models.unified_db import UnifiedDatabaseManager
+        db = UnifiedDatabaseManager()
+        return db.get_excel_files_with_review_status(filters, page, page_size)
+
+    def update_excel_review_status(self, file_id, review_status, review_issues=None, reviewed_by=None):
+        """
+        更新 Excel 文件的审核状态
+
+        Args:
+            file_id: 文件ID
+            review_status: 审核状态
+            review_issues: 审核问题列表
+            reviewed_by: 审核人
+
+        Returns:
+            (success, message)
+        """
+        from backend.models.unified_db import UnifiedDatabaseManager
+        db = UnifiedDatabaseManager()
+        return db.update_excel_review_status(file_id, review_status, review_issues, reviewed_by)
+
+    def get_excel_file_detail(self, file_id):
+        """
+        获取 Excel 文件详情
+
+        Args:
+            file_id: 文件ID
+
+        Returns:
+            (success, file_info 或 error_message)
+        """
+        from backend.models.unified_db import UnifiedDatabaseManager
+        db = UnifiedDatabaseManager()
+        return db.get_excel_file_by_id(file_id)
+
+    def detect_excel_anomalies(self, file_id):
+        """
+        检测 Excel 文件的异常并更新审核状态
+
+        Args:
+            file_id: 文件ID
+
+        Returns:
+            (success, { review_status, review_issues, ... })
+        """
+        import os
+        import openpyxl
+        from backend.models.unified_db import UnifiedDatabaseManager
+        from backend.core.table_processor.table_rebuilder import TableReconstructor, ReviewStatus
+
+        db = UnifiedDatabaseManager()
+
+        # 1. 获取文件信息
+        success, file_info = db.get_excel_file_by_id(file_id)
+        if not success:
+            return (False, "文件不存在")
+
+        file_path = file_info.get('file_path')
+        if not file_path or not os.path.exists(file_path):
+            return (False, f"文件不存在: {file_path}")
+
+        # 2. 解析 Excel 文件
+        try:
+            workbook = openpyxl.load_workbook(file_path, data_only=True)
+            sheet = workbook.active
+            sheet_name = sheet.title
+
+            # 将 sheet 数据转换为 2D 数组
+            table_data = []
+            for row in sheet.iter_rows(values_only=True):
+                table_data.append([str(cell) if cell is not None else '' for cell in row])
+
+            workbook.close()
+        except Exception as e:
+            return (False, f"Excel 解析失败: {str(e)}")
+
+        # 3. 检测异常
+        rebuilder = TableReconstructor()
+        result = rebuilder.detect_table_anomalies(
+            table_data=table_data,
+            table_name=sheet_name
+        )
+
+        # 4. 更新数据库
+        review_status = result['status']
+        review_issues = result['issues']
+
+        # 如果检测到异常，自动标记为 pending_review
+        if review_status == ReviewStatus.PENDING_REVIEW:
+            update_result = db.update_excel_review_status(
+                file_id=file_id,
+                review_status='pending_review',
+                review_issues=review_issues,
+                reviewed_by=None
+            )
+        else:
+            # 无异常，标记为 auto
+            update_result = db.update_excel_review_status(
+                file_id=file_id,
+                review_status='auto',
+                review_issues=[],
+                reviewed_by=None
+            )
+
+        # 5. 返回结果
+        return (True, {
+            'review_status': review_status,
+            'review_issues': review_issues,
+            'severity': result.get('severity', 'warning'),
+            'table_name': sheet_name,
+            'row_count': len(table_data),
+            'col_count': len(table_data[0]) if table_data else 0
+        })
+
+    def batch_detect_excel_anomalies(self, file_ids=None):
+        """
+        批量检测 Excel 文件异常
+
+        Args:
+            file_ids: 文件ID列表，如果为空则检测所有文件
+
+        Returns:
+            (success, { total, detected, anomalies })
+        """
+        from backend.models.unified_db import UnifiedDatabaseManager
+        db = UnifiedDatabaseManager()
+
+        # 获取文件列表
+        if file_ids:
+            filters = {}
+        else:
+            filters = {}
+
+        success, result = db.get_excel_files_with_review_status(filters, page=1, page_size=1000)
+        if not success:
+            return (False, "获取文件列表失败")
+
+        files = result.get('files', [])
+        if file_ids:
+            files = [f for f in files if f.get('id') in file_ids]
+
+        detected = 0
+        anomaly_count = 0
+        anomaly_files = []
+
+        for file in files:
+            file_id = file.get('id')
+            try:
+                success, detect_result = self.detect_excel_anomalies(file_id)
+                if success:
+                    detected += 1
+                    if detect_result.get('review_status') == 'pending_review':
+                        anomaly_count += 1
+                        anomaly_files.append({
+                            'id': file_id,
+                            'filename': file.get('filename'),
+                            'issues': detect_result.get('review_issues', [])
+                        })
+            except Exception as e:
+                print(f"检测文件 {file_id} 失败: {e}")
+
+        return (True, {
+            'total': len(files),
+            'detected': detected,
+            'anomalies': anomaly_count,
+            'anomaly_files': anomaly_files
+        })
+
 
 # 全局服务实例
 bank_data_service = BankDataService()

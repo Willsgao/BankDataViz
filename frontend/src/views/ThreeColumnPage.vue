@@ -52,6 +52,27 @@
         <div class="section-header" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="section-title">表格名称列表</span>
           <el-tag type="info" size="small">{{ tableCount }} 个表格</el-tag>
+          <el-tag v-if="anomalySheetCount > 0" type="warning" size="small">
+            <el-icon><WarnTriangleFilled /></el-icon>
+            {{ anomalySheetCount }} 个异常
+          </el-tag>
+          <div style="flex: 1;"></div>
+          <el-button
+            size="small"
+            type="warning"
+            :icon="DataBoard"
+            @click="handleDetectAnomalies"
+            :loading="detectingSheets"
+            :disabled="!selectedPdf || displayedExcelFiles.length === 0"
+          >
+            检测数据
+          </el-button>
+          <el-checkbox
+            v-if="anomalySheetCount > 0"
+            v-model="showOnlyAnomalies"
+            size="small"
+            label="只看异常"
+          />
         </div>
 
         <div class="table-content">
@@ -86,11 +107,23 @@
                   v-for="sheet in excelFile.sheets"
                   :key="`${excelFile.excel_file}-${sheet.name}`"
                   class="sheet-item"
-                  :class="{ 'active': isSheetSelected(sheet, excelFile.excel_file) }"
+                  :class="{
+                    'active': isSheetSelected(sheet, excelFile.excel_file),
+                    'anomaly-sheet': getSheetAnomalyStatus(excelFile.excel_file, sheet.name)
+                  }"
                   @click="selectSheet(sheet, excelFile.excel_file)"
                 >
                   <el-icon><Grid /></el-icon>
                   <span class="sheet-name">{{ sheet.name }}</span>
+                  <el-tag
+                    v-if="getSheetAnomalyStatus(excelFile.excel_file, sheet.name)"
+                    type="warning"
+                    size="small"
+                    effect="plain"
+                    class="anomaly-tag"
+                  >
+                    异常
+                  </el-tag>
                 </div>
 
 
@@ -207,7 +240,10 @@ import { useDataManager } from '@/components/threecolumns/useDataManager'
 import { useSheetOperations } from '@/components/threecolumns/useSheetOperations'
 
 // 导入图标
-import { Download, Close, Document, Grid, Loading, Timer, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Download, Close, Document, Grid, Loading, Timer, ArrowLeft, ArrowRight, DataBoard, WarnTriangleFilled } from '@element-plus/icons-vue'
+
+// 导入 API
+import { detectExcelSheets } from '@/api/excel'
 
 // 导入工具
 import excelDataCache from '@/utils/excelDataCache'
@@ -1369,9 +1405,89 @@ const extractSheetSortInfo = (sheetName) => {
   }
 }
 
-// 在模板中使用排序后的数据
+// ============================================================
+// Excel 异常检测状态和方法
+// ============================================================
+
+// 异常检测相关状态
+const detectingSheets = ref(false)
+const anomalySheets = ref([])  // 有异常的 sheet 列表
+const showOnlyAnomalies = ref(false)
+
+// 计算有异常的 sheet 数量
+const anomalySheetCount = computed(() => anomalySheets.value.length)
+
+// 获取 sheet 的异常状态
+const getSheetAnomalyStatus = (excelFile, sheetName) => {
+  return anomalySheets.value.some(
+    a => a.excel_file === excelFile && a.sheet_name === sheetName
+  )
+}
+
+// 检测异常
+const handleDetectAnomalies = async () => {
+  if (!selectedPdf.value) {
+    ElMessage.warning('请先选择一个PDF文件')
+    return
+  }
+
+  const pdfId = selectedPdf.value.disk_name || selectedPdf.value.id
+  if (!pdfId) {
+    ElMessage.warning('无法获取PDF文件ID')
+    return
+  }
+
+  detectingSheets.value = true
+  anomalySheets.value = []
+
+  try {
+    const res = await detectExcelSheets(pdfId)
+
+    if (res.success) {
+      anomalySheets.value = res.anomalies || []
+
+      if (res.anomaly_count > 0) {
+        ElMessage.warning(`检测完成：发现 ${res.anomaly_count} 个异常的 sheet`)
+      } else {
+        ElMessage.success('检测完成：所有 sheet 都正常')
+      }
+
+      // 如果检测到异常，自动切换到只看异常
+      if (res.anomaly_count > 0) {
+        showOnlyAnomalies.value = true
+      }
+    } else {
+      ElMessage.error(res.error || '检测失败')
+    }
+  } catch (e) {
+    console.error('检测异常失败:', e)
+    ElMessage.error('检测异常失败')
+  } finally {
+    detectingSheets.value = false
+  }
+}
+
+// 筛选显示的 Excel 文件（当只看异常时）
+const getFilteredExcelFiles = computed(() => {
+  if (!showOnlyAnomalies.value || anomalySheets.value.length === 0) {
+    return getEnhancedSortedExcelFiles.value
+  }
+
+  // 只显示有异常的 sheet
+  return getEnhancedSortedExcelFiles.value.map(excelFile => {
+    const filteredSheets = excelFile.sheets.filter(sheet =>
+      getSheetAnomalyStatus(excelFile.excel_file, sheet.name)
+    )
+    return {
+      ...excelFile,
+      sheets: filteredSheets
+    }
+  }).filter(ef => ef.sheets.length > 0)
+})
+
+// 在模板中使用排序后的数据（已应用异常筛选）
 const displayedExcelFiles = computed(() => {
-  return getEnhancedSortedExcelFiles.value
+  return getFilteredExcelFiles.value
 })
 
 
@@ -5289,6 +5405,30 @@ if (typeof window !== 'undefined') {
 .sheet-item.active {
   background: #ecf5ff;
   border-left: 3px solid #409eff;
+}
+
+/* 异常 sheet 高亮样式 */
+.sheet-item.anomaly-sheet {
+  background: #fffbe6;
+  border-left: 3px solid #faad14;
+}
+
+.sheet-item.anomaly-sheet:hover {
+  background: #fff1b8;
+}
+
+.sheet-item.anomaly-sheet.active {
+  background: #fff1b8;
+  border-left: 3px solid #fa8c16;
+}
+
+/* 异常标签样式 */
+.anomaly-tag {
+  margin-left: auto;
+  font-size: 10px !important;
+  padding: 0 4px !important;
+  height: 18px !important;
+  line-height: 18px !important;
 }
 
 .sheet-item:last-child {

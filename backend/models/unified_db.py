@@ -621,7 +621,11 @@ class UnifiedDatabaseManager:
                     description     TEXT,
                     storage_type    TEXT DEFAULT 'local',
                     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+                    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    review_status   TEXT DEFAULT 'auto',          -- 审核状态: auto/pending_review/reviewed/needs_reprocess
+                    review_issues   TEXT DEFAULT '',              -- 审核问题描述(JSON数组)
+                    reviewed_by     TEXT,                         -- 审核人
+                    reviewed_at     DATETIME                     -- 审核时间
                 )
             ''')
 
@@ -641,7 +645,11 @@ class UnifiedDatabaseManager:
                 ('description', 'TEXT'),
                 ('storage_type', 'TEXT'),
                 ('created_at', 'DATETIME'),
-                ('updated_at', 'DATETIME')
+                ('updated_at', 'DATETIME'),
+                ('review_status', 'TEXT'),       -- 审核状态
+                ('review_issues', 'TEXT'),        -- 审核问题
+                ('reviewed_by', 'TEXT'),          -- 审核人
+                ('reviewed_at', 'DATETIME')       -- 审核时间
             ]
 
             # 添加缺失的列
@@ -880,6 +888,148 @@ class UnifiedDatabaseManager:
 
         except Exception as e:
             print(f"❌ 更新 Excel 文件描述失败: {e}")
+            return (False, str(e))
+
+    def update_excel_review_status(self, file_id, review_status, review_issues=None, reviewed_by=None):
+        """
+        更新 Excel 文件的审核状态
+
+        Args:
+            file_id: 文件ID
+            review_status: 审核状态 (auto/pending_review/reviewed/needs_reprocess)
+            review_issues: 审核问题列表 (list)
+            reviewed_by: 审核人
+
+        Returns:
+            (success, message)
+        """
+        try:
+            import json
+            conn = self.connect()
+            cursor = conn.cursor()
+
+            # 构建更新语句
+            issues_json = json.dumps(review_issues, ensure_ascii=False) if review_issues else ''
+            reviewed_at = 'CURRENT_TIMESTAMP' if review_status == 'reviewed' else 'NULL'
+
+            if review_status == 'reviewed':
+                cursor.execute('''
+                    UPDATE excel_files
+                    SET review_status = ?,
+                        review_issues = ?,
+                        reviewed_by = ?,
+                        reviewed_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (review_status, issues_json, reviewed_by or '', file_id))
+            else:
+                cursor.execute('''
+                    UPDATE excel_files
+                    SET review_status = ?,
+                        review_issues = ?,
+                        reviewed_by = NULL,
+                        reviewed_at = NULL,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (review_status, issues_json, file_id))
+
+            conn.commit()
+            affected = cursor.rowcount
+            conn.close()
+
+            if affected > 0:
+                print(f"✅ 更新审核状态成功: file_id={file_id}, status={review_status}")
+                return (True, "更新成功")
+            else:
+                return (False, "文件不存在")
+
+        except Exception as e:
+            print(f"❌ 更新审核状态失败: {e}")
+            return (False, str(e))
+
+    def get_excel_files_with_review_status(self, filters=None, page=1, page_size=20):
+        """
+        获取 Excel 文件列表（包含审核状态）
+
+        Args:
+            filters: 筛选条件
+            page: 页码
+            page_size: 每页数量
+
+        Returns:
+            (success, { files: [], total: int })
+        """
+        try:
+            conn = self.connect()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # 构建 WHERE 子句
+            where_clauses = []
+            params = []
+
+            if filters:
+                if filters.get('filename'):
+                    where_clauses.append("filename LIKE ?")
+                    params.append(f"%{filters['filename']}%")
+                if filters.get('uploader_name'):
+                    where_clauses.append("uploader_name LIKE ?")
+                    params.append(f"%{filters['uploader_name']}%")
+                if filters.get('start_date'):
+                    where_clauses.append("created_at >= ?")
+                    params.append(filters['start_date'])
+                if filters.get('end_date'):
+                    where_clauses.append("created_at <= ?")
+                    params.append(f"{filters['end_date']} 23:59:59")
+                if filters.get('review_status'):
+                    where_clauses.append("review_status = ?")
+                    params.append(filters['review_status'])
+
+            where_sql = ""
+            if where_clauses:
+                where_sql = "WHERE " + " AND ".join(where_clauses)
+
+            # 查询总数
+            cursor.execute(f"SELECT COUNT(*) as total FROM excel_files {where_sql}", params)
+            total = cursor.fetchone()['total']
+
+            # 查询分页数据
+            offset = (page - 1) * page_size
+            cursor.execute(f'''
+                SELECT id, filename, disk_name, file_path, file_size,
+                       uploader_id, uploader_name, description, storage_type,
+                       created_at, review_status, review_issues, reviewed_by, reviewed_at
+                FROM excel_files
+                {where_sql}
+                ORDER BY
+                    CASE review_status
+                        WHEN 'pending_review' THEN 1
+                        WHEN 'needs_reprocess' THEN 2
+                        WHEN 'auto' THEN 3
+                        WHEN 'reviewed' THEN 4
+                    END,
+                    created_at DESC
+                LIMIT ? OFFSET ?
+            ''', params + [page_size, offset])
+
+            rows = cursor.fetchall()
+            files = []
+            for row in rows:
+                file_dict = dict(row)
+                # 解析 review_issues JSON
+                if file_dict.get('review_issues'):
+                    try:
+                        file_dict['review_issues'] = json.loads(file_dict['review_issues'])
+                    except:
+                        file_dict['review_issues'] = []
+                files.append(file_dict)
+
+            conn.close()
+
+            return (True, {'files': files, 'total': total, 'page': page, 'page_size': page_size})
+
+        except Exception as e:
+            print(f"❌ 获取 Excel 文件列表失败: {e}")
             return (False, str(e))
 
 

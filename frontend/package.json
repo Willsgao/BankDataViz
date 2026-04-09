@@ -8,6 +8,7 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "@handsontable/vue3": "^16.1.1",
     "@vue/compiler-sfc": "^3.5.25",
     "@vueup/vue-quill": "^1.2.0",
