@@ -15,7 +15,7 @@
         <el-icon class="upload-icon"><upload-filled /></el-icon>
         <div class="upload-text">
           <div>将文件拖到此处，或<em>点击上传</em></div>
-          <div class="upload-tip">支持 PDF、PNG、JPG 格式文件</div>
+          <div class="upload-tip">支持 PDF、图片 (PNG/JPG) 格式</div>
         </div>
       </div>
     </el-upload>
@@ -36,14 +36,14 @@ onMounted(() => {
   console.log('📌 uploadActionUrl:', uploadActionUrl.value)
 })
 
-// 上传前验证
+// 上传前验证 - 待处理文件：只接受 PDF 和图片
 const beforeUpload = (file) => {
   const isPDF = file.type === 'application/pdf'
   const isImage = file.type.startsWith('image/')
   const isValidType = isPDF || isImage
 
   if (!isValidType) {
-    ElMessage.error('只能上传 PDF 或图片文件!')
+    ElMessage.error('待处理文件只能上传 PDF 或图片文件!')
     return false
   }
 
@@ -65,7 +65,16 @@ const handleSuccess = (response, file) => {
     return
   }
 
-  // 检查是否为重复文件
+  // 检查是否为 Excel 文件
+  const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+  if (isExcel) {
+    // Excel 文件上传成功
+    ElMessage.success(`Excel 文件 "${file.name}" 上传成功`)
+    emit('uploaded')
+    return
+  }
+
+  // 检查是否为重复文件（仅 PDF/图片）
   if (response.duplicate) {
     // 显示重复文件处理对话框
     showDuplicateDialog(file.name, response)

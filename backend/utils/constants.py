@@ -59,6 +59,10 @@ REMOTE_LAYOUT_URL = "http://i-2.gpushare.com:30417/layout"
 # 静态文件路径配置
 SAVE_PATH = r'data/backend'
 UPLOAD_FOLDER = r'data/backend/static/uploads'
+UPLOAD_EXCEL_DIR = r'data/backend/static/uploads/excel'  # Excel上传目录
+UPLOAD_PDF_DIR = r'data/backend/static/uploads/pdf'      # PDF上传目录
+PROCESSED_EXCEL_DIR = r'data/backend/static/processed/excel'  # 成品Excel目录
+PROCESSED_REPORTS_DIR = r'data/backend/static/processed/reports'  # 成品报告目录
 PNG_OUTPUT_ROOT = r'data/backend/static/pdf2pngs'
 EXCEL_OUTPUT_ROOT = r'data/backend/static/excel_data'
 JOINED_TABLES_ROOT = r'data/backend/static/joined_tables'
@@ -72,6 +76,10 @@ STATIC_DIR = Path(MAIN_ROOT) / "data" / "backend" / "static"
 print("STATIC_DIRSTATIC_DIR:", STATIC_DIR, MAIN_ROOT)
 EXCEL_DATA_DIR = Path(MAIN_ROOT) / EXCEL_OUTPUT_ROOT
 UPLOAD_DIR = Path(MAIN_ROOT) / UPLOAD_FOLDER
+UPLOAD_EXCEL_DIR = Path(MAIN_ROOT) / UPLOAD_EXCEL_DIR  # Excel上传目录
+UPLOAD_PDF_DIR = Path(MAIN_ROOT) / UPLOAD_PDF_DIR      # PDF上传目录
+PROCESSED_EXCEL_DIR = Path(MAIN_ROOT) / PROCESSED_EXCEL_DIR  # 成品Excel目录
+PROCESSED_REPORTS_DIR = Path(MAIN_ROOT) / PROCESSED_REPORTS_DIR  # 成品报告目录
 PNG_OUTPUT_DIR = Path(MAIN_ROOT) / PNG_OUTPUT_ROOT
 JOINED_TABLES_DIR = Path(MAIN_ROOT) / JOINED_TABLES_ROOT
 DATABASE_PATH = Path(MAIN_ROOT) / DATABASE

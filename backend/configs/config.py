@@ -91,14 +91,14 @@ class Config:
             },
             "llm": {
                 "defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-                "defaultModelId": "doubao-1-5-vision-pro-250328",
+                "defaultModelId": self.llm_model_name,
                 "maxTokens": 4000
             },
             "table_processor": {
                 "llm": {
                     "api_key": "90b9c47f-815c-4216-913a-3d1a567e35ac",
                     "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-                    "model_name": "doubao-1-5-vision-pro-250328"
+                    "model_name": self.llm_model_name
                 },
                 "ocr": {
                     "provider": "tencent",
@@ -180,7 +180,7 @@ class Config:
         llm_config = table_config.get('llm', {})
         self.TABLE_LLM_API_KEY = llm_config.get('api_key', "90b9c47f-815c-4216-913a-3d1a567e35ac")
         self.TABLE_LLM_BASE_URL = llm_config.get('base_url', "https://ark.cn-beijing.volces.com/api/v3")
-        self.TABLE_LLM_MODEL_NAME = llm_config.get('model_name', "doubao-1-5-vision-pro-250328")
+        self.TABLE_LLM_MODEL_NAME = llm_config.get('model_name', "doubao-1-5-vision-pro-32k-250115")
 
         # OCR配置
         ocr_config = table_config.get('ocr', {})
@@ -337,7 +337,8 @@ class TableConfig:
         # ========== LLM配置 ==========
         self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
         self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
-        self.llm_model_name = "doubao-1-5-vision-pro-250328"
+        # self.llm_model_name = "doubao-1-5-vision-pro-250328"
+        self.llm_model_name = "doubao-1-5-vision-pro-32k-250115"
 
         # ========== OCR配置 - 多OCR支持 ==========
         self.ocr_provider = "tencent"

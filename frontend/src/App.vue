@@ -12,21 +12,21 @@
               @click="goToTwoColumn"
               size="small"
             >
-              两栏布局
+              管理后台
             </el-button>
             <el-button
               :type="$route.name === 'ThreeColumn' ? 'primary' : ''"
               @click="$router.push('/three-column')"
               size="small"
             >
-              三栏布局
+              审核后台
             </el-button>
             <el-button
               :type="$route.name === 'BankWarehouse' ? 'primary' : ''"
               @click="$router.push('/bank-warehouse')"
               size="small"
             >
-              🏦 数据仓库
+              数据看板
             </el-button>
           </el-button-group>
         </div>
@@ -221,12 +221,12 @@ watch(() => route.path, (newPath) => {
   }
 })
 
-// 两栏布局导航（检查权限）
+// 管理后台导航（检查权限）
 const goToTwoColumn = () => {
   if (hasAdminPermission.value) {
     router.push('/two-column')
   } else {
-    ElMessage.warning('权限不足，只有管理员可以访问两栏布局')
+    ElMessage.warning('权限不足，只有管理员可以访问管理后台')
   }
 }
 

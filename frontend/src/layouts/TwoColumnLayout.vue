@@ -2,9 +2,28 @@
   <div class="two-column-layout">
     <!-- 左侧：当前PDF的预览和操作区域 -->
     <div class="left-panel">
-      <!-- 文件上传区域 -->
-      <div class="upload-section">
+      <!-- 文件类型切换 Tab -->
+      <div class="upload-tabs">
+        <el-radio-group v-model="activeTab" size="small">
+          <el-radio-button value="pdf">
+            <el-icon><Upload /></el-icon>
+            待处理文件
+          </el-radio-button>
+          <el-radio-button value="excel">
+            <el-icon><Finished /></el-icon>
+            成品文件
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- PDF 上传区域 -->
+      <div class="upload-section" v-show="activeTab === 'pdf'">
         <file-upload @uploaded="$emit('load-files')"/>
+      </div>
+
+      <!-- Excel 上传区域 -->
+      <div class="upload-section excel-section" v-show="activeTab === 'excel'">
+        <ExcelUpload @uploaded="$emit('load-excel-files')" />
       </div>
 
       <!-- 当前PDF预览区域 -->
@@ -323,7 +342,11 @@ import { ref, computed, watch } from 'vue'
 import FileUpload from '@/components/file/FileUpload.vue'
 import PdfPreview from '@/components/pdf/PdfPreview.vue'
 import CurrentPdfStatus from '@/components/pdf/CurrentPdfStatus.vue'
+import ExcelUpload from '@/components/file/ExcelUpload.vue'
+import { Upload, Finished } from '@element-plus/icons-vue'
 
+// Tab 切换状态
+const activeTab = ref('pdf')
 
 // 控制文件列表展开状态
 const fileListExpanded = ref(false)
@@ -436,6 +459,7 @@ const props = defineProps({
 // 定义emit事件
 defineEmits([
   'load-files',
+  'load-excel-files',
   'delete-file',
   'cutTable',
   'convert-and-preview',
@@ -799,6 +823,32 @@ watch(() => props.currentPdf, (newPdf, oldPdf) => {
   padding: 12px;
   border-bottom: 1px solid #e4e7ed;
   background: #fafafa;
+}
+
+.upload-tabs {
+  padding: 12px 12px 0 12px;
+  background: #fafafa;
+}
+
+.upload-tabs :deep(.el-radio-group) {
+  display: flex;
+  width: 100%;
+}
+
+.upload-tabs :deep(.el-radio-button) {
+  flex: 1;
+}
+
+.upload-tabs :deep(.el-radio-button__inner) {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.excel-section {
+  background: white;
 }
 
 .pdf-preview-section {

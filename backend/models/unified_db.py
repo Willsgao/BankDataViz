@@ -459,6 +459,11 @@ class UnifiedDatabaseManager:
                 print("❌ 表格处理表初始化失败")
                 success = False
 
+            # 3. 初始化 Excel 文件管理表
+            if not self._init_excel_files_table(cursor):
+                print("❌ Excel 文件表初始化失败")
+                success = False
+
             if success:
                 conn.commit()
                 print("✅ 所有数据库表初始化完成")
@@ -595,6 +600,287 @@ class UnifiedDatabaseManager:
         except sqlite3.Error as e:
             print(f"❌ 初始化表格处理表失败: {e}")
             return False
+
+    def _init_excel_files_table(self, cursor):
+        """
+        初始化 Excel 文件管理表
+        用于存储用户上传的 Excel 文件（独立于 PDF 处理流程）
+        """
+        try:
+            # 创建 Excel 文件表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS excel_files (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filename        TEXT NOT NULL,
+                    disk_name       TEXT NOT NULL,
+                    file_path       TEXT,
+                    file_content    BLOB,
+                    file_size       INTEGER,
+                    uploader_id     INTEGER,
+                    uploader_name   TEXT,
+                    description     TEXT,
+                    storage_type    TEXT DEFAULT 'local',
+                    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # 检查表结构并添加缺失列（向后兼容）
+            cursor.execute("PRAGMA table_info(excel_files)")
+            existing_cols = [col[1] for col in cursor.fetchall()]
+
+            # 定义所有预期的列及其类型
+            expected_columns = [
+                ('filename', 'TEXT'),
+                ('disk_name', 'TEXT'),
+                ('file_path', 'TEXT'),
+                ('file_content', 'BLOB'),
+                ('file_size', 'INTEGER'),
+                ('uploader_id', 'INTEGER'),
+                ('uploader_name', 'TEXT'),
+                ('description', 'TEXT'),
+                ('storage_type', 'TEXT'),
+                ('created_at', 'DATETIME'),
+                ('updated_at', 'DATETIME')
+            ]
+
+            # 添加缺失的列
+            for col_name, col_type in expected_columns:
+                if col_name not in existing_cols:
+                    try:
+                        cursor.execute(f"ALTER TABLE excel_files ADD COLUMN {col_name} {col_type}")
+                        print(f"✅ 已为 excel_files 表添加 {col_name} 字段")
+                    except sqlite3.Error as e:
+                        print(f"⚠️ 添加列 {col_name} 失败: {e}")
+
+            print("✅ Excel 文件表初始化完成")
+            return True
+
+        except sqlite3.Error as e:
+            print(f"❌ 初始化 Excel 文件表失败: {e}")
+            return False
+
+    # ============ Excel 文件管理方法 ============
+    def save_excel_file(self, file_info):
+        """
+        保存 Excel 文件记录到数据库
+        :param file_info: dict 包含 filename, disk_name, file_path, file_size, uploader_id, uploader_name, description
+        :return: (success, file_id 或 error_message)
+        """
+        try:
+            conn = self.connect()
+            cursor = conn.cursor()
+
+            # 确保 excel_files 表存在
+            self._init_excel_files_table(cursor)
+
+            cursor.execute('''
+                INSERT INTO excel_files
+                (filename, disk_name, file_path, file_size, uploader_id, uploader_name, description, storage_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'local')
+            ''', (
+                file_info.get('filename'),
+                file_info.get('disk_name'),
+                file_info.get('file_path'),
+                file_info.get('file_size'),
+                file_info.get('uploader_id'),
+                file_info.get('uploader_name'),
+                file_info.get('description', '')
+            ))
+
+            file_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+
+            return (True, file_id)
+
+        except Exception as e:
+            print(f"❌ 保存 Excel 文件记录失败: {e}")
+            return (False, str(e))
+
+    def check_excel_filename_exists(self, filename):
+        """
+        检查文件名是否已存在
+        :param filename: 文件名
+        :return: (exists, existing_file_info 或 None)
+        """
+        try:
+            conn = self.connect()
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT id, filename, disk_name, file_path, file_size, 
+                       uploader_name, description, created_at
+                FROM excel_files
+                WHERE filename = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (filename,))
+
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                return (True, {
+                    'id': result[0],
+                    'filename': result[1],
+                    'disk_name': result[2],
+                    'file_path': result[3],
+                    'file_size': result[4],
+                    'uploader_name': result[5],
+                    'description': result[6],
+                    'created_at': result[7]
+                })
+            return (False, None)
+
+        except Exception as e:
+            print(f"❌ 检查文件名重复失败: {e}")
+            return (False, None)
+
+    def get_excel_files(self, filters=None, page=1, page_size=20):
+        """
+        获取 Excel 文件列表（支持分页和筛选）
+        :param filters: dict 筛选条件 { filename, uploader_name, start_date, end_date }
+        :param page: 页码
+        :param page_size: 每页数量
+        :return: (success, { files: [], total: int } 或 error_message)
+        """
+        try:
+            conn = self.connect()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # 构建 WHERE 子句
+            where_clauses = []
+            params = []
+
+            if filters:
+                if filters.get('filename'):
+                    where_clauses.append("filename LIKE ?")
+                    params.append(f"%{filters['filename']}%")
+                if filters.get('uploader_name'):
+                    where_clauses.append("uploader_name LIKE ?")
+                    params.append(f"%{filters['uploader_name']}%")
+                if filters.get('start_date'):
+                    where_clauses.append("created_at >= ?")
+                    params.append(filters['start_date'])
+                if filters.get('end_date'):
+                    where_clauses.append("created_at <= ?")
+                    params.append(f"{filters['end_date']} 23:59:59")
+
+            where_sql = ""
+            if where_clauses:
+                where_sql = "WHERE " + " AND ".join(where_clauses)
+
+            # 查询总数
+            cursor.execute(f"SELECT COUNT(*) as total FROM excel_files {where_sql}", params)
+            total = cursor.fetchone()['total']
+
+            # 查询分页数据
+            offset = (page - 1) * page_size
+            cursor.execute(f'''
+                SELECT id, filename, disk_name, file_path, file_size,
+                       uploader_id, uploader_name, description, storage_type, created_at
+                FROM excel_files
+                {where_sql}
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            ''', params + [page_size, offset])
+
+            rows = cursor.fetchall()
+            files = [dict(row) for row in rows]
+
+            conn.close()
+
+            return (True, {'files': files, 'total': total, 'page': page, 'page_size': page_size})
+
+        except Exception as e:
+            print(f"❌ 获取 Excel 文件列表失败: {e}")
+            return (False, str(e))
+
+    def get_excel_file_by_id(self, file_id):
+        """
+        根据 ID 获取 Excel 文件信息
+        """
+        try:
+            conn = self.connect()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT * FROM excel_files WHERE id = ?", (file_id,))
+            row = cursor.fetchone()
+
+            conn.close()
+
+            if row:
+                return (True, dict(row))
+            else:
+                return (False, "文件不存在")
+
+        except Exception as e:
+            print(f"❌ 获取 Excel 文件失败: {e}")
+            return (False, str(e))
+
+    def delete_excel_file(self, file_id):
+        """
+        删除 Excel 文件记录（同时删除物理文件）
+        """
+        try:
+            conn = self.connect()
+            cursor = conn.cursor()
+
+            # 先获取文件信息
+            cursor.execute("SELECT file_path, disk_name FROM excel_files WHERE id = ?", (file_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                conn.close()
+                return (False, "文件不存在")
+
+            file_path = row['file_path']
+            disk_name = row['disk_name']
+
+            # 删除数据库记录
+            cursor.execute("DELETE FROM excel_files WHERE id = ?", (file_id,))
+            conn.commit()
+            conn.close()
+
+            # 删除物理文件
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"✅ 已删除物理文件: {file_path}")
+
+            return (True, "删除成功")
+
+        except Exception as e:
+            print(f"❌ 删除 Excel 文件失败: {e}")
+            return (False, str(e))
+
+    def update_excel_file_description(self, file_id, description):
+        """
+        更新 Excel 文件描述
+        """
+        try:
+            conn = self.connect()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                "UPDATE excel_files SET description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (description, file_id)
+            )
+
+            conn.commit()
+            affected = cursor.rowcount
+            conn.close()
+
+            if affected > 0:
+                return (True, "更新成功")
+            else:
+                return (False, "文件不存在")
+
+        except Exception as e:
+            print(f"❌ 更新 Excel 文件描述失败: {e}")
+            return (False, str(e))
 
 
 # ============ 兼容层（可选） ============

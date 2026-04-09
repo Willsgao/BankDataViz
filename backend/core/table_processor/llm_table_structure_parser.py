@@ -377,6 +377,10 @@ class EnhancedFinancialTableAnalyzer:
         """调用LLM进行全局分析 - 带限流重试机制"""
         start_time = time.time()
         
+        # 打印当前使用的 model_id
+        print(f"🔍 当前 LLM model_id: {self.model_name}")
+        print(f"🔍 Client base URL: {self.client.base_url}")
+        
         # 限流重试配置
         max_retries = 3  # 最多访问3次（首次 + 2次重试）
         base_delay = 2  # 基础等待时间（秒）

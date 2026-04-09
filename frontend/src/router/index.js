@@ -10,19 +10,19 @@ const routes = [
     path: '/two-column',
     name: 'TwoColumn',
     component: TwoColumnPage,
-    meta: { requiredRole: 'admin' } // 只有管理员可以访问
+    meta: { requiredRole: 'admin', title: '管理后台' } // 只有管理员可以访问
   },
   {
     path: '/three-column',
     name: 'ThreeColumn',
     component: ThreeColumnPage,
-    meta: { requiredRole: 'user' } // 普通用户和管理员都可以访问
+    meta: { requiredRole: 'user', title: '审核后台' } // 普通用户和管理员都可以访问
   },
   {
     path: '/bank-warehouse',
     name: 'BankWarehouse',
     component: BankWarehousePage,
-    meta: { requiredRole: 'user' } // 普通用户和管理员都可以访问
+    meta: { requiredRole: 'user', title: '数据看板' } // 普通用户和管理员都可以访问
   },
   {
     path: '/login',
@@ -70,7 +70,7 @@ router.beforeEach((to, from, next) => {
     }
     // 权限不足的情况
     else {
-      // 如果用户是普通用户但尝试访问管理员页面，重定向到三栏布局
+      // 如果用户是普通用户但尝试访问管理员页面，重定向到审核后台
       if (userRole === 'user') {
         next('/three-column')
       }

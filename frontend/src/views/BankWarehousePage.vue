@@ -153,6 +153,126 @@
       </div>
     </div>
 
+    <!-- 银行数据区块 -->
+    <div class="excel-section">
+      <div class="section-header">
+        <div class="section-title-block">
+          <el-icon><Grid /></el-icon>
+          <span class="section-title">银行数据</span>
+          <el-tag size="small" type="info">{{ excelTotal }} 个文件</el-tag>
+        </div>
+        <div class="section-actions">
+          <el-button size="small" :icon="Refresh" @click="loadExcelList" :loading="excelLoading">
+            刷新
+          </el-button>
+        </div>
+      </div>
+
+      <!-- 筛选面板 -->
+      <div class="excel-filter-panel">
+        <el-form :inline="true" size="small" @submit.prevent="loadExcelList">
+          <el-form-item label="文件名">
+            <el-input
+              v-model="excelFilters.filename"
+              placeholder="搜索文件名..."
+              clearable
+              style="width: 180px"
+            />
+          </el-form-item>
+          <el-form-item label="上传人">
+            <el-input
+              v-model="excelFilters.uploader_name"
+              placeholder="上传人..."
+              clearable
+              style="width: 140px"
+            />
+          </el-form-item>
+          <el-form-item label="日期范围">
+            <el-date-picker
+              v-model="excelFilters.dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              value-format="YYYY-MM-DD"
+              style="width: 240px"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="loadExcelList">
+              <el-icon><Search /></el-icon>
+              搜索
+            </el-button>
+            <el-button @click="resetExcelFilters">重置</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <!-- Excel 文件列表 -->
+      <el-table
+        :data="excelFiles"
+        v-loading="excelLoading"
+        stripe
+        border
+        size="small"
+        class="excel-table"
+      >
+        <el-table-column prop="filename" label="文件名" min-width="200">
+          <template #default="{ row }">
+            <div class="file-cell">
+              <el-icon class="file-icon"><Document /></el-icon>
+              <span class="file-name" :title="row.filename">{{ row.filename }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="file_size_display" label="文件大小" width="100" align="center" />
+        <el-table-column prop="uploader_name" label="上传人" width="100" align="center" />
+        <el-table-column prop="description" label="描述" min-width="150">
+          <template #default="{ row }">
+            <span class="description-text">{{ row.description || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="上传时间" width="160" align="center" />
+        <el-table-column label="操作" width="120" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              type="primary"
+              size="small"
+              :icon="Download"
+              @click="handleDownload(row)"
+            >
+              下载
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="excel-pagination" v-if="excelTotal > 0">
+        <el-pagination
+          v-model:current-page="excelPage"
+          v-model:page-size="excelPageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="excelTotal"
+          layout="total, sizes, prev, pager, next"
+          @size-change="loadExcelList"
+          @current-change="loadExcelList"
+        />
+      </div>
+
+      <!-- 空状态 -->
+      <el-empty
+        v-if="!excelLoading && excelFiles.length === 0"
+        description="暂无银行数据"
+        :image-size="80"
+      >
+        <el-button type="primary" @click="goToAdmin">
+          <el-icon><Upload /></el-icon>
+          前往管理后台上传
+        </el-button>
+      </el-empty>
+    </div>
+
     <!-- 对比分析浮动按钮 -->
     <div class="compare-fab" v-if="compareList.length > 0" @click="showCompareDialog = true">
       <el-badge :value="compareList.length" type="danger">
@@ -192,13 +312,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import {
   DataBoard, Search, Refresh, Download, ArrowRight,
-  Bank, DataAnalysis, TrendCharts, Document, List
+  Bank, DataAnalysis, TrendCharts, Document, List, Grid, Upload
 } from '@element-plus/icons-vue'
 import {
   getBankList, searchBanks, getBankStatistics,
   getBankReports, getReportTables, getTableIndicators,
   getIndicatorTrend, compareMultipleBanks, seedDemoData
 } from '@/api/bank'
+import { getExcelList, getExcelDownloadUrl } from '@/api/excel'
 
 // ============================================================
 // 状态
@@ -235,6 +356,20 @@ const compareList = ref([])
 const showCompareDialog = ref(false)
 const compareIndicator = ref('净利润')
 const compareYear = ref(2024)
+
+// ============================================================
+// Excel 数据相关状态
+// ============================================================
+const excelLoading = ref(false)
+const excelFiles = ref([])
+const excelTotal = ref(0)
+const excelPage = ref(1)
+const excelPageSize = ref(20)
+const excelFilters = ref({
+  filename: '',
+  uploader_name: '',
+  dateRange: null
+})
 
 // ============================================================
 // 计算属性
@@ -549,6 +684,61 @@ const handleSeedData = async () => {
   }
 }
 
+// ============================================================
+// Excel 数据相关方法
+// ============================================================
+const loadExcelList = async () => {
+  excelLoading.value = true
+  try {
+    const params = {
+      page: excelPage.value,
+      page_size: excelPageSize.value
+    }
+
+    // 添加筛选条件
+    if (excelFilters.value.filename) {
+      params.filename = excelFilters.value.filename
+    }
+    if (excelFilters.value.uploader_name) {
+      params.uploader_name = excelFilters.value.uploader_name
+    }
+    if (excelFilters.value.dateRange && excelFilters.value.dateRange.length === 2) {
+      params.start_date = excelFilters.value.dateRange[0]
+      params.end_date = excelFilters.value.dateRange[1]
+    }
+
+    const res = await getExcelList(params)
+    if (res.success) {
+      excelFiles.value = res.data.files || []
+      excelTotal.value = res.data.total || 0
+    }
+  } catch (e) {
+    console.error('加载 Excel 列表失败:', e)
+    ElMessage.error('加载 Excel 列表失败')
+  } finally {
+    excelLoading.value = false
+  }
+}
+
+const resetExcelFilters = () => {
+  excelFilters.value = {
+    filename: '',
+    uploader_name: '',
+    dateRange: null
+  }
+  excelPage.value = 1
+  loadExcelList()
+}
+
+const handleDownload = (row) => {
+  const downloadUrl = getExcelDownloadUrl(row.id)
+  window.open(downloadUrl, '_blank')
+}
+
+const goToAdmin = () => {
+  window.location.href = '/two-column'
+}
+
 // ---- 监听对比弹窗打开 ----
 watch(showCompareDialog, (val) => {
   if (val) nextTick(() => loadCompareChart())
@@ -562,6 +752,7 @@ const handleResize = () => {
 
 onMounted(() => {
   loadData()
+  loadExcelList()
   window.addEventListener('resize', handleResize)
 })
 
@@ -719,6 +910,100 @@ onUnmounted(() => {
   cursor: pointer; z-index: 999;
 }
 .fab-label { font-size: 12px; color: #409EFF; background: #fff; padding: 2px 8px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+
+/* Excel 数据区块 */
+.excel-section {
+  margin-top: 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+
+.excel-section .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.section-title-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title-block .el-icon {
+  font-size: 18px;
+  color: #409eff;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.excel-filter-panel {
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.excel-filter-panel :deep(.el-form-item) {
+  margin-bottom: 0;
+  margin-right: 12px;
+}
+
+.excel-filter-panel :deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #606266;
+}
+
+.excel-table {
+  margin: 0;
+}
+
+.excel-table :deep(.el-table__header-wrapper) {
+  background: #fafafa;
+}
+
+.file-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-cell .file-icon {
+  font-size: 18px;
+  color: #67c23a;
+  flex-shrink: 0;
+}
+
+.file-cell .file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.description-text {
+  color: #909399;
+  font-size: 12px;
+}
+
+.excel-pagination {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #f0f0f0;
+}
 
 /* 对比弹窗 */
 .compare-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }

@@ -29,14 +29,14 @@
             },
             "llm": {
                 "defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-                "defaultModelId": "doubao-1-5-vision-pro-250328",
+                "defaultModelId": "doubao-1-5-vision-pro-32k-250115",
                 "maxTokens": 4000
             },
             "table_processor": {
                 "llm": {
                     "api_key": "90b9c47f-815c-4216-913a-3d1a567e35ac",
                     "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-                    "model_name": "doubao-1-5-vision-pro-250328"
+                    "model_name": "doubao-1-5-vision-pro-32k-250115"
                 },
                 "ocr": {
                     "provider": "tencent",

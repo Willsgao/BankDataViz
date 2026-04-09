@@ -17,6 +17,7 @@ from backend.api.llm_routes import llm_bp
 from backend.api.baidu_ocr_routes import baidu_ocr_bp
 from backend.api.visualization_api import visualization_bp
 from backend.api.websocket_routes import websocket_bp, init_websocket
+from backend.api.excel_api import excel_bp
 
 # 使用安全的数据库管理器
 from backend.models.safe_unified_db import SafeDatabaseManager
@@ -82,6 +83,7 @@ app.register_blueprint(text_bp)
 app.register_blueprint(visualization_bp)
 app.register_blueprint(baidu_ocr_bp)
 app.register_blueprint(websocket_bp)
+app.register_blueprint(excel_bp)
 
 # 轮询进度
 from backend.api.progress_sse import progress_sse_bp
