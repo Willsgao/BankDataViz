@@ -57,7 +57,7 @@ export const getExcelList = (params) => {
 }
 
 export const getExcelDownloadUrl = (fileId) => {
-  return `${http.defaults?.baseURL || ''}/api/bank/excel/${fileId}/download`
+  return `${http.defaults?.baseURL || ''}/api/excel/download/${fileId}`
 }
 
 export const updateExcelReview = (fileId, data) => {

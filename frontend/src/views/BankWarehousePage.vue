@@ -246,6 +246,11 @@
             <span class="description-text">{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="下载次数" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag type="success" size="small">{{ downloadCounts[row.id] || 0 }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="上传时间" width="160" align="center" />
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
@@ -430,6 +435,7 @@ const excelFiles = ref([])
 const excelTotal = ref(0)
 const excelPage = ref(1)
 const excelPageSize = ref(20)
+const downloadCounts = ref({}) // 每个文件的下载次数统计 { fileId: count }
 const excelFilters = ref({
   filename: '',
   uploader_name: '',
@@ -851,6 +857,11 @@ const resetExcelFilters = () => {
 const handleDownload = (row) => {
   const downloadUrl = getExcelDownloadUrl(row.id)
   window.open(downloadUrl, '_blank')
+  // 累加该文件的下载次数
+  const current = downloadCounts.value[row.id] || 0
+  downloadCounts.value[row.id] = current + 1
+  // 触发响应式更新
+  downloadCounts.value = { ...downloadCounts.value }
 }
 
 const goToAdmin = () => {
