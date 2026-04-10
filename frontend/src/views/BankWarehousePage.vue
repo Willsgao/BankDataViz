@@ -247,18 +247,8 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="上传时间" width="160" align="center" />
-        <el-table-column label="操作" width="260" align="center" fixed="right">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button
-              type="warning"
-              size="small"
-              :icon="Refresh"
-              @click="handleSingleDetect(row)"
-              :loading="row.detecting"
-              title="重新检测"
-            >
-              检测
-            </el-button>
             <el-button
               v-if="row.review_status === 'pending_review' || row.review_status === 'needs_reprocess'"
               type="success"
@@ -388,8 +378,7 @@ import {
   getBankList, searchBanks, getBankStatistics,
   getBankReports, getReportTables, getTableIndicators,
   getIndicatorTrend, compareMultipleBanks, seedDemoData,
-  getExcelList, getExcelDownloadUrl, updateExcelReview,
-  detectExcelAnomalies, batchDetectExcelAnomalies
+  getExcelList, getExcelDownloadUrl, updateExcelReview
 } from '@/api/bank'
 
 // ============================================================
@@ -432,7 +421,6 @@ const compareYear = ref(2024)
 const showReviewDialog = ref(false)
 const currentReviewFile = ref(null)
 const reviewLoading = ref(false)
-const detecting = ref(false)
 
 // ============================================================
 // Excel 数据相关状态
@@ -859,59 +847,6 @@ const resetExcelFilters = () => {
   loadExcelList()
 }
 
-// 批量检测异常
-const handleBatchDetect = async () => {
-  detecting.value = true
-  try {
-    const res = await batchDetectExcelAnomalies()
-    if (res.success) {
-      const { total, detected, anomalies, anomaly_files } = res.data
-      if (anomalies > 0) {
-        ElMessage.warning(`检测完成：共 ${total} 个文件，发现 ${anomalies} 个异常`)
-        // 显示异常文件列表
-        ElMessageBox.alert(
-          `以下文件检测到异常：\n${anomaly_files.map(f => `• ${f.filename}`).join('\n')}`,
-          '异常文件列表',
-          { type: 'warning' }
-        )
-      } else {
-        ElMessage.success(`检测完成：共 ${total} 个文件，全部正常`)
-      }
-      await loadExcelList()  // 刷新列表
-    } else {
-      ElMessage.error(res.error || '检测失败')
-    }
-  } catch (e) {
-    console.error('批量检测失败:', e)
-    ElMessage.error('批量检测失败')
-  } finally {
-    detecting.value = false
-  }
-}
-
-// 单个文件检测
-const handleSingleDetect = async (row) => {
-  row.detecting = true
-  try {
-    const res = await detectExcelAnomalies(row.id)
-    if (res.success) {
-      const { review_status, review_issues } = res.data
-      if (review_status === 'pending_review') {
-        ElMessage.warning(`检测到异常：\n${review_issues.join('\n')}`)
-      } else {
-        ElMessage.success('检测完成，文件正常')
-      }
-      await loadExcelList()  // 刷新列表
-    } else {
-      ElMessage.error(res.error || '检测失败')
-    }
-  } catch (e) {
-    console.error('检测失败:', e)
-    ElMessage.error('检测失败')
-  } finally {
-    row.detecting = false
-  }
-}
 
 const handleDownload = (row) => {
   const downloadUrl = getExcelDownloadUrl(row.id)

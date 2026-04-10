@@ -31,9 +31,19 @@ export const getIndicatorTrend = (bankId, indicator) => {
   return http.get('/api/bank/analysis/trend', { params: { bank_id: bankId, indicator } })
 }
 
+// 多银行横向对比
+export const compareMultipleBanks = (bankIds, indicator, year) => {
+  return http.get('/api/bank/analysis/compare', { params: { bank_ids: bankIds, indicator, year } })
+}
+
+// 写入演示数据
+export const seedDemoData = (force = false) => {
+  return http.post('/api/bank/seed', { force })
+}
+
 // 搜索银行
-export const searchBanks = (keyword) => {
-  return http.get('/api/bank/search', { params: { keyword } })
+export const searchBanks = (keyword, limit = 50) => {
+  return http.get('/api/bank/search', { params: { keyword, limit } })
 }
 
 // 获取银行统计信息
@@ -44,6 +54,10 @@ export const getBankStatistics = () => {
 // Excel文件相关API
 export const getExcelList = (params) => {
   return http.get('/api/bank/excel/list', { params })
+}
+
+export const getExcelDownloadUrl = (fileId) => {
+  return `${http.defaults?.baseURL || ''}/api/bank/excel/${fileId}/download`
 }
 
 export const updateExcelReview = (fileId, data) => {
