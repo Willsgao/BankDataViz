@@ -96,7 +96,7 @@ class Config:
             },
             "table_processor": {
                 "llm": {
-                    "api_key": "90b9c47f-815c-4216-913a-3d1a567e35ac",
+                    "api_key": "YOUR_LLM_API_KEY",
                     "base_url": "https://ark.cn-beijing.volces.com/api/v3",
                     "model_name": self.llm_model_name
                 },
@@ -106,12 +106,12 @@ class Config:
                     "max_retries": 3
                 },
                 "baidu_ocr": {
-                    "api_key": "Id7EZH2q6IOSlivHbwHHbWwz",
-                    "secret_key": "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+                    "api_key": "YOUR_BAIDU_OCR_API_KEY",
+                    "secret_key": "YOUR_BAIDU_OCR_SECRET_KEY"
                 },
                 "tencent_ocr": {
-                    "secret_id": "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG",
-                    "secret_key": "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP",
+                    "secret_id": "YOUR_TENCENT_SECRET_ID",
+                    "secret_key": "YOUR_TENCENT_SECRET_KEY",
                     "region": "ap-shanghai"
                 },
                 "processing": {
@@ -178,7 +178,7 @@ class Config:
 
         # LLM配置（表格专用）
         llm_config = table_config.get('llm', {})
-        self.TABLE_LLM_API_KEY = llm_config.get('api_key', "90b9c47f-815c-4216-913a-3d1a567e35ac")
+        self.TABLE_LLM_API_KEY = llm_config.get('api_key', "YOUR_LLM_API_KEY")
         self.TABLE_LLM_BASE_URL = llm_config.get('base_url', "https://ark.cn-beijing.volces.com/api/v3")
         self.TABLE_LLM_MODEL_NAME = llm_config.get('model_name', "doubao-1-5-vision-pro-32k-250115")
 
@@ -190,13 +190,13 @@ class Config:
 
         # 百度OCR
         baidu_config = table_config.get('baidu_ocr', {})
-        self.BAIDU_OCR_API_KEY = baidu_config.get('api_key', "Id7EZH2q6IOSlivHbwHHbWwz")
-        self.BAIDU_OCR_SECRET_KEY = baidu_config.get('secret_key', "leeZiDapOBp6nGZssuuzABgSZubNgSLu")
+        self.BAIDU_OCR_API_KEY = baidu_config.get('api_key', "YOUR_BAIDU_OCR_API_KEY")
+        self.BAIDU_OCR_SECRET_KEY = baidu_config.get('secret_key', "YOUR_BAIDU_OCR_SECRET_KEY")
 
         # 腾讯OCR
         tencent_config = table_config.get('tencent_ocr', {})
-        self.TENCENT_SECRET_ID = tencent_config.get('secret_id', "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG")
-        self.TENCENT_SECRET_KEY = tencent_config.get('secret_key', "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP")
+        self.TENCENT_SECRET_ID = tencent_config.get('secret_id', "YOUR_TENCENT_SECRET_ID")
+        self.TENCENT_SECRET_KEY = tencent_config.get('secret_key', "YOUR_TENCENT_SECRET_KEY")
         self.TENCENT_REGION = tencent_config.get('region', "ap-shanghai")
 
         # 处理配置
@@ -335,17 +335,17 @@ class TableConfig:
     def _init_from_env_and_defaults(self):
         """从环境变量和默认值初始化 - 所有路径基于 PROJECT_ROOT"""
         # ========== LLM配置 ==========
-        self.llm_api_key = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+        self.llm_api_key = "YOUR_LLM_API_KEY"
         self.llm_base_url = "https://ark.cn-beijing.volces.com/api/v3"
         # self.llm_model_name = "doubao-1-5-vision-pro-250328"
         self.llm_model_name = "doubao-1-5-vision-pro-32k-250115"
 
         # ========== OCR配置 - 多OCR支持 ==========
         self.ocr_provider = "tencent"
-        self.ocr_api_key = "Id7EZH2q6IOSlivHbwHHbWwz"
-        self.ocr_secret_key = "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
-        self.tencent_secret_id = "AKIDYDfuyrX1KTPFsJagZEguuiJhtsdCTbWG"
-        self.tencent_secret_key = "c1DCxXv8B3jBP3ZsQp1760iHftwpX2KP"
+        self.ocr_api_key = "YOUR_BAIDU_OCR_API_KEY"
+        self.ocr_secret_key = "YOUR_BAIDU_OCR_SECRET_KEY"
+        self.tencent_secret_id = "YOUR_TENCENT_SECRET_ID"
+        self.tencent_secret_key = "YOUR_TENCENT_SECRET_KEY"
         self.tencent_region = "ap-shanghai"
 
         # ========== 处理配置 ==========

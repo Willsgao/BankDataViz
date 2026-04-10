@@ -77,3 +77,47 @@ export const detectExcelAnomalies = (fileId) => {
 export const batchDetectExcelAnomalies = (fileIds) => {
   return http.post('/api/bank/excel/detect-batch', { file_ids: fileIds })
 }
+
+// ============================================================
+// 银行数据文档 API (独立的文档管理接口)
+// ============================================================
+
+// 获取银行数据文档列表
+export const getBankDocList = (params) => {
+  return http.get('/api/bank-doc/list', { params })
+}
+
+// 获取银行数据文档详情
+export const getBankDocDetail = (docId) => {
+  return http.get(`/api/bank-doc/${docId}`)
+}
+
+// 获取银行数据文档下载URL
+export const getBankDocDownloadUrl = (docId) => {
+  return `${http.defaults?.baseURL || ''}/api/bank-doc/download/${docId}`
+}
+
+// 获取银行数据文档统计信息
+export const getBankDocStats = () => {
+  return http.get('/api/bank-doc/stats')
+}
+
+// 获取文档分类列表
+export const getBankDocCategories = () => {
+  return http.get('/api/bank-doc/categories')
+}
+
+// 更新银行数据文档信息
+export const updateBankDoc = (docId, data) => {
+  return http.patch(`/api/bank-doc/${docId}`, data)
+}
+
+// 删除银行数据文档
+export const deleteBankDoc = (docId) => {
+  return http.delete(`/api/bank-doc/${docId}`)
+}
+
+// 上传银行数据文档（返回上传URL，供 el-upload 使用）
+export const getBankDocUploadUrl = () => {
+  return `${http.defaults?.baseURL || ''}/api/bank-doc/upload`
+}

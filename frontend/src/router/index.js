@@ -4,34 +4,46 @@ import TwoColumnPage from '@/views/TwoColumnPage.vue'
 import ThreeColumnPage from '@/views/ThreeColumnPage.vue'
 import LoginPage from '@/views/LoginPage.vue'
 import BankWarehousePage from '@/views/BankWarehousePage.vue'
+import BankDashboardPage from '@/views/BankDashboardPage.vue'
+import BankDataPage from '@/views/BankDataPage.vue'
 
 const routes = [
   {
     path: '/two-column',
     name: 'TwoColumn',
     component: TwoColumnPage,
-    meta: { requiredRole: 'admin', title: '管理后台' } // 只有管理员可以访问
+    meta: { requiredRole: 'admin', title: '管理后台' }
   },
   {
     path: '/three-column',
     name: 'ThreeColumn',
     component: ThreeColumnPage,
-    meta: { requiredRole: 'user', title: '审核后台' } // 普通用户和管理员都可以访问
+    meta: { requiredRole: 'user', title: '审核后台' }
+  },
+  {
+    path: '/bank-dashboard',
+    name: 'BankDashboard',
+    component: BankDashboardPage,
+    meta: { requiredRole: 'user', title: '数据看板-图表' }
+  },
+  {
+    path: '/bank-data',
+    name: 'BankData',
+    component: BankDataPage,
+    meta: { requiredRole: 'user', title: '数据看板-文档' }
   },
   {
     path: '/bank-warehouse',
-    name: 'BankWarehouse',
-    component: BankWarehousePage,
-    meta: { requiredRole: 'user', title: '数据看板' } // 普通用户和管理员都可以访问
+    redirect: '/bank-data'
   },
   {
     path: '/login',
     name: 'Login',
-    component: LoginPage // 登录页面，不需要权限
+    component: LoginPage
   },
   {
     path: '/',
-    redirect: '/three-column' // 修改：默认跳转到三栏页面
+    redirect: '/three-column'
   }
 ]
 

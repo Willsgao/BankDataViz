@@ -21,13 +21,28 @@
             >
               审核后台
             </el-button>
-            <el-button
-              :type="$route.name === 'BankWarehouse' ? 'primary' : ''"
-              @click="$router.push('/bank-warehouse')"
-              size="small"
-            >
-              数据看板
-            </el-button>
+            <el-dropdown @command="handleBankDashboardCommand" trigger="hover">
+              <el-button
+                :type="['BankDashboard', 'BankData'].includes($route.name) ? 'primary' : ''"
+                size="small"
+                @click="router.push('/bank-data')"
+              >
+                数据看板
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <!-- <el-dropdown-item command="dashboard">
+                    <el-icon><DataBoard /></el-icon>
+                    数据看板-图表
+                  </el-dropdown-item> -->
+                  <el-dropdown-item command="data">
+                    <el-icon><FolderOpened /></el-icon>
+                    数据看板-文档
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </el-button-group>
         </div>
 
@@ -141,7 +156,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { Search, ArrowDown, ArrowLeft, ArrowRight, DataBoard, FolderOpened } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -228,6 +243,20 @@ const goToTwoColumn = () => {
   } else {
     ElMessage.warning('权限不足，只有管理员可以访问管理后台')
   }
+}
+
+// 数据看板下拉菜单命令处理
+const handleBankDashboardCommand = (command) => {
+  if (command === 'dashboard') {
+    router.push('/bank-dashboard')
+  } else if (command === 'data') {
+    router.push('/bank-data')
+  }
+}
+
+// 数据看板按钮点击直接跳转文档页面
+const goToBankData = () => {
+  router.push('/bank-data')
 }
 
 // 用户命令处理

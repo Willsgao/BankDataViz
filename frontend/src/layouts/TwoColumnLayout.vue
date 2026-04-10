@@ -2,28 +2,9 @@
   <div class="two-column-layout">
     <!-- 左侧：当前PDF的预览和操作区域 -->
     <div class="left-panel">
-      <!-- 文件类型切换 Tab -->
-      <div class="upload-tabs">
-        <el-radio-group v-model="activeTab" size="small">
-          <el-radio-button value="pdf">
-            <el-icon><Upload /></el-icon>
-            待处理文件
-          </el-radio-button>
-          <el-radio-button value="excel">
-            <el-icon><Finished /></el-icon>
-            成品文件
-          </el-radio-button>
-        </el-radio-group>
-      </div>
-
       <!-- PDF 上传区域 -->
-      <div class="upload-section" v-show="activeTab === 'pdf'">
+      <div class="upload-section">
         <file-upload @uploaded="$emit('load-files')"/>
-      </div>
-
-      <!-- Excel 上传区域 -->
-      <div class="upload-section excel-section" v-show="activeTab === 'excel'">
-        <ExcelUpload @uploaded="$emit('load-excel-files')" />
       </div>
 
       <!-- 当前PDF预览区域 -->
@@ -342,11 +323,9 @@ import { ref, computed, watch } from 'vue'
 import FileUpload from '@/components/file/FileUpload.vue'
 import PdfPreview from '@/components/pdf/PdfPreview.vue'
 import CurrentPdfStatus from '@/components/pdf/CurrentPdfStatus.vue'
-import ExcelUpload from '@/components/file/ExcelUpload.vue'
-import { Upload, Finished } from '@element-plus/icons-vue'
+import { Upload } from '@element-plus/icons-vue'
 
-// Tab 切换状态
-const activeTab = ref('pdf')
+// Tab 切换状态 (已移除成品文件Tab，只保留待处理文件)
 
 // 控制文件列表展开状态
 const fileListExpanded = ref(false)
@@ -847,9 +826,7 @@ watch(() => props.currentPdf, (newPdf, oldPdf) => {
   gap: 6px;
 }
 
-.excel-section {
-  background: white;
-}
+/* .excel-section 已移除 */
 
 .pdf-preview-section {
   flex: 1;
