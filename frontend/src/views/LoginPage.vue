@@ -29,8 +29,9 @@
 
         <el-form-item prop="role">
           <el-select v-model="form.role" placeholder="选择权限角色" style="width: 100%">
+            <el-option label="超级管理员" value="super_admin" />
+            <el-option label="子管理员" value="admin" />
             <el-option label="普通用户" value="user" />
-            <el-option label="管理员" value="admin" />
           </el-select>
         </el-form-item>
 
@@ -47,8 +48,9 @@
 
         <div class="login-tips">
           <p><strong>权限说明：</strong></p>
-          <p>• 普通用户：可访问审核后台、数据看板</p>
-          <p>• 管理员：可访问管理后台、审核后台、数据看板</p>
+          <p>• 超级管理员 ：拥有所有权限</p>
+          <p>• 普通用户：仅可访问数据看板</p>
+          <p>• 子管理员：由超管创建，可分配解析/审核/数据权限</p>
         </div>
       </el-form>
     </div>
@@ -69,20 +71,28 @@ const reloadUserInfo = inject('reloadUserInfo', () => {})
 
 // 定义测试账户
 const testAccounts = {
+  // 超级管理员账户（拥有所有权限）
+  // { username: 'admin', password: 'admin123', role: 'super_admin', permissions: ['parse', 'review', 'data'] },
+  super_admin: [
+    { username: 'admin', password: 'admin123321', role: 'super_admin', permissions: ['parse', 'review', 'data'] },
+    { username: '15618421568', password: 'wangxianshuang', role: 'super_admin', permissions: ['parse', 'review', 'data'] },
+  ],
   // 普通用户账户
   user: [
-    { username: 'user1', password: '123456', role: 'user' },
-    { username: 'zhangsan', password: '123456', role: 'user' },
-    { username: 'lisi', password: '123456', role: 'user' }
+    { username: 'user1', password: '123456', role: 'user', permissions: ['data'] },
+    { username: 'zhangsan', password: '123456', role: 'user', permissions: ['data'] },
+    { username: 'lisi', password: '123456', role: 'user', permissions: ['data'] }
   ],
-  // 管理员账户
+  // 子管理员账户（由超管创建，权限可配置）
+  // { username: '13161130322', password: 'wenxueyang', role: 'admin', permissions: ['data'] },
+  //  { username: '15358866605', password: 'hanjiao', role: 'admin', permissions: ['data'] }
   admin: [
-    { username: 'admin', password: 'admin123', role: 'admin' },
-    { username: 'root', password: 'root123', role: 'admin' },
-    { username: '15618421568', password: 'wangxianshuang', role: 'admin' },
-    { username: '13161130322', password: 'wenxueyang', role: 'admin' },
-    { username: '15358866605', password: 'hanjiao', role: 'admin' },
-    { username: 'superadmin', password: 'super123', role: 'admin' }
+    { username: 'manager1', password: '123456', role: 'admin', permissions: ['parse'] },  // 仅解析权限
+    { username: 'manager2', password: '123456', role: 'admin', permissions: ['review'] }, // 仅审核权限
+    { username: 'manager3', password: '123456', role: 'admin', permissions: ['data'] },  // 仅数据权限
+    { username: 'manager4', password: '123456', role: 'admin', permissions: ['parse', 'review'] }, // 解析+审核
+    // 旧账户兼容（默认拥有数据权限）
+
   ]
 }
 
@@ -104,20 +114,47 @@ const rules = {
   ]
 }
 
+// 获取子管理员数据（优先从 localStorage 读取，兼容旧代码）
+const getSubAdmins = () => {
+  const stored = localStorage.getItem('sub_admins')
+  if (stored) {
+    return JSON.parse(stored)
+  }
+  // 返回默认数据（兼容旧逻辑）
+  return [
+    { username: 'manager1', password: '123456', role: 'admin', permissions: ['parse'] },
+    { username: 'manager2', password: '123456', role: 'admin', permissions: ['review'] },
+    { username: 'manager3', password: '123456', role: 'admin', permissions: ['data'] },
+    { username: 'manager4', password: '123456', role: 'admin', permissions: ['parse', 'review'] },
+    { username: '15618421568', password: 'wangxianshuang', role: 'admin', permissions: ['data'] },
+    { username: '13161130322', password: 'wenxueyang', role: 'admin', permissions: ['data'] },
+    { username: '15358866605', password: 'hanjiao', role: 'admin', permissions: ['data'] }
+  ]
+}
+
 // 模拟登录验证
 const mockLogin = (username, password, role) => {
-  // 先在所有角色数组中查找匹配的账户
-  const allAccounts = [...(testAccounts.user || []), ...(testAccounts.admin || [])]
-  const account = allAccounts.find(acc => acc.username === username && acc.password === password)
-  
-  // 如果找到了账户，按账户自身的角色登录（忽略下拉框选择）
-  if (account) {
-    return account
+  // 1. 先检查超级管理员
+  const superAdmin = testAccounts.super_admin.find(acc => acc.username === username && acc.password === password)
+  if (superAdmin) {
+    return superAdmin
   }
-  
-  // 如果没找到，才在下拉框选择的角色中查找（兼容旧逻辑）
-  const accounts = testAccounts[role] || []
-  return accounts.find(acc => acc.username === username && acc.password === password)
+
+  // 2. 检查子管理员（优先从 localStorage 读取）
+  const subAdmins = getSubAdmins()
+  const subAdmin = subAdmins.find(acc => acc.username === username && acc.password === password)
+  if (subAdmin) {
+    return subAdmin
+  }
+
+  // 3. 检查普通用户
+  const userAccount = (testAccounts.user || []).find(acc => acc.username === username && acc.password === password)
+  if (userAccount) {
+    return userAccount
+  }
+
+  // 4. 如果没找到任何账户，返回 null
+  return null
 }
 
 const handleLogin = async () => {
@@ -135,14 +172,22 @@ const handleLogin = async () => {
         localStorage.setItem('token', 'jwt-token-' + Date.now())
         localStorage.setItem('user_role', account.role)
         localStorage.setItem('username', account.username)
+        // 存储权限列表
+        localStorage.setItem('permissions', JSON.stringify(account.permissions || []))
 
         // 2. 立即通知 App.vue 更新
         reloadUserInfo()
 
         ElMessage.success(`登录成功！欢迎 ${account.username}`)
 
-        // 根据角色重定向
-        router.push('/three-column')
+        // 超级管理员重定向到数据解析，其他根据权限重定向
+        if (account.role === 'super_admin') {
+          router.push('/two-column')
+        } else if (account.permissions?.includes('review')) {
+          router.push('/three-column')
+        } else {
+          router.push('/bank-data')
+        }
       } else {
         // 登录失败
         ElMessage.error('用户名或密码错误，或角色不匹配')

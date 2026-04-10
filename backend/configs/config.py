@@ -41,6 +41,7 @@ class Config:
         self._config = self._load_config()
         self._setup_derived_config()
         self._setup_table_processor_config()
+        self._setup_admin_config()
 
     def _load_config(self):
         """加载配置文件 - 所有路径基于 PROJECT_ROOT"""
@@ -227,6 +228,26 @@ class Config:
 
         # 创建目录
         self._create_table_dirs()
+
+    def _setup_admin_config(self):
+        """设置管理员配置 - 超级管理员账号在代码中硬编码"""
+        # 超级管理员配置（硬编码在代码中）
+        # ⚠️ 重要：首次部署后请立即修改默认密码！
+        self.SUPER_ADMIN = {
+            'username': 'admin',
+            'password': 'admin123',  # ⚠️ 请在首次部署后修改此密码！
+            'role': 'super_admin',
+            'permissions': ['parse', 'review', 'data']  # 拥有所有权限
+        }
+
+        # 可用权限列表
+        self.AVAILABLE_PERMISSIONS = {
+            'parse': '数据解析',
+            'review': '数据审核',
+            'data': '数据看板'
+        }
+
+        print(f"[Config] 超级管理员配置已加载，用户名: {self.SUPER_ADMIN['username']}")
 
     def _get_absolute_path(self, relative_path):
         """将相对路径转换为基于 PROJECT_ROOT 的绝对路径"""

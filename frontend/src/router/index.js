@@ -6,31 +6,32 @@ import LoginPage from '@/views/LoginPage.vue'
 import BankWarehousePage from '@/views/BankWarehousePage.vue'
 import BankDashboardPage from '@/views/BankDashboardPage.vue'
 import BankDataPage from '@/views/BankDataPage.vue'
+import AdminManagement from '@/views/AdminManagement.vue'
 
 const routes = [
   {
     path: '/two-column',
     name: 'TwoColumn',
     component: TwoColumnPage,
-    meta: { requiredRole: 'admin', title: '管理后台' }
+    meta: { requiredPermission: 'parse', title: '数据解析' }
   },
   {
     path: '/three-column',
     name: 'ThreeColumn',
     component: ThreeColumnPage,
-    meta: { requiredRole: 'user', title: '审核后台' }
+    meta: { requiredPermission: 'review', title: '数据审核' }
   },
   {
     path: '/bank-dashboard',
     name: 'BankDashboard',
     component: BankDashboardPage,
-    meta: { requiredRole: 'user', title: '数据看板-图表' }
+    meta: { requiredPermission: 'data', title: '数据看板-图表' }
   },
   {
     path: '/bank-data',
     name: 'BankData',
     component: BankDataPage,
-    meta: { requiredRole: 'user', title: '数据看板-文档' }
+    meta: { requiredPermission: 'data', title: '数据看板-文档' }
   },
   {
     path: '/bank-warehouse',
@@ -42,8 +43,14 @@ const routes = [
     component: LoginPage
   },
   {
+    path: '/admin-management',
+    name: 'AdminManagement',
+    component: AdminManagement,
+    meta: { requiredPermission: 'super_admin', title: '子管理员管理' }
+  },
+  {
     path: '/',
-    redirect: '/three-column'
+    redirect: '/bank-data'
   }
 ]
 
@@ -57,6 +64,7 @@ router.beforeEach((to, from, next) => {
   // 从localStorage获取用户信息和token
   const userRole = localStorage.getItem('user_role') || 'guest'
   const token = localStorage.getItem('token')
+  const permissions = JSON.parse(localStorage.getItem('permissions') || '[]')
 
   // 不需要登录的页面（公开页面）
   const publicPages = ['/login']
@@ -68,33 +76,62 @@ router.beforeEach((to, from, next) => {
     return
   }
 
-  // 检查页面所需的权限
-  if (to.meta && to.meta.requiredRole) {
-    const requiredRole = to.meta.requiredRole
-
-    // 管理员可以访问所有页面
-    if (userRole === 'admin') {
-      next()
-    }
-    // 普通用户只能访问user权限的页面
-    else if (userRole === 'user' && requiredRole === 'user') {
-      next()
-    }
-    // 权限不足的情况
-    else {
-      // 如果用户是普通用户但尝试访问管理员页面，重定向到审核后台
-      if (userRole === 'user') {
-        next('/three-column')
-      }
-      // 其他情况（guest或权限不匹配）重定向到登录页
-      else {
-        next('/login')
-      }
-    }
-  } else {
-    // 没有权限要求的页面，直接放行
+  // 超级管理员可以访问所有页面
+  if (userRole === 'super_admin') {
     next()
+    return
   }
+
+  // 检查页面所需的权限
+  if (to.meta && to.meta.requiredPermission) {
+    const requiredPermission = to.meta.requiredPermission
+
+    // 管理员拥有所有权限（除了 super_admin 专属页面）
+    if (userRole === 'admin') {
+      // 检查具体权限
+      if (requiredPermission === 'parse' && !permissions.includes('parse')) {
+        next('/bank-data')
+        return
+      }
+      if (requiredPermission === 'review' && !permissions.includes('review')) {
+        next('/bank-data')
+        return
+      }
+      if (requiredPermission === 'data' && !permissions.includes('data')) {
+        next('/login')
+        return
+      }
+      next()
+      return
+    }
+
+    // 普通用户只能访问 data 权限的页面
+    if (userRole === 'user') {
+      if (requiredPermission === 'data') {
+        next()
+        return
+      }
+      // 尝试访问其他页面时重定向到数据看板
+      next('/bank-data')
+      return
+    }
+
+    // 其他情况重定向到登录页
+    next('/login')
+    return
+  }
+
+  // 没有特定权限要求的页面，根据角色默认跳转
+  if (userRole === 'user') {
+    // 普通用户只能看到数据看板
+    if (to.path === '/two-column' || to.path === '/three-column') {
+      next('/bank-data')
+      return
+    }
+  }
+
+  // 直接放行
+  next()
 })
 
 export default router

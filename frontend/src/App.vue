@@ -8,18 +8,20 @@
         <div class="layout-switcher">
           <el-button-group>
             <el-button
+              v-if="hasPermission('parse')"
               :type="$route.name === 'TwoColumn' ? 'primary' : ''"
               @click="goToTwoColumn"
               size="small"
             >
-              管理后台
+              数据解析
             </el-button>
             <el-button
+              v-if="hasPermission('review')"
               :type="$route.name === 'ThreeColumn' ? 'primary' : ''"
               @click="$router.push('/three-column')"
               size="small"
             >
-              审核后台
+              数据审核
             </el-button>
             <el-dropdown @command="handleBankDashboardCommand" trigger="hover">
               <el-button
@@ -132,6 +134,14 @@
                     {{ userRoleName }}
                   </span>
                 </el-dropdown-item>
+                <el-dropdown-item
+                  v-if="isSuperAdmin"
+                  divided
+                  command="admin-management"
+                >
+                  <el-icon><Setting /></el-icon>
+                  子管理员管理
+                </el-dropdown-item>
                 <el-dropdown-item divided command="logout">
                   退出登录
                 </el-dropdown-item>
@@ -156,7 +166,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, ArrowLeft, ArrowRight, DataBoard, FolderOpened } from '@element-plus/icons-vue'
+import { Search, ArrowDown, ArrowLeft, ArrowRight, DataBoard, FolderOpened, Setting } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -167,6 +177,30 @@ const router = useRouter()
 // 用户信息
 const username = ref('')
 const userRole = ref('')
+const permissions = ref([])
+
+// 超级管理员判断（拥有所有权限）
+const isSuperAdmin = computed(() => userRole.value === 'super_admin')
+
+// 管理员判断（admin 或 super_admin）
+const hasAdminPermission = computed(() => {
+  return userRole.value === 'admin' || userRole.value === 'super_admin'
+})
+
+// 权限检查函数
+const hasPermission = (perm) => {
+  // 超级管理员拥有所有权限
+  if (isSuperAdmin.value) return true
+  // 检查权限列表
+  return permissions.value.includes(perm)
+}
+
+// 根据权限获取角色名称
+const userRoleName = computed(() => {
+  if (userRole.value === 'super_admin') return '超级管理员'
+  if (userRole.value === 'admin') return '管理员'
+  return '普通用户'
+})
 
 // PDF搜索状态
 const searchState = reactive({
@@ -198,14 +232,6 @@ const isLoggedIn = computed(() => {
   return !!localStorage.getItem('token')
 })
 
-const hasAdminPermission = computed(() => {
-  return userRole.value === 'admin'
-})
-
-const userRoleName = computed(() => {
-  return userRole.value === 'admin' ? '管理员' : '普通用户'
-})
-
 const userInitial = computed(() => {
   return username.value ? username.value.charAt(0).toUpperCase() : 'U'
 })
@@ -214,6 +240,9 @@ const userInitial = computed(() => {
 const updateUserInfo = () => {
   username.value = localStorage.getItem('username') || ''
   userRole.value = localStorage.getItem('user_role') || ''
+  // 从 localStorage 解析权限列表
+  const perms = localStorage.getItem('permissions')
+  permissions.value = perms ? JSON.parse(perms) : []
 }
 
 onMounted(() => {
@@ -238,10 +267,10 @@ watch(() => route.path, (newPath) => {
 
 // 管理后台导航（检查权限）
 const goToTwoColumn = () => {
-  if (hasAdminPermission.value) {
+  if (hasPermission('parse')) {
     router.push('/two-column')
   } else {
-    ElMessage.warning('权限不足，只有管理员可以访问管理后台')
+    ElMessage.warning('权限不足，您没有数据解析权限')
   }
 }
 
@@ -263,6 +292,8 @@ const goToBankData = () => {
 const handleUserCommand = (command) => {
   if (command === 'logout') {
     handleLogout()
+  } else if (command === 'admin-management') {
+    router.push('/admin-management')
   }
 }
 

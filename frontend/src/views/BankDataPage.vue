@@ -14,8 +14,8 @@
       </div>
     </div>
 
-    <!-- 上传区域（全局） -->
-    <div class="global-upload-section">
+    <!-- 上传区域（仅管理员可见） -->
+    <div class="global-upload-section" v-if="canUpload">
       <el-upload
         class="upload-area"
         drag
@@ -91,6 +91,7 @@
                     下载
                   </el-button>
                   <el-button
+                    v-if="canDelete"
                     type="danger"
                     size="small"
                     @click="handleDelete(row)"
@@ -265,6 +266,26 @@ const uploadHeaders = computed(() => ({
 // ============================================================
 // 计算属性
 // ============================================================
+
+// 权限判断
+const currentUserRole = computed(() => localStorage.getItem('user_role') || '')
+const currentPermissions = computed(() => {
+  const perms = localStorage.getItem('permissions')
+  return perms ? JSON.parse(perms) : []
+})
+
+// 是否为超级管理员
+const isSuperAdmin = computed(() => currentUserRole.value === 'super_admin')
+
+// 是否可以上传（超级管理员或拥有数据权限的管理员）
+const canUpload = computed(() => {
+  if (isSuperAdmin.value) return true
+  return currentUserRole.value === 'admin' && currentPermissions.value.includes('data')
+})
+
+// 是否可以删除（与上传权限相同）
+const canDelete = computed(() => canUpload.value)
+
 const filteredBanks = computed(() => {
   if (!bankSearchKeyword.value.trim()) return banks.value
   const keyword = bankSearchKeyword.value.toLowerCase()
