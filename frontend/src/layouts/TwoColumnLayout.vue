@@ -972,32 +972,73 @@ watch(() => props.currentPdf, (newPdf, oldPdf) => {
 /* 状态统计 */
 .status-summary {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
 }
 
 .summary-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.summary-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .summary-item.completed {
-  background: #f0f9eb;
-  border: 1px solid #c2e7b0;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+}
+
+.summary-item.completed .count {
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.summary-item.completed .label {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .summary-item.processing {
-  background: #fdf6ec;
-  border: 1px solid #f5dab1;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+}
+
+.summary-item.processing .count {
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.summary-item.processing .label {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .summary-item.pending {
-  background: #f4f4f5;
-  border: 1px solid #dcdcdc;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  border: none;
+}
+
+.summary-item.pending .count {
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.summary-item.pending .label {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .summary-item .count {
@@ -1034,18 +1075,24 @@ watch(() => props.currentPdf, (newPdf, oldPdf) => {
 
 /* 分组标题 */
 .file-group {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  animation: fade-in 0.6s ease-out;
 }
 
 .group-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
-  margin-bottom: 6px;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .group-title i {
@@ -1073,39 +1120,73 @@ watch(() => props.currentPdf, (newPdf, oldPdf) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  margin-bottom: 4px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  padding: 12px 16px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
 .current-pdf-item {
-  background: #f0f9ff;
-  border: 1px solid #b3e0ff;
+  background: linear-gradient(135deg, #e6f7ff 0%, #d0ebff 100%);
+  border: 2px solid #91d5ff;
+  box-shadow: 0 4px 12px rgba(145, 213, 255, 0.2);
 }
 
 .current-pdf-item.highlighted {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
+  background: linear-gradient(135deg, #d0ebff 0%, #b3e0ff 100%);
+  animation: pulse-glow 3s infinite alternate;
+}
+
+.current-pdf-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s ease;
+}
+
+.current-pdf-item:hover::before {
+  left: 100%;
 }
 
 .pdf-file-item.completed {
-  border-left: 3px solid #67c23a;
-  background: #f0f9eb;
+  background: linear-gradient(135deg, #f0f9eb 0%, #e1f7d9 100%);
+  border: 2px solid #b3e0a8;
+  box-shadow: 0 4px 12px rgba(179, 224, 168, 0.2);
+  border-left: 4px solid #67c23a;
 }
 
 .pdf-file-item.processing {
-  border-left: 3px solid #e6a23c;
-  background: #fdf6ec;
+  background: linear-gradient(135deg, #fdf6ec 0%, #f9e8c9 100%);
+  border: 2px solid #f5dab1;
+  box-shadow: 0 4px 12px rgba(245, 218, 177, 0.2);
+  border-left: 4px solid #e6a23c;
 }
 
 .pdf-file-item.pending {
-  border-left: 3px solid #909399;
-  background: #f4f4f5;
+  background: linear-gradient(135deg, #f4f4f5 0%, #e8e8e9 100%);
+  border: 2px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(220, 220, 220, 0.2);
+  border-left: 4px solid #909399;
 }
 
 .pdf-file-item:hover {
-  background: #f5f7fa !important;
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  border-color: #3b82f6 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.current-pdf-item:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.2);
+  border-color: #2563eb;
 }
 
 .file-info {

@@ -1,7 +1,7 @@
 <template>
   <div id="app">
-    <!-- 顶部导航栏 -->
-    <div class="top-nav">
+    <!-- 顶部导航栏（登录页隐藏） -->
+    <div class="top-nav" v-show="route.path !== '/login'">
       <!-- 左侧区域：布局切换 + PDF 搜索 -->
       <div class="left-section">
         <!-- 布局切换按钮 -->
@@ -66,7 +66,7 @@
         </div>
       </div>
 
-      <!-- 右侧区域：Excel 搜索 + 用户信息 -->
+      <!-- 右侧区域：Excel 搜索 + 主题切换 + 用户信息 -->
       <div class="right-section">
         <!-- Excel 内容搜索框（右侧） -->
         <div class="excel-search-group">
@@ -116,6 +116,9 @@
             <el-icon><ArrowRight /></el-icon>
           </el-button>
         </div>
+
+        <!-- 主题切换 -->
+        <ThemeToggle v-if="isLoggedIn" />
 
         <!-- 用户信息 -->
         <div class="user-info" v-if="isLoggedIn">
@@ -170,6 +173,7 @@ import { Search, ArrowDown, ArrowLeft, ArrowRight, DataBoard, FolderOpened, Sett
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ThemeToggle from '@/components/common/ThemeToggle.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -229,7 +233,7 @@ if (typeof window !== 'undefined') {
 
 // 计算属性
 const isLoggedIn = computed(() => {
-  return !!localStorage.getItem('token')
+  return !!username.value && !!localStorage.getItem('token')
 })
 
 const userInitial = computed(() => {
@@ -881,11 +885,18 @@ window.addEventListener('storage', (e) => {
   text-align: center;
 }
 
-/* 为路由视图留出顶部空间 */
+/* 为路由视图留出顶部空间（登录页全屏） */
 .router-view-container {
   height: calc(100vh - 60px);
   margin-top: 60px;
   overflow: auto;
+}
+
+/* 登录页全屏覆盖 */
+.router-view-container:has(.login-page) {
+  height: 100vh;
+  margin-top: 0;
+  overflow: hidden;
 }
 
 /* 空单元格高亮样式 */

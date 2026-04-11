@@ -59,7 +59,7 @@
               size="small"
               class="excel-table"
             >
-              <el-table-column prop="category" label="分类" width="100" align="center">
+              <el-table-column prop="category" label="分类" width="200" align="center">
                 <template #default="{ row }">
                   <el-tag
                     :type="getCategoryTagType(row.category)"
