@@ -42,11 +42,11 @@
         <span class="filter-label">文档分类：</span>
         <el-radio-group v-model="selectedCategory" size="default" @change="loadExcelList">
           <el-radio-button value="">全部</el-radio-button>
-          <el-radio-button value="industry">行业板块</el-radio-button>
-          <el-radio-button value="single_bank">单家银行</el-radio-button>
-          <el-radio-button value="report">行业报告</el-radio-button>
+          <el-radio-button value="industry">银行行业数据库</el-radio-button>
+          <el-radio-button value="single_bank">单家银行数据库</el-radio-button>
+          <el-radio-button value="report">研究报告</el-radio-button>
           <el-radio-button value="guide">说明指南</el-radio-button>
-          <el-radio-button value="other">其他类别</el-radio-button>
+          <el-radio-button value="other">其他资料</el-radio-button>
         </el-radio-group>
       </div>
 
@@ -151,15 +151,15 @@
                 <p class="category-tip">请为文件 "<strong>{{ pendingUploadFile?.name }}</strong>" 选择分类标签（可多选）：</p>
                 <el-checkbox-group v-model="selectedDocCategories" class="category-checkbox-group">
                   <el-checkbox value="industry">
-                    <span class="category-label">行业板块</span>
+                    <span class="category-label">银行行业数据库</span>
                     <span class="category-desc">银行行业分类数据</span>
                   </el-checkbox>
                   <el-checkbox value="single_bank">
-                    <span class="category-label">单家银行</span>
+                    <span class="category-label">单家银行数据库</span>
                     <span class="category-desc">单一银行的数据报表</span>
                   </el-checkbox>
                   <el-checkbox value="report">
-                    <span class="category-label">行业报告</span>
+                    <span class="category-label">研究报告</span>
                     <span class="category-desc">行业研究报告、分析报告</span>
                   </el-checkbox>
                   <el-checkbox value="guide">
@@ -167,7 +167,7 @@
                     <span class="category-desc">系统使用说明、操作指南</span>
                   </el-checkbox>
                   <el-checkbox value="other">
-                    <span class="category-label">其他类别</span>
+                    <span class="category-label">其他资料</span>
                     <span class="category-desc">不属于上述分类的其他文档</span>
                   </el-checkbox>
                 </el-checkbox-group>
@@ -207,7 +207,7 @@
             <!-- 空状态 -->
             <el-empty
               v-if="!excelLoading && excelFiles.length === 0"
-              description="暂无行业报告"
+              description="暂无文档数据"
               :image-size="80"
             />
     </div>
@@ -363,11 +363,11 @@ const getReviewStatusLabel = (status) => {
 // 分类辅助方法
 const getCategoryLabel = (category) => {
   const labelMap = {
-    'industry': '行业板块',
-    'single_bank': '单家银行',
-    'report': '行业报告',
+    'industry': '银行行业数据库',
+    'single_bank': '单家银行数据库',
+    'report': '研究报告',
     'guide': '说明指南',
-    'other': '其他类别'
+    'other': '其他资料'
   }
   // 支持多分类（逗号分隔），转换为中文显示
   if (category && category.includes(',')) {
@@ -732,7 +732,7 @@ onMounted(() => {
   min-height: 400px;
 }
 
-/* 行业板块样式 */
+/* 分类卡片样式 */
 .industry-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

@@ -11,6 +11,75 @@
         <div class="bg-glow bg-glow--bottom"></div>
         <div class="bg-line bg-line--1"></div>
         <div class="bg-line bg-line--2"></div>
+
+        <!-- 数据可视化装饰 SVG -->
+        <svg class="data-viz data-viz--chart1" viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 折线图 -->
+          <polyline points="0,140 40,120 80,130 120,80 160,90 200,50 240,60 280,30 320,20" stroke="rgba(64,169,255,0.22)" stroke-width="2" fill="none"/>
+          <polyline points="0,160 50,140 100,150 150,110 200,120 250,80 300,70 320,60" stroke="rgba(212,169,64,0.14)" stroke-width="1.5" fill="none"/>
+          <!-- 数据点 -->
+          <circle cx="120" cy="80" r="3" fill="rgba(64,169,255,0.35)"/>
+          <circle cx="200" cy="50" r="3.5" fill="rgba(64,169,255,0.4)"/>
+          <circle cx="280" cy="30" r="3.5" fill="rgba(64,169,255,0.45)"/>
+          <!-- 填充区域 -->
+          <path d="M0,140 L40,120 L80,130 L120,80 L160,90 L200,50 L240,60 L280,30 L320,20 L320,180 L0,180 Z" fill="url(#chartGrad1)" opacity="0.2"/>
+          <defs>
+            <linearGradient id="chartGrad1" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(64,169,255,0.7)"/>
+              <stop offset="100%" stop-color="rgba(64,169,255,0)"/>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <svg class="data-viz data-viz--bars" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 柱状图 -->
+          <rect x="10" y="90" width="18" height="70" rx="3" fill="rgba(64,169,255,0.14)"/>
+          <rect x="38" y="60" width="18" height="100" rx="3" fill="rgba(64,169,255,0.18)"/>
+          <rect x="66" y="40" width="18" height="120" rx="3" fill="rgba(64,169,255,0.22)"/>
+          <rect x="94" y="70" width="18" height="90" rx="3" fill="rgba(64,169,255,0.16)"/>
+          <rect x="122" y="30" width="18" height="130" rx="3" fill="rgba(64,169,255,0.25)"/>
+          <rect x="150" y="50" width="18" height="110" rx="3" fill="rgba(64,169,255,0.2)"/>
+          <!-- 柱顶高亮 -->
+          <rect x="122" y="30" width="18" height="4" rx="2" fill="rgba(212,169,64,0.45)"/>
+          <rect x="66" y="40" width="18" height="4" rx="2" fill="rgba(212,169,64,0.35)"/>
+        </svg>
+
+        <svg class="data-viz data-viz--particles" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 浮动数据点 -->
+          <circle cx="50" cy="40" r="2.5" fill="rgba(64,169,255,0.4)"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="3s" repeatCount="indefinite"/></circle>
+          <circle cx="120" cy="80" r="2" fill="rgba(212,169,64,0.5)"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/></circle>
+          <circle cx="200" cy="50" r="3" fill="rgba(64,169,255,0.35)"><animate attributeName="opacity" values="0.35;0.85;0.35" dur="4s" repeatCount="indefinite"/></circle>
+          <circle cx="80" cy="130" r="2" fill="rgba(64,169,255,0.45)"><animate attributeName="opacity" values="0.45;0.9;0.45" dur="3.5s" repeatCount="indefinite"/></circle>
+          <circle cx="250" cy="100" r="2.5" fill="rgba(212,169,64,0.4)"><animate attributeName="opacity" values="0.4;0.85;0.4" dur="2.8s" repeatCount="indefinite"/></circle>
+          <circle cx="170" cy="150" r="2" fill="rgba(64,169,255,0.4)"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="3.2s" repeatCount="indefinite"/></circle>
+          <circle cx="30" cy="170" r="2.5" fill="rgba(212,169,64,0.35)"><animate attributeName="opacity" values="0.35;0.8;0.35" dur="2.2s" repeatCount="indefinite"/></circle>
+          <circle cx="280" cy="170" r="2" fill="rgba(64,169,255,0.38)"><animate attributeName="opacity" values="0.38;0.82;0.38" dur="3.8s" repeatCount="indefinite"/></circle>
+          <!-- 连线 -->
+          <line x1="50" y1="40" x2="120" y2="80" stroke="rgba(64,169,255,0.1)" stroke-width="1"/>
+          <line x1="120" y1="80" x2="200" y2="50" stroke="rgba(64,169,255,0.1)" stroke-width="1"/>
+          <line x1="200" y1="50" x2="250" y2="100" stroke="rgba(64,169,255,0.08)" stroke-width="1"/>
+        </svg>
+
+        <svg class="data-viz data-viz--donut" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 环形图 -->
+          <circle cx="60" cy="60" r="45" stroke="rgba(64,169,255,0.12)" stroke-width="12" fill="none"/>
+          <circle cx="60" cy="60" r="45" stroke="rgba(64,169,255,0.22)" stroke-width="12" fill="none" stroke-dasharray="180 283" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="45" stroke="rgba(212,169,64,0.18)" stroke-width="12" fill="none" stroke-dasharray="60 283" stroke-dashoffset="-180" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          <!-- 中心点 -->
+          <circle cx="60" cy="60" r="4" fill="rgba(64,169,255,0.25)"/>
+        </svg>
+
+        <!-- 浮动数字装饰 -->
+        <div class="data-float data-float--1">98.6</div>
+        <div class="data-float data-float--2">▲ 12.4%</div>
+        <div class="data-float data-float--3">2,847</div>
+        <div class="data-float data-float--4">¥3.2T</div>
+      </div>
+
+      <!-- 二维码区域 -->
+      <div class="qrcode-corner">
+        <img src="/qrcode.jpg" alt="研究公众号二维码" class="qrcode-img" />
+        <span class="qrcode-label">研究公众号 二维码</span>
       </div>
 
       <div class="brand-content">
@@ -26,7 +95,7 @@
           </div>
           <div class="header-text">
             <h1 class="system-title">BankData</h1>
-            <p class="system-desc">上市银行数据库管理系统</p>
+            <p class="system-desc">银行与货币金融数据系统</p>
           </div>
         </div>
 
@@ -141,26 +210,28 @@
                 :model="regForm"
                 :rules="regRules"
                 class="auth-form"
+                label-position="top"
               >
-                <el-form-item prop="username">
-                  <el-input
-                    v-model="regForm.username"
-                    placeholder="用户名（3-20个字符）"
-                    prefix-icon="User"
-                    size="large"
-                  />
-                </el-form-item>
-
-                <el-form-item prop="password">
-                  <el-input
-                    v-model="regForm.password"
-                    type="password"
-                    placeholder="密码（6-20个字符）"
-                    prefix-icon="Lock"
-                    size="large"
-                    show-password
-                  />
-                </el-form-item>
+                <div class="reg-row">
+                  <el-form-item prop="username" class="reg-half">
+                    <el-input
+                      v-model="regForm.username"
+                      placeholder="用户名（3-20个字符）"
+                      prefix-icon="User"
+                      size="large"
+                    />
+                  </el-form-item>
+                  <el-form-item prop="password" class="reg-half">
+                    <el-input
+                      v-model="regForm.password"
+                      type="password"
+                      placeholder="密码（6-20个字符）"
+                      prefix-icon="Lock"
+                      size="large"
+                      show-password
+                    />
+                  </el-form-item>
+                </div>
 
                 <el-form-item prop="confirmPassword">
                   <el-input
@@ -170,13 +241,65 @@
                     prefix-icon="Lock"
                     size="large"
                     show-password
-                    @keyup.enter="handleRegister"
                   />
+                </el-form-item>
+
+                <div class="reg-row">
+                  <el-form-item prop="realName" class="reg-half">
+                    <el-input
+                      v-model="regForm.realName"
+                      placeholder="姓名"
+                      prefix-icon="Postcard"
+                      size="large"
+                    />
+                  </el-form-item>
+                  <el-form-item prop="phone" class="reg-half">
+                    <el-input
+                      v-model="regForm.phone"
+                      placeholder="手机号"
+                      prefix-icon="Phone"
+                      size="large"
+                    />
+                  </el-form-item>
+                </div>
+
+                <el-form-item prop="email">
+                  <el-input
+                    v-model="regForm.email"
+                    placeholder="公司邮箱"
+                    prefix-icon="Message"
+                    size="large"
+                  />
+                </el-form-item>
+
+                <!-- 名片上传（可选） -->
+                <el-form-item class="business-card-upload">
+                  <div class="upload-area" @click="triggerCardUpload">
+                    <input
+                      ref="cardInput"
+                      type="file"
+                      accept="image/*"
+                      style="display:none"
+                      @change="handleCardChange"
+                    />
+                    <template v-if="!regForm.cardPreview">
+                      <el-icon size="28" color="#bfbfbf"><Plus /></el-icon>
+                      <span class="upload-text">上传名片（可选，图片格式）</span>
+                    </template>
+                    <template v-else>
+                      <img :src="regForm.cardPreview" class="card-preview-img" />
+                      <div class="card-preview-mask" @click.stop="removeCard">
+                        <el-icon size="18" color="#fff"><Delete /></el-icon>
+                      </div>
+                    </template>
+                  </div>
                 </el-form-item>
 
                 <el-form-item prop="remark">
                   <el-input
                     v-model="regForm.remark"
+                    type="textarea"
+                    :rows="2"
                     placeholder="申请说明（选填）"
                     prefix-icon="ChatDotRound"
                     size="large"
@@ -204,9 +327,10 @@
           </el-tabs>
         </div>
 
-        <!-- 底部版权 -->
+        <!-- 底部微信+版权 -->
         <div class="form-footer">
-          &copy; {{ new Date().getFullYear() }} BankData &middot; 银行与货币金融研究
+          <div class="wechat-line">联系微信：yinhangxianshuang</div>
+          <div>&copy; {{ new Date().getFullYear() }} BankData &middot; 银行与货币金融研究</div>
         </div>
       </div>
     </div>
@@ -218,13 +342,14 @@
 import { ref, reactive, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
+import { InfoFilled, Plus, Delete } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const loading = ref(false)
 const regLoading = ref(false)
 const loginForm = ref()
 const registerForm = ref()
+const cardInput = ref()
 const reloadUserInfo = inject('reloadUserInfo', () => {})
 const activeTab = ref('login')
 
@@ -351,6 +476,11 @@ const regForm = reactive({
   username: '',
   password: '',
   confirmPassword: '',
+  realName: '',
+  phone: '',
+  email: '',
+  cardFile: null,
+  cardPreview: '',
   remark: '',
 })
 
@@ -375,6 +505,17 @@ const regRules = {
   ],
   confirmPassword: [
     { required: true, validator: validateConfirmPwd, trigger: 'blur' },
+  ],
+  realName: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' },
+  ],
+  email: [
+    { required: true, message: '请输入公司邮箱', trigger: 'blur' },
+    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
   ],
 }
 
@@ -410,11 +551,18 @@ const handleRegister = async () => {
         return
       }
 
+      // 将名片图片转为 base64 存储
+      const cardBase64 = regForm.cardPreview || ''
+
       // 写入待审核队列
       const requests = getPendingRequests()
       requests.push({
         username: regForm.username,
         password: regForm.password,
+        realName: regForm.realName,
+        phone: regForm.phone,
+        email: regForm.email,
+        card: cardBase64,
         remark: regForm.remark || '',
         applyAt: new Date().toLocaleString('zh-CN'),
         status: 'pending',
@@ -427,6 +575,11 @@ const handleRegister = async () => {
       regForm.username = ''
       regForm.password = ''
       regForm.confirmPassword = ''
+      regForm.realName = ''
+      regForm.phone = ''
+      regForm.email = ''
+      regForm.cardFile = null
+      regForm.cardPreview = ''
       regForm.remark = ''
       registerForm.value?.clearValidate()
       activeTab.value = 'login'
@@ -436,6 +589,39 @@ const handleRegister = async () => {
   } catch (error) {
     console.error('注册失败:', error)
   }
+}
+
+// ===================== 名片上传 =====================
+const triggerCardUpload = () => {
+  cardInput.value?.click()
+}
+
+const handleCardChange = (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('名片仅支持图片格式')
+    return
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning('名片图片不能超过5MB')
+    return
+  }
+
+  regForm.cardFile = file
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    regForm.cardPreview = ev.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+const removeCard = () => {
+  regForm.cardFile = null
+  regForm.cardPreview = ''
+  if (cardInput.value) cardInput.value.value = ''
 }
 </script>
 
@@ -556,13 +742,93 @@ const handleRegister = async () => {
   border-color: rgba(212, 169, 64, 0.04);
 }
 
+/* ---- 数据可视化 SVG 装饰 ---- */
+.data-viz {
+  position: absolute;
+  pointer-events: none;
+}
+
+.data-viz--chart1 {
+  left: 2%;
+  top: 15%;
+  width: 36%;
+  opacity: 1;
+}
+
+.data-viz--bars {
+  left: 4%;
+  bottom: 20%;
+  width: 24%;
+  opacity: 0.95;
+}
+
+.data-viz--particles {
+  left: 6%;
+  top: 48%;
+  width: 32%;
+  opacity: 0.9;
+}
+
+.data-viz--donut {
+  left: 22%;
+  bottom: 10%;
+  width: 13%;
+  opacity: 0.85;
+}
+
+/* ---- 浮动数字装饰 ---- */
+.data-float {
+  position: absolute;
+  font-family: 'Courier New', 'SF Mono', monospace;
+  font-weight: 600;
+  pointer-events: none;
+  letter-spacing: 1px;
+}
+
+.data-float--1 {
+  left: 5%;
+  top: 8%;
+  font-size: 24px;
+  color: rgba(64, 169, 255, 0.22);
+  animation: dataFloat 6s ease-in-out infinite;
+}
+
+.data-float--2 {
+  left: 10%;
+  top: 36%;
+  font-size: 15px;
+  color: rgba(46, 139, 87, 0.35);
+  animation: dataFloat 5s ease-in-out infinite 1s;
+}
+
+.data-float--3 {
+  left: 6%;
+  bottom: 32%;
+  font-size: 20px;
+  color: rgba(212, 169, 64, 0.22);
+  animation: dataFloat 7s ease-in-out infinite 2s;
+}
+
+.data-float--4 {
+  left: 16%;
+  top: 24%;
+  font-size: 16px;
+  color: rgba(64, 169, 255, 0.18);
+  animation: dataFloat 5.5s ease-in-out infinite 0.5s;
+}
+
+@keyframes dataFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
 /* ---- 品牌内容容器 ---- */
 .brand-content {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 600px;
-  padding: 48px 52px;
+  max-width: 580px;
+  padding: 44px 48px 44px 36px;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -575,7 +841,7 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
 .logo-box {
@@ -621,7 +887,7 @@ const handleRegister = async () => {
   font-size: 12px;
   color: var(--gold-2);
   letter-spacing: 2px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   text-transform: uppercase;
 }
 
@@ -647,17 +913,18 @@ const handleRegister = async () => {
 }
 
 .team-name {
-  font-size: 15px;
-  color: var(--text-3);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-2);
   margin: 0;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 /* ---- 分割线 ---- */
 .divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(184, 134, 11, 0.2), rgba(64, 169, 255, 0.1), transparent);
-  margin: 28px 0;
+  margin: 22px 0;
 }
 
 /* ---- 数据库模块 ---- */
@@ -674,20 +941,20 @@ const handleRegister = async () => {
   color: var(--text-4);
   letter-spacing: 2px;
   text-transform: uppercase;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .modules-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px 20px;
+  gap: 1px 20px;
 }
 
 .module-item {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border-radius: 6px;
   transition: background 0.2s ease;
 }
@@ -706,10 +973,13 @@ const handleRegister = async () => {
 }
 
 .module-text {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--text-2);
-  line-height: 1.8;
+  line-height: 1.7;
   letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .module-item:hover .module-text {
@@ -721,8 +991,9 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
-  padding-top: 24px;
+  gap: 28px;
+  padding-top: 16px;
+  margin-top: auto;
 }
 
 .stats-group {
@@ -900,6 +1171,116 @@ const handleRegister = async () => {
   font-size: 12px;
   color: #bfbfbf;
   letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.wechat-line {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #595959;
+  letter-spacing: 0.5px;
+}
+
+/* ---- 二维码区域 ---- */
+.qrcode-corner {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+}
+
+.qrcode-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.qrcode-img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.qrcode-label {
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* ---- 注册表单双列布局 ---- */
+.reg-row {
+  display: flex;
+  gap: 12px;
+}
+
+.reg-half {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- 名片上传区域 ---- */
+.business-card-upload {
+  margin-bottom: 18px;
+}
+
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100px;
+  border: 1.5px dashed var(--input-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-area:hover {
+  border-color: var(--deep-3);
+  background: rgba(18, 38, 64, 0.02);
+}
+
+.upload-text {
+  font-size: 12px;
+  color: #bfbfbf;
+}
+
+.card-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.card-preview-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.upload-area:hover .card-preview-mask {
+  opacity: 1;
 }
 
 /* ========================================================
@@ -938,6 +1319,10 @@ const handleRegister = async () => {
     display: none;
   }
 
+  .qrcode-corner {
+    display: none;
+  }
+
   .form-panel {
     width: 100%;
     flex: 1;
@@ -969,6 +1354,11 @@ const handleRegister = async () => {
 
   .system-title {
     font-size: 22px;
+  }
+
+  .reg-row {
+    flex-direction: column;
+    gap: 0;
   }
 }
 </style>
