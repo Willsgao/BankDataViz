@@ -30,7 +30,7 @@ bank_doc_bp = Blueprint('bank_doc', __name__, url_prefix='/api/bank-doc')
 # 数据库路径
 DATABASE_PATH = config.DATABASE_PATH
 
-# 银行数据文档存储目录 - 独立目录
+# 银行数据文档存储根目录
 BANK_DOC_UPLOAD_DIR = os.path.join(
     config.MAIN_ROOT, 'data', 'backend', 'static', 'uploads', 'bank_documents'
 )
@@ -38,6 +38,14 @@ os.makedirs(BANK_DOC_UPLOAD_DIR, exist_ok=True)
 
 # 允许的文件扩展名
 ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'docx', 'doc', 'pdf', 'pptx', 'ppt', 'txt', 'csv'}
+
+
+def get_file_save_path():
+    """根据当前年份生成存储目录路径：bank_documents/{year}/"""
+    year = str(datetime.now().year)
+    target_dir = os.path.join(BANK_DOC_UPLOAD_DIR, year)
+    os.makedirs(target_dir, exist_ok=True)
+    return target_dir
 
 
 def get_db_connection():
@@ -84,6 +92,10 @@ def init_bank_doc_table():
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_bank_documents_deleted 
             ON bank_documents(deleted)
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_bank_documents_created_at 
+            ON bank_documents(created_at)
         ''')
 
         conn.commit()
@@ -241,6 +253,18 @@ def get_documents(filters=None, page=1, page_size=20):
         conn.close()
 
 
+def _cleanup_empty_dirs(dir_path):
+    """清理空的年份目录（不超过 BANK_DOC_UPLOAD_DIR）"""
+    try:
+        # 只清理年份级别的一层目录
+        if (dir_path != BANK_DOC_UPLOAD_DIR 
+            and os.path.isdir(dir_path) 
+            and not os.listdir(dir_path)):
+            os.rmdir(dir_path)
+    except Exception as e:
+        print(f"[bank_doc_api] 清理空目录失败: {e}")
+
+
 def _do_delete_document(doc_id):
     """删除文档（软删除）- 内部函数"""
     conn = get_db_connection()
@@ -262,6 +286,8 @@ def _do_delete_document(doc_id):
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
+                # 尝试清理空的年份/分类子目录
+                _cleanup_empty_dirs(os.path.dirname(file_path))
             except Exception as e:
                 print(f"[bank_doc_api] 删除物理文件失败: {e}")
 
@@ -383,7 +409,7 @@ def upload_document():
                 }
             }), 409
 
-    # 4. 保存文件
+    # 4. 保存文件（按年份目录）
     try:
         file_size = len(file.read())
         file.seek(0)
@@ -391,7 +417,8 @@ def upload_document():
         # 生成唯一文件名
         ext = get_file_extension(original_filename)
         disk_name = f"{uuid.uuid4().hex}.{ext}"
-        file_path = os.path.join(BANK_DOC_UPLOAD_DIR, disk_name)
+        save_dir = get_file_save_path()
+        file_path = os.path.join(save_dir, disk_name)
 
         # 保存文件
         file.save(file_path)
@@ -471,7 +498,8 @@ def confirm_upload():
 
         ext = get_file_extension(original_filename)
         disk_name = f"{uuid.uuid4().hex}.{ext}"
-        file_path = os.path.join(BANK_DOC_UPLOAD_DIR, disk_name)
+        save_dir = get_file_save_path()
+        file_path = os.path.join(save_dir, disk_name)
 
         file.save(file_path)
 
