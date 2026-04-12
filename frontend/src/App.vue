@@ -23,7 +23,7 @@
             >
               数据审核
             </el-button>
-            <el-dropdown @command="handleBankDashboardCommand" trigger="hover">
+            <el-dropdown v-if="hasPermission('data')" @command="handleBankDashboardCommand" trigger="hover">
               <el-button
                 :type="['BankDashboard', 'BankData'].includes($route.name) ? 'primary' : ''"
                 size="small"
