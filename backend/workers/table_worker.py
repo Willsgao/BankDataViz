@@ -25,15 +25,13 @@ sys.path.insert(0, str(project_root))
 
 from backend.utils.redis_util import redis_hset_compatible
 
-try:
-    # 使用工厂模式创建Flask应用
-    from backend.app_factory import create_app
-
-    app = create_app()
-    print("✅ 使用工厂模式创建Flask应用")
-except ImportError as e:
-    print(f"❌ 无法导入app_factory: {e}")
-    sys.exit(1)
+# 注意：此 Worker 不需要 Flask app 实例。
+# 原来尝试导入 backend.app_factory.create_app() 的代码已移除。
+# 如果后续需要在 Worker 中使用 Flask app_context，请在此处添加：
+#     from backend.app import app
+#     with app.app_context():
+#         ...
+print("✅ 表格处理 Worker 已就绪（无需 Flask app）")
 
 # 导入原有的处理函数
 try:

@@ -547,6 +547,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import { getBackendUrl } from '@/utils/config'
 
 // 定义组件属性
 const props = defineProps({
@@ -840,7 +841,7 @@ const getImageUrl = (image, size = 'thumb') => {
     if (image.path.startsWith('/')) return image.path
 
     // 对于相对路径，构建完整URL
-    const baseUrl = window.location.origin
+    const baseUrl = getBackendUrl('')
     const pdfFolder = props.pdfDiskName.replace('.pdf', '')
 
     // 检查是否是筛选后的图片
@@ -853,7 +854,7 @@ const getImageUrl = (image, size = 'thumb') => {
   }
 
   // 默认返回占位符或基于名称构建URL
-  const baseUrl = window.location.origin
+  const baseUrl = getBackendUrl('')
   const pdfFolder = props.pdfDiskName.replace('.pdf', '')
 
   // 尝试几种可能的URL模式
@@ -1015,7 +1016,7 @@ const handleImageError = (image, event) => {
   const imgElement = event.target
   const currentSrc = imgElement.src
 
-  const baseUrl = window.location.origin
+  const baseUrl = getBackendUrl('')
   const pdfFolder = props.pdfDiskName.replace('.pdf', '')
 
   // 备选URL列表

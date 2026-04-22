@@ -91,6 +91,14 @@ def check_and_fix_table_structure():
                 print("🔄 添加 created_at 列到文件表")
                 c.execute('ALTER TABLE files ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP')
 
+            if 'deleted' not in columns:
+                print("🔄 添加 deleted 列到文件表")
+                c.execute('ALTER TABLE files ADD COLUMN deleted INTEGER DEFAULT 0')
+
+            if 'raw_filename' not in columns:
+                print("🔄 添加 raw_filename 列到文件表")
+                c.execute('ALTER TABLE files ADD COLUMN raw_filename TEXT')
+
         conn.commit()
         conn.close()
         print("✅ 数据库表结构检查完成")
@@ -146,12 +154,20 @@ def get_all_files():
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
 
+        # 确保 deleted 列存在（旧表可能缺失）
+        c.execute("PRAGMA table_info(files)")
+        columns = [col[1] for col in c.fetchall()]
+        if 'deleted' not in columns:
+            print("🔧 添加缺失的 deleted 列")
+            c.execute("ALTER TABLE files ADD COLUMN deleted INTEGER DEFAULT 0")
+            conn.commit()
+
         # 只查询最基本肯定存在的字段
         c.execute("""
-            SELECT id, filename, raw_filename, file_type, created_at
+            SELECT id, filename, raw_filename, file_type, upload_time
             FROM files 
-            WHERE deleted = 0 
-            ORDER BY created_at DESC
+            WHERE COALESCE(deleted, 0) = 0
+            ORDER BY upload_time DESC
         """)
 
         rows = c.fetchall()
@@ -163,7 +179,7 @@ def get_all_files():
                 "filename": row["raw_filename"] or row["filename"],  # 显示名
                 "disk_name": row["filename"],  # 磁盘文件名
                 "file_type": row["file_type"],
-                "created_at": row["created_at"]
+                "upload_time": row["upload_time"]
             }
             files.append(file_info)
 

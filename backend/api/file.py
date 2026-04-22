@@ -75,11 +75,15 @@ def get_file(filename):
 
     try:
         c = conn.cursor()
+
+        # 去掉 .pdf 等扩展名（上传时 filename=UUID 不含扩展名）
+        base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
+
         # 查询文件信息（包括ID和磁盘文件名）
         c.execute(
             "SELECT id, filename, raw_filename FROM files "
-            "WHERE (raw_filename = ? OR filename = ?) AND deleted = 0",
-            (filename, filename)
+            "WHERE (raw_filename = ? OR filename = ? OR filename = ?) AND deleted = 0",
+            (filename, filename, base_name)
         )
         row = c.fetchone()
 
@@ -88,7 +92,7 @@ def get_file(filename):
             return jsonify({"error": "文件不存在或已隐藏"}), 404
 
         file_id = row["id"]
-        real_name = row["filename"]  # 磁盘 UUID 文件名
+        real_name = row["filename"]  # 磁盘 UUID 文件名（无扩展名）
         raw_name = row["raw_filename"]  # 原始中文名
 
         print(f"✅ 找到文件: ID={file_id}, 磁盘名={real_name}, 原始名={raw_name}")
@@ -128,10 +132,11 @@ def get_file_info(filename):
 
     try:
         c = conn.cursor()
+        base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
         c.execute(
-            "SELECT id, filename, raw_filename, file_type, created_at FROM files "
-            "WHERE (raw_filename = ? OR filename = ?) AND deleted = 0",
-            (filename, filename)
+            "SELECT id, filename, raw_filename, file_type, upload_time FROM files "
+            "WHERE (raw_filename = ? OR filename = ? OR filename = ?) AND deleted = 0",
+            (filename, filename, base_name)
         )
         row = c.fetchone()
 

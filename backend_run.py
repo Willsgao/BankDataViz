@@ -1,26 +1,22 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+"""
+DocuVista 服务启动入口
+
+职责：仅负责启动服务，所有应用构建逻辑（蓝图注册、CORS、数据库初始化）
+均在 backend/app.py 中完成。
+
+用法：
+  开发环境：python backend_run.py
+  生产环境：nohup python3 backend_run.py > logs/app.log 2>&1 &
+"""
+
 from backend.app import app
-from flask_cors import CORS
+from backend.app import init_existing_files
 
-# 完整的 CORS 配置
-CORS(
-    app,
-    resources={
-        r"/api/*": {  # 对 /api/ 开头的所有路由应用 CORS
-            "origins": [
-                "http://localhost:8080",
-                "http://127.0.0.1:8080",
-                "http://172.17.0.1:8080",
-                "http://122.51.196.65:8080",
-                "http://122.51.196.65:5000",
-            ],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-            "allow_headers": ["Content-Type", "Authorization", "Accept"],
-            "expose_headers": ["Content-Type", "Content-Disposition"],
-            "supports_credentials": True,
-            "max_age": 86400
-        }
-    }
-)
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    init_existing_files()
+    print("🌐 启动服务...")
+    print("📡 访问地址: http://0.0.0.0:5000")
+    print("=" * 60)
+    app.run(debug=True, host="0.0.0.0", port=5000)

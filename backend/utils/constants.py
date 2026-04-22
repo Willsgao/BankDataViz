@@ -3,6 +3,23 @@
 import os
 from pathlib import Path
 
+# ============================================================
+# dotenv 加载：优先从环境变量读取凭证，.env 文件不参与 Git
+# ============================================================
+# 向后兼容：如果 .env 文件存在则加载，保持原有硬编码值作为 fallback
+try:
+    from dotenv import load_dotenv
+    # 尝试加载项目根目录的 .env 文件
+    _env_path = Path(__file__).parent.parent.parent / '.env'
+    if _env_path.exists():
+        load_dotenv(_env_path)
+        print(f"[Constants] 已加载 .env 文件: {_env_path}")
+    else:
+        print("[Constants] 未找到 .env 文件，将使用代码中的默认值（仅用于本地开发）")
+except ImportError:
+    # 未安装 python-dotenv 时跳过，但所有凭证读取逻辑仍走 os.environ
+    pass
+
 # 方法2：使用 pathlib
 current_file = Path(__file__).resolve()  # 获取当前文件的绝对路径
 MAIN_ROOT = current_file.parent.parent.parent  # 向上回退3层
@@ -39,10 +56,11 @@ PROJECT_ROOT_STR = str(PROJECT_ROOT)
 
 
 # 百度表格识别
-# 百度OCR配置
+# 百度OCR配置（从环境变量读取，.env 中配置 BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY）
+# 重要：fallback 为空字符串，若未配置 .env 则调用会失败（安全优先）
 BAIDU_OCR_CONFIG = {
-    "API_KEY": "Id7EZH2q6IOSlivHbwHHbWwz",
-    "SECRET_KEY": "leeZiDapOBp6nGZssuuzABgSZubNgSLu"
+    "API_KEY": os.environ.get("BAIDU_OCR_API_KEY", ""),
+    "SECRET_KEY": os.environ.get("BAIDU_OCR_SECRET_KEY", ""),
 }
 # 其他应用配置
 BAIDU_APP_CONFIG = {
@@ -134,7 +152,9 @@ TABLE_TYPES = {
 }
 
 
-ARK_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+# 火山引擎 ARK API Key（从环境变量读取，.env 中配置 LLM_API_KEY）
+# 重要：fallback 为空字符串，若未配置 .env 则调用会失败（安全优先）
+ARK_API_KEY = os.environ.get("LLM_API_KEY", "")
 
 
 # ============================================================

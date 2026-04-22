@@ -114,7 +114,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, computed, watch, reactive } from 'vue'  // 添加了 watch 导入
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import { http } from '@/api/index'
 // 在现有的import部分添加
 import { screeningApi } from '@/api/screening'
 // 在已有的import语句后面添加
@@ -315,12 +315,12 @@ const handleScreenImages = async (pdfDiskName) => {
     }
 
     // 2. 调用后端API进行图片筛选
-    const response = await axios.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
+    const response = await http.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
       png_names: pngList,
       filter_only: false
     })
 
-    if (response.data.success) {
+    if (response.success) {
       // 调用完成回调
       handleScreenImagesCompleted({
         pdfDiskName: pdfDiskName,
@@ -328,15 +328,15 @@ const handleScreenImages = async (pdfDiskName) => {
         screeningResult: {
           success: true,
           pdfDiskName: pdfDiskName,
-          total_count: response.data.total_images || pngList.length,
-          has_table_count: response.data.has_table_count || 0,
-          no_table_count: response.data.no_table_count || 0
+          total_count: response.total_images || pngList.length,
+          has_table_count: response.has_table_count || 0,
+          no_table_count: response.no_table_count || 0
         }
       })
 
       ElMessage.success('图片筛选完成')
     } else {
-      ElMessage.error('图片筛选失败: ' + response.data.error)
+      ElMessage.error('图片筛选失败: ' + response.error)
     }
 
   } catch (error) {
@@ -697,7 +697,7 @@ const getImageUrl = (imageData, pdfFolder) => {
     // 优先使用后端返回的URL
     if (imageData.url && typeof imageData.url === 'string') {
 
-      const baseUrl = window.location.origin
+      const baseUrl = getBackendUrl('')
       let finalUrl = imageData.url
 
       // 确保URL是完整的
@@ -711,7 +711,7 @@ const getImageUrl = (imageData, pdfFolder) => {
     }
 
     // 备用方案
-    const baseUrl = window.location.origin
+    const baseUrl = getBackendUrl('')
     const type = imageData.type || 'tables'
     const imageName = imageData.name || imageData.filename || ''
 
@@ -777,7 +777,7 @@ const otherPdfs = computed(() => {
 // 提取测试函数
 async function testFileAccess(file) {
   try {
-    const baseUrl = window.location.origin
+    const baseUrl = getBackendUrl('')
     const testUrl = `${baseUrl}/api/file-info/${file.disk_name}`
 
     const testResponse = await fetch(testUrl)
@@ -963,8 +963,8 @@ async function convertAndPreview(pdfDiskName) {
 
     // 失败时也可以尝试调用智能处理的状态检查接口
     try {
-      const statusResponse = await axios.get(`/api/pdf-process-status/${pdfDiskName}`)
-      if (statusResponse.data.success) {
+      const statusResponse = await http.get(`/api/pdf-process-status/${pdfDiskName}`)
+      if (statusResponse.success) {
         const status = statusResponse.data
         if (status.conversion.converted) {
           // 即使智能处理失败，但如果转图已完成，可以手动设置状态
@@ -1023,7 +1023,7 @@ async function executeConvertPdf(pdfDiskName, cacheKey) {
     progressMsg.value = '正在检查缓存...'
 
     // 调用转图API
-    const { data } = await axios.post(getSmartUrl(`/api/convert-pdf-async/${pdfDiskName}`))
+    const { data } = await http.post(getSmartUrl(`/api/convert-pdf-async/${pdfDiskName}`))
 
     if (data.hitCache) {
       // 缓存命中
@@ -1075,12 +1075,12 @@ async function executeScreenImages(pdfDiskName, cacheKey) {
     }
 
     // 调用后端API进行图片筛选
-    const response = await axios.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
+    const response = await http.post(getSmartUrl(`/api/screen-table-images/${cacheKey}`), {
       png_names: pngList,
       filter_only: false
     })
 
-    if (response.data.success) {
+    if (response.success) {
       // 更新筛选状态
       const newHasScreenedImages = { ...hasScreenedImages.value }
       newHasScreenedImages[pdfDiskName] = true
@@ -1091,9 +1091,9 @@ async function executeScreenImages(pdfDiskName, cacheKey) {
       newScreeningResultMap[pdfDiskName] = {
         success: true,
         pdfDiskName: pdfDiskName,
-        total_count: response.data.total_images || pngList.length,
-        has_table_count: response.data.has_table_count || 0,
-        no_table_count: response.data.no_table_count || 0
+        total_count: response.total_images || pngList.length,
+        has_table_count: response.has_table_count || 0,
+        no_table_count: response.no_table_count || 0
       }
       screeningResultMap.value = newScreeningResultMap
 
@@ -1105,7 +1105,7 @@ async function executeScreenImages(pdfDiskName, cacheKey) {
 
       ElMessage.success('图片筛选完成！')
     } else {
-      throw new Error('图片筛选失败: ' + response.data.error)
+      throw new Error('图片筛选失败: ' + response.error)
     }
 
   } catch (error) {
@@ -1171,9 +1171,9 @@ async function smartProcessPdf(pdfDiskName) {
     progressPercent.value = 10
     progressMsg.value = '检查PDF处理状态...'
 
-    const statusResponse = await axios.get(`/api/pdf-process-status/${pdfDiskName}`)
+    const statusResponse = await http.get(`/api/pdf-process-status/${pdfDiskName}`)
 
-    if (statusResponse.data.success && statusResponse.data.ready_for_parsing) {
+    if (statusResponse.success && statusResponse.ready_for_parsing) {
       // 如果已经处理完成，直接返回成功结果
       progressMsg.value = 'PDF已预处理完成，可直接进行表格解析'
       progressPercent.value = 100
@@ -1186,8 +1186,8 @@ async function smartProcessPdf(pdfDiskName) {
       return {
         success: true,
         ready: true,
-        conversion: statusResponse.data.conversion,
-        classification: statusResponse.data.classification
+        conversion: statusResponse.conversion,
+        classification: statusResponse.classification
       }
     }
 
@@ -1195,10 +1195,10 @@ async function smartProcessPdf(pdfDiskName) {
     progressPercent.value = 30
     progressMsg.value = '执行智能预处理...'
 
-    const processResponse = await axios.post(`/api/smart-process-pdf/${pdfDiskName}`)
+    const processResponse = await http.post(`/api/smart-process-pdf/${pdfDiskName}`)
 
-    if (!processResponse.data.success) {
-      throw new Error(processResponse.data.error || '智能处理失败')
+    if (!processResponse.success) {
+      throw new Error(processResponse.error || '智能处理失败')
     }
 
     // 完成
@@ -1486,7 +1486,7 @@ const restoreProcessingStatusFromBackend = async () => {
     if (convertCache.value[cacheKey]) continue
 
     try {
-      const statusResponse = await axios.get(`/api/pdf-process-status/${pdfDiskName}`)
+      const statusResponse = await http.get(`/api/pdf-process-status/${pdfDiskName}`)
       const status = statusResponse.data
 
       if (!status.success) continue
@@ -1784,7 +1784,7 @@ const handleParseTables = async (pdfDiskName) => {
     // ========== 先检查是否有已有任务 ==========
     let shouldRerun = false
     try {
-      const checkResponse = await axios.get(getSmartUrl(`/api/check-table-task/${pdfFolder}`))
+      const checkResponse = await http.get(getSmartUrl(`/api/check-table-task/${pdfFolder}`))
       const checkData = checkResponse.data
       
       console.log('🔍 DEBUG 前端检查任务: has_existing=', checkData.has_existing, ', status=', checkData.status)
@@ -1858,7 +1858,7 @@ const handleParseTables = async (pdfDiskName) => {
 
     // 简化请求：后端会自动获取png_names
     console.log('🔍 DEBUG 前端提交请求: pdfFolder=', pdfFolder, ', shouldRerun=', shouldRerun)
-    const response = await axios.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
+    const response = await http.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
       table_type: tableType.value,
       use_ocr: true,
       force_refresh: false,
@@ -1872,7 +1872,7 @@ const handleParseTables = async (pdfDiskName) => {
     console.log('✅ 收到响应:', response.data)
 
     // 处理后端返回的特殊情况
-    if (response.data.action === 'already_completed') {
+    if (response.action === 'already_completed') {
       // 已完成且用户没有选择重新解析
       await ElMessageBox.confirm(
         `该文件已解析完成，是否查看结果？`,
@@ -1888,7 +1888,7 @@ const handleParseTables = async (pdfDiskName) => {
       return
     }
 
-    if (response.data.action === 'waiting') {
+    if (response.action === 'waiting') {
       // 任务进行中
       await ElMessageBox.confirm(
         `该文件已有任务正在处理中，是否查看进度？`,
@@ -1904,9 +1904,9 @@ const handleParseTables = async (pdfDiskName) => {
       return
     }
 
-    if (response.data.success) {
-      const jobId = response.data.job_id
-      const totalImages = response.data.total_images || 0
+    if (response.success) {
+      const jobId = response.job_id
+      const totalImages = response.total_images || 0
 
       // 🔴 添加参数校验
       if (!jobId || jobId === 'undefined') {
@@ -1930,7 +1930,7 @@ const handleParseTables = async (pdfDiskName) => {
     });
 
     } else {
-      ElMessage.error('提交表格解析任务失败: ' + response.data.error)
+      ElMessage.error('提交表格解析任务失败: ' + response.error)
       isParsing.value = false
     }
 
@@ -1940,7 +1940,7 @@ const handleParseTables = async (pdfDiskName) => {
     updateStepStatus(pdfDiskName, 'parse', 'failed')
 
     if (error.response?.data?.error) {
-      ElMessage.error('表格解析失败: ' + error.response.data.error)
+      ElMessage.error('表格解析失败: ' + error.response.error)
     } else {
       ElMessage.error('表格解析失败: ' + error.message)
     }
@@ -2008,7 +2008,7 @@ async function pollTableProgress(jobId, pdfDiskName) {
       try {
         // const { data } = await axios.get(`/api/table-progress/${jobId}`)
         // 5. 表格进度查询
-        const { data } = await axios.get(getSmartUrl(`/api/table-progress/${jobId}`))
+        const { data } = await http.get(getSmartUrl(`/api/table-progress/${jobId}`))
 
         // 更新解析进度
         const newParsingProgressMap = { ...parsingProgressMap.value }
@@ -2113,9 +2113,9 @@ const fetchAllParsingTasks = async () => {
     console.log('🔍=== 从 API 获取所有任务 ===')
     
     try {
-      const response = await axios.get('/api/active-tasks')
-      if (response.data && response.data.success) {
-        let tasks = response.data.tasks || []
+      const response = await http.get('/api/active-tasks')
+      if (response.success) {
+        let tasks = response.tasks || []
         console.log(`📥 从API获取到 ${tasks.length} 个任务`)
         
         // 处理每个任务的时间字段
@@ -2136,8 +2136,8 @@ const fetchAllParsingTasks = async () => {
         allParsingTasks.value = tasks
         
         // 更新统计摘要
-        if (response.data.summary) {
-          updateTasksSummaryFromSummary(response.data.summary)
+        if (response.summary) {
+          updateTasksSummaryFromSummary(response.summary)
         } else {
           updateTasksSummary(tasks)
         }
@@ -2702,9 +2702,9 @@ const cancelTask = async (jobId) => {
     )
 
     // 调用后端API取消任务
-    const response = await axios.post(`/api/cancel-task/${jobId}`)
+    const response = await http.post(`/api/cancel-task/${jobId}`)
 
-    if (response.data.success) {
+    if (response.success) {
       ElMessage.success('任务已取消')
 
       // 从列表中移除已取消的任务
@@ -2714,7 +2714,7 @@ const cancelTask = async (jobId) => {
       updateTasksSummary(allParsingTasks.value)
 
     } else {
-      throw new Error(response.data.error || '取消任务失败')
+      throw new Error(response.error || '取消任务失败')
     }
 
   } catch (error) {
@@ -2821,7 +2821,7 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
 
 
         // ⭐ 新增：更新图片的URL和路径
-        const baseUrl = window.location.origin
+        const baseUrl = getBackendUrl('')
         const pdfFolder = targetPdf.replace('.pdf', '')
         movedImage.url = `${baseUrl}/api/filtered-tables-image/${pdfFolder}/${toType}/${imageName}`
         movedImage.relative_path = `filtered_tables/${pdfFolder}/${toType}/${imageName}`
@@ -2868,7 +2868,7 @@ const handleMoveImage = async ({ imageName, fromType, toType, pdfDiskName }) => 
 
           // ⭐ 新增：如果API没有返回URL，则根据新分类和文件名构建URL
           if (!toArray[movedImageIndex].url) {
-            const baseUrl = window.location.origin
+            const baseUrl = getBackendUrl('')
             const pdfFolder = targetPdf.replace('.pdf', '')
 
             // 构建正确的分类图片URL
@@ -2984,8 +2984,8 @@ const handleRedetectImage = async ({ imageName, currentType, pdfDiskName }) => {
     loadingMessage.close()
 
     if (response.success) {
-      const newType = response.data.detected_type
-      const confidence = response.data.confidence || 0.8
+      const newType = response.detected_type
+      const confidence = response.confidence || 0.8
 
       ElMessage.success(`重新检测完成: ${newType === 'tables' ? '有表格' : '无表格'} (${(confidence * 100).toFixed(1)}%置信度)`)
 
@@ -3050,7 +3050,7 @@ async function pollProgress(jobId) {
   return new Promise((resolve) => {
     const timer = setInterval(async () => {
       try {
-        const { data } = await axios.get(getSmartUrl(`/api/progress/${jobId}`))
+        const { data } = await http.get(getSmartUrl(`/api/progress/${jobId}`))
 
         progressPercent.value = data.percent
         if (data.percent === 100) {

@@ -5,6 +5,7 @@
 """
 
 import os
+import io
 import sqlite3
 import hashlib
 import uuid  # 🆕 添加uuid导入
@@ -13,6 +14,71 @@ from backend.utils.constants import UPLOAD_FOLDER, DATABASE, MAIN_ROOT, ALLOWED_
 from backend.services.file_mapping_service import file_mapping_service
 
 from backend.core.table_processor.get_bank_name import SimpleBankNameExtractor
+
+
+def strip_app_navigation_cover(pdf_bytes: bytes) -> bytes:
+    """
+    检测 PDF 第一页是否为 App 导航封面页，如果是则删除该页。
+
+    检测策略（按优先级依次尝试）：
+      1. 文本关键词检测：包含 App 导航关键词（"数据审核"/"数据看板"等）
+         → 适用于文字型封面页
+      2. 图形封面检测：第一页无文本 AND 无文本块（仅有嵌入图片）
+         → 适用于图像型封面页（如银行年报封面）
+
+    Args:
+        pdf_bytes: 原始 PDF 字节数据
+    Returns:
+        处理后的 PDF 字节数据（封面页已删除则页数 -1）
+    """
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        return pdf_bytes  # 未安装 PyMuPDF 时跳过处理
+
+    NAV_KEYWORDS = [
+        "数据审核", "数据看板", "搜索框", "请输入关键词",
+        "上传文件", "开始转图", "表格解析",
+    ]
+
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        if doc.page_count < 2:
+            doc.close()
+            return pdf_bytes  # 不足2页不处理
+
+        first_page = doc[0]
+        first_page_text = (first_page.get_text("text") or "").strip()
+        first_page_blocks = first_page.get_text("blocks") or []
+
+        # -------- 策略1：文本关键词命中 --------
+        if len(first_page_text) <= 200:
+            keyword_count = sum(1 for kw in NAV_KEYWORDS if kw in first_page_text)
+            if keyword_count >= 2:
+                print(f"[PDF处理] 文本封面检测命中（关键词 {keyword_count} 个），删除第1页")
+                doc.delete_page(0)
+                output = io.BytesIO()
+                doc.save(output, garbage=4, deflate=True)
+                doc.close()
+                return output.getvalue()
+
+        # -------- 策略2：纯图形封面（无文本 + 无文本块）--------
+        # 真正的内容页至少有文本块（哪怕是扫描件也有 OCR 层）
+        # 只有纯嵌入图片的封面页才两者都为空
+        if len(first_page_text) == 0 and len(first_page_blocks) == 0:
+            print(f"[PDF处理] 图形封面检测命中（第1页无文本无块），删除第1页")
+            doc.delete_page(0)
+            output = io.BytesIO()
+            doc.save(output, garbage=4, deflate=True)
+            doc.close()
+            return output.getvalue()
+
+        doc.close()
+        return pdf_bytes  # 未命中，保留原文件
+
+    except Exception as e:
+        print(f"[PDF处理] 处理失败，保持原文件: {e}")
+        return pdf_bytes
 
 class FileUploadService:
     """文件上传服务"""
@@ -148,7 +214,7 @@ class FileUploadService:
                 c.execute("""
                     SELECT id, filename, raw_filename, upload_count, created_at, file_size, bank_name
                     FROM files 
-                    WHERE file_hash = ? AND raw_filename = ? AND deleted = 0 AND file_hash IS NOT NULL
+                    WHERE file_hash = ? AND raw_filename = ? AND COALESCE(deleted, 0) = 0 AND file_hash IS NOT NULL
                     LIMIT 1
                 """, (file_hash, raw_filename))
 
@@ -157,13 +223,21 @@ class FileUploadService:
                     print(f"✅✅ 找到完全匹配文件: {raw_filename}")
                     return exact_match
 
-            # 如果没有完全匹配，检查内容相同的文件
-            c.execute("""
-                SELECT id, filename, raw_filename, upload_count, created_at, file_size, bank_name
-                FROM files 
-                WHERE file_hash = ? AND deleted = 0 AND file_hash IS NOT NULL
-                LIMIT 1
-            """, (file_hash,))
+                # 如果没有完全匹配，检查内容相同的文件
+                c.execute("""
+                    SELECT id, filename, raw_filename, upload_count, created_at, file_size, bank_name
+                    FROM files 
+                    WHERE file_hash = ? AND COALESCE(deleted, 0) = 0 AND file_hash IS NOT NULL
+                    LIMIT 1
+                """, (file_hash,))
+            else:
+                # 没有文件名时，直接检查内容相同的文件
+                c.execute("""
+                    SELECT id, filename, raw_filename, upload_count, created_at, file_size, bank_name
+                    FROM files 
+                    WHERE file_hash = ? AND COALESCE(deleted, 0) = 0 AND file_hash IS NOT NULL
+                    LIMIT 1
+                """, (file_hash,))
 
             return c.fetchone()
         except Exception as e:
@@ -228,6 +302,12 @@ class FileUploadService:
         if not self.upload_dir.exists():
             print(f"📁📁 创建上传目录: {self.upload_dir}")
             self.upload_dir.mkdir(parents=True, exist_ok=True)
+
+        # PDF 首行过滤：检测并删除 App 导航封面页
+        if ext == ".pdf":
+            file_content = strip_app_navigation_cover(file_content)
+            # 更新文件大小
+            file_size = len(file_content)
 
         # 保存文件到磁盘
         print(f"💾💾 保存新文件到: {file_path}")

@@ -1,7 +1,9 @@
-# backend/utils/llm_config.py
+# backend/configs/llm_config.py
+import os
 
-# API配置
-ARK_API_KEY = "90b9c47f-815c-4216-913a-3d1a567e35ac"
+# API配置（从环境变量读取，.env 中配置 LLM_API_KEY）
+# 重要：fallback 为空字符串，若未配置 .env 则调用会失败（安全优先）
+ARK_API_KEY = os.environ.get("LLM_API_KEY", "")
 ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
 # 模型配置

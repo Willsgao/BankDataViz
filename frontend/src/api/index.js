@@ -7,6 +7,9 @@ import { getBackendUrl } from '@/utils/config'
 const backendBase = process.env.VUE_APP_API_BASE || getBackendUrl('')
 
 
+// ② 全局 axios 默认 baseURL（兜底：所有直接 import axios 的地方也能正确请求后端）
+axios.defaults.baseURL = backendBase
+
 export const http = axios.create({
   baseURL: backendBase,   // ② 不再出现 127.0.0.1
   timeout: 100000,

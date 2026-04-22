@@ -1393,7 +1393,7 @@ const handleParseTables = async (pdfDiskName) => {
     ElMessage.info(`开始解析 ${tableImages.length} 张表格...`);
 
     // 使用绝对路径，避免代理问题
-    const baseUrl = window.location.origin; // 获取当前页面的基础URL
+    const baseUrl = getBackendUrl(''); // 获取后端基础URL
     const apiUrl = `/api/process-tables/${folderName}`; // 相对路径
 
     console.log('🔗 调用API:', apiUrl);
