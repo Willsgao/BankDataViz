@@ -1785,7 +1785,9 @@ const handleParseTables = async (pdfDiskName) => {
     let shouldRerun = false
     try {
       const checkResponse = await http.get(getSmartUrl(`/api/check-table-task/${pdfFolder}`))
-      const checkData = checkResponse.data
+      
+      // 响应拦截器已返回 response.data，直接使用即可
+      const checkData = checkResponse
       
       console.log('🔍 DEBUG 前端检查任务: has_existing=', checkData.has_existing, ', status=', checkData.status)
       console.log('🔍 DEBUG 前端检查任务: checkData=', checkData)
@@ -1806,8 +1808,8 @@ const handleParseTables = async (pdfDiskName) => {
               type: 'info'
             }
           )
-          // 打开进度弹窗
-          progressVisible.value = true
+          // 打开任务监控弹窗（可关闭）
+          showProgressDialog()
           isParsing.value = false
           return
         } else if (isCompleted) {
@@ -1827,8 +1829,8 @@ const handleParseTables = async (pdfDiskName) => {
             // 用户选择重新解析
             shouldRerun = true
           } else {
-            // 用户选择查看结果
-            progressVisible.value = true
+            // 用户选择查看结果 - 直接打开任务监控弹窗
+            showProgressDialog()
             isParsing.value = false
             return
           }
@@ -1883,7 +1885,7 @@ const handleParseTables = async (pdfDiskName) => {
           type: 'success'
         }
       )
-      progressVisible.value = true
+      showProgressDialog()
       isParsing.value = false
       return
     }
@@ -1899,7 +1901,7 @@ const handleParseTables = async (pdfDiskName) => {
           type: 'info'
         }
       )
-      progressVisible.value = true
+      showProgressDialog()
       isParsing.value = false
       return
     }
