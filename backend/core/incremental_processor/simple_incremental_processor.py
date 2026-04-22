@@ -38,21 +38,21 @@ class SimpleIncrementalProcessor:
 
         # 加载记录
         self.records = self._load_records()
-        print(f"✅ 极简增量处理器初始化完成，记录文件: {self.record_file}")
+        print(f"[OK] Incremental processor initialized, record file: {self.record_file}")
 
     def _load_records(self) -> dict:
         """加载处理记录 - 极简实现"""
         if not self.record_file.exists():
-            print(f"📝📝 记录文件不存在，创建新文件: {self.record_file}")
+            print(f"[INFO] Record file not found, creating new: {self.record_file}")
             return {}
 
         try:
             with open(self.record_file, 'r', encoding='utf-8') as f:
                 records = json.load(f)
-                print(f"📂📂 加载处理记录: {len(records)} 个PDF文件夹")
+                print(f"[OK] Loaded {len(records)} PDF folders")
                 return records
         except Exception as e:
-            print(f"⚠️ 加载记录文件失败，使用空记录: {e}")
+            print(f"[WARN] Failed to load records, using empty: {e}")
             return {}
 
     def _save_records(self):
@@ -76,12 +76,12 @@ class SimpleIncrementalProcessor:
         Returns:
             List[str]: 需要处理的图片名称列表
         """
-        print(f"🔍🔍🔍🔍 开始增量检查: {pdf_folder}")
-        print(f"📸📸📸📸 总图片数: {len(image_names)}")
+        print(f"[DEBUG] Starting incremental check: {pdf_folder}")
+        print(f"[DEBUG] Total images: {len(image_names)}")
 
         # 获取已处理的图片
         processed_images = set(self.records.get(pdf_folder, []))
-        print(f"📊📊📊📊 已处理图片数: {len(processed_images)}")
+        print(f"[DEBUG] Processed images count: {len(processed_images)}")
 
         # 过滤出需要处理的图片
         images_to_process = []
@@ -96,7 +96,7 @@ class SimpleIncrementalProcessor:
             else:
                 images_to_process.append(image_name)
 
-        print(f"📊📊📊📊 过滤结果:")
+        print(f"[DEBUG] Filter results:")
         print(f"  - 需要处理: {len(images_to_process)} 张")
         print(f"  - 跳过已处理: {len(skipped_images)} 张")
 
@@ -167,15 +167,15 @@ class SimpleIncrementalProcessor:
         Returns:
             List[str]: 需要处理的图片名称列表
         """
-        print(f"🔍 开始增量检查: {pdf_folder}")
-        print(f"📸 总图片数: {len(image_names)}")
+        print(f"[DEBUG] Starting incremental check: {pdf_folder}")
+        print(f"[DEBUG] Total images: {len(image_names)}")
 
         # 过滤出需要处理的图片
         images_to_process = []
         skipped_images = []
 
         for image_name in image_names:
-            # 🔥 关键改进：使用LLM缓存验证是否已处理
+            # [KEY] 关键改进：使用LLM缓存验证是否已处理
             is_processed = self.is_image_processed(pdf_folder, image_name)
 
             if is_processed:
@@ -193,7 +193,7 @@ class SimpleIncrementalProcessor:
                 images_to_process.append(image_name)
                 print(f"🆕 需要处理: {image_name}")
 
-        print(f"📊 过滤结果:")
+        print(f"[DEBUG] Filter results:")
         print(f"  - 需要处理: {len(images_to_process)} 张")
         print(f"  - 跳过已处理: {len(skipped_images)} 张")
 
@@ -230,7 +230,7 @@ class SimpleIncrementalProcessor:
         # 保存记录
         if new_images and self._save_records():
             print(f"✅✅ 标记 {len(new_images)} 张图片为已处理: {pdf_folder}")
-            print(f"📝📝📝📝 新增图片: {new_images[:3]}...")  # 只显示前3个
+            print(f"[DEBUG] New images: {new_images[:3]}...")  # 只显示前3个
         else:
             print(f"ℹℹ️ℹℹ️ 没有新图片需要标记: {pdf_folder}")
 
@@ -269,14 +269,14 @@ class SimpleIncrementalProcessor:
         if pdf_folder in self.records:
             del self.records[pdf_folder]
             self._save_records()
-            print(f"🧹🧹🧹🧹 清空处理记录: {pdf_folder}")
+            print(f"[DEBUG] Clear processing record: {pdf_folder}")
         # 注意：不清除 LLM 缓存目录，保留缓存以便后续复用
 
     def clear_all_records(self):
         """清空所有处理记录"""
         self.records.clear()
         self._save_records()
-        print("🧹🧹🧹🧹 清空所有处理记录")
+        print("[DEBUG] Clear all processing records")
 
     def get_all_pdf_folders(self) -> List[str]:
         """获取所有有记录的PDF文件夹"""

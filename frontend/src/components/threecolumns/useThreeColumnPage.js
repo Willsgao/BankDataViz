@@ -151,7 +151,8 @@ export function useThreeColumnPage() {
 
    const loadFromAPI = async (fileId, excelFileName, sheetName) => {
       try {
-        const apiUrl = `/api/excel-data/${encodeURIComponent(fileId)}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(sheetName)}`
+        const apiUrl = `${getBackendUrl('')}/api/excel-data/${encodeURIComponent(fileId)}/${encodeURIComponent(excelFileName)}/${encodeURIComponent(sheetName)}`
+        console.log('📡 请求后端完整URL:', apiUrl)
 
         const response = await fetch(apiUrl)
         console.log('📡 API响应状态:', response.status)

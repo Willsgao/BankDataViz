@@ -944,7 +944,7 @@ class TableProcessingService:
             cursor.execute("""
                 SELECT filename FROM files 
                 WHERE raw_filename LIKE ? AND deleted = 0
-                ORDER BY created_at DESC 
+                ORDER BY upload_time DESC 
                 LIMIT 1
             """, (f'%{pdf_folder}%',))
 
@@ -1471,7 +1471,7 @@ def get_bank_name_from_database(pdf_folder):
         c.execute("""
             SELECT bank_name FROM files 
             WHERE filename = ? AND deleted = 0 AND bank_name IS NOT NULL AND bank_name != ''
-            ORDER BY created_at DESC 
+            ORDER BY upload_time DESC 
             LIMIT 1
         """, (pdf_folder,))  # 直接精确匹配，不需要 LIKE
 
@@ -1820,12 +1820,13 @@ def submit_table_processing_task(pdf_folder, filtered_tables_dir, request, progr
 
         # ========== 检查是否有已有任务 ==========
         rerun = data.get('rerun', False)
+        force_refresh = data.get('force_refresh', False)
         print(f"🔍🔍🔍 API 收到 rerun 参数: rerun={rerun}, type={type(rerun)}, data_keys={list(data.keys())}")  # 🛠️ 调试
-        if not rerun:
+        if not rerun and not force_refresh:
             existing_check = check_existing_table_task(pdf_folder)
             if existing_check['has_existing']:
                 status = existing_check['status']
-                if status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel']:
+                if status in ['pending', 'queued', 'processing', 'running', 'starting', 'generating_excel'] and not force_refresh:
                     # 进行中
                     print(f"⚠️ 该文件已有任务进行中: {existing_check['job_id']}")
                     return jsonify({

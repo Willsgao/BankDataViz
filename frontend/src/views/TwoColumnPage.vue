@@ -1589,7 +1589,7 @@ function subscribeTableProgressSSE(jobId, pdfDiskName) {
     console.log(`🔌 开始SSE订阅: jobId=${jobId}, pdf=${pdfDiskName}`)
 
     // 创建EventSource连接
-    const eventSource = new EventSource(`/api/table-progress-sse/${jobId}`)
+    const eventSource = new EventSource(getBackendUrl(`/api/table-progress-sse/${jobId}`))
 
     // 监听消息
     // 监听消息
@@ -1807,7 +1807,7 @@ const handleParseTables = async (pdfDiskName) => {
             }
           )
           // 打开进度弹窗
-          openProgressDialog()
+          progressVisible.value = true
           isParsing.value = false
           return
         } else if (isCompleted) {
@@ -1828,7 +1828,7 @@ const handleParseTables = async (pdfDiskName) => {
             shouldRerun = true
           } else {
             // 用户选择查看结果
-            openProgressDialog()
+            progressVisible.value = true
             isParsing.value = false
             return
           }
@@ -1861,7 +1861,7 @@ const handleParseTables = async (pdfDiskName) => {
     const response = await http.post(getSmartUrl(`/api/process-tables/${pdfFolder}`), {
       table_type: tableType.value,
       use_ocr: true,
-      force_refresh: false,
+      force_refresh: shouldRerun,
       rerun: shouldRerun
     }, {
       headers: {
@@ -1869,7 +1869,7 @@ const handleParseTables = async (pdfDiskName) => {
       }
     })
 
-    console.log('✅ 收到响应:', response.data)
+    console.log('✅ 收到响应:', response)
 
     // 处理后端返回的特殊情况
     if (response.action === 'already_completed') {
@@ -1883,7 +1883,7 @@ const handleParseTables = async (pdfDiskName) => {
           type: 'success'
         }
       )
-      openProgressDialog()
+      progressVisible.value = true
       isParsing.value = false
       return
     }
@@ -1899,7 +1899,7 @@ const handleParseTables = async (pdfDiskName) => {
           type: 'info'
         }
       )
-      openProgressDialog()
+      progressVisible.value = true
       isParsing.value = false
       return
     }
