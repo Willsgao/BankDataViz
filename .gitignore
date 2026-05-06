@@ -25,6 +25,7 @@ data/
 
 # 上传文件
 backend/static/uploads/
+backend/static/detect_cache/
 
 # 日志文件
 *.log

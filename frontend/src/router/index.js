@@ -7,6 +7,8 @@ import BankWarehousePage from '@/views/BankWarehousePage.vue'
 import BankDashboardPage from '@/views/BankDashboardPage.vue'
 import BankDataPage from '@/views/BankDataPage.vue'
 import AdminManagement from '@/views/AdminManagement.vue'
+import AuditPage from '@/views/AuditPage.vue'
+import SmartRecognizePage from '@/views/SmartRecognizePage.vue'
 
 const routes = [
   {
@@ -36,6 +38,18 @@ const routes = [
   {
     path: '/bank-warehouse',
     redirect: '/bank-data'
+  },
+  {
+    path: '/audit',
+    name: 'Audit',
+    component: AuditPage,
+    meta: { title: '会计勾稽' }
+  },
+  {
+    path: '/smart-recognize',
+    name: 'SmartRecognize',
+    component: SmartRecognizePage,
+    meta: { title: '智能识别' }
   },
   {
     path: '/login',

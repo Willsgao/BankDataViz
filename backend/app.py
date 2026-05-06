@@ -32,6 +32,8 @@ from backend.api.excel_api import excel_bp
 from backend.api.bank_data_api import bank_data_bp
 from backend.api.bank_doc_api import bank_doc_bp
 from backend.api.progress_sse import progress_sse_bp
+from backend.api.audit import audit_bp
+from backend.api.smart_recognize import smart_recognize_bp
 
 # ----------- 导入工具 -----------
 from backend.models.safe_unified_db import SafeDatabaseManager
@@ -118,6 +120,8 @@ app.register_blueprint(excel_bp)
 app.register_blueprint(bank_data_bp)
 app.register_blueprint(bank_doc_bp)
 app.register_blueprint(progress_sse_bp)
+app.register_blueprint(audit_bp)
+app.register_blueprint(smart_recognize_bp)
 
 # =============================================================================
 # 静态文件路由
@@ -132,7 +136,7 @@ app.add_url_rule(
     "/static/excel_data/<path:filename>",
     "serve_excel_file",
     lambda filename: send_from_directory(
-        Path(MAIN_ROOT) / "backend" / "static" / "excel_data", filename
+        Path(MAIN_ROOT) / "data" / "backend" / "static" / "excel_data", filename
     ),
 )
 
@@ -140,7 +144,7 @@ app.add_url_rule(
     "/static/excel_output/<path:filename>",
     "serve_excel_output",
     lambda filename: send_from_directory(
-        Path(MAIN_ROOT) / "backend" / "static" / "excel_output", filename
+        Path(MAIN_ROOT) / "data" / "backend" / "static" / "excel_output", filename
     ),
 )
 
@@ -148,7 +152,7 @@ app.add_url_rule(
     "/static/joined_tables/<path:filename>",
     "joined_tables",
     lambda filename: send_from_directory(
-        Path(MAIN_ROOT) / "backend" / "static" / "joined_tables", filename
+        Path(MAIN_ROOT) / "data" / "backend" / "static" / "joined_tables", filename
     ),
 )
 

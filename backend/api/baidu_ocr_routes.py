@@ -26,8 +26,8 @@ def allowed_file(filename):
 
 def ensure_directories():
     """确保必要的目录存在"""
-    upload_dir = os.path.join(MAIN_ROOT, 'backend', 'static', 'upload_images')
-    output_dir = os.path.join(MAIN_ROOT, 'backend', 'static', 'excel_output')
+    upload_dir = os.path.join(MAIN_ROOT, 'data', 'backend', 'static', 'upload_images')
+    output_dir = os.path.join(MAIN_ROOT, 'data', 'backend', 'static', 'excel_output')
 
     os.makedirs(upload_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)

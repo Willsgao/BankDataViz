@@ -23,6 +23,20 @@
             >
               数据审核
             </el-button>
+            <el-button
+              type="warning"
+              @click="$router.push('/audit')"
+              size="small"
+            >
+              会计勾稽
+            </el-button>
+            <el-button
+              type="success"
+              @click="$router.push('/smart-recognize')"
+              size="small"
+            >
+              智能识别
+            </el-button>
             <el-dropdown v-if="hasPermission('data')" @command="handleBankDashboardCommand" trigger="hover">
               <el-button
                 :type="['BankDashboard', 'BankData'].includes($route.name) ? 'primary' : ''"
