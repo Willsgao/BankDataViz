@@ -1,7 +1,11 @@
 <!-- EditableCell.vue -->
 <template>
   <div class="editable-cell">
-    <div v-if="!editing" class="cell-content" @dblclick="startEditing">
+    <div
+      v-if="!editing"
+      class="cell-content"
+      @dblclick="startEditing"
+    >
       {{ value || ' ' }}
     </div>
     <el-input

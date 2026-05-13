@@ -1,6 +1,8 @@
 <template>
   <div class="empty-state">
-    <div class="empty-text">暂无文件，请上传PDF或图片文件</div>
+    <div class="empty-text">
+      暂无文件，请上传PDF或图片文件
+    </div>
   </div>
 </template>
 

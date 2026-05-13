@@ -3,15 +3,33 @@
     <!-- 顶部标题栏 -->
     <div class="page-header">
       <div class="header-left">
-        <el-icon class="header-icon"><DataBoard /></el-icon>
+        <el-icon class="header-icon">
+          <DataBoard />
+        </el-icon>
         <div>
-          <h1 class="page-title">数据看板</h1>
-          <p class="page-subtitle">{{ stats.total_banks || 0 }} 家银行 · {{ stats.total_reports || 0 }} 份报告 · {{ stats.total_table_data || 0 }} 条数据</p>
+          <h1 class="page-title">
+            数据看板
+          </h1>
+          <p class="page-subtitle">
+            {{ stats.total_banks || 0 }} 家银行 · {{ stats.total_reports || 0 }} 份报告 · {{ stats.total_table_data || 0 }} 条数据
+          </p>
         </div>
       </div>
       <div class="header-actions">
-        <el-button type="primary" :icon="Refresh" @click="loadData" :loading="loading">刷新</el-button>
-        <el-button type="success" :icon="Download" @click="handleSeedData" :loading="seeding">
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="loading"
+          @click="loadData"
+        >
+          刷新
+        </el-button>
+        <el-button
+          type="success"
+          :icon="Download"
+          :loading="seeding"
+          @click="handleSeedData"
+        >
           {{ stats.total_banks > 0 ? '重新写入演示数据' : '写入演示数据' }}
         </el-button>
       </div>
@@ -19,13 +37,24 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card" v-for="card in statCards" :key="card.key">
-        <div class="stat-icon" :style="{ background: card.color }">
+      <div
+        v-for="card in statCards"
+        :key="card.key"
+        class="stat-card"
+      >
+        <div
+          class="stat-icon"
+          :style="{ background: card.color }"
+        >
           <el-icon><component :is="card.icon" /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ card.value }}</div>
-          <div class="stat-label">{{ card.label }}</div>
+          <div class="stat-value">
+            {{ card.value }}
+          </div>
+          <div class="stat-label">
+            {{ card.label }}
+          </div>
         </div>
       </div>
     </div>
@@ -37,16 +66,37 @@
         <div class="panel-header">
           <span class="panel-title">银行列表</span>
           <div class="filter-group">
-            <el-select v-model="filterType" placeholder="全部类型" clearable size="small" @change="loadBanks">
-              <el-option label="国有大型银行" value="国有大型银行" />
-              <el-option label="股份制银行" value="股份制银行" />
-              <el-option label="城市商业银行" value="城市商业银行" />
-              <el-option label="农村商业银行" value="农村商业银行" />
+            <el-select
+              v-model="filterType"
+              placeholder="全部类型"
+              clearable
+              size="small"
+              @change="loadBanks"
+            >
+              <el-option
+                label="国有大型银行"
+                value="国有大型银行"
+              />
+              <el-option
+                label="股份制银行"
+                value="股份制银行"
+              />
+              <el-option
+                label="城市商业银行"
+                value="城市商业银行"
+              />
+              <el-option
+                label="农村商业银行"
+                value="农村商业银行"
+              />
             </el-select>
           </div>
         </div>
 
-        <div class="bank-list" v-loading="loading">
+        <div
+          v-loading="loading"
+          class="bank-list"
+        >
           <div
             v-for="bank in displayBanks"
             :key="bank.id"
@@ -54,13 +104,23 @@
             :class="{ active: selectedBank?.id === bank.id }"
             @click="selectBank(bank)"
           >
-            <div class="bank-avatar" :style="{ background: getBankColor(bank.bank_type) }">
+            <div
+              class="bank-avatar"
+              :style="{ background: getBankColor(bank.bank_type) }"
+            >
               {{ bank.bank_name.slice(2, 4) }}
             </div>
             <div class="bank-info">
-              <div class="bank-name">{{ bank.bank_name }}</div>
+              <div class="bank-name">
+                {{ bank.bank_name }}
+              </div>
               <div class="bank-meta">
-                <el-tag size="small" :type="getBankTagType(bank.bank_type)">{{ bank.bank_type }}</el-tag>
+                <el-tag
+                  size="small"
+                  :type="getBankTagType(bank.bank_type)"
+                >
+                  {{ bank.bank_type }}
+                </el-tag>
                 <span class="bank-code">{{ bank.bank_code }}</span>
               </div>
             </div>
@@ -76,19 +136,31 @@
       </div>
 
       <!-- 右：详情面板 -->
-      <div class="detail-panel" v-if="selectedBank">
+      <div
+        v-if="selectedBank"
+        class="detail-panel"
+      >
         <!-- 银行基本信息 -->
         <div class="detail-header">
-          <div class="detail-avatar" :style="{ background: getBankColor(selectedBank.bank_type) }">
+          <div
+            class="detail-avatar"
+            :style="{ background: getBankColor(selectedBank.bank_type) }"
+          >
             {{ selectedBank.bank_name.slice(2, 4) }}
           </div>
           <div class="detail-title-block">
             <h2>{{ selectedBank.bank_name }}</h2>
             <p>{{ selectedBank.description || '暂无描述' }}</p>
             <div class="detail-tags">
-              <el-tag :type="getBankTagType(selectedBank.bank_type)">{{ selectedBank.bank_type }}</el-tag>
-              <el-tag type="success">{{ selectedBank.bank_code }}</el-tag>
-              <el-tag type="info">{{ selectedBank.listed_status === 'listed' ? '已上市' : '未上市' }}</el-tag>
+              <el-tag :type="getBankTagType(selectedBank.bank_type)">
+                {{ selectedBank.bank_type }}
+              </el-tag>
+              <el-tag type="success">
+                {{ selectedBank.bank_code }}
+              </el-tag>
+              <el-tag type="info">
+                {{ selectedBank.listed_status === 'listed' ? '已上市' : '未上市' }}
+              </el-tag>
             </div>
           </div>
         </div>
@@ -97,36 +169,130 @@
         <div class="chart-section">
           <div class="chart-toolbar">
             <span class="section-title">财务指标趋势</span>
-            <el-radio-group v-model="selectedIndicator" size="small" @change="loadTrendChart">
-              <el-radio-button v-for="ind in indicatorOptions" :key="ind.value" :value="ind.value">
+            <!-- 视图切换 -->
+            <el-radio-group
+              v-model="viewMode"
+              size="small"
+              style="margin-right: 10px"
+            >
+              <el-radio-button value="year">年度视图</el-radio-button>
+              <el-radio-button value="quarter">季度视图</el-radio-button>
+            </el-radio-group>
+            <el-radio-group
+              v-model="selectedIndicator"
+              size="small"
+              @change="loadTrendChart"
+            >
+              <el-radio-button
+                v-for="ind in currentIndicatorOptions"
+                :key="ind.value"
+                :value="ind.value"
+              >
                 {{ ind.label }}
               </el-radio-button>
             </el-radio-group>
           </div>
-          <div ref="trendChartRef" class="trend-chart" v-loading="chartLoading" />
+          <div
+            ref="trendChartRef"
+            v-loading="chartLoading"
+            class="trend-chart"
+          />
         </div>
 
         <!-- 数据表格 -->
         <div class="data-table-section">
           <div class="section-header">
             <span class="section-title">原始数据表</span>
-            <el-select v-model="selectedTable" size="small" placeholder="选择表格" @change="loadTableData" style="width:160px">
-              <el-option v-for="t in tableList" :key="t" :label="t" :value="t" />
+            <el-select
+              v-model="selectedTable"
+              size="small"
+              placeholder="选择表格"
+              style="width:160px"
+              @change="loadTableData"
+            >
+              <el-option
+                v-for="t in tableList"
+                :key="t"
+                :label="t"
+                :value="t"
+              />
             </el-select>
+            <el-tag
+              v-if="viewMode === 'quarter'"
+              type="success"
+              size="small"
+              style="margin-left: 10px"
+            >
+              季度数据
+            </el-tag>
           </div>
+          <!-- 年度视图表格 -->
           <el-table
-            :data="tableData"
+            v-if="viewMode === 'year'"
             v-loading="tableLoading"
+            :data="tableData"
             size="small"
             stripe
             border
             height="280"
           >
-            <el-table-column prop="indicator_name" label="指标名称" width="180" fixed />
-            <el-table-column prop="unit" label="单位" width="60" align="center" />
-            <el-table-column v-for="year in [2020,2021,2022,2023,2024]" :key="year" :label="`${year}年`" :prop="`year_${year}`" align="right" min-width="90">
+            <el-table-column
+              prop="indicator_name"
+              label="指标名称"
+              width="180"
+              fixed
+            />
+            <el-table-column
+              prop="unit"
+              label="单位"
+              width="60"
+              align="center"
+            />
+            <el-table-column
+              v-for="year in [2020,2021,2022,2023,2024]"
+              :key="year"
+              :label="`${year}年`"
+              :prop="`year_${year}`"
+              align="right"
+              min-width="90"
+            >
               <template #default="{ row }">
                 <span :class="getValueClass(row, year)">{{ formatValue(row, year) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <!-- 季度视图表格 -->
+          <el-table
+            v-else
+            v-loading="tableLoading"
+            :data="quarterTableData"
+            size="small"
+            stripe
+            border
+            height="280"
+          >
+            <el-table-column
+              prop="indicator_name"
+              label="指标名称"
+              width="150"
+              fixed
+            />
+            <el-table-column
+              prop="unit"
+              label="单位"
+              width="60"
+              align="center"
+            />
+            <el-table-column
+              v-for="q in quarterColumns"
+              :key="q"
+              :label="q"
+              :prop="`quarter_${q}`"
+              align="right"
+              min-width="90"
+            >
+              <template #default="{ row }">
+                {{ formatQuarterValue(row, q) }}
               </template>
             </el-table-column>
           </el-table>
@@ -134,43 +300,98 @@
       </div>
 
       <!-- 未选择时的占位 -->
-      <div class="detail-panel empty-panel" v-else>
+      <div
+        v-else
+        class="detail-panel empty-panel"
+      >
         <el-empty description="点击左侧银行查看详情">
           <template #image>
-            <el-icon style="font-size: 80px; color: #c0c4cc"><OfficeBuilding /></el-icon>
+            <el-icon style="font-size: 80px; color: #c0c4cc">
+              <OfficeBuilding />
+            </el-icon>
           </template>
         </el-empty>
       </div>
     </div>
 
     <!-- 对比分析浮动按钮 -->
-    <div class="compare-fab" v-if="compareList.length > 0" @click="showCompareDialog = true">
-      <el-badge :value="compareList.length" type="danger">
-        <el-button type="primary" circle size="large" :icon="DataLine" />
+    <div
+      v-if="compareList.length > 0"
+      class="compare-fab"
+      @click="showCompareDialog = true"
+    >
+      <el-badge
+        :value="compareList.length"
+        type="danger"
+      >
+        <el-button
+          type="primary"
+          circle
+          size="large"
+          :icon="DataLine"
+        />
       </el-badge>
       <span class="fab-label">对比分析</span>
     </div>
 
     <!-- 多银行对比弹窗 -->
-    <el-dialog v-model="showCompareDialog" title="多银行横向对比" width="900px" :close-on-click-modal="false">
+    <el-dialog
+      v-model="showCompareDialog"
+      title="多银行横向对比"
+      width="900px"
+      :close-on-click-modal="false"
+    >
       <div class="compare-toolbar">
-        <el-select v-model="compareIndicator" size="default" style="width:200px" @change="loadCompareChart">
-          <el-option v-for="ind in indicatorOptions" :key="ind.value" :label="ind.label" :value="ind.value" />
+        <el-select
+          v-model="compareIndicator"
+          size="default"
+          style="width:200px"
+          @change="loadCompareChart"
+        >
+          <el-option
+            v-for="ind in indicatorOptions"
+            :key="ind.value"
+            :label="ind.label"
+            :value="ind.value"
+          />
         </el-select>
-        <el-select v-model="compareYear" size="default" style="width:100px" @change="loadCompareChart">
-          <el-option v-for="y in [2024,2023,2022,2021,2020]" :key="y" :label="`${y}年`" :value="y" />
+        <el-select
+          v-model="compareYear"
+          size="default"
+          style="width:100px"
+          @change="loadCompareChart"
+        >
+          <el-option
+            v-for="y in [2024,2023,2022,2021,2020]"
+            :key="y"
+            :label="`${y}年`"
+            :value="y"
+          />
         </el-select>
-        <el-button size="small" type="danger" plain @click="compareList = []">清空选择</el-button>
+        <el-button
+          size="small"
+          type="danger"
+          plain
+          @click="compareList = []"
+        >
+          清空选择
+        </el-button>
       </div>
-      <div ref="compareChartRef" class="compare-chart" v-loading="compareLoading" />
+      <div
+        ref="compareChartRef"
+        v-loading="compareLoading"
+        class="compare-chart"
+      />
       <div class="compare-bank-list">
         <el-tag
           v-for="bank in compareList"
           :key="bank.id"
           closable
-          @close="removeFromCompare(bank)"
           class="compare-tag"
-        >{{ bank.bank_name }}</el-tag>
+          @close="removeFromCompare(bank)"
+        >
+          {{ bank.bank_name }}
+        </el-tag>
       </div>
     </el-dialog>
   </div>
@@ -189,6 +410,7 @@ import {
   getBankReports, getReportTables, getTableIndicators,
   getIndicatorTrend, compareMultipleBanks, seedDemoData
 } from '@/api/bank'
+import { http } from '@/api'
 
 // ============================================================
 // 状态
@@ -210,7 +432,12 @@ const selectedTable = ref('')
 const tableData = ref([])
 const currentReportId = ref(null)
 
+const viewMode = ref('quarter') // 默认使用季度视图
 const selectedIndicator = ref('净利润')
+const quarterData = ref({}) // 季度数据缓存
+const quarterColumns = ref(['2024Q1', '2024Q2', '2024Q3', '2024Q4'])
+const quarterTableData = ref([])
+
 const trendChartRef = ref(null)
 const compareChartRef = ref(null)
 let trendChart = null
@@ -241,6 +468,21 @@ const indicatorOptions = [
   { label: '不良贷款率', value: '不良贷款率(%)' },
   { label: '资本充足率', value: '资本充足率(%)' },
 ]
+
+// 季度指标选项
+const quarterIndicatorOptions = [
+  { label: '净利润',    value: '净利润' },
+  { label: '营业收入',  value: '营业收入' },
+  { label: '总资产',    value: '资产合计' },
+  { label: '净息差',    value: '净息差' },
+  { label: '不良贷款率', value: '不良贷款率' },
+  { label: '资本充足率', value: '资本充足率' },
+]
+
+// 根据视图模式返回对应的指标选项
+const currentIndicatorOptions = computed(() => {
+  return viewMode.value === 'quarter' ? quarterIndicatorOptions : indicatorOptions
+})
 
 // ============================================================
 // 方法
@@ -283,6 +525,10 @@ const loadBankDetail = async (bank) => {
     if (res.success && res.data.length > 0) {
       currentReportId.value = res.data[0].id
       await loadTableList()
+      // 根据视图模式加载数据
+      if (viewMode.value === 'quarter') {
+        await loadQuarterTableData()
+      }
       await loadTrendChart()
     }
   } catch (e) { /* ignore */ }
@@ -323,17 +569,64 @@ const loadTableData = async () => {
 }
 
 const loadTrendChart = async () => {
-  if (!selectedBank.value || !currentReportId.value) return
+  if (!selectedBank.value) return
+  // 年度视图需要 currentReportId，季度视图只需要 bank_id
+  if (viewMode.value === 'year' && !currentReportId.value) return
+  
   chartLoading.value = true
   try {
-    const res = await getIndicatorTrend(selectedBank.value.id, selectedIndicator.value)
-    if (res.success) {
-      await nextTick()
-      renderTrendChart(res.data)
+    if (viewMode.value === 'quarter') {
+      // 季度视图：直接从API获取季度数据
+      const res = await http.get('/api/bank/analysis/quarter-trend', {
+        params: {
+          bank_id: selectedBank.value.id,
+          indicator_name: selectedIndicator.value
+        }
+      })
+      if (res.success) {
+        await nextTick()
+        quarterData.value = res.data
+        if (res.data.quarters && res.data.quarters.length > 0) {
+          quarterColumns.value = res.data.quarters
+        }
+        renderQuarterChart(res.data)
+      } else {
+        console.error('季度数据加载失败:', res.error)
+        // 尝试加载模拟数据
+        renderEmptyChart()
+      }
+    } else {
+      // 年度视图
+      const res = await getIndicatorTrend(selectedBank.value.id, selectedIndicator.value)
+      if (res.success) {
+        await nextTick()
+        renderTrendChart(res.data)
+      } else {
+        console.error('年度数据加载失败:', res.error)
+        renderEmptyChart()
+      }
     }
   } finally {
     chartLoading.value = false
   }
+}
+
+// 渲染空图表
+const renderEmptyChart = () => {
+  if (!trendChartRef.value) return
+  if (!trendChart) trendChart = echarts.init(trendChartRef.value)
+  
+  trendChart.setOption({
+    title: {
+      text: '暂无数据',
+      left: 'center',
+      top: 'center',
+      textStyle: { color: '#909399', fontSize: 14 }
+    },
+    xAxis: { show: false },
+    yAxis: { show: false },
+    series: []
+  })
 }
 
 const renderTrendChart = (data) => {
@@ -363,6 +656,41 @@ const renderTrendChart = (data) => {
       areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
         colorStops: [{ offset: 0, color: 'rgba(64,158,255,0.3)' }, { offset: 1, color: 'rgba(64,158,255,0)' }] } },
       label: { show: true, formatter: ({ value }) => unit === '%' ? `${value}%` : value }
+    }]
+  })
+}
+
+// 渲染季度图表
+const renderQuarterChart = (data) => {
+  if (!trendChartRef.value) return
+  if (!trendChart) trendChart = echarts.init(trendChartRef.value)
+
+  const quarters = data.quarters || []
+  const values = data.values || []
+  const unit = selectedIndicator.value.includes('%') ? '%' : '亿元'
+
+  trendChart.setOption({
+    tooltip: { trigger: 'axis', formatter: (params) => {
+      const p = params[0]
+      return `${p.axisValue}<br/>${selectedIndicator.value}: <b>${p.value != null ? p.value : 'N/A'} ${unit}</b>`
+    }},
+    grid: { left: 60, right: 20, top: 30, bottom: 40 },
+    xAxis: { type: 'category', data: quarters, axisLabel: { formatter: v => v } },
+    yAxis: { type: 'value', name: unit, nameTextStyle: { color: '#999' },
+      axisLabel: { formatter: v => unit === '%' ? `${v}%` : `${v}` } },
+    series: [{
+      name: selectedIndicator.value,
+      type: 'bar',
+      data: values,
+      barWidth: '50%',
+      itemStyle: {
+        color: (params) => {
+          const colors = ['#5470C6', '#91CC75', '#FAC858', '#EE6666']
+          return colors[params.dataIndex % colors.length]
+        },
+        borderRadius: [4, 4, 0, 0]
+      },
+      label: { show: true, position: 'top', formatter: ({ value }) => value != null ? (unit === '%' ? `${value}%` : value) : '' }
     }]
   })
 }
@@ -429,6 +757,53 @@ const formatValue = (row, year) => {
   return row.unit === '%' ? `${v}%` : v.toLocaleString()
 }
 
+// 格式化季度值
+const formatQuarterValue = (row, quarter) => {
+  const v = row[`quarter_${quarter}`]
+  if (v == null) return '-'
+  return row.unit === '%' ? `${v}%` : (typeof v === 'number' ? v.toLocaleString() : v)
+}
+
+// 加载季度表格数据
+const loadQuarterTableData = async () => {
+  if (!selectedBank.value) return
+  tableLoading.value = true
+  try {
+    const res = await http.get('/api/bank/analysis/quarter-trend', {
+      params: {
+        bank_id: selectedBank.value.id
+      }
+    })
+    if (res.success && res.data.data) {
+      // 将数据转换为表格格式
+      const rawData = res.data.data
+      const indicatorMap = {}
+
+      // 按指标分组
+      rawData.forEach(item => {
+        if (!indicatorMap[item.indicator]) {
+          indicatorMap[item.indicator] = {}
+        }
+        indicatorMap[item.indicator][`quarter_${item.quarter}`] = item.value
+      })
+
+      // 转换为数组格式
+      quarterTableData.value = Object.entries(indicatorMap).map(([indicator, values]) => ({
+        indicator_name: indicator,
+        unit: indicator.includes('率') || indicator.includes('%') ? '%' : '百万元',
+        ...values
+      }))
+
+      // 更新季度列
+      if (res.data.quarters) {
+        quarterColumns.value = res.data.quarters
+      }
+    }
+  } finally {
+    tableLoading.value = false
+  }
+}
+
 const getValueClass = (row, year) => {
   const v = row[`year_${year}`]
   const prev = row[`year_${year - 1}`]
@@ -481,6 +856,16 @@ const handleSeedData = async () => {
 // ---- 监听对比弹窗打开 ----
 watch(showCompareDialog, (val) => {
   if (val) nextTick(() => loadCompareChart())
+})
+
+// ---- 监听视图切换 ----
+watch(viewMode, async (newMode) => {
+  if (selectedBank.value) {
+    if (newMode === 'quarter') {
+      await loadQuarterTableData()
+    }
+    await loadTrendChart()
+  }
 })
 
 // ---- 图表 resize ----

@@ -68,20 +68,29 @@ const handleClose = () => {
         :key="index"
         class="page-item"
       >
-        <div class="page-number">第 {{ index + 1 }} 页</div>
+        <div class="page-number">
+          第 {{ index + 1 }} 页
+        </div>
         <img
           v-if="url"
           :src="url"
           :alt="`Page ${index + 1}`"
           class="page-image"
           @error="handleImageError(index)"
-        />
-        <div v-else class="image-error">图片加载失败</div>
+        >
+        <div
+          v-else
+          class="image-error"
+        >
+          图片加载失败
+        </div>
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
+      <el-button @click="handleClose">
+        关闭
+      </el-button>
     </template>
   </el-dialog>
 </template>

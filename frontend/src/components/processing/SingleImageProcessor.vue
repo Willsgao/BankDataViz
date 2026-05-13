@@ -9,7 +9,10 @@
       class="alert-warning"
     />
 
-    <a-form :model="form" layout="vertical">
+    <a-form
+      :model="form"
+      layout="vertical"
+    >
       <a-row :gutter="16">
         <a-col :span="12">
           <a-form-item label="图片路径">
@@ -19,7 +22,10 @@
               :disabled="processing"
             >
               <template #addonAfter>
-                <a-button type="link" @click="handleSelectImage">
+                <a-button
+                  type="link"
+                  @click="handleSelectImage"
+                >
                   选择文件
                 </a-button>
               </template>
@@ -61,7 +67,10 @@
 
         <a-col :span="8">
           <a-form-item label="自定义提示词">
-            <a-button type="link" @click="showCustomPrompt = true">
+            <a-button
+              type="link"
+              @click="showCustomPrompt = true"
+            >
               设置自定义提示词
             </a-button>
           </a-form-item>
@@ -71,36 +80,52 @@
       <a-form-item>
         <a-button
           type="primary"
-          @click="handleProcess"
           :loading="processing"
           :disabled="!llmConfigured"
+          @click="handleProcess"
         >
           开始识别
         </a-button>
 
-        <a-button @click="handleReset" style="margin-left: 8px;">
+        <a-button
+          style="margin-left: 8px;"
+          @click="handleReset"
+        >
           重置
         </a-button>
       </a-form-item>
     </a-form>
 
     <!-- 进度显示 -->
-    <a-card v-if="processing || result" title="处理结果" class="result-card">
+    <a-card
+      v-if="processing || result"
+      title="处理结果"
+      class="result-card"
+    >
       <a-progress
         v-if="processing"
         :percent="progressPercent"
         :status="progressStatus"
       />
 
-      <div v-if="result" class="result-content">
+      <div
+        v-if="result"
+        class="result-content"
+      >
         <a-alert
           :message="resultMessage"
           :type="resultType"
           show-icon
         />
 
-        <a-descriptions v-if="result.success" bordered size="small">
-          <a-descriptions-item label="处理状态">成功</a-descriptions-item>
+        <a-descriptions
+          v-if="result.success"
+          bordered
+          size="small"
+        >
+          <a-descriptions-item label="处理状态">
+            成功
+          </a-descriptions-item>
           <a-descriptions-item label="表格复杂度">
             {{ result.data.complexity }}
           </a-descriptions-item>
@@ -114,7 +139,10 @@
             {{ result.data.data_rows }}
           </a-descriptions-item>
           <a-descriptions-item label="输出路径">
-            <a :href="`file:///${result.data.output_path}`" target="_blank">
+            <a
+              :href="`file:///${result.data.output_path}`"
+              target="_blank"
+            >
               {{ result.data.output_path }}
             </a>
           </a-descriptions-item>

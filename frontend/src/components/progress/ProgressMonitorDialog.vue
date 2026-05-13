@@ -3,14 +3,14 @@
     <!-- 统计摘要栏 -->
     <div class="summary-section">
       <div class="summary-title">
-        <i class="el-icon-s-data"></i>
+        <i class="el-icon-s-data" />
         <span>任务统计摘要</span>
         <el-button
           size="small"
           type="text"
           icon="el-icon-refresh"
-          @click="$emit('refresh')"
           title="刷新"
+          @click="$emit('refresh')"
         />
       </div>
 
@@ -18,11 +18,15 @@
         <el-card class="summary-card total">
           <div class="card-content">
             <div class="card-icon">
-              <i class="el-icon-s-order"></i>
+              <i class="el-icon-s-order" />
             </div>
             <div class="card-info">
-              <div class="card-value">{{ summary.total }}</div>
-              <div class="card-label">总任务数</div>
+              <div class="card-value">
+                {{ summary.total }}
+              </div>
+              <div class="card-label">
+                总任务数
+              </div>
             </div>
           </div>
         </el-card>
@@ -30,11 +34,15 @@
         <el-card class="summary-card processing">
           <div class="card-content">
             <div class="card-icon">
-              <i class="el-icon-loading"></i>
+              <i class="el-icon-loading" />
             </div>
             <div class="card-info">
-              <div class="card-value">{{ summary.processing }}</div>
-              <div class="card-label">处理中</div>
+              <div class="card-value">
+                {{ summary.processing }}
+              </div>
+              <div class="card-label">
+                处理中
+              </div>
             </div>
           </div>
         </el-card>
@@ -42,11 +50,15 @@
         <el-card class="summary-card completed">
           <div class="card-content">
             <div class="card-icon">
-              <i class="el-icon-success"></i>
+              <i class="el-icon-success" />
             </div>
             <div class="card-info">
-              <div class="card-value">{{ summary.completed }}</div>
-              <div class="card-label">已完成</div>
+              <div class="card-value">
+                {{ summary.completed }}
+              </div>
+              <div class="card-label">
+                已完成
+              </div>
             </div>
           </div>
         </el-card>
@@ -54,11 +66,15 @@
         <el-card class="summary-card queued">
           <div class="card-content">
             <div class="card-icon">
-              <i class="el-icon-time"></i>
+              <i class="el-icon-time" />
             </div>
             <div class="card-info">
-              <div class="card-value">{{ summary.queued }}</div>
-              <div class="card-label">排队中</div>
+              <div class="card-value">
+                {{ summary.queued }}
+              </div>
+              <div class="card-label">
+                排队中
+              </div>
             </div>
           </div>
         </el-card>
@@ -66,11 +82,15 @@
         <el-card class="summary-card failed">
           <div class="card-content">
             <div class="card-icon">
-              <i class="el-icon-error"></i>
+              <i class="el-icon-error" />
             </div>
             <div class="card-info">
-              <div class="card-value">{{ summary.failed }}</div>
-              <div class="card-label">失败</div>
+              <div class="card-value">
+                {{ summary.failed }}
+              </div>
+              <div class="card-label">
+                失败
+              </div>
             </div>
           </div>
         </el-card>
@@ -84,10 +104,10 @@
         <div class="section-actions">
           <el-button
             size="small"
-            @click="handleAutoRefreshToggle"
             :type="autoRefresh ? 'primary' : ''"
+            @click="handleAutoRefreshToggle"
           >
-            <i class="el-icon-refresh"></i>
+            <i class="el-icon-refresh" />
             {{ autoRefresh ? '停止刷新' : '自动刷新' }}
           </el-button>
           <el-button
@@ -102,34 +122,46 @@
 
       <div class="task-table-container">
         <el-table
+          v-loading="loading"
           :data="filteredTasks"
           style="width: 100%"
           height="400"
-          v-loading="loading"
           empty-text="暂无进行中的解析任务"
         >
           <!-- 文件列 -->
-          <el-table-column label="PDF文件" width="250">
-              <template #default="{ row }">
-                <div class="pdf-info-cell">
-                  <i class="el-icon-document"></i>
-                  <div class="pdf-details">
-                    <!-- 显示原始文件名 -->
-                    <div class="pdf-filename" :title="row.original_filename">
-                      {{ truncateText(row.original_filename, 25) }}
-                    </div>
-                    <!-- 显示数据库ID（用于调试） -->
-                    <div v-if="row.from_database" class="pdf-db-id">
-                      <small>ID: {{ truncateText(row.pdf_folder, 15) }}</small>
-                    </div>
+          <el-table-column
+            label="PDF文件"
+            width="250"
+          >
+            <template #default="{ row }">
+              <div class="pdf-info-cell">
+                <i class="el-icon-document" />
+                <div class="pdf-details">
+                  <!-- 显示原始文件名 -->
+                  <div
+                    class="pdf-filename"
+                    :title="row.original_filename"
+                  >
+                    {{ truncateText(row.original_filename, 25) }}
+                  </div>
+                  <!-- 显示数据库ID（用于调试） -->
+                  <div
+                    v-if="row.from_database"
+                    class="pdf-db-id"
+                  >
+                    <small>ID: {{ truncateText(row.pdf_folder, 15) }}</small>
                   </div>
                 </div>
-              </template>
-            </el-table-column>
+              </div>
+            </template>
+          </el-table-column>
 
 
           <!-- 状态列 -->
-          <el-table-column label="状态" width="120">
+          <el-table-column
+            label="状态"
+            width="120"
+          >
             <template #default="{ row }">
               <el-tag
                 :type="getStatusTagType(row)"
@@ -137,14 +169,20 @@
                 effect="light"
                 class="status-tag"
               >
-                <i v-if="row.status === 'processing'" class="el-icon-loading"></i>
+                <i
+                  v-if="row.status === 'processing'"
+                  class="el-icon-loading"
+                />
                 {{ getStatusText(row) }}
               </el-tag>
             </template>
           </el-table-column>
 
           <!-- 进度列 -->
-          <el-table-column label="进度" width="200">
+          <el-table-column
+            label="进度"
+            width="200"
+          >
             <template #default="{ row }">
               <div class="progress-cell">
                 <el-progress
@@ -157,7 +195,10 @@
                 >
                   <span>{{ getProgressText(row) }}</span>
                 </el-progress>
-                <div v-if="row.status === 'processing'" class="progress-time">
+                <div
+                  v-if="row.status === 'processing'"
+                  class="progress-time"
+                >
                   {{ getElapsedTime(row) }}
                 </div>
               </div>
@@ -165,31 +206,49 @@
           </el-table-column>
 
           <!-- 图片处理统计 -->
-          <el-table-column label="图片处理" width="140">
+          <el-table-column
+            label="图片处理"
+            width="140"
+          >
             <template #default="{ row }">
               <div class="image-stats">
                 <div v-if="row.total_images !== undefined || row.total !== undefined">
                   <span class="processed">{{ row.processed_images || row.processed || 0 }}</span>
-                  <span class="skipped" v-if="row.skipped_images">({{ row.skipped_images }})</span>
+                  <span
+                    v-if="row.skipped_images"
+                    class="skipped"
+                  >({{ row.skipped_images }})</span>
                   <span class="separator">/</span>
                   <span class="total">{{ row.total_images || row.total || 0 }}</span>
                 </div>
-                <div v-else class="no-stats">-</div>
+                <div
+                  v-else
+                  class="no-stats"
+                >
+                  -
+                </div>
               </div>
             </template>
           </el-table-column>
 
           <!-- 开始时间 -->
-          <el-table-column label="开始时间" width="150">
-              <template #default="{ row }">
-                <div class="time-cell">
-                  {{ formatDateTime(row.timestamp || row.started_at) }}
-                </div>
-              </template>
-            </el-table-column>
+          <el-table-column
+            label="开始时间"
+            width="150"
+          >
+            <template #default="{ row }">
+              <div class="time-cell">
+                {{ formatDateTime(row.timestamp || row.started_at) }}
+              </div>
+            </template>
+          </el-table-column>
 
           <!-- 操作列 -->
-          <el-table-column label="操作" width="150" fixed="right">
+          <el-table-column
+            label="操作"
+            width="150"
+            fixed="right"
+          >
             <template #default="{ row }">
               <div class="action-buttons">
                 <!-- 取消按钮（仅处理中状态显示） -->
@@ -197,8 +256,8 @@
                   v-if="row.status === 'processing' || row.original_status === 'processing'"
                   size="small"
                   type="danger"
-                  @click="$emit('cancel', row.job_id)"
                   class="action-btn"
+                  @click="$emit('cancel', row.job_id)"
                 >
                   取消
                 </el-button>
@@ -208,8 +267,8 @@
                   v-if="row.status === 'completed' || row.original_status === 'completed'"
                   size="small"
                   type="success"
-                  @click="$emit('view-result', row.job_id)"
                   class="action-btn"
+                  @click="$emit('view-result', row.job_id)"
                 >
                   查看结果
                 </el-button>
@@ -219,8 +278,8 @@
                   v-if="row.status === 'failed' || row.original_status === 'failed'"
                   size="small"
                   type="warning"
-                  @click="$emit('retry', row.job_id)"
                   class="action-btn"
+                  @click="$emit('retry', row.job_id)"
                 >
                   重试
                 </el-button>
@@ -229,8 +288,8 @@
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('view-detail', row)"
                   class="action-btn"
+                  @click="$emit('view-detail', row)"
                 >
                   详情
                 </el-button>
@@ -249,11 +308,26 @@
           clearable
           style="width: 120px; margin-right: 8px;"
         >
-          <el-option label="全部状态" value="" />
-          <el-option label="排队中" value="queued" />
-          <el-option label="处理中" value="processing" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="失败" value="failed" />
+          <el-option
+            label="全部状态"
+            value=""
+          />
+          <el-option
+            label="排队中"
+            value="queued"
+          />
+          <el-option
+            label="处理中"
+            value="processing"
+          />
+          <el-option
+            label="已完成"
+            value="completed"
+          />
+          <el-option
+            label="失败"
+            value="failed"
+          />
         </el-select>
 
         <el-date-picker
@@ -292,8 +366,15 @@
         </el-button>
       </div>
       <div class="footer-right">
-        <el-button @click="$emit('close')">关闭</el-button>
-        <el-button type="primary" @click="$emit('refresh')">刷新</el-button>
+        <el-button @click="$emit('close')">
+          关闭
+        </el-button>
+        <el-button
+          type="primary"
+          @click="$emit('refresh')"
+        >
+          刷新
+        </el-button>
       </div>
     </div>
   </div>

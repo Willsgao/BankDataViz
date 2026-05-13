@@ -383,25 +383,47 @@ const emit = defineEmits(['configured'])
     >
       <!-- 配置模式选择 -->
       <div class="config-mode">
-        <el-radio-group v-model="configMode" @change="onConfigModeChange">
-          <el-radio-button label="default">使用默认配置</el-radio-button>
-          <el-radio-button label="custom">自定义配置</el-radio-button>
+        <el-radio-group
+          v-model="configMode"
+          @change="onConfigModeChange"
+        >
+          <el-radio-button label="default">
+            使用默认配置
+          </el-radio-button>
+          <el-radio-button label="custom">
+            自定义配置
+          </el-radio-button>
         </el-radio-group>
       </div>
 
-      <el-form :model="form" label-width="120px" :rules="rules" ref="formRef" :disabled="configMode === 'default'">
-        <el-form-item label="基础URL" prop="base_url">
+      <el-form
+        ref="formRef"
+        :model="form"
+        label-width="120px"
+        :rules="rules"
+        :disabled="configMode === 'default'"
+      >
+        <el-form-item
+          label="基础URL"
+          prop="base_url"
+        >
           <el-input
             v-model="form.base_url"
             placeholder="请输入LLM API基础URL"
           />
-          <div class="config-hint" v-if="configMode === 'default'">
+          <div
+            v-if="configMode === 'default'"
+            class="config-hint"
+          >
             <el-icon><InfoFilled /></el-icon>
             使用默认配置: {{ defaultConfig.base_url }}
           </div>
         </el-form-item>
 
-        <el-form-item label="API密钥" prop="api_key">
+        <el-form-item
+          label="API密钥"
+          prop="api_key"
+        >
           <div class="api-key-input">
             <el-input
               v-model="form.api_key"
@@ -410,10 +432,10 @@ const emit = defineEmits(['configured'])
               show-password
             />
             <el-button
-              type="text"
-              @click="fillExampleApiKey"
-              class="example-btn"
               v-if="configMode === 'custom' && !form.api_key"
+              type="text"
+              class="example-btn"
+              @click="fillExampleApiKey"
             >
               示例格式
             </el-button>
@@ -422,11 +444,17 @@ const emit = defineEmits(['configured'])
             <el-icon><InfoFilled /></el-icon>
             <span v-if="configMode === 'default'">使用默认配置（需要您填写API密钥）</span>
             <span v-else>请填写您的真实API密钥</span>
-            <span class="example-format" v-if="configMode === 'custom'">示例: {{ defaultConfig.api_key_example }}</span>
+            <span
+              v-if="configMode === 'custom'"
+              class="example-format"
+            >示例: {{ defaultConfig.api_key_example }}</span>
           </div>
         </el-form-item>
 
-        <el-form-item label="模型ID" prop="model_id">
+        <el-form-item
+          label="模型ID"
+          prop="model_id"
+        >
           <el-select
             v-model="form.model_id"
             placeholder="请选择模型"
@@ -444,7 +472,10 @@ const emit = defineEmits(['configured'])
               </span>
             </el-option>
           </el-select>
-          <div class="config-hint" v-if="configMode === 'default'">
+          <div
+            v-if="configMode === 'default'"
+            class="config-hint"
+          >
             <el-icon><InfoFilled /></el-icon>
             使用默认配置: {{ defaultConfig.model_id }}
           </div>
@@ -454,23 +485,34 @@ const emit = defineEmits(['configured'])
         <el-form-item>
           <el-button
             type="primary"
-            @click="testConnection"
             :loading="testing"
             :disabled="!canTestConnection"
+            @click="testConnection"
           >
             测试连接
           </el-button>
-          <span v-if="testResult" :class="testResult.success ? 'success-text' : 'error-text'">
+          <span
+            v-if="testResult"
+            :class="testResult.success ? 'success-text' : 'error-text'"
+          >
             {{ testResult.message }}
           </span>
         </el-form-item>
 
         <!-- 提示词配置 -->
         <el-collapse v-model="activeCollapse">
-          <el-collapse-item title="高级配置（提示词）" name="prompts">
+          <el-collapse-item
+            title="高级配置（提示词）"
+            name="prompts"
+          >
             <div class="prompts-header">
               <span>提示词配置</span>
-              <el-button type="text" @click="resetToDefaultPrompts" size="small" :disabled="configMode === 'default'">
+              <el-button
+                type="text"
+                size="small"
+                :disabled="configMode === 'default'"
+                @click="resetToDefaultPrompts"
+              >
                 重置为默认提示词
               </el-button>
             </div>
@@ -530,8 +572,14 @@ const emit = defineEmits(['configured'])
             <span v-else>当前模式：自定义配置</span>
           </div>
           <div>
-            <el-button @click="handleClose">取消</el-button>
-            <el-button type="primary" @click="saveConfig" :loading="saving">
+            <el-button @click="handleClose">
+              取消
+            </el-button>
+            <el-button
+              type="primary"
+              :loading="saving"
+              @click="saveConfig"
+            >
               {{ configMode === 'default' ? '保存默认配置' : '保存自定义配置' }}
             </el-button>
           </div>

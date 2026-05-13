@@ -3,21 +3,34 @@
     <div class="chart-row">
       <div class="chart-item">
         <h4>班级平均分对比</h4>
-        <div ref="avgScoreChart" class="chart"></div>
+        <div
+          ref="avgScoreChart"
+          class="chart"
+        />
       </div>
       <div class="chart-item">
         <h4>班级等级分布</h4>
-        <div ref="gradeDistributionChart" class="chart"></div>
+        <div
+          ref="gradeDistributionChart"
+          class="chart"
+        />
       </div>
     </div>
     <div class="chart-row">
       <div class="chart-item full-width">
         <h4>各维度班级对比</h4>
-        <div ref="dimensionComparisonChart" class="chart"></div>
+        <div
+          ref="dimensionComparisonChart"
+          class="chart"
+        />
       </div>
     </div>
     <div class="class-stats">
-      <el-card v-for="classData in classStats" :key="classData.className" class="stat-card">
+      <el-card
+        v-for="classData in classStats"
+        :key="classData.className"
+        class="stat-card"
+      >
         <template #header>
           <span>{{ classData.className }}</span>
         </template>

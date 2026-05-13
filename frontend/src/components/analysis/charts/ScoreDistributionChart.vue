@@ -1,6 +1,9 @@
 <template>
   <div class="score-distribution-chart">
-    <div ref="chartRef" class="chart-container"></div>
+    <div
+      ref="chartRef"
+      class="chart-container"
+    />
   </div>
 </template>
 

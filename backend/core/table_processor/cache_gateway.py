@@ -26,6 +26,9 @@ def ensure_table():
     with engine.begin() as conn:
         conn.execute(text(ddl))
 
+# 模块加载时自动创建表
+ensure_table()
+
 
 def get(md5: str, provider: str):
     """返回 dict 或 None"""

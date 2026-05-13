@@ -226,16 +226,26 @@ def get_report_tables(report_id):
 # 表格数据接口
 # ============================================================
 
-@bank_data_bp.route('/report/<int:report_id>/table/<table_name>', methods=['GET'])
-def get_table_indicators(report_id, table_name):
+@bank_data_bp.route('/report/<int:report_id>/table/indicators', methods=['GET'])
+def get_table_indicators(report_id):
     """
     获取表格指标数据
+    Query参数：
+    - table_name: 表格名称（必需）
     """
+    table_name = request.args.get('table_name')
+    
+    if not table_name:
+        return jsonify({
+            'success': False,
+            'error': 'table_name参数不能为空'
+        }), 400
+    
     indicators = bank_data_service.get_table_indicators(
         report_id=report_id,
         table_name=table_name
     )
-
+    
     return jsonify({
         'success': True,
         'data': indicators,
@@ -306,6 +316,37 @@ def get_indicator_trend():
         'success': True,
         'data': trend
     })
+
+
+@bank_data_bp.route('/analysis/quarter-trend', methods=['GET'])
+def get_quarter_trend():
+    """
+    获取季度指标趋势 - 直接从Excel读取季度数据
+    """
+    bank_id = request.args.get('bank_id', type=int)
+    indicator_name = request.args.get('indicator_name')
+
+    if not bank_id:
+        return jsonify({
+            'success': False,
+            'error': 'bank_id参数不能为空'
+        })
+
+    try:
+        from backend.services.bank_data_service import BankDataService
+        service = BankDataService()
+        trend = service.get_quarter_trend(bank_id, indicator_name)
+        return jsonify({
+            'success': True,
+            'data': trend
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 
 @bank_data_bp.route('/analysis/compare', methods=['GET'])

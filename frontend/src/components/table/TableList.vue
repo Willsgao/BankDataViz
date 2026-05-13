@@ -3,7 +3,11 @@
     <h3>表格列表</h3>
     <div class="table-items">
       <!-- 这里显示提取到的表格列表 -->
-      <div v-for="table in tables" :key="table.id" class="table-item">
+      <div
+        v-for="table in tables"
+        :key="table.id"
+        class="table-item"
+      >
         {{ table.name }}
       </div>
     </div>

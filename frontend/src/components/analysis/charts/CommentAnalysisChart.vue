@@ -2,15 +2,26 @@
   <div class="comment-analysis-chart">
     <div class="comment-analysis">
       <h4>评语关键词分析</h4>
-      <div ref="wordCloudChart" class="chart"></div>
+      <div
+        ref="wordCloudChart"
+        class="chart"
+      />
       <div class="comment-stats">
-        <el-card v-for="stat in commentStats" :key="stat.title" class="stat-card">
+        <el-card
+          v-for="stat in commentStats"
+          :key="stat.title"
+          class="stat-card"
+        >
           <template #header>
             <span>{{ stat.title }}</span>
           </template>
           <div class="stat-content">
-            <div class="stat-value">{{ stat.value }}</div>
-            <div class="stat-desc">{{ stat.desc }}</div>
+            <div class="stat-value">
+              {{ stat.value }}
+            </div>
+            <div class="stat-desc">
+              {{ stat.desc }}
+            </div>
           </div>
         </el-card>
       </div>

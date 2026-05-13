@@ -1,15 +1,27 @@
 <template>
   <div class="pdf-list">
-
-    <div v-if="isSearching" class="loading-state">
-      <el-icon class="is-loading"><Loading /></el-icon>
+    <div
+      v-if="isSearching"
+      class="loading-state"
+    >
+      <el-icon class="is-loading">
+        <Loading />
+      </el-icon>
       搜索中...
     </div>
-    <div v-else-if="filteredPdfCount === 0" class="empty-state">
+    <div
+      v-else-if="filteredPdfCount === 0"
+      class="empty-state"
+    >
       <p>暂无搜索结果</p>
-      <p class="tip">在右上角搜索框输入PDF名称关键字</p>
+      <p class="tip">
+        在右上角搜索框输入PDF名称关键字
+      </p>
     </div>
-    <div v-else class="pdf-items">
+    <div
+      v-else
+      class="pdf-items"
+    >
       <div
         v-for="pdf in searchResults"
         :key="pdf.id || pdf.filename"
@@ -19,7 +31,11 @@
       >
         <el-icon><Document /></el-icon>
         <span class="pdf-name">{{ pdf.filename }}</span>
-        <el-tag v-if="pdf.matchType" size="small" type="success">
+        <el-tag
+          v-if="pdf.matchType"
+          size="small"
+          type="success"
+        >
           {{ pdf.matchType }}
         </el-tag>
       </div>

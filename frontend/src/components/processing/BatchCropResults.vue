@@ -427,7 +427,10 @@ console.log('📦 BatchCropResults 实际收到的前5张图：', props.images.s
     </div>
 
     <!-- 新增：跳转输入框 -->
-    <div class="jump-control" v-if="images.length > 0">
+    <div
+      v-if="images.length > 0"
+      class="jump-control"
+    >
       <el-input
         v-model="jumpIndex"
         type="number"
@@ -441,8 +444,8 @@ console.log('📦 BatchCropResults 实际收到的前5张图：', props.images.s
       <el-button
         type="primary"
         size="small"
-        @click="jumpToImage"
         :disabled="!jumpIndex || jumpIndex < 1 || jumpIndex > images.length"
+        @click="jumpToImage"
       >
         跳转
       </el-button>
@@ -462,28 +465,31 @@ console.log('📦 BatchCropResults 实际收到的前5张图：', props.images.s
       </el-button>
 
       <!-- 大模型表格识别按钮 -->
-        <el-button
-          type="success"
-          size="small"
-          icon="el-icon-cpu"
-          @click="handleBatchLLMProcess"
-          :loading="llmLoading[pdf.disk_name]?.loading || false"
-          :disabled="!llmConfigured || (llmLoading[pdf.disk_name]?.loading || false)"
-        >
-          {{ llmLoading[pdf.disk_name]?.loading ? '处理中...' : '大模型表格识别' }}
-        </el-button>
+      <el-button
+        type="success"
+        size="small"
+        icon="el-icon-cpu"
+        :loading="llmLoading[pdf.disk_name]?.loading || false"
+        :disabled="!llmConfigured || (llmLoading[pdf.disk_name]?.loading || false)"
+        @click="handleBatchLLMProcess"
+      >
+        {{ llmLoading[pdf.disk_name]?.loading ? '处理中...' : '大模型表格识别' }}
+      </el-button>
 
-        <!-- 实时进度条 -->
-        <el-progress
-          v-if="llmLoading[pdf.disk_name]?.loading"
-          :percentage="llmLoading[pdf.disk_name].progress || 0"
-          :stroke-width="6"
-          style="width:120px;margin-left:8px"
-        />
+      <!-- 实时进度条 -->
+      <el-progress
+        v-if="llmLoading[pdf.disk_name]?.loading"
+        :percentage="llmLoading[pdf.disk_name].progress || 0"
+        :stroke-width="6"
+        style="width:120px;margin-left:8px"
+      />
 
 
       <!-- 调试信息显示 -->
-      <div v-if="batchLlmLoading" class="debug-info">
+      <div
+        v-if="batchLlmLoading"
+        class="debug-info"
+      >
         <span>状态: {{ batchLlmLoading ? '处理中' : '就绪' }}</span>
         <span>PDF: {{ pdf?.disk_name }}</span>
       </div>
@@ -503,25 +509,28 @@ console.log('📦 BatchCropResults 实际收到的前5张图：', props.images.s
         type="info"
         size="small"
         icon="el-icon-delete"
-        @click="$emit('clear-cache', pdf.disk_name)"
         title="清除裁切缓存"
         :disabled="batchLlmLoading"
+        @click="$emit('clear-cache', pdf.disk_name)"
       >
         清除缓存
       </el-button>
     </div>
 
     <div class="scroll-container">
-      <div class="images-scroll" ref="scrollContainer">
+      <div
+        ref="scrollContainer"
+        class="images-scroll"
+      >
         <ImageCard
           v-for="(imgUrl, index) in cleanedImages"
           :key="index"
+          :ref="el => { if (el) imageCards[index] = el }"
           :image="imgUrl"
           :index="index"
           :image-name="extractImageName(imgUrl)"
           :llm-configured="llmConfigured"
           :llm-loading="singleLlmLoading[index]"
-          :ref="el => { if (el) imageCards[index] = el }"
           @preview="$emit('preview-image', $event, index)"
           @llm-process="handleSingleLLMProcess($event, index)"
           @ocr-completed="$emit('ocr-completed', $event)"

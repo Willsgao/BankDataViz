@@ -30,7 +30,7 @@ class OldDatabaseManagerAdapter:
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         os.makedirs(self.uploads_dir, exist_ok=True)
 
-        print(f"🔄 OldDatabaseManagerAdapter 初始化完成")
+        print(f"[INIT] OldDatabaseManagerAdapter 初始化完成")
         print(f"   数据库路径: {self.db_path}")
         print(f"   上传目录: {self.uploads_dir}")
 

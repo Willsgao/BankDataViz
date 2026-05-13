@@ -124,6 +124,50 @@ def is_redis_available() -> bool:
         return False
 
 
+def _search_disk_cache_by_md5(md5: str, image_path: str) -> Optional[Dict[str, Any]]:
+    """
+    磁盘兜底缓存查找：直接在 obj_cache 目录里搜索包含指定MD5的 .json.gz 文件。
+    适用于 SQLite 无记录但 obj_cache 文件实际存在的场景。
+    """
+    from .object_store import LOCAL_ROOT
+    import re
+
+    pdf_uuid = extract_pdf_uuid_from_image_path(image_path)
+    if not pdf_uuid:
+        return None
+
+    cache_root = Path(LOCAL_ROOT)
+    if not cache_root.exists():
+        return None
+
+    # 在 obj_cache/<pdf_uuid>/ocr/ 目录下搜索包含 md5 的文件
+    ocr_dir = cache_root / pdf_uuid / "ocr"
+    if not ocr_dir.exists():
+        return None
+
+    # 文件名格式：{sequence}_{md5}.json.gz，直接搜索包含该md5的条目
+    try:
+        for f in ocr_dir.iterdir():
+            if f.is_file() and f.suffix == ".gz":
+                # 检查文件名中是否包含该 md5
+                if md5 in f.name:
+                    try:
+                        data = json.loads(gzip.decompress(f.read_bytes()))
+                        # 回填 SQLite，避免下次再搜磁盘
+                        try:
+                            cache_upsert(md5, "tencent", "tencent", 0.0, 0, 0, f"ocr/{f.name}")
+                        except Exception:
+                            pass  # 回填失败不影响返回
+                        return data
+                    except Exception as e:
+                        print(f"磁盘缓存文件 {f} 读取失败: {e}")
+                        return None
+    except Exception as e:
+        print(f"磁盘缓存目录扫描失败: {e}")
+
+    return None
+
+
 class TableOCRService:
     def __init__(self, provider_type: str = None):
         """
@@ -362,6 +406,13 @@ class TableOCRService:
                     print(f"[DEBUG] 😢 所有缓存路径都未命中，将调用 OCR API")
             else:
                 print(f"[DEBUG] DB 中没有找到 md5={md5} 的缓存记录")
+
+            # 磁盘兜底搜索：直接从 obj_cache 目录里搜包含该MD5的 .json.gz 文件
+            # 适用于 SQLite 无记录但文件实际存在的场景（历史遗留缓存）
+            disk_hit = _search_disk_cache_by_md5(md5, image_path)
+            if disk_hit:
+                print(f"✅ 磁盘缓存命中（MD5={md5}），跳过 OCR 调用")
+                return disk_hit
 
         # ----- 2. 真调用 -----
         try:

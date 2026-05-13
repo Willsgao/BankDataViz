@@ -1,11 +1,24 @@
 <template>
   <div class="file-list">
     <!-- 表格类型选择器 -->
-    <div class="table-type-selector" v-if="hasPDF">
-      <div class="selector-label">表格类型:</div>
-      <el-radio-group v-model="tableType" size="small" @change="onTableTypeChange">
-        <el-radio-button label="financial">金融表格</el-radio-button>
-        <el-radio-button label="non_financial">普通表格</el-radio-button>
+    <div
+      v-if="hasPDF"
+      class="table-type-selector"
+    >
+      <div class="selector-label">
+        表格类型:
+      </div>
+      <el-radio-group
+        v-model="tableType"
+        size="small"
+        @change="onTableTypeChange"
+      >
+        <el-radio-button label="financial">
+          金融表格
+        </el-radio-button>
+        <el-radio-button label="non_financial">
+          普通表格
+        </el-radio-button>
       </el-radio-group>
       <div class="type-description">
         {{ tableType === 'financial' ? '识别银行财务报表等金融数据' : '识别普通数据表格、产品清单等' }}
@@ -71,7 +84,6 @@
       @prev="prevImage"
       @next="nextImage"
     />
-
   </div>
 </template>
 
@@ -1393,7 +1405,7 @@ const handleParseTables = async (pdfDiskName) => {
     ElMessage.info(`开始解析 ${tableImages.length} 张表格...`);
 
     // 使用绝对路径，避免代理问题
-    const baseUrl = window.location.origin; // 获取当前页面的基础URL
+    const baseUrl = getBackendUrl(''); // 获取后端基础URL
     const apiUrl = `/api/process-tables/${folderName}`; // 相对路径
 
     console.log('🔗 调用API:', apiUrl);

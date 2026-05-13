@@ -3,6 +3,7 @@ venv/
 .venv/
 .venv_311/
 .env/
+.env
 
 # Python缓存
 __pycache__/
@@ -24,6 +25,7 @@ data/
 
 # 上传文件
 backend/static/uploads/
+backend/static/detect_cache/
 
 # 日志文件
 *.log

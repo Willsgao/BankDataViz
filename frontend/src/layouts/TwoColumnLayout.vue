@@ -4,11 +4,14 @@
     <div class="left-panel">
       <!-- PDF 上传区域 -->
       <div class="upload-section">
-        <file-upload @uploaded="$emit('load-files')"/>
+        <file-upload @uploaded="$emit('load-files')" />
       </div>
 
       <!-- 当前PDF预览区域 -->
-      <div class="pdf-preview-section" v-if="currentPdf">
+      <div
+        v-if="currentPdf"
+        class="pdf-preview-section"
+      >
         <PdfPreview
           :pdf-files="files"
           :current-pdf-index="currentPdfIndex"
@@ -38,9 +41,17 @@
       </div>
 
       <!-- 空状态提示 -->
-      <div v-else class="empty-preview">
-        <el-empty description="请选择一个PDF文件开始处理" :image-size="80">
-          <p class="empty-tip">从右侧文件列表中选择一个PDF文件</p>
+      <div
+        v-else
+        class="empty-preview"
+      >
+        <el-empty
+          description="请选择一个PDF文件开始处理"
+          :image-size="80"
+        >
+          <p class="empty-tip">
+            从右侧文件列表中选择一个PDF文件
+          </p>
         </el-empty>
       </div>
     </div>
@@ -48,11 +59,17 @@
     <!-- 右侧：两栏布局 -->
     <div class="right-panel">
       <!-- 上栏：当前PDF状态和进度预览（带折叠控制） -->
-      <div class="status-section" :class="{ 'collapsed': fileListExpanded }">
+      <div
+        class="status-section"
+        :class="{ 'collapsed': fileListExpanded }"
+      >
         <div class="status-header">
           <span class="status-title">当前PDF状态</span>
-          <div class="collapse-control" @click="toggleFileList">
-            <i :class="fileListExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
+          <div
+            class="collapse-control"
+            @click="toggleFileList"
+          >
+            <i :class="fileListExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'" />
             <span>{{ fileListExpanded ? '收起文件列表' : '展开文件列表' }}</span>
           </div>
         </div>
@@ -68,22 +85,28 @@
           :has-results="hasResults"
           :has-batch-results="hasBatchResults"
           :persistent-file-status="persistentFileStatus"
+          class="status-content"
           @convert="$emit('convert-and-preview', $event)"
           @screen-images="$emit('handle-screen-images', $event)"
           @open-classification="$emit('handle-open-classification', $event)"
           @parse-tables="$emit('parse-tables', $event)"
           @clear-cache="$emit('clear-cache', $event)"
-          class="status-content"
         />
       </div>
 
       <!-- 下栏：所有PDF文件列表（可折叠，按状态分组） -->
-      <div class="file-manager-section" :class="{ 'expanded': fileListExpanded }">
+      <div
+        class="file-manager-section"
+        :class="{ 'expanded': fileListExpanded }"
+      >
         <div class="section-header">
           <div class="header-left">
             <span class="title">PDF文件管理器</span>
             <!-- 状态统计 -->
-            <div class="status-summary" v-if="files.length > 0">
+            <div
+              v-if="files.length > 0"
+              class="status-summary"
+            >
               <div class="summary-item completed">
                 <span class="count">{{ completedCount }}</span>
                 <span class="label">已完成</span>
@@ -111,7 +134,10 @@
               @clear="handleClearSearch"
             >
               <template #append>
-                <el-button icon="el-icon-search" @click="handleSearchTasks" />
+                <el-button
+                  icon="el-icon-search"
+                  @click="handleSearchTasks"
+                />
               </template>
             </el-input>
 
@@ -120,9 +146,9 @@
               size="small"
               type="text"
               icon="el-icon-data-line"
-              @click="$emit('show-progress-dialog')"
               class="progress-monitor-btn"
               title="查看所有PDF的解析进度"
+              @click="$emit('show-progress-dialog')"
             >
               解析进度
               <el-badge
@@ -133,24 +159,35 @@
               />
             </el-button>
 
-            <div class="table-type-selector" v-if="files.length > 0">
+            <div
+              v-if="files.length > 0"
+              class="table-type-selector"
+            >
               <el-radio-group
                 :value="tableType"
                 size="small"
                 @change="$emit('table-type-change', $event)"
-              >
-              </el-radio-group>
+              />
             </div>
           </div>
         </div>
 
         <div class="file-list-content">
           <!-- 当前PDF（特殊标记） -->
-          <div v-if="currentPdf" class="current-pdf-item highlighted">
+          <div
+            v-if="currentPdf"
+            class="current-pdf-item highlighted"
+          >
             <div class="file-info">
-              <i class="el-icon-document"></i>
+              <i class="el-icon-document" />
               <span class="file-name">{{ currentPdf.filename }}</span>
-              <el-tag size="small" type="primary" class="current-tag">当前</el-tag>
+              <el-tag
+                size="small"
+                type="primary"
+                class="current-tag"
+              >
+                当前
+              </el-tag>
               <el-tag
                 v-if="getFileProgress(currentPdf.disk_name) === 100"
                 size="small"
@@ -161,11 +198,19 @@
               </el-tag>
             </div>
             <div class="file-actions">
-              <el-button size="small" type="text" @click="$emit('convert-and-preview', currentPdf.disk_name)">
-                <i :class="getHasConvertCache(currentPdf.disk_name) ? 'el-icon-picture' : 'el-icon-picture-outline'"></i>
+              <el-button
+                size="small"
+                type="text"
+                @click="$emit('convert-and-preview', currentPdf.disk_name)"
+              >
+                <i :class="getHasConvertCache(currentPdf.disk_name) ? 'el-icon-picture' : 'el-icon-picture-outline'" />
               </el-button>
-              <el-button size="small" type="text" @click="$emit('delete-file', currentPdf)">
-                <i class="el-icon-delete"></i>
+              <el-button
+                size="small"
+                type="text"
+                @click="$emit('delete-file', currentPdf)"
+              >
+                <i class="el-icon-delete" />
               </el-button>
             </div>
           </div>
@@ -173,9 +218,12 @@
           <!-- 分组显示其他文件 -->
 
           <!-- 1. 已完成 -->
-          <div v-if="completedFiles.length > 0" class="file-group">
+          <div
+            v-if="completedFiles.length > 0"
+            class="file-group"
+          >
             <div class="group-title completed">
-              <i class="el-icon-success"></i>
+              <i class="el-icon-success" />
               <span>已完成 ({{ completedFiles.length }})</span>
             </div>
             <div
@@ -183,11 +231,18 @@
               :key="pdf.disk_name"
               class="pdf-file-item completed"
             >
-              <div class="file-info" @click="$emit('switch-pdf', pdf)">
-                <i class="el-icon-document"></i>
+              <div
+                class="file-info"
+                @click="$emit('switch-pdf', pdf)"
+              >
+                <i class="el-icon-document" />
                 <span class="file-name">{{ pdf.filename }}</span>
                 <div class="file-status">
-                  <el-tag size="small" type="success" class="status-tag">
+                  <el-tag
+                    size="small"
+                    type="success"
+                    class="status-tag"
+                  >
                     {{ getProcessingStatus(pdf.disk_name) }}
                   </el-tag>
                 </div>
@@ -196,27 +251,30 @@
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('switch-pdf', pdf)"
                   title="切换到该PDF"
+                  @click="$emit('switch-pdf', pdf)"
                 >
-                  <i class="el-icon-position"></i>
+                  <i class="el-icon-position" />
                 </el-button>
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('delete-file', pdf)"
                   title="删除"
+                  @click="$emit('delete-file', pdf)"
                 >
-                  <i class="el-icon-delete"></i>
+                  <i class="el-icon-delete" />
                 </el-button>
               </div>
             </div>
           </div>
 
           <!-- 2. 处理中 -->
-          <div v-if="processingFiles.length > 0" class="file-group">
+          <div
+            v-if="processingFiles.length > 0"
+            class="file-group"
+          >
             <div class="group-title processing">
-              <i class="el-icon-loading"></i>
+              <i class="el-icon-loading" />
               <span>处理中 ({{ processingFiles.length }})</span>
             </div>
             <div
@@ -224,11 +282,18 @@
               :key="pdf.disk_name"
               class="pdf-file-item processing"
             >
-              <div class="file-info" @click="$emit('switch-pdf', pdf)">
-                <i class="el-icon-document"></i>
+              <div
+                class="file-info"
+                @click="$emit('switch-pdf', pdf)"
+              >
+                <i class="el-icon-document" />
                 <span class="file-name">{{ pdf.filename }}</span>
                 <div class="file-status">
-                  <el-tag size="small" type="warning" class="status-tag">
+                  <el-tag
+                    size="small"
+                    type="warning"
+                    class="status-tag"
+                  >
                     {{ getProcessingStatus(pdf.disk_name) }}
                   </el-tag>
                 </div>
@@ -237,28 +302,31 @@
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('switch-pdf', pdf)"
                   title="切换到该PDF"
+                  @click="$emit('switch-pdf', pdf)"
                 >
-                  <i class="el-icon-position"></i>
+                  <i class="el-icon-position" />
                 </el-button>
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('delete-file', pdf)"
                   title="删除"
                   :disabled="isProcessing(pdf.disk_name)"
+                  @click="$emit('delete-file', pdf)"
                 >
-                  <i class="el-icon-delete"></i>
+                  <i class="el-icon-delete" />
                 </el-button>
               </div>
             </div>
           </div>
 
           <!-- 3. 待处理 -->
-          <div v-if="pendingFiles.length > 0" class="file-group">
+          <div
+            v-if="pendingFiles.length > 0"
+            class="file-group"
+          >
             <div class="group-title pending">
-              <i class="el-icon-clock"></i>
+              <i class="el-icon-clock" />
               <span>待处理 ({{ pendingFiles.length }})</span>
             </div>
             <div
@@ -266,46 +334,63 @@
               :key="pdf.disk_name"
               class="pdf-file-item pending"
             >
-              <div class="file-info" @click="$emit('switch-pdf', pdf)">
-                <i class="el-icon-document"></i>
+              <div
+                class="file-info"
+                @click="$emit('switch-pdf', pdf)"
+              >
+                <i class="el-icon-document" />
                 <span class="file-name">{{ pdf.filename }}</span>
                 <div class="file-status">
-                  <el-tag size="small" type="info" class="status-tag">待处理</el-tag>
+                  <el-tag
+                    size="small"
+                    type="info"
+                    class="status-tag"
+                  >
+                    待处理
+                  </el-tag>
                 </div>
               </div>
               <div class="file-actions">
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('convert-and-preview', pdf.disk_name)"
                   title="开始处理"
+                  @click="$emit('convert-and-preview', pdf.disk_name)"
                 >
-                  <i class="el-icon-picture-outline"></i>
+                  <i class="el-icon-picture-outline" />
                 </el-button>
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('switch-pdf', pdf)"
                   title="切换到该PDF"
+                  @click="$emit('switch-pdf', pdf)"
                 >
-                  <i class="el-icon-position"></i>
+                  <i class="el-icon-position" />
                 </el-button>
                 <el-button
                   size="small"
                   type="text"
-                  @click="$emit('delete-file', pdf)"
                   title="删除"
+                  @click="$emit('delete-file', pdf)"
                 >
-                  <i class="el-icon-delete"></i>
+                  <i class="el-icon-delete" />
                 </el-button>
               </div>
             </div>
           </div>
 
           <!-- 空状态 -->
-          <div v-if="files.length === 0" class="empty-file-list">
-            <el-empty description="暂无PDF文件" :image-size="60">
-              <p class="empty-tip">点击上方上传按钮添加PDF文件</p>
+          <div
+            v-if="files.length === 0"
+            class="empty-file-list"
+          >
+            <el-empty
+              description="暂无PDF文件"
+              :image-size="60"
+            >
+              <p class="empty-tip">
+                点击上方上传按钮添加PDF文件
+              </p>
             </el-empty>
           </div>
         </div>

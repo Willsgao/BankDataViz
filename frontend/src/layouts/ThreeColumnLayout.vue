@@ -1,109 +1,141 @@
 <!-- frontend/src/layouts/ThreeColumnLayout.vue -->
 <template>
-  <div class="three-column-layout" :class="{ 'middle-collapsed': isMiddleCollapsed, 'resizing': isResizing }">
+  <div
+    class="three-column-layout"
+    :class="{ 'middle-collapsed': isMiddleCollapsed, 'resizing': isResizing }"
+  >
     <!-- 左侧：PDF预览滚动区域 -->
-    <div class="left-panel" ref="leftPanel" :style="{ flex: `0 0 ${currentWidths.left}px` }">
+    <div
+      ref="leftPanel"
+      class="left-panel"
+      :style="{ flex: `0 0 ${currentWidths.left}px` }"
+    >
       <!-- 修改后的 panel-header -->
       <div class="panel-header">
         <div class="header-left">
           <h3>PDF预览</h3>
           <!-- 修改后的折叠/展开按钮 -->
           <el-button
-              size="small"
-              @click="$emit('toggle-middle')"
-              class="collapse-toggle-btn"
-              :title="isMiddleCollapsed ? '展开中间栏' : '折叠中间栏'"
-              type="primary"
-            >
-              <!-- 图标不旋转，只改变图标本身 -->
-              <el-icon>
-                <component :is="isMiddleCollapsed ? 'DArrowRight' : 'DArrowLeft'" />
-              </el-icon>
-              <span class="btn-text">{{ isMiddleCollapsed ? '展开中间栏' : '折叠中间栏' }}</span>
-            </el-button>
+            size="small"
+            class="collapse-toggle-btn"
+            :title="isMiddleCollapsed ? '展开中间栏' : '折叠中间栏'"
+            type="primary"
+            @click="$emit('toggle-middle')"
+          >
+            <!-- 图标不旋转，只改变图标本身 -->
+            <el-icon>
+              <component :is="isMiddleCollapsed ? 'DArrowRight' : 'DArrowLeft'" />
+            </el-icon>
+            <span class="btn-text">{{ isMiddleCollapsed ? '展开中间栏' : '折叠中间栏' }}</span>
+          </el-button>
         </div>
       </div>
 
       <div class="scroll-content">
-        <slot name="left"></slot>
+        <slot name="left" />
       </div>
 
       <!-- 左侧拖拽条 - 中间栏展开时显示在右侧 -->
       <div
         v-if="!isMiddleCollapsed"
         class="resize-handle resize-handle-right"
-        @mousedown="startResize('left', $event)"
         :title="'调整左侧宽度 (当前: ' + currentWidths.left + 'px)'"
-      ></div>
+        @mousedown="startResize('left', $event)"
+      />
 
       <!-- 中间栏折叠时，显示一个更明显的拖拽条 -->
       <div
         v-else
         class="resize-handle resize-handle-right collapsed-handle"
-        @mousedown="startResize('left-right', $event)"
         title="调整左右面板宽度"
+        @mousedown="startResize('left-right', $event)"
       >
-        <div class="handle-indicator"></div>
+        <div class="handle-indicator" />
       </div>
     </div>
 
     <!-- 中间：表格信息区域 -->
     <div
-      class="middle-panel"
       v-if="!isMiddleCollapsed"
       ref="middlePanel"
+      class="middle-panel"
       :style="{ flex: `0 0 ${currentWidths.middle}px` }"
     >
-
-        <!-- 上部分：筛选出的PDF名称 -->
-        <div class="middle-top" :class="{ 'collapsed': isTopSectionCollapsed }">
-          <!-- 修改表头部分 -->
-            <div class="section-header" @click="toggleTopSection">
-              <span class="section-title">筛选的PDF文件</span>
-              <div class="header-right">
-                <el-tag type="info" size="small">{{ filteredPdfCount }} 个文件</el-tag>
-                <div class="double-arrow">
-                  <el-icon class="arrow-icon arrow-top" :class="{ 'active': !isTopSectionCollapsed }">
-                    <CaretTop />
-                  </el-icon>
-                  <el-icon class="arrow-icon arrow-bottom" :class="{ 'active': isTopSectionCollapsed }">
-                    <CaretBottom />
-                  </el-icon>
-                </div>
-              </div>
-            </div>
-
-          <!-- 只隐藏内容区域，不隐藏表头 -->
-          <div v-show="!isTopSectionCollapsed" class="content-area">
-            <div class="scroll-content">
-              <slot name="middle-top"></slot>
+      <!-- 上部分：筛选出的PDF名称 -->
+      <div
+        class="middle-top"
+        :class="{ 'collapsed': isTopSectionCollapsed }"
+      >
+        <!-- 修改表头部分 -->
+        <div
+          class="section-header"
+          @click="toggleTopSection"
+        >
+          <span class="section-title">筛选的PDF文件</span>
+          <div class="header-right">
+            <el-tag
+              type="info"
+              size="small"
+            >
+              {{ filteredPdfCount }} 个文件
+            </el-tag>
+            <div class="double-arrow">
+              <el-icon
+                class="arrow-icon arrow-top"
+                :class="{ 'active': !isTopSectionCollapsed }"
+              >
+                <CaretTop />
+              </el-icon>
+              <el-icon
+                class="arrow-icon arrow-bottom"
+                :class="{ 'active': isTopSectionCollapsed }"
+              >
+                <CaretBottom />
+              </el-icon>
             </div>
           </div>
         </div>
 
-        <!-- 下部分：表格名称列表 -->
-        <div class="middle-bottom" :class="{ 'expanded': isTopSectionCollapsed }">
-          <!-- 内容区域 -->
+        <!-- 只隐藏内容区域，不隐藏表头 -->
+        <div
+          v-show="!isTopSectionCollapsed"
+          class="content-area"
+        >
           <div class="scroll-content">
-            <slot name="middle-bottom"></slot>
+            <slot name="middle-top" />
           </div>
         </div>
+      </div>
+
+      <!-- 下部分：表格名称列表 -->
+      <div
+        class="middle-bottom"
+        :class="{ 'expanded': isTopSectionCollapsed }"
+      >
+        <!-- 内容区域 -->
+        <div class="scroll-content">
+          <slot name="middle-bottom" />
+        </div>
+      </div>
 
       <!-- 中间栏右侧拖拽条 -->
       <div
         v-if="!isMiddleCollapsed"
         class="resize-handle resize-handle-right"
-        @mousedown="startResize('middle-right', $event)"
         :title="'调整中间栏宽度 (当前: ' + currentWidths.middle + 'px)'"
-      ></div>
+        @mousedown="startResize('middle-right', $event)"
+      />
     </div>
 
     <!-- 右侧：Excel内容滚动区域 -->
-    <div class="right-panel" ref="rightPanel" :style="{ flex: '1 1 auto', minWidth: `${currentWidths.right}px` }">
+    <div
+      ref="rightPanel"
+      class="right-panel"
+      :style="{ flex: '1 1 auto', minWidth: `${currentWidths.right}px` }"
+    >
       <div class="scroll-content">
-        <slot name="right"></slot>
+        <slot name="right" />
       </div>
-
     </div>
   </div>
 </template>

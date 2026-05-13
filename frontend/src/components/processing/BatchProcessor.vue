@@ -9,7 +9,10 @@
       class="alert-warning"
     />
 
-    <a-form :model="form" layout="vertical">
+    <a-form
+      :model="form"
+      layout="vertical"
+    >
       <a-form-item label="图片路径列表">
         <a-textarea
           v-model:value="form.image_paths_text"
@@ -17,7 +20,9 @@
           :rows="6"
           :disabled="processing"
         />
-        <div class="tip-text">提示：每行输入一个完整的图片文件路径</div>
+        <div class="tip-text">
+          提示：每行输入一个完整的图片文件路径
+        </div>
       </a-form-item>
 
       <a-form-item label="输出目录">
@@ -39,35 +44,49 @@
       <a-form-item>
         <a-button
           type="primary"
-          @click="handleBatchProcess"
           :loading="processing"
           :disabled="!llmConfigured"
+          @click="handleBatchProcess"
         >
           开始批量处理
         </a-button>
 
-        <a-button @click="handleReset" style="margin-left: 8px;">
+        <a-button
+          style="margin-left: 8px;"
+          @click="handleReset"
+        >
           重置
         </a-button>
       </a-form-item>
     </a-form>
 
     <!-- 批量处理结果 -->
-    <a-card v-if="processing || batchResult" title="批量处理结果" class="result-card">
+    <a-card
+      v-if="processing || batchResult"
+      title="批量处理结果"
+      class="result-card"
+    >
       <a-progress
         v-if="processing"
         :percent="progressPercent"
         status="active"
       />
 
-      <div v-if="batchResult" class="batch-result">
+      <div
+        v-if="batchResult"
+        class="batch-result"
+      >
         <a-alert
           :message="batchResultMessage"
           :type="batchResultType"
           show-icon
         />
 
-        <a-descriptions v-if="batchResult.success" bordered size="small">
+        <a-descriptions
+          v-if="batchResult.success"
+          bordered
+          size="small"
+        >
           <a-descriptions-item label="总处理数">
             {{ batchResult.data.total }}
           </a-descriptions-item>
@@ -85,7 +104,7 @@
         <!-- 详细结果表格 -->
         <a-table
           v-if="batchResult.data.details"
-          :dataSource="batchResult.data.details"
+          :data-source="batchResult.data.details"
           :columns="detailColumns"
           size="small"
           class="detail-table"

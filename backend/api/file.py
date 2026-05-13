@@ -1,4 +1,4 @@
-"""
+﻿"""
 文件相关蓝图 - 重构版本（只重构Excel转PDF功能）
 """
 from flask import Blueprint, request, jsonify, send_from_directory, make_response, send_file
@@ -75,11 +75,15 @@ def get_file(filename):
 
     try:
         c = conn.cursor()
+
+        # 去掉 .pdf 等扩展名（上传时 filename=UUID 不含扩展名）
+        base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
+
         # 查询文件信息（包括ID和磁盘文件名）
         c.execute(
             "SELECT id, filename, raw_filename FROM files "
-            "WHERE (raw_filename = ? OR filename = ?) AND deleted = 0",
-            (filename, filename)
+            "WHERE (raw_filename = ? OR filename = ? OR filename = ?) AND deleted = 0",
+            (filename, filename, base_name)
         )
         row = c.fetchone()
 
@@ -88,7 +92,7 @@ def get_file(filename):
             return jsonify({"error": "文件不存在或已隐藏"}), 404
 
         file_id = row["id"]
-        real_name = row["filename"]  # 磁盘 UUID 文件名
+        real_name = row["filename"]  # 磁盘 UUID 文件名（无扩展名）
         raw_name = row["raw_filename"]  # 原始中文名
 
         print(f"✅ 找到文件: ID={file_id}, 磁盘名={real_name}, 原始名={raw_name}")
@@ -128,10 +132,11 @@ def get_file_info(filename):
 
     try:
         c = conn.cursor()
+        base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
         c.execute(
-            "SELECT id, filename, raw_filename, file_type, created_at FROM files "
-            "WHERE (raw_filename = ? OR filename = ?) AND deleted = 0",
-            (filename, filename)
+            "SELECT id, filename, raw_filename, file_type, upload_time FROM files "
+            "WHERE (raw_filename = ? OR filename = ? OR filename = ?) AND deleted = 0",
+            (filename, filename, base_name)
         )
         row = c.fetchone()
 
@@ -148,7 +153,7 @@ def get_file_info(filename):
             "disk_name": row["filename"],
             "original_name": row["raw_filename"],
             "file_type": row["file_type"],
-            "created_at": row["created_at"],
+            "created_at": row["upload_time"],
             "file_exists": file_exists,
             "file_path": str(file_path)
         })
@@ -913,53 +918,6 @@ def serve_excel_file(filename):
     return send_from_directory(file_path.parent, file_path.name)
 
 
-@file_bp.route('/api/excel-data/<pdf_id>/<excel_file>/<sheet_name>', methods=['GET'])
-def get_flat_excel_data(pdf_id, excel_file, sheet_name):
-    """读取Excel数据（支持原始文件和扁平化文件）"""
-    print(f"📥 获取Excel数据: {pdf_id}, {excel_file}, {sheet_name}")
-
-    try:
-        file_path = os.path.join(EXCEL_OUTPUT_ROOT, pdf_id, excel_file)
-        print(f"🔍 文件路径: {file_path}")
-
-        if not os.path.exists(file_path):
-            return jsonify({
-                "success": False,
-                "error": f"文件不存在: {file_path}",
-                "data": []
-            }), 404
-
-        # 读取Excel文件
-        import pandas as pd
-        df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
-
-        # 转换为二维数组
-        data = df.values.tolist()
-
-        print(f"✅ 文件读取成功:")
-        print(f"   文件: {excel_file}")
-        print(f"   Sheet: {sheet_name}")
-        print(f"   数据: {len(data)}行 × {len(data[0]) if data else 0}列")
-
-        return jsonify({
-            "success": True,
-            "data": data,
-            "rows": len(data),
-            "cols": len(data[0]) if data else 0,
-            "file_type": "flattened" if "flattened" in excel_file.lower() else "original"
-        })
-
-    except Exception as e:
-        print(f"❌ 读取Excel文件失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            "success": False,
-            "error": f"读取Excel文件失败: {str(e)}",
-            "data": []
-        }), 500
-
-
 # 新增导入Excel扁平化处理器
 from .file_handlers.excel_flatten_handler import ExcelFlattenHandler
 # 初始化Excel扁平化处理器
@@ -1095,12 +1053,12 @@ def search_pdf_compatible():
 
         # 🔥🔥 修复SQL：搜索files表而不是table_processing_records
         query = """
-            SELECT id, filename, raw_filename, file_type, created_at 
+            SELECT id, filename, raw_filename, file_type, upload_time 
             FROM files 
             WHERE deleted = 0 
             AND file_type = 'pdf'
             AND (raw_filename LIKE ? OR filename LIKE ?)
-            ORDER BY created_at DESC 
+            ORDER BY upload_time DESC 
             LIMIT ?
         """
 
@@ -1128,7 +1086,7 @@ def search_pdf_compatible():
                 "name": row["raw_filename"] or row["filename"],  # 兼容字段
                 "matchType": "文件名匹配",
                 "status": "active",
-                "created_at": row["created_at"],
+                "created_at": row["upload_time"],
                 "raw_filename": row["raw_filename"]  # 原始文件名
             }
             files.append(file_info)

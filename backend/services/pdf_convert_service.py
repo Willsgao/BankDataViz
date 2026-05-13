@@ -122,6 +122,8 @@ def background_convert_all_pages(
         def convert_page(page_0b: int) -> bool:
             """转换单个页面"""
             idx = page_0b + 1  # 转换为1-based页码
+            doc = None
+            pix = None
 
             try:
                 # 每个线程独立打开文档（线程安全）
@@ -141,17 +143,39 @@ def background_convert_all_pages(
 
                 # 保存为PNG
                 out_path = out_dir / f"{pdf_path.stem}_{idx:03d}.png"
+                
+                # 确保目录存在
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # 保存图片
                 pix.save(str(out_path))
-
-                # 清理资源
-                del pix, page
-                doc.close()
-
+                
+                # 验证文件是否成功保存
+                if not out_path.exists():
+                    logger.error(f"[{job_id}] 页面{idx}图片保存失败：文件不存在 {out_path}")
+                    return False
+                
+                file_size = out_path.stat().st_size
+                if file_size == 0:
+                    logger.error(f"[{job_id}] 页面{idx}图片保存失败：文件大小为0 {out_path}")
+                    out_path.unlink(missing_ok=True)  # 删除空文件
+                    return False
+                
+                logger.info(f"[{job_id}] 页面{idx}转换成功：{out_path.name} ({file_size/1024:.1f}KB)")
                 return True
 
             except Exception as e:
                 logger.error(f"[{job_id}] 页面{idx}转换失败: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 return False
+                
+            finally:
+                # 确保资源被正确释放
+                if pix is not None:
+                    del pix
+                if doc is not None:
+                    doc.close()
 
         # 5. 并发处理（控制并发数，避免资源耗尽）
         max_workers = min(os.cpu_count() or 4, 6)

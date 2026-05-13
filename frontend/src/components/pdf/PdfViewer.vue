@@ -4,20 +4,21 @@
       :src="pdfUrl"
       class="pdf-iframe"
       frameborder="0"
-    ></iframe>
+    />
     <el-button
       size="small"
       circle
       icon="el-icon-close"
       class="close"
-      @click="$emit('close')"
       title="关闭预览"
+      @click="$emit('close')"
     />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
+import { getBackendUrl } from '@/utils/config'
 
 const props = defineProps({ file: Object })
 const emit = defineEmits(['close'])
@@ -50,7 +51,7 @@ const loadPdfWithCache = async (file) => {
   }
 
   try {
-    const baseUrl = window.location.origin
+    const baseUrl = getBackendUrl('')
     const apiUrl = `${baseUrl}/api/file/${fileId}`
 
     console.log('⬇️ 下载PDF:', file.filename)
@@ -77,7 +78,7 @@ const loadPdfWithCache = async (file) => {
   } catch (error) {
     console.error('文件加载失败:', error)
     // 出错时回退到直接URL方式
-    const baseUrl = window.location.origin
+    const baseUrl = getBackendUrl('')
     return `${baseUrl}/api/file/${fileId}`
   }
 }
@@ -95,9 +96,6 @@ onUnmounted(() => {
   clearCache()
   console.log('🧹 PDF查看器卸载，清理缓存')
 })
-
-// 原有的 getBackendUrl 导入和逻辑保持不变
-import { getBackendUrl } from '@/utils/config'
 
 // 保留原有的直接URL生成方式作为备用
 const getDirectPdfUrl = (file) => {

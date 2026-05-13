@@ -10,8 +10,14 @@
     </div>
 
     <!-- 工作表选择器 -->
-    <div class="sheet-selector" v-if="excelData.sheets && excelData.sheets.length > 1">
-      <el-radio-group v-model="activeSheet" size="small">
+    <div
+      v-if="excelData.sheets && excelData.sheets.length > 1"
+      class="sheet-selector"
+    >
+      <el-radio-group
+        v-model="activeSheet"
+        size="small"
+      >
         <el-radio-button
           v-for="sheet in excelData.sheets"
           :key="sheet.sheetName"
@@ -23,39 +29,54 @@
     </div>
 
     <!-- 当前工作表表格 -->
-    <div class="current-sheet" v-if="currentSheet">
+    <div
+      v-if="currentSheet"
+      class="current-sheet"
+    >
       <!-- 表格操作栏 -->
       <div class="table-toolbar">
         <div class="toolbar-left">
           <span class="sheet-name">{{ currentSheet.sheetName }}</span>
-          <el-tag size="small">{{ currentSheet.rowCount }}行 {{ currentSheet.colCount }}列</el-tag>
+          <el-tag size="small">
+            {{ currentSheet.rowCount }}行 {{ currentSheet.colCount }}列
+          </el-tag>
         </div>
         <div class="toolbar-right">
-          <el-button size="small" @click="toggleFullscreen" :icon="isFullscreen ? 'el-icon-close' : 'el-icon-full-screen'">
+          <el-button
+            size="small"
+            :icon="isFullscreen ? 'el-icon-close' : 'el-icon-full-screen'"
+            @click="toggleFullscreen"
+          >
             {{ isFullscreen ? '退出全屏' : '全屏' }}
           </el-button>
-          <el-button size="small" @click="exportSheet" icon="el-icon-download">
+          <el-button
+            size="small"
+            icon="el-icon-download"
+            @click="exportSheet"
+          >
             导出
           </el-button>
         </div>
       </div>
 
       <!-- 表格容器 -->
-      <div class="table-container" ref="tableContainer">
-          <el-table
-            :data="paginatedData"
-            border
-            stripe
-            style="width: 100%"
-            :height="tableHeight"
-            empty-text="暂无数据"
-            :max-height="tableMaxHeight"
-            size="small"
-            v-loading="loading"
-            :row-key="getRowKey"
-            :lazy="currentSheet?.rowCount > 1000"
-          >
-
+      <div
+        ref="tableContainer"
+        class="table-container"
+      >
+        <el-table
+          v-loading="loading"
+          :data="paginatedData"
+          border
+          stripe
+          style="width: 100%"
+          :height="tableHeight"
+          empty-text="暂无数据"
+          :max-height="tableMaxHeight"
+          size="small"
+          :row-key="getRowKey"
+          :lazy="currentSheet?.rowCount > 1000"
+        >
           <el-table-column
             v-for="(header, index) in currentSheet.headers"
             :key="index"
@@ -67,7 +88,10 @@
             show-overflow-tooltip
           >
             <template #default="scope">
-              <div class="cell-content" :title="scope.row[header]">
+              <div
+                class="cell-content"
+                :title="scope.row[header]"
+              >
                 {{ scope.row[header] || ' ' }}
               </div>
             </template>
@@ -75,46 +99,70 @@
         </el-table>
 
         <!-- 空数据提示 -->
-        <div v-if="!currentSheet.data || currentSheet.data.length === 0" class="empty-table">
+        <div
+          v-if="!currentSheet.data || currentSheet.data.length === 0"
+          class="empty-table"
+        >
           <el-empty description="暂无表格数据" />
         </div>
       </div>
 
       <!-- 分页信息（如果数据量大） -->
-        <div class="table-footer" v-if="currentSheet?.rowCount > pageSize">
-          <div class="pagination-info">
-            显示 {{ ((currentPage - 1) * pageSize) + 1 }}-{{ Math.min(currentPage * pageSize, currentSheet.rowCount) }} 条，共 {{ currentSheet.rowCount }} 条数据
-          </div>
-          <el-pagination
-            small
-            layout="prev, pager, next"
-            :total="currentSheet.rowCount"
-            :page-size="pageSize"
-            :current-page="currentPage"
-            @current-change="handlePageChange"
-          />
+      <div
+        v-if="currentSheet?.rowCount > pageSize"
+        class="table-footer"
+      >
+        <div class="pagination-info">
+          显示 {{ ((currentPage - 1) * pageSize) + 1 }}-{{ Math.min(currentPage * pageSize, currentSheet.rowCount) }} 条，共 {{ currentSheet.rowCount }} 条数据
         </div>
+        <el-pagination
+          small
+          layout="prev, pager, next"
+          :total="currentSheet.rowCount"
+          :page-size="pageSize"
+          :current-page="currentPage"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <div class="viewer-actions">
-      <el-button type="primary" @click="handleSave" size="small">
+      <el-button
+        type="primary"
+        size="small"
+        @click="handleSave"
+      >
         保存修改
       </el-button>
-      <el-button @click="handleClose" size="small">
+      <el-button
+        size="small"
+        @click="handleClose"
+      >
         关闭
       </el-button>
-      <el-button @click="copyToEditor" size="small">
+      <el-button
+        size="small"
+        @click="copyToEditor"
+      >
         复制到编辑器
       </el-button>
     </div>
 
     <!-- 全屏遮罩层 -->
-    <div v-if="isFullscreen" class="fullscreen-overlay" @click.self="toggleFullscreen">
+    <div
+      v-if="isFullscreen"
+      class="fullscreen-overlay"
+      @click.self="toggleFullscreen"
+    >
       <div class="fullscreen-content">
         <div class="fullscreen-header">
           <h3>{{ excelData.tableName }} - {{ currentSheet?.sheetName }}</h3>
           <div class="fullscreen-actions">
-            <el-button size="small" @click="toggleFullscreen" icon="el-icon-close">
+            <el-button
+              size="small"
+              icon="el-icon-close"
+              @click="toggleFullscreen"
+            >
               退出全屏 (ESC)
             </el-button>
           </div>
@@ -132,7 +180,6 @@
             :row-key="getRowKey"
             :lazy="currentSheet?.rowCount > 1000"
           >
-
             <el-table-column
               v-for="(header, index) in currentSheet?.headers || []"
               :key="index"
@@ -144,7 +191,10 @@
               show-overflow-tooltip
             >
               <template #default="scope">
-                <div class="cell-content" :title="scope.row[header]">
+                <div
+                  class="cell-content"
+                  :title="scope.row[header]"
+                >
                   {{ scope.row[header] || ' ' }}
                 </div>
               </template>

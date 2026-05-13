@@ -3,10 +3,16 @@
     <!-- 顶部标题栏 -->
     <div class="page-header">
       <div class="header-left">
-        <el-icon class="header-icon"><DataBoard /></el-icon>
+        <el-icon class="header-icon">
+          <DataBoard />
+        </el-icon>
         <div>
-          <h1 class="page-title">银行数据仓库</h1>
-          <p class="page-subtitle">{{ stats.total_banks || 0 }} 家银行 · {{ stats.total_reports || 0 }} 份报告 · {{ stats.total_table_data || 0 }} 条数据</p>
+          <h1 class="page-title">
+            银行数据仓库
+          </h1>
+          <p class="page-subtitle">
+            {{ stats.total_banks || 0 }} 家银行 · {{ stats.total_reports || 0 }} 份报告 · {{ stats.total_table_data || 0 }} 条数据
+          </p>
         </div>
       </div>
       <div class="header-actions">
@@ -20,8 +26,20 @@
           @input="handleSearch"
           @clear="handleSearchClear"
         />
-        <el-button type="primary" :icon="Refresh" @click="loadData" :loading="loading">刷新</el-button>
-        <el-button type="success" :icon="Download" @click="handleSeedData" :loading="seeding">
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="loading"
+          @click="loadData"
+        >
+          刷新
+        </el-button>
+        <el-button
+          type="success"
+          :icon="Download"
+          :loading="seeding"
+          @click="handleSeedData"
+        >
           {{ stats.total_banks > 0 ? '重新写入演示数据' : '写入演示数据' }}
         </el-button>
       </div>
@@ -29,13 +47,24 @@
 
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card" v-for="card in statCards" :key="card.key">
-        <div class="stat-icon" :style="{ background: card.color }">
+      <div
+        v-for="card in statCards"
+        :key="card.key"
+        class="stat-card"
+      >
+        <div
+          class="stat-icon"
+          :style="{ background: card.color }"
+        >
           <el-icon><component :is="card.icon" /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ card.value }}</div>
-          <div class="stat-label">{{ card.label }}</div>
+          <div class="stat-value">
+            {{ card.value }}
+          </div>
+          <div class="stat-label">
+            {{ card.label }}
+          </div>
         </div>
       </div>
     </div>
@@ -47,16 +76,37 @@
         <div class="panel-header">
           <span class="panel-title">银行列表</span>
           <div class="filter-group">
-            <el-select v-model="filterType" placeholder="全部类型" clearable size="small" @change="loadBanks">
-              <el-option label="国有大型银行" value="国有大型银行" />
-              <el-option label="股份制银行" value="股份制银行" />
-              <el-option label="城市商业银行" value="城市商业银行" />
-              <el-option label="农村商业银行" value="农村商业银行" />
+            <el-select
+              v-model="filterType"
+              placeholder="全部类型"
+              clearable
+              size="small"
+              @change="loadBanks"
+            >
+              <el-option
+                label="国有大型银行"
+                value="国有大型银行"
+              />
+              <el-option
+                label="股份制银行"
+                value="股份制银行"
+              />
+              <el-option
+                label="城市商业银行"
+                value="城市商业银行"
+              />
+              <el-option
+                label="农村商业银行"
+                value="农村商业银行"
+              />
             </el-select>
           </div>
         </div>
 
-        <div class="bank-list" v-loading="loading">
+        <div
+          v-loading="loading"
+          class="bank-list"
+        >
           <div
             v-for="bank in displayBanks"
             :key="bank.id"
@@ -64,13 +114,23 @@
             :class="{ active: selectedBank?.id === bank.id }"
             @click="selectBank(bank)"
           >
-            <div class="bank-avatar" :style="{ background: getBankColor(bank.bank_type) }">
+            <div
+              class="bank-avatar"
+              :style="{ background: getBankColor(bank.bank_type) }"
+            >
               {{ bank.bank_name.slice(2, 4) }}
             </div>
             <div class="bank-info">
-              <div class="bank-name">{{ bank.bank_name }}</div>
+              <div class="bank-name">
+                {{ bank.bank_name }}
+              </div>
               <div class="bank-meta">
-                <el-tag size="small" :type="getBankTagType(bank.bank_type)">{{ bank.bank_type }}</el-tag>
+                <el-tag
+                  size="small"
+                  :type="getBankTagType(bank.bank_type)"
+                >
+                  {{ bank.bank_type }}
+                </el-tag>
                 <span class="bank-code">{{ bank.bank_code }}</span>
               </div>
             </div>
@@ -86,19 +146,31 @@
       </div>
 
       <!-- 右：详情面板 -->
-      <div class="detail-panel" v-if="selectedBank">
+      <div
+        v-if="selectedBank"
+        class="detail-panel"
+      >
         <!-- 银行基本信息 -->
         <div class="detail-header">
-          <div class="detail-avatar" :style="{ background: getBankColor(selectedBank.bank_type) }">
+          <div
+            class="detail-avatar"
+            :style="{ background: getBankColor(selectedBank.bank_type) }"
+          >
             {{ selectedBank.bank_name.slice(2, 4) }}
           </div>
           <div class="detail-title-block">
             <h2>{{ selectedBank.bank_name }}</h2>
             <p>{{ selectedBank.description || '暂无描述' }}</p>
             <div class="detail-tags">
-              <el-tag :type="getBankTagType(selectedBank.bank_type)">{{ selectedBank.bank_type }}</el-tag>
-              <el-tag type="success">{{ selectedBank.bank_code }}</el-tag>
-              <el-tag type="info">{{ selectedBank.listed_status === 'listed' ? '已上市' : '未上市' }}</el-tag>
+              <el-tag :type="getBankTagType(selectedBank.bank_type)">
+                {{ selectedBank.bank_type }}
+              </el-tag>
+              <el-tag type="success">
+                {{ selectedBank.bank_code }}
+              </el-tag>
+              <el-tag type="info">
+                {{ selectedBank.listed_status === 'listed' ? '已上市' : '未上市' }}
+              </el-tag>
             </div>
           </div>
         </div>
@@ -107,34 +179,74 @@
         <div class="chart-section">
           <div class="chart-toolbar">
             <span class="section-title">财务指标趋势</span>
-            <el-radio-group v-model="selectedIndicator" size="small" @change="loadTrendChart">
-              <el-radio-button v-for="ind in indicatorOptions" :key="ind.value" :value="ind.value">
+            <el-radio-group
+              v-model="selectedIndicator"
+              size="small"
+              @change="loadTrendChart"
+            >
+              <el-radio-button
+                v-for="ind in indicatorOptions"
+                :key="ind.value"
+                :value="ind.value"
+              >
                 {{ ind.label }}
               </el-radio-button>
             </el-radio-group>
           </div>
-          <div ref="trendChartRef" class="trend-chart" v-loading="chartLoading" />
+          <div
+            ref="trendChartRef"
+            v-loading="chartLoading"
+            class="trend-chart"
+          />
         </div>
 
         <!-- 数据表格 -->
         <div class="data-table-section">
           <div class="section-header">
             <span class="section-title">原始数据表</span>
-            <el-select v-model="selectedTable" size="small" placeholder="选择表格" @change="loadTableData" style="width:160px">
-              <el-option v-for="t in tableList" :key="t" :label="t" :value="t" />
+            <el-select
+              v-model="selectedTable"
+              size="small"
+              placeholder="选择表格"
+              style="width:160px"
+              @change="loadTableData"
+            >
+              <el-option
+                v-for="t in tableList"
+                :key="t"
+                :label="t"
+                :value="t"
+              />
             </el-select>
           </div>
           <el-table
-            :data="tableData"
             v-loading="tableLoading"
+            :data="tableData"
             size="small"
             stripe
             border
             height="280"
           >
-            <el-table-column prop="indicator_name" label="指标名称" width="180" fixed />
-            <el-table-column prop="unit" label="单位" width="60" align="center" />
-            <el-table-column v-for="year in [2020,2021,2022,2023,2024]" :key="year" :label="`${year}年`" :prop="`year_${year}`" align="right" min-width="90">
+            <el-table-column
+              prop="indicator_name"
+              label="指标名称"
+              width="180"
+              fixed
+            />
+            <el-table-column
+              prop="unit"
+              label="单位"
+              width="60"
+              align="center"
+            />
+            <el-table-column
+              v-for="year in [2020,2021,2022,2023,2024]"
+              :key="year"
+              :label="`${year}年`"
+              :prop="`year_${year}`"
+              align="right"
+              min-width="90"
+            >
               <template #default="{ row }">
                 <span :class="getValueClass(row, year)">{{ formatValue(row, year) }}</span>
               </template>
@@ -144,10 +256,15 @@
       </div>
 
       <!-- 未选择时的占位 -->
-      <div class="detail-panel empty-panel" v-else>
+      <div
+        v-else
+        class="detail-panel empty-panel"
+      >
         <el-empty description="点击左侧银行查看详情">
           <template #image>
-            <el-icon style="font-size: 80px; color: #c0c4cc"><OfficeBuilding /></el-icon>
+            <el-icon style="font-size: 80px; color: #c0c4cc">
+              <OfficeBuilding />
+            </el-icon>
           </template>
         </el-empty>
       </div>
@@ -159,10 +276,20 @@
         <div class="section-title-block">
           <el-icon><Grid /></el-icon>
           <span class="section-title">银行数据</span>
-          <el-tag size="small" type="info">{{ excelTotal }} 个文件</el-tag>
+          <el-tag
+            size="small"
+            type="info"
+          >
+            {{ excelTotal }} 个文件
+          </el-tag>
         </div>
         <div class="section-actions">
-          <el-button size="small" :icon="Refresh" @click="loadExcelList" :loading="excelLoading">
+          <el-button
+            size="small"
+            :icon="Refresh"
+            :loading="excelLoading"
+            @click="loadExcelList"
+          >
             刷新
           </el-button>
         </div>
@@ -170,7 +297,11 @@
 
       <!-- 筛选面板 -->
       <div class="excel-filter-panel">
-        <el-form :inline="true" size="small" @submit.prevent="loadExcelList">
+        <el-form
+          :inline="true"
+          size="small"
+          @submit.prevent="loadExcelList"
+        >
           <el-form-item label="文件名">
             <el-input
               v-model="excelFilters.filename"
@@ -199,36 +330,64 @@
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="loadExcelList">
+            <el-button
+              type="primary"
+              @click="loadExcelList"
+            >
               <el-icon><Search /></el-icon>
               搜索
             </el-button>
-            <el-button @click="resetExcelFilters">重置</el-button>
+            <el-button @click="resetExcelFilters">
+              重置
+            </el-button>
           </el-form-item>
         </el-form>
       </div>
 
       <!-- Excel 文件列表 -->
       <el-table
-        :data="excelFiles"
         v-loading="excelLoading"
+        :data="excelFiles"
         stripe
         border
         size="small"
         class="excel-table"
       >
-        <el-table-column prop="filename" label="文件名" min-width="200">
+        <el-table-column
+          prop="filename"
+          label="文件名"
+          min-width="200"
+        >
           <template #default="{ row }">
             <div class="file-cell">
-              <el-icon class="file-icon"><Document /></el-icon>
-              <span class="file-name" :title="row.filename">{{ row.filename }}</span>
+              <el-icon class="file-icon">
+                <Document />
+              </el-icon>
+              <span
+                class="file-name"
+                :title="row.filename"
+              >{{ row.filename }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="file_size_display" label="文件大小" width="100" align="center" />
-        <el-table-column prop="uploader_name" label="上传人" width="100" align="center" />
+        <el-table-column
+          prop="file_size_display"
+          label="文件大小"
+          width="100"
+          align="center"
+        />
+        <el-table-column
+          prop="uploader_name"
+          label="上传人"
+          width="100"
+          align="center"
+        />
         <!-- 审核状态列 -->
-        <el-table-column label="审核状态" width="120" align="center">
+        <el-table-column
+          label="审核状态"
+          width="120"
+          align="center"
+        >
           <template #default="{ row }">
             <el-tag
               v-if="row.review_status && row.review_status !== 'auto'"
@@ -238,21 +397,47 @@
             >
               {{ getReviewStatusLabel(row.review_status) }}
             </el-tag>
-            <span v-else class="review-auto">自动</span>
+            <span
+              v-else
+              class="review-auto"
+            >自动</span>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="150">
+        <el-table-column
+          prop="description"
+          label="描述"
+          min-width="150"
+        >
           <template #default="{ row }">
             <span class="description-text">{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="下载次数" width="100" align="center">
+        <el-table-column
+          label="下载次数"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
-            <el-tag type="success" size="small">{{ downloadCounts[row.id] || 0 }}</el-tag>
+            <el-tag
+              type="success"
+              size="small"
+            >
+              {{ downloadCounts[row.id] || 0 }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="上传时间" width="160" align="center" />
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column
+          prop="created_at"
+          label="上传时间"
+          width="160"
+          align="center"
+        />
+        <el-table-column
+          label="操作"
+          width="200"
+          align="center"
+          fixed="right"
+        >
           <template #default="{ row }">
             <el-button
               v-if="row.review_status === 'pending_review' || row.review_status === 'needs_reprocess'"
@@ -275,33 +460,54 @@
       </el-table>
 
       <!-- 审核问题详情弹窗 -->
-      <el-dialog v-model="showReviewDialog" title="审核详情" width="600px">
-        <div v-if="currentReviewFile" class="review-dialog-content">
+      <el-dialog
+        v-model="showReviewDialog"
+        title="审核详情"
+        width="600px"
+      >
+        <div
+          v-if="currentReviewFile"
+          class="review-dialog-content"
+        >
           <div class="review-file-info">
             <strong>文件:</strong> {{ currentReviewFile.filename }}
           </div>
           <el-divider />
           <div class="review-status-info">
-            <el-tag :type="getReviewStatusType(currentReviewFile.review_status)" size="large">
+            <el-tag
+              :type="getReviewStatusType(currentReviewFile.review_status)"
+              size="large"
+            >
               {{ getReviewStatusLabel(currentReviewFile.review_status) }}
             </el-tag>
           </div>
-          <div v-if="currentReviewFile.review_issues && currentReviewFile.review_issues.length > 0" class="review-issues">
+          <div
+            v-if="currentReviewFile.review_issues && currentReviewFile.review_issues.length > 0"
+            class="review-issues"
+          >
             <h4>检测到的问题:</h4>
             <ul>
-              <li v-for="(issue, idx) in currentReviewFile.review_issues" :key="idx">
+              <li
+                v-for="(issue, idx) in currentReviewFile.review_issues"
+                :key="idx"
+              >
                 {{ issue }}
               </li>
             </ul>
           </div>
-          <div v-if="currentReviewFile.reviewed_by" class="review-meta">
+          <div
+            v-if="currentReviewFile.reviewed_by"
+            class="review-meta"
+          >
             <small>审核人: {{ currentReviewFile.reviewed_by }}</small>
             <br>
             <small v-if="currentReviewFile.reviewed_at">审核时间: {{ currentReviewFile.reviewed_at }}</small>
           </div>
         </div>
         <template #footer>
-          <el-button @click="showReviewDialog = false">关闭</el-button>
+          <el-button @click="showReviewDialog = false">
+            关闭
+          </el-button>
           <el-button
             v-if="currentReviewFile && (currentReviewFile.review_status === 'pending_review' || currentReviewFile.review_status === 'needs_reprocess')"
             type="success"
@@ -313,7 +519,10 @@
       </el-dialog>
 
       <!-- 分页 -->
-      <div class="excel-pagination" v-if="excelTotal > 0">
+      <div
+        v-if="excelTotal > 0"
+        class="excel-pagination"
+      >
         <el-pagination
           v-model:current-page="excelPage"
           v-model:page-size="excelPageSize"
@@ -331,7 +540,10 @@
         description="暂无银行数据"
         :image-size="80"
       >
-        <el-button type="primary" @click="goToAdmin">
+        <el-button
+          type="primary"
+          @click="goToAdmin"
+        >
           <el-icon><Upload /></el-icon>
           前往管理后台上传
         </el-button>
@@ -339,33 +551,83 @@
     </div>
 
     <!-- 对比分析浮动按钮 -->
-    <div class="compare-fab" v-if="compareList.length > 0" @click="showCompareDialog = true">
-      <el-badge :value="compareList.length" type="danger">
-        <el-button type="primary" circle size="large" :icon="DataLine" />
+    <div
+      v-if="compareList.length > 0"
+      class="compare-fab"
+      @click="showCompareDialog = true"
+    >
+      <el-badge
+        :value="compareList.length"
+        type="danger"
+      >
+        <el-button
+          type="primary"
+          circle
+          size="large"
+          :icon="DataLine"
+        />
       </el-badge>
       <span class="fab-label">对比分析</span>
     </div>
 
     <!-- 多银行对比弹窗 -->
-    <el-dialog v-model="showCompareDialog" title="多银行横向对比" width="900px" :close-on-click-modal="false">
+    <el-dialog
+      v-model="showCompareDialog"
+      title="多银行横向对比"
+      width="900px"
+      :close-on-click-modal="false"
+    >
       <div class="compare-toolbar">
-        <el-select v-model="compareIndicator" size="default" style="width:200px" @change="loadCompareChart">
-          <el-option v-for="ind in indicatorOptions" :key="ind.value" :label="ind.label" :value="ind.value" />
+        <el-select
+          v-model="compareIndicator"
+          size="default"
+          style="width:200px"
+          @change="loadCompareChart"
+        >
+          <el-option
+            v-for="ind in indicatorOptions"
+            :key="ind.value"
+            :label="ind.label"
+            :value="ind.value"
+          />
         </el-select>
-        <el-select v-model="compareYear" size="default" style="width:100px" @change="loadCompareChart">
-          <el-option v-for="y in [2024,2023,2022,2021,2020]" :key="y" :label="`${y}年`" :value="y" />
+        <el-select
+          v-model="compareYear"
+          size="default"
+          style="width:100px"
+          @change="loadCompareChart"
+        >
+          <el-option
+            v-for="y in [2024,2023,2022,2021,2020]"
+            :key="y"
+            :label="`${y}年`"
+            :value="y"
+          />
         </el-select>
-        <el-button size="small" type="danger" plain @click="compareList = []">清空选择</el-button>
+        <el-button
+          size="small"
+          type="danger"
+          plain
+          @click="compareList = []"
+        >
+          清空选择
+        </el-button>
       </div>
-      <div ref="compareChartRef" class="compare-chart" v-loading="compareLoading" />
+      <div
+        ref="compareChartRef"
+        v-loading="compareLoading"
+        class="compare-chart"
+      />
       <div class="compare-bank-list">
         <el-tag
           v-for="bank in compareList"
           :key="bank.id"
           closable
-          @close="removeFromCompare(bank)"
           class="compare-tag"
-        >{{ bank.bank_name }}</el-tag>
+          @close="removeFromCompare(bank)"
+        >
+          {{ bank.bank_name }}
+        </el-tag>
       </div>
     </el-dialog>
   </div>

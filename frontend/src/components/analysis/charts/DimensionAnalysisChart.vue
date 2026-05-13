@@ -3,11 +3,17 @@
     <div class="chart-row">
       <div class="chart-item">
         <h4>各维度平均分</h4>
-        <div ref="radarChart" class="chart"></div>
+        <div
+          ref="radarChart"
+          class="chart"
+        />
       </div>
       <div class="chart-item">
         <h4>维度得分分布</h4>
-        <div ref="boxChart" class="chart"></div>
+        <div
+          ref="boxChart"
+          class="chart"
+        />
       </div>
     </div>
   </div>

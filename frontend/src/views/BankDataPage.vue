@@ -3,19 +3,35 @@
     <!-- 顶部标题栏 -->
     <div class="page-header">
       <div class="header-left">
-        <el-icon class="header-icon"><FolderOpened /></el-icon>
+        <el-icon class="header-icon">
+          <FolderOpened />
+        </el-icon>
         <div>
-          <h1 class="page-title">银行数据</h1>
-          <p class="page-subtitle">{{ excelTotal }} 个文档</p>
+          <h1 class="page-title">
+            银行数据
+          </h1>
+          <p class="page-subtitle">
+            {{ excelTotal }} 个文档
+          </p>
         </div>
       </div>
       <div class="header-actions">
-        <el-button type="primary" :icon="Refresh" @click="loadExcelList" :loading="excelLoading">刷新</el-button>
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="excelLoading"
+          @click="loadExcelList"
+        >
+          刷新
+        </el-button>
       </div>
     </div>
 
     <!-- 上传区域（仅管理员可见） -->
-    <div class="global-upload-section" v-if="canUpload">
+    <div
+      v-if="canUpload"
+      class="global-upload-section"
+    >
       <el-upload
         class="upload-area"
         drag
@@ -27,7 +43,9 @@
         accept=".xlsx,.xls,.docx,.doc,.pdf,.pptx,.ppt,.txt,.csv"
         :show-file-list="false"
       >
-        <el-icon class="upload-icon"><Upload /></el-icon>
+        <el-icon class="upload-icon">
+          <Upload />
+        </el-icon>
         <div class="upload-text">
           <span class="upload-title">拖拽文件到此处，或 <em>点击上传</em></span>
           <span class="upload-hint">支持 xlsx, xls, docx, doc, pdf, pptx, ppt, txt, csv 格式</span>
@@ -40,176 +58,265 @@
       <!-- 分类筛选（单选） -->
       <div class="category-filter">
         <span class="filter-label">文档分类：</span>
-        <el-radio-group v-model="selectedCategory" size="default" @change="loadExcelList">
-          <el-radio-button value="">全部</el-radio-button>
-          <el-radio-button value="industry">银行行业数据库</el-radio-button>
-          <el-radio-button value="single_bank">单家银行数据库</el-radio-button>
-          <el-radio-button value="report">研究报告</el-radio-button>
-          <el-radio-button value="guide">说明指南</el-radio-button>
-          <el-radio-button value="other">其他资料</el-radio-button>
+        <el-radio-group
+          v-model="selectedCategory"
+          size="default"
+          @change="loadExcelList"
+        >
+          <el-radio-button value="">
+            全部
+          </el-radio-button>
+          <el-radio-button value="industry">
+            银行行业数据库
+          </el-radio-button>
+          <el-radio-button value="single_bank">
+            单家银行数据库
+          </el-radio-button>
+          <el-radio-button value="report">
+            研究报告
+          </el-radio-button>
+          <el-radio-button value="guide">
+            说明指南
+          </el-radio-button>
+          <el-radio-button value="other">
+            其他资料
+          </el-radio-button>
         </el-radio-group>
       </div>
 
       <!-- 文档列表 -->
-            <el-table
-              :data="excelFiles"
-              v-loading="excelLoading"
-              stripe
-              border
+      <el-table
+        v-loading="excelLoading"
+        :data="excelFiles"
+        stripe
+        border
+        size="small"
+        class="excel-table"
+      >
+        <el-table-column
+          prop="category"
+          label="分类"
+          width="200"
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-tag
+              :type="getCategoryTagType(row.category)"
               size="small"
-              class="excel-table"
             >
-              <el-table-column prop="category" label="分类" width="200" align="center">
-                <template #default="{ row }">
-                  <el-tag
-                    :type="getCategoryTagType(row.category)"
-                    size="small"
-                  >
-                    {{ getCategoryLabel(row.category) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="filename" label="文件名" min-width="300">
-                <template #default="{ row }">
-                  <div class="file-cell">
-                    <el-icon class="file-icon"><Document /></el-icon>
-                    <span class="file-name" :title="row.filename">{{ row.filename }}</span>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column prop="file_size_display" label="文件大小" width="90" align="center" />
-              <el-table-column prop="description" label="描述" min-width="120" />
-              <el-table-column prop="created_at" label="上传时间" width="160" align="center" />
-              <el-table-column label="操作" width="200" align="center" fixed="right">
-                <template #default="{ row }">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    :icon="Download"
-                    @click="handleDownload(row)"
-                  >
-                    下载
-                  </el-button>
-                  <el-button
-                    v-if="canDelete"
-                    type="danger"
-                    size="small"
-                    @click="handleDelete(row)"
-                  >
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <!-- 审核问题详情弹窗 -->
-            <el-dialog v-model="showReviewDialog" title="审核详情" width="600px">
-              <div v-if="currentReviewFile" class="review-dialog-content">
-                <div class="review-file-info">
-                  <strong>文件:</strong> {{ currentReviewFile.filename }}
-                </div>
-                <el-divider />
-                <div class="review-status-info">
-                  <el-tag :type="getReviewStatusType(currentReviewFile.review_status)" size="large">
-                    {{ getReviewStatusLabel(currentReviewFile.review_status) }}
-                  </el-tag>
-                </div>
-                <div v-if="currentReviewFile.review_issues && currentReviewFile.review_issues.length > 0" class="review-issues">
-                  <h4>检测到的问题:</h4>
-                  <ul>
-                    <li v-for="(issue, idx) in currentReviewFile.review_issues" :key="idx">
-                      {{ issue }}
-                    </li>
-                  </ul>
-                </div>
-                <div v-if="currentReviewFile.reviewed_by" class="review-meta">
-                  <small>审核人: {{ currentReviewFile.reviewed_by }}</small>
-                  <br>
-                  <small v-if="currentReviewFile.reviewed_at">审核时间: {{ currentReviewFile.reviewed_at }}</small>
-                </div>
-              </div>
-              <template #footer>
-                <el-button @click="showReviewDialog = false">关闭</el-button>
-                <el-button
-                  v-if="currentReviewFile && (currentReviewFile.review_status === 'pending_review' || currentReviewFile.review_status === 'needs_reprocess')"
-                  type="success"
-                  @click="confirmCurrentReview"
-                >
-                  确认审核通过
-                </el-button>
-              </template>
-            </el-dialog>
-
-            <!-- 分类选择弹窗（多选） -->
-            <el-dialog
-              v-model="showCategoryDialog"
-              title="选择文档分类"
-              width="500px"
-              :close-on-click-modal="false"
-            >
-              <div class="category-dialog-content">
-                <p class="category-tip">请为文件 "<strong>{{ pendingUploadFile?.name }}</strong>" 选择分类标签（可多选）：</p>
-                <el-checkbox-group v-model="selectedDocCategories" class="category-checkbox-group">
-                  <el-checkbox value="industry">
-                    <span class="category-label">银行行业数据库</span>
-                    <span class="category-desc">银行行业分类数据</span>
-                  </el-checkbox>
-                  <el-checkbox value="single_bank">
-                    <span class="category-label">单家银行数据库</span>
-                    <span class="category-desc">单一银行的数据报表</span>
-                  </el-checkbox>
-                  <el-checkbox value="report">
-                    <span class="category-label">研究报告</span>
-                    <span class="category-desc">行业研究报告、分析报告</span>
-                  </el-checkbox>
-                  <el-checkbox value="guide">
-                    <span class="category-label">说明指南</span>
-                    <span class="category-desc">系统使用说明、操作指南</span>
-                  </el-checkbox>
-                  <el-checkbox value="other">
-                    <span class="category-label">其他资料</span>
-                    <span class="category-desc">不属于上述分类的其他文档</span>
-                  </el-checkbox>
-                </el-checkbox-group>
-                <div class="description-input-wrapper">
-                  <p class="category-tip" style="margin-top: 20px;">文档描述（可选）：</p>
-                  <el-input
-                    v-model="uploadDescription"
-                    type="textarea"
-                    :rows="2"
-                    placeholder="请输入文档描述（如：2024年度银行年报）"
-                    maxlength="200"
-                    show-word-limit
-                  />
-                </div>
-              </div>
-              <template #footer>
-                <el-button @click="cancelCategorySelect">取消</el-button>
-                <el-button type="primary" @click="confirmCategorySelect" :disabled="selectedDocCategories.length === 0">
-                  确认添加 ({{ selectedDocCategories.length }})
-                </el-button>
-              </template>
-            </el-dialog>
-
-            <!-- 分页 -->
-            <div class="excel-pagination" v-if="excelTotal > 0">
-              <el-pagination
-                v-model:current-page="excelPage"
-                v-model:page-size="excelPageSize"
-                :page-sizes="[10, 20, 50]"
-                :total="excelTotal"
-                layout="total, sizes, prev, pager, next"
-                @size-change="loadExcelList"
-                @current-change="loadExcelList"
-              />
+              {{ getCategoryLabel(row.category) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="filename"
+          label="文件名"
+          min-width="300"
+        >
+          <template #default="{ row }">
+            <div class="file-cell">
+              <el-icon class="file-icon">
+                <Document />
+              </el-icon>
+              <span
+                class="file-name"
+                :title="row.filename"
+              >{{ row.filename }}</span>
             </div>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="file_size_display"
+          label="文件大小"
+          width="90"
+          align="center"
+        />
+        <el-table-column
+          prop="description"
+          label="描述"
+          min-width="120"
+        />
+        <el-table-column
+          prop="created_at"
+          label="上传时间"
+          width="160"
+          align="center"
+        />
+        <el-table-column
+          label="操作"
+          width="200"
+          align="center"
+          fixed="right"
+        >
+          <template #default="{ row }">
+            <el-button
+              type="primary"
+              size="small"
+              :icon="Download"
+              @click="handleDownload(row)"
+            >
+              下载
+            </el-button>
+            <el-button
+              v-if="canDelete"
+              type="danger"
+              size="small"
+              @click="handleDelete(row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-            <!-- 空状态 -->
-            <el-empty
-              v-if="!excelLoading && excelFiles.length === 0"
-              description="暂无文档数据"
-              :image-size="80"
+      <!-- 审核问题详情弹窗 -->
+      <el-dialog
+        v-model="showReviewDialog"
+        title="审核详情"
+        width="600px"
+      >
+        <div
+          v-if="currentReviewFile"
+          class="review-dialog-content"
+        >
+          <div class="review-file-info">
+            <strong>文件:</strong> {{ currentReviewFile.filename }}
+          </div>
+          <el-divider />
+          <div class="review-status-info">
+            <el-tag
+              :type="getReviewStatusType(currentReviewFile.review_status)"
+              size="large"
+            >
+              {{ getReviewStatusLabel(currentReviewFile.review_status) }}
+            </el-tag>
+          </div>
+          <div
+            v-if="currentReviewFile.review_issues && currentReviewFile.review_issues.length > 0"
+            class="review-issues"
+          >
+            <h4>检测到的问题:</h4>
+            <ul>
+              <li
+                v-for="(issue, idx) in currentReviewFile.review_issues"
+                :key="idx"
+              >
+                {{ issue }}
+              </li>
+            </ul>
+          </div>
+          <div
+            v-if="currentReviewFile.reviewed_by"
+            class="review-meta"
+          >
+            <small>审核人: {{ currentReviewFile.reviewed_by }}</small>
+            <br>
+            <small v-if="currentReviewFile.reviewed_at">审核时间: {{ currentReviewFile.reviewed_at }}</small>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="showReviewDialog = false">
+            关闭
+          </el-button>
+          <el-button
+            v-if="currentReviewFile && (currentReviewFile.review_status === 'pending_review' || currentReviewFile.review_status === 'needs_reprocess')"
+            type="success"
+            @click="confirmCurrentReview"
+          >
+            确认审核通过
+          </el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 分类选择弹窗（多选） -->
+      <el-dialog
+        v-model="showCategoryDialog"
+        title="选择文档分类"
+        width="500px"
+        :close-on-click-modal="false"
+      >
+        <div class="category-dialog-content">
+          <p class="category-tip">
+            请为文件 "<strong>{{ pendingUploadFile?.name }}</strong>" 选择分类标签（可多选）：
+          </p>
+          <el-checkbox-group
+            v-model="selectedDocCategories"
+            class="category-checkbox-group"
+          >
+            <el-checkbox value="industry">
+              <span class="category-label">银行行业数据库</span>
+              <span class="category-desc">银行行业分类数据</span>
+            </el-checkbox>
+            <el-checkbox value="single_bank">
+              <span class="category-label">单家银行数据库</span>
+              <span class="category-desc">单一银行的数据报表</span>
+            </el-checkbox>
+            <el-checkbox value="report">
+              <span class="category-label">研究报告</span>
+              <span class="category-desc">行业研究报告、分析报告</span>
+            </el-checkbox>
+            <el-checkbox value="guide">
+              <span class="category-label">说明指南</span>
+              <span class="category-desc">系统使用说明、操作指南</span>
+            </el-checkbox>
+            <el-checkbox value="other">
+              <span class="category-label">其他资料</span>
+              <span class="category-desc">不属于上述分类的其他文档</span>
+            </el-checkbox>
+          </el-checkbox-group>
+          <div class="description-input-wrapper">
+            <p
+              class="category-tip"
+              style="margin-top: 20px;"
+            >
+              文档描述（可选）：
+            </p>
+            <el-input
+              v-model="uploadDescription"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入文档描述（如：2024年度银行年报）"
+              maxlength="200"
+              show-word-limit
             />
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="cancelCategorySelect">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            :disabled="selectedDocCategories.length === 0"
+            @click="confirmCategorySelect"
+          >
+            确认添加 ({{ selectedDocCategories.length }})
+          </el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 分页 -->
+      <div
+        v-if="excelTotal > 0"
+        class="excel-pagination"
+      >
+        <el-pagination
+          v-model:current-page="excelPage"
+          v-model:page-size="excelPageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="excelTotal"
+          layout="total, sizes, prev, pager, next"
+          @size-change="loadExcelList"
+          @current-change="loadExcelList"
+        />
+      </div>
+
+      <!-- 空状态 -->
+      <el-empty
+        v-if="!excelLoading && excelFiles.length === 0"
+        description="暂无文档数据"
+        :image-size="80"
+      />
     </div>
   </div>
 </template>
