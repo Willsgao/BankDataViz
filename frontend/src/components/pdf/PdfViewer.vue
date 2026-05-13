@@ -4,14 +4,14 @@
       :src="pdfUrl"
       class="pdf-iframe"
       frameborder="0"
-    ></iframe>
+    />
     <el-button
       size="small"
       circle
       icon="el-icon-close"
       class="close"
-      @click="$emit('close')"
       title="关闭预览"
+      @click="$emit('close')"
     />
   </div>
 </template>

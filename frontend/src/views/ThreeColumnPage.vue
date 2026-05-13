@@ -7,7 +7,6 @@
     :is-middle-collapsed="isMiddleCollapsed"
     @toggle-middle="toggleMiddleCollapse"
   >
-
     <!-- 只修改模板的left部分 -->
     <template #left>
       <PdfPreview
@@ -28,42 +27,60 @@
       </div>
 
       <PdfList
-        :searchResults="searchResults"
-        :isSearching="isSearching"
-        :filteredPdfCount="filteredPdfCount"
-        :selectedPdf="selectedPdf"
+        :search-results="searchResults"
+        :is-searching="isSearching"
+        :filtered-pdf-count="filteredPdfCount"
+        :selected-pdf="selectedPdf"
         @select-pdf="selectPdf"
       />
     </template>
 
     <template #middle-bottom>
       <div class="table-list-container">
-
         <!-- PDF名称显示区域 -->
-        <div v-if="selectedPdf" class="pdf-name-section compact">
+        <div
+          v-if="selectedPdf"
+          class="pdf-name-section compact"
+        >
           <div class="pdf-name-content compact">
-            <el-tag type="info" size="small" class="pdf-name-tag compact">
+            <el-tag
+              type="info"
+              size="small"
+              class="pdf-name-tag compact"
+            >
               <el-icon><Document /></el-icon>
               {{ selectedPdf.filename || selectedPdf.name || '未命名文件' }}
             </el-tag>
           </div>
         </div>
 
-        <div class="section-header" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div
+          class="section-header"
+          style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"
+        >
           <span class="section-title">表格名称列表</span>
-          <el-tag type="info" size="small">{{ tableCount }} 个表格</el-tag>
-          <el-tag v-if="anomalySheetCount > 0" type="warning" size="small">
+          <el-tag
+            type="info"
+            size="small"
+          >
+            {{ tableCount }} 个表格
+          </el-tag>
+          <el-tag
+            v-if="anomalySheetCount > 0"
+            type="warning"
+            size="small"
+          >
             <el-icon><WarnTriangleFilled /></el-icon>
             {{ anomalySheetCount }} 个异常
           </el-tag>
-          <div style="flex: 1;"></div>
+          <div style="flex: 1;" />
           <el-button
             size="small"
             type="warning"
             :icon="DataBoard"
-            @click="handleDetectAnomalies"
             :loading="detectingSheets"
             :disabled="!selectedPdf || displayedExcelFiles.length === 0"
+            @click="handleDetectAnomalies"
           >
             检测数据
           </el-button>
@@ -76,15 +93,28 @@
         </div>
 
         <div class="table-content">
-          <div v-if="loadingSheets" class="loading-state">
-            <el-icon class="is-loading"><Loading /></el-icon>
+          <div
+            v-if="loadingSheets"
+            class="loading-state"
+          >
+            <el-icon class="is-loading">
+              <Loading />
+            </el-icon>
             加载表格列表中...
           </div>
-          <div v-else-if="displayedExcelFiles.length === 0" class="empty-state">
+          <div
+            v-else-if="displayedExcelFiles.length === 0"
+            class="empty-state"
+          >
             <p>暂无表格数据</p>
-            <p class="tip">选中的PDF没有对应的Excel文件</p>
+            <p class="tip">
+              选中的PDF没有对应的Excel文件
+            </p>
           </div>
-          <div v-else class="excel-files-container">
+          <div
+            v-else
+            class="excel-files-container"
+          >
             <!-- 使用排序后的数据 -->
             <div
               v-for="excelFile in displayedExcelFiles"
@@ -93,10 +123,16 @@
             >
               <div class="excel-file-header">
                 <el-icon><Document /></el-icon>
-                <span class="excel-file-name" :class="{ 'flattened-file': excelFile.excel_file.toLowerCase().includes('flattened_') }">
+                <span
+                  class="excel-file-name"
+                  :class="{ 'flattened-file': excelFile.excel_file.toLowerCase().includes('flattened_') }"
+                >
                   {{ excelFile.excel_file }}
                 </span>
-                <el-tag size="small" type="info">
+                <el-tag
+                  size="small"
+                  type="info"
+                >
                   {{ excelFile.total_sheets }} 个表
                 </el-tag>
               </div>
@@ -125,13 +161,7 @@
                     异常
                   </el-tag>
                 </div>
-
-
               </div>
-
-
-
-
             </div>
           </div>
         </div>
@@ -141,19 +171,26 @@
 
     <template #right>
       <!-- 右侧栏标题栏（与中间栏 section-header 风格一致） -->
-      <div class="section-header" style="flex-shrink: 0;">
+      <div
+        class="section-header"
+        style="flex-shrink: 0;"
+      >
         <span class="section-title">Excel 内容</span>
         <div class="header-right">
           <!-- 搜索翻页按钮 -->
-          <div v-if="excelContentSearchState?.keyword" class="search-pagination" style="display: flex; align-items: center; gap: 4px; background: #e6f7ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #91d5ff;">
+          <div
+            v-if="excelContentSearchState?.keyword"
+            class="search-pagination"
+            style="display: flex; align-items: center; gap: 4px; background: #e6f7ff; padding: 2px 8px; border-radius: 4px; border: 1px solid #91d5ff;"
+          >
             <template v-if="excelContentSearchState.matchCount > 0">
               <el-button
                 size="small"
                 circle
                 plain
                 :disabled="excelContentSearchState.matchCount <= 1"
-                @click="goToPrevMatch"
                 title="上一个匹配"
+                @click="goToPrevMatch"
               >
                 <el-icon><ArrowLeft /></el-icon>
               </el-button>
@@ -165,16 +202,25 @@
                 circle
                 type="primary"
                 :disabled="excelContentSearchState.matchCount <= 1"
-                @click="goToNextMatch"
                 title="下一个匹配"
+                @click="goToNextMatch"
               >
                 <el-icon><ArrowRight /></el-icon>
               </el-button>
             </template>
-            <span v-else-if="isSheetSearchLoading" style="font-size: 11px; color: #909399;">
-              <el-icon class="is-loading" style="margin-right: 2px;"><Loading /></el-icon>搜索中…
+            <span
+              v-else-if="isSheetSearchLoading"
+              style="font-size: 11px; color: #909399;"
+            >
+              <el-icon
+                class="is-loading"
+                style="margin-right: 2px;"
+              ><Loading /></el-icon>搜索中…
             </span>
-            <span v-else style="font-size: 11px; color: #999;">无匹配</span>
+            <span
+              v-else
+              style="font-size: 11px; color: #999;"
+            >无匹配</span>
           </div>
         </div>
       </div>
@@ -209,8 +255,6 @@
         />
       </div>
     </template>
-
-
   </ThreeColumnLayout>
 </template>
 

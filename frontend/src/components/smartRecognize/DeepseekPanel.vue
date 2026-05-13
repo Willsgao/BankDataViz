@@ -2,7 +2,9 @@
   <div class="deepseek-panel">
     <!-- 配置区 -->
     <div class="config-section">
-      <div class="section-title">DeepSeek 配置</div>
+      <div class="section-title">
+        DeepSeek 配置
+      </div>
       <div class="config-row">
         <span class="config-label">Chrome Profile</span>
         <el-input
@@ -33,19 +35,33 @@
         :disabled="!canStart"
         @click="onStart"
       >
-        <el-icon v-if="status !== 'running'"><MagicStick /></el-icon>
+        <el-icon v-if="status !== 'running'">
+          <MagicStick />
+        </el-icon>
         {{ status === 'running' ? `正在识别 (${currentIndex}/${totalRegions})` : '发送到 DeepSeek' }}
       </el-button>
-      <el-button v-if="status === 'running'" type="danger" size="small" @click="onCancel">
+      <el-button
+        v-if="status === 'running'"
+        type="danger"
+        size="small"
+        @click="onCancel"
+      >
         取消
       </el-button>
-      <el-button v-if="status === 'done'" size="small" @click="onReset">
+      <el-button
+        v-if="status === 'done'"
+        size="small"
+        @click="onReset"
+      >
         重置
       </el-button>
     </div>
 
     <!-- 进度指示 -->
-    <div v-if="status === 'running'" class="progress-section">
+    <div
+      v-if="status === 'running'"
+      class="progress-section"
+    >
       <el-progress
         :percentage="progressPercent"
         :format="progressFormat"
@@ -58,27 +74,53 @@
     </div>
 
     <!-- 汇总统计 -->
-    <div v-if="results.length > 0" class="stats-bar">
-      <el-tag type="success" effect="plain">
+    <div
+      v-if="results.length > 0"
+      class="stats-bar"
+    >
+      <el-tag
+        type="success"
+        effect="plain"
+      >
         成功 {{ successCount }} 个
       </el-tag>
-      <el-tag v-if="failedCount > 0" type="danger" effect="plain">
+      <el-tag
+        v-if="failedCount > 0"
+        type="danger"
+        effect="plain"
+      >
         失败 {{ failedCount }} 个
       </el-tag>
-      <el-tag type="info" effect="plain">
+      <el-tag
+        type="info"
+        effect="plain"
+      >
         共 {{ results.length }} 个
       </el-tag>
     </div>
 
     <!-- 结果列表 -->
     <div class="results-area">
-      <div v-if="results.length === 0 && status === 'idle'" class="results-empty">
-        <el-icon :size="40" color="#c0c4cc"><Document /></el-icon>
+      <div
+        v-if="results.length === 0 && status === 'idle'"
+        class="results-empty"
+      >
+        <el-icon
+          :size="40"
+          color="#c0c4cc"
+        >
+          <Document />
+        </el-icon>
         <p>暂无识别结果</p>
-        <p class="empty-hint">上传文件并确认选区后，点击「发送到 DeepSeek」</p>
+        <p class="empty-hint">
+          上传文件并确认选区后，点击「发送到 DeepSeek」
+        </p>
       </div>
 
-      <div v-else class="results-list">
+      <div
+        v-else
+        class="results-list"
+      >
         <div
           v-for="item in results"
           :key="item.id"
@@ -90,23 +132,42 @@
         >
           <div class="result-header">
             <span class="result-label">{{ item.label }}</span>
-            <el-tag :type="item.success ? 'success' : 'danger'" size="small" effect="plain">
+            <el-tag
+              :type="item.success ? 'success' : 'danger'"
+              size="small"
+              effect="plain"
+            >
               {{ item.success ? '成功' : '失败' }}
             </el-tag>
           </div>
 
           <!-- 缩略图 -->
-          <img v-if="item.thumbnail" :src="item.thumbnail" class="result-thumb" />
+          <img
+            v-if="item.thumbnail"
+            :src="item.thumbnail"
+            class="result-thumb"
+          >
 
           <!-- 结果内容 -->
-          <div v-if="item.success && item.result" class="result-content">
+          <div
+            v-if="item.success && item.result"
+            class="result-content"
+          >
             <pre class="result-text">{{ item.result }}</pre>
           </div>
-          <div v-else-if="!item.success && item.error" class="result-error-msg">
+          <div
+            v-else-if="!item.success && item.error"
+            class="result-error-msg"
+          >
             {{ item.error }}
           </div>
-          <div v-else-if="status === 'running' && item.id === currentRegionId" class="result-loading">
-            <el-icon class="is-loading"><Loading /></el-icon>
+          <div
+            v-else-if="status === 'running' && item.id === currentRegionId"
+            class="result-loading"
+          >
+            <el-icon class="is-loading">
+              <Loading />
+            </el-icon>
             识别中...
           </div>
         </div>
@@ -114,12 +175,18 @@
     </div>
 
     <!-- 确认保存 -->
-    <div v-if="status === 'done' && successCount > 0" class="confirm-section">
+    <div
+      v-if="status === 'done' && successCount > 0"
+      class="confirm-section"
+    >
       <el-divider />
       <div class="confirm-tip">
         确认以上结果无误后，点击「保存 Excel」保存全部结果
       </div>
-      <el-button type="success" @click="onConfirm">
+      <el-button
+        type="success"
+        @click="onConfirm"
+      >
         <el-icon><DocumentChecked /></el-icon>
         确认结果 → 保存 Excel
       </el-button>

@@ -10,17 +10,33 @@
     <div class="analysis-container">
       <!-- 分析类型选择 -->
       <div class="analysis-type-selector">
-        <el-radio-group v-model="selectedAnalysisType" @change="handleAnalysisTypeChange">
-          <el-radio-button label="score-distribution">分数分布分析</el-radio-button>
-          <el-radio-button label="dimension-analysis">维度对比分析</el-radio-button>
-          <el-radio-button label="class-comparison">班级对比分析</el-radio-button>
-          <el-radio-button label="teacher-comment">教师评语分析</el-radio-button>
-          <el-radio-button label="llm-analysis">AI智能分析</el-radio-button>
+        <el-radio-group
+          v-model="selectedAnalysisType"
+          @change="handleAnalysisTypeChange"
+        >
+          <el-radio-button label="score-distribution">
+            分数分布分析
+          </el-radio-button>
+          <el-radio-button label="dimension-analysis">
+            维度对比分析
+          </el-radio-button>
+          <el-radio-button label="class-comparison">
+            班级对比分析
+          </el-radio-button>
+          <el-radio-button label="teacher-comment">
+            教师评语分析
+          </el-radio-button>
+          <el-radio-button label="llm-analysis">
+            AI智能分析
+          </el-radio-button>
         </el-radio-group>
       </div>
 
       <!-- 班级选择器（仅在多班级分析时显示） -->
-      <div v-if="isMultiClassAnalysis && selectedAnalysisType !== 'class-comparison'" class="class-selector">
+      <div
+        v-if="isMultiClassAnalysis && selectedAnalysisType !== 'class-comparison'"
+        class="class-selector"
+      >
         <el-alert
           title="多班级数据分析"
           type="info"
@@ -77,7 +93,10 @@
           :all-class-data="allClassData"
         />
 
-        <div v-else class="no-data">
+        <div
+          v-else
+          class="no-data"
+        >
           <el-empty description="暂无数据或选择的分析类型" />
         </div>
       </div>

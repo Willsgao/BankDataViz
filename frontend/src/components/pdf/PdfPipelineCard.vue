@@ -1,8 +1,15 @@
 <template>
-  <div class="pipeline-card" v-if="currentPdf">
+  <div
+    v-if="currentPdf"
+    class="pipeline-card"
+  >
     <div class="card-header">
       <span class="title">处理进度</span>
-      <el-tag v-if="currentStage" size="mini" :type="getStageTagType(currentStage)">
+      <el-tag
+        v-if="currentStage"
+        size="mini"
+        :type="getStageTagType(currentStage)"
+      >
         {{ getStageText(currentStage) }}
       </el-tag>
     </div>
@@ -11,11 +18,15 @@
       <!-- 1. PDF上传 - 总是已完成 -->
       <div class="step done">
         <div class="step-icon">
-          <i class="el-icon-upload"></i>
+          <i class="el-icon-upload" />
         </div>
         <div class="step-content">
-          <div class="step-title">PDF上传</div>
-          <div class="step-status">已完成</div>
+          <div class="step-title">
+            PDF上传
+          </div>
+          <div class="step-status">
+            已完成
+          </div>
         </div>
         <div class="step-time">
           {{ formatDate(currentPdf.created_at) }}
@@ -25,12 +36,19 @@
       <!-- 2. PDF转图 - 动态状态 -->
       <div :class="['step', getConvertStepClass()]">
         <div class="step-icon">
-          <i :class="getConvertIcon()"></i>
+          <i :class="getConvertIcon()" />
         </div>
         <div class="step-content">
-          <div class="step-title">PDF转图</div>
-          <div class="step-status">{{ getConvertText() }}</div>
-          <div v-if="getConvertStepClass() === 'processing'" class="step-progress">
+          <div class="step-title">
+            PDF转图
+          </div>
+          <div class="step-status">
+            {{ getConvertText() }}
+          </div>
+          <div
+            v-if="getConvertStepClass() === 'processing'"
+            class="step-progress"
+          >
             <el-progress
               :percentage="convertProgress"
               :show-text="false"
@@ -38,7 +56,10 @@
               style="width: 80px;"
             />
           </div>
-          <div v-if="getConvertStepClass() === 'done' && convertDone" class="step-time">
+          <div
+            v-if="getConvertStepClass() === 'done' && convertDone"
+            class="step-time"
+          >
             {{ convertDoneTime }}
           </div>
         </div>
@@ -47,16 +68,26 @@
       <!-- 3. 图片筛选 - 动态状态 -->
       <div :class="['step', getScreeningStepClass()]">
         <div class="step-icon">
-          <i :class="getScreeningIcon()"></i>
+          <i :class="getScreeningIcon()" />
         </div>
         <div class="step-content">
-          <div class="step-title">图片筛选</div>
-          <div class="step-status">{{ getScreeningText() }}</div>
-          <div v-if="screeningResult" class="step-stats">
+          <div class="step-title">
+            图片筛选
+          </div>
+          <div class="step-status">
+            {{ getScreeningText() }}
+          </div>
+          <div
+            v-if="screeningResult"
+            class="step-stats"
+          >
             <span class="stat-item tables">{{ screeningResult.has_table_count || 0 }} 有表格</span>
             <span class="stat-item no-tables">{{ screeningResult.no_table_count || 0 }} 无表格</span>
           </div>
-          <div v-if="getScreeningStepClass() === 'done' && screeningDone" class="step-time">
+          <div
+            v-if="getScreeningStepClass() === 'done' && screeningDone"
+            class="step-time"
+          >
             {{ screeningDoneTime }}
           </div>
         </div>
@@ -65,12 +96,19 @@
       <!-- 4. 表格解析 - 动态状态 -->
       <div :class="['step', getParsingStepClass()]">
         <div class="step-icon">
-          <i :class="getParsingIcon()"></i>
+          <i :class="getParsingIcon()" />
         </div>
         <div class="step-content">
-          <div class="step-title">表格解析</div>
-          <div class="step-status">{{ getParsingText() }}</div>
-          <div v-if="getParsingStepClass() === 'processing' && parsingProgress" class="step-progress">
+          <div class="step-title">
+            表格解析
+          </div>
+          <div class="step-status">
+            {{ getParsingText() }}
+          </div>
+          <div
+            v-if="getParsingStepClass() === 'processing' && parsingProgress"
+            class="step-progress"
+          >
             <el-progress
               :percentage="parsingProgress.percentage || 0"
               :show-text="false"
@@ -80,15 +118,21 @@
             />
             <span class="progress-text">{{ parsingProgress.message || '' }}</span>
           </div>
-          <div v-if="getParsingStepClass() === 'done' && parsingDone" class="step-time">
+          <div
+            v-if="getParsingStepClass() === 'done' && parsingDone"
+            class="step-time"
+          >
             {{ parsingDoneTime }}
           </div>
         </div>
       </div>
 
       <!-- 当前操作提示 -->
-      <div v-if="nextActionHint" class="action-hint">
-        <i class="el-icon-info"></i>
+      <div
+        v-if="nextActionHint"
+        class="action-hint"
+      >
+        <i class="el-icon-info" />
         <span>{{ nextActionHint }}</span>
       </div>
     </div>

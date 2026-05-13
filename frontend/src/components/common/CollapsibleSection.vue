@@ -1,27 +1,45 @@
 <template>
-  <div class="collapsible-section" :class="{ collapsed: collapsed }">
-    <div class="section-header" @click="handleToggle">
+  <div
+    class="collapsible-section"
+    :class="{ collapsed: collapsed }"
+  >
+    <div
+      class="section-header"
+      @click="handleToggle"
+    >
       <div class="header-left">
-        <el-icon class="collapse-icon" :class="{ rotated: collapsed }">
+        <el-icon
+          class="collapse-icon"
+          :class="{ rotated: collapsed }"
+        >
           <ArrowRight />
         </el-icon>
         <span class="section-title">{{ title }}</span>
       </div>
       <div class="header-actions">
-        <el-tag v-if="collapsed" type="info" size="small">已折叠</el-tag>
+        <el-tag
+          v-if="collapsed"
+          type="info"
+          size="small"
+        >
+          已折叠
+        </el-tag>
         <el-button
           v-else
           type="text"
           size="small"
           :icon="Collapse"
-          @click.stop="handleToggle"
           title="折叠"
+          @click.stop="handleToggle"
         />
       </div>
     </div>
 
-    <div class="section-content" v-if="!collapsed">
-      <slot></slot>
+    <div
+      v-if="!collapsed"
+      class="section-content"
+    >
+      <slot />
     </div>
   </div>
 </template>

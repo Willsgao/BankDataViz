@@ -5,10 +5,19 @@
       <div class="header-title">
         <span class="icon">&#128202;</span>
         会计勾稽验证
-        <el-tag size="small" type="warning" style="margin-left: 10px">NEW</el-tag>
+        <el-tag
+          size="small"
+          type="warning"
+          style="margin-left: 10px"
+        >
+          NEW
+        </el-tag>
       </div>
       <div class="header-actions">
-        <el-button size="small" @click="loadRules">
+        <el-button
+          size="small"
+          @click="loadRules"
+        >
           <span>&#128260;</span> 刷新规则
         </el-button>
       </div>
@@ -31,14 +40,31 @@
               :class="{ selected: selectedFile && selectedFile.id === file.id }"
               @click="selectFile(file)"
             >
-              <div class="file-name" :title="file.name">{{ file.name }}</div>
+              <div
+                class="file-name"
+                :title="file.name"
+              >
+                {{ file.name }}
+              </div>
               <div class="file-meta">
-                <span v-if="file.sheet_count" class="sheet-count">&#128196; {{ file.sheet_count }}个报表</span>
-                <span v-if="file.last_status === 'completed'" class="status-ok">&#10004;</span>
-                <span v-if="file.last_fail > 0" class="status-fail">&#10006; {{ file.last_fail }}</span>
+                <span
+                  v-if="file.sheet_count"
+                  class="sheet-count"
+                >&#128196; {{ file.sheet_count }}个报表</span>
+                <span
+                  v-if="file.last_status === 'completed'"
+                  class="status-ok"
+                >&#10004;</span>
+                <span
+                  v-if="file.last_fail > 0"
+                  class="status-fail"
+                >&#10006; {{ file.last_fail }}</span>
               </div>
             </div>
-            <div v-if="files.length === 0 && !loadingFiles" class="empty-tip">
+            <div
+              v-if="files.length === 0 && !loadingFiles"
+              class="empty-tip"
+            >
               暂无可校验档案<br>请先在数据解析中完成PDF处理
             </div>
           </div>
@@ -51,7 +77,10 @@
                 style="width: 100%"
                 @click="goToStep2"
               >
-                <span v-if="loadingSheets" class="spinner"></span>
+                <span
+                  v-if="loadingSheets"
+                  class="spinner"
+                />
                 <span v-else>&#9654;</span>
                 {{ loadingSheets ? '加载中...' : '下一步：选择规则' }}
               </el-button>
@@ -71,7 +100,10 @@
                 style="width: 100%"
                 @click="runAudit"
               >
-                <span v-if="isRunning" class="spinner"></span>
+                <span
+                  v-if="isRunning"
+                  class="spinner"
+                />
                 <span v-else>&#9654;</span>
                 {{ isRunning ? '校验中...' : '开始校验' }}
               </el-button>
@@ -91,17 +123,28 @@
 
         <!-- 右侧主区域 -->
         <div class="main-area">
-
           <!-- ========== Step 1: 规则配置 ========== -->
-          <div v-if="currentStep === 1" class="rules-panel">
-            <div class="panel-header" @click="rulesExpanded = !rulesExpanded">
+          <div
+            v-if="currentStep === 1"
+            class="rules-panel"
+          >
+            <div
+              class="panel-header"
+              @click="rulesExpanded = !rulesExpanded"
+            >
               <span>&#9881; 校验规则配置</span>
               <span class="rule-count">已选择 {{ enabledRuleCount }} / {{ rules.length }} 条</span>
-              <span class="toggle-icon" :style="{ transform: rulesExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }">
+              <span
+                class="toggle-icon"
+                :style="{ transform: rulesExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }"
+              >
                 &#9660;
               </span>
             </div>
-            <div v-show="rulesExpanded" class="rules-grid">
+            <div
+              v-show="rulesExpanded"
+              class="rules-grid"
+            >
               <div
                 v-for="rule in rules"
                 :key="rule.id"
@@ -109,34 +152,58 @@
                 :class="{ disabled: !rule.enabled }"
               >
                 <div class="rule-card-left">
-                  <el-checkbox v-model="rule.enabled"></el-checkbox>
-                  <span class="rule-icon" :style="{ background: getRuleColor(rule.category) }">
+                  <el-checkbox v-model="rule.enabled" />
+                  <span
+                    class="rule-icon"
+                    :style="{ background: getRuleColor(rule.category) }"
+                  >
                     {{ getRuleIcon(rule.rule_type) }}
                   </span>
                 </div>
                 <div class="rule-info">
-                  <div class="rule-name">{{ rule.name }}</div>
-                  <div class="rule-desc">{{ rule.description }}</div>
+                  <div class="rule-name">
+                    {{ rule.name }}
+                  </div>
+                  <div class="rule-desc">
+                    {{ rule.description }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- ========== Step 2: Sheet 预览 + 规则映射 + 字段分析 ========== -->
-          <div v-else-if="currentStep === 2" class="mapping-panel">
+          <div
+            v-else-if="currentStep === 2"
+            class="mapping-panel"
+          >
             <div class="panel-header">
               <span>&#128196; 规则 → Sheet 映射确认</span>
               <span class="rule-count">已勾选 {{ enabledRuleCount }} 条规则</span>
             </div>
 
             <!-- 字段分析提示 -->
-            <div v-if="uncertainFields.length > 0" class="field-analysis-banner">
-              <div class="banner-icon">&#9888;</div>
-              <div class="banner-content">
-                <div class="banner-title">检测到 {{ uncertainFields.length }} 个需要确认的字段映射</div>
-                <div class="banner-desc">部分字段在 Sheet 中未找到精确匹配，建议在执行前确认</div>
+            <div
+              v-if="uncertainFields.length > 0"
+              class="field-analysis-banner"
+            >
+              <div class="banner-icon">
+                &#9888;
               </div>
-              <el-button size="small" @click="reanalyzeMapping">重新分析</el-button>
+              <div class="banner-content">
+                <div class="banner-title">
+                  检测到 {{ uncertainFields.length }} 个需要确认的字段映射
+                </div>
+                <div class="banner-desc">
+                  部分字段在 Sheet 中未找到精确匹配，建议在执行前确认
+                </div>
+              </div>
+              <el-button
+                size="small"
+                @click="reanalyzeMapping"
+              >
+                重新分析
+              </el-button>
             </div>
 
             <!-- 启用规则列表 + 每条规则的 Sheet 选择 -->
@@ -148,12 +215,20 @@
                 :class="{ 'has-warning': getRuleUncertainCount(rule.id) > 0 }"
               >
                 <div class="mapping-rule-header">
-                  <span class="rule-icon-sm" :style="{ background: getRuleColor(rule.category) }">
+                  <span
+                    class="rule-icon-sm"
+                    :style="{ background: getRuleColor(rule.category) }"
+                  >
                     {{ getRuleIcon(rule.rule_type) }}
                   </span>
                   <span class="rule-name-sm">{{ rule.name }}</span>
                   <!-- 自动推荐标签 -->
-                  <el-tag v-if="autoSuggested[rule.id]" size="small" type="info" style="margin-left: 8px">
+                  <el-tag
+                    v-if="autoSuggested[rule.id]"
+                    size="small"
+                    type="info"
+                    style="margin-left: 8px"
+                  >
                     自动推荐
                   </el-tag>
                   <!-- 字段确认状态 -->
@@ -200,7 +275,10 @@
                 </div>
                 
                 <!-- 字段映射状态详情 -->
-                <div v-if="sheetMapping[rule.id]" class="field-mapping-status">
+                <div
+                  v-if="sheetMapping[rule.id]"
+                  class="field-mapping-status"
+                >
                   <div 
                     v-for="field in getRuleFields(rule.id)" 
                     :key="field.role"
@@ -209,18 +287,30 @@
                   >
                     <span class="field-role">{{ field.role }}:</span>
                     <span class="field-name">{{ field.field || '-' }}</span>
-                    <span v-if="field.confidence === 'high'" class="field-badge success">✓ 已匹配</span>
-                    <span v-else class="field-badge warning">? 待确认</span>
+                    <span
+                      v-if="field.confidence === 'high'"
+                      class="field-badge success"
+                    >✓ 已匹配</span>
+                    <span
+                      v-else
+                      class="field-badge warning"
+                    >? 待确认</span>
                   </div>
                 </div>
                 
                 <!-- Sheet 摘要提示 -->
-                <div v-if="sheetMapping[rule.id]" class="sheet-hint">
+                <div
+                  v-if="sheetMapping[rule.id]"
+                  class="sheet-hint"
+                >
                   {{ getSheetHint(sheetMapping[rule.id]) }}
                 </div>
               </div>
 
-              <div v-if="enabledRules.length === 0" class="no-rules-tip">
+              <div
+                v-if="enabledRules.length === 0"
+                class="no-rules-tip"
+              >
                 请先在左侧选择档案，然后勾选要执行的规则
               </div>
             </div>
@@ -231,28 +321,54 @@
             <!-- 统计概览 -->
             <div class="stats-row">
               <div class="stat-card pass">
-                <div class="stat-icon">&#10004;</div>
-                <div class="stat-num green">{{ stats.pass }}</div>
-                <div class="stat-label">通过</div>
+                <div class="stat-icon">
+                  &#10004;
+                </div>
+                <div class="stat-num green">
+                  {{ stats.pass }}
+                </div>
+                <div class="stat-label">
+                  通过
+                </div>
               </div>
               <div class="stat-card warn">
-                <div class="stat-icon">&#9888;</div>
-                <div class="stat-num orange">{{ stats.warn }}</div>
-                <div class="stat-label">警告</div>
+                <div class="stat-icon">
+                  &#9888;
+                </div>
+                <div class="stat-num orange">
+                  {{ stats.warn }}
+                </div>
+                <div class="stat-label">
+                  警告
+                </div>
               </div>
               <div class="stat-card fail">
-                <div class="stat-icon">&#10006;</div>
-                <div class="stat-num red">{{ stats.fail }}</div>
-                <div class="stat-label">失败</div>
+                <div class="stat-icon">
+                  &#10006;
+                </div>
+                <div class="stat-num red">
+                  {{ stats.fail }}
+                </div>
+                <div class="stat-label">
+                  失败
+                </div>
               </div>
               <div class="stat-card total">
                 <div class="stat-info">
-                  <div class="stat-num blue">{{ stats.total }}</div>
-                  <div class="stat-label">总规则</div>
+                  <div class="stat-num blue">
+                    {{ stats.total }}
+                  </div>
+                  <div class="stat-label">
+                    总规则
+                  </div>
                 </div>
                 <div class="pass-rate">
-                  <div class="rate-num">{{ passRate }}%</div>
-                  <div class="rate-label">通过率</div>
+                  <div class="rate-num">
+                    {{ passRate }}%
+                  </div>
+                  <div class="rate-label">
+                    通过率
+                  </div>
                 </div>
               </div>
             </div>
@@ -275,7 +391,10 @@
               </div>
 
               <!-- 有结果 -->
-              <div v-if="hasResults" class="result-list">
+              <div
+                v-if="hasResults"
+                class="result-list"
+              >
                 <div
                   v-for="item in filteredResults"
                   :key="item.rule_id + item.sheet_name"
@@ -293,10 +412,14 @@
                       <span class="rule-tag">{{ item.rule_id }}</span>
                       {{ item.rule_name }}
                     </div>
-                    <div class="result-formula">{{ item.detail || '无详情' }}</div>
+                    <div class="result-formula">
+                      {{ item.detail || '无详情' }}
+                    </div>
                   </div>
                   <div class="result-meta">
-                    <div class="result-period">{{ item.sheet_name }}</div>
+                    <div class="result-period">
+                      {{ item.sheet_name }}
+                    </div>
                     <div class="result-values">
                       <span v-if="item.actual_value">实际: {{ item.actual_value }}</span>
                       <span v-if="item.expected_value">理论: {{ item.expected_value }}</span>
@@ -306,9 +429,16 @@
               </div>
 
               <!-- 空状态 -->
-              <div v-else class="empty-state">
-                <div class="empty-icon">&#128202;</div>
-                <div class="empty-title">暂无校验结果</div>
+              <div
+                v-else
+                class="empty-state"
+              >
+                <div class="empty-icon">
+                  &#128202;
+                </div>
+                <div class="empty-title">
+                  暂无校验结果
+                </div>
                 <div class="empty-desc">
                   选择档案和规则后，点击"开始校验"
                 </div>
@@ -326,15 +456,29 @@
       width="700px"
       :close-on-click-modal="true"
     >
-      <div v-if="previewSheetData" class="sheet-preview">
+      <div
+        v-if="previewSheetData"
+        class="sheet-preview"
+      >
         <div class="preview-section">
-          <div class="preview-label">横向表头（前3行）：</div>
+          <div class="preview-label">
+            横向表头（前3行）：
+          </div>
           <div class="preview-table-wrap">
             <table class="preview-table">
               <tbody>
-                <tr v-for="(row, ri) in previewSheetData.row_headers" :key="ri">
-                  <td class="row-num">{{ '行' + (ri + 1) }}</td>
-                  <td v-for="(cell, ci) in row" :key="ci" class="preview-cell">
+                <tr
+                  v-for="(row, ri) in previewSheetData.row_headers"
+                  :key="ri"
+                >
+                  <td class="row-num">
+                    {{ '行' + (ri + 1) }}
+                  </td>
+                  <td
+                    v-for="(cell, ci) in row"
+                    :key="ci"
+                    class="preview-cell"
+                  >
                     {{ cell || '-' }}
                   </td>
                 </tr>
@@ -342,14 +486,28 @@
             </table>
           </div>
         </div>
-        <div class="preview-section" style="margin-top: 12px">
-          <div class="preview-label">纵向表头（前3列 x 前6行）：</div>
+        <div
+          class="preview-section"
+          style="margin-top: 12px"
+        >
+          <div class="preview-label">
+            纵向表头（前3列 x 前6行）：
+          </div>
           <div class="preview-table-wrap">
             <table class="preview-table">
               <tbody>
-                <tr v-for="(row, ri) in previewSheetData.col_previews" :key="ri">
-                  <td class="row-num">{{ '列' + (ri + 1) }}</td>
-                  <td v-for="(cell, ci) in row" :key="ci" class="preview-cell">
+                <tr
+                  v-for="(row, ri) in previewSheetData.col_previews"
+                  :key="ri"
+                >
+                  <td class="row-num">
+                    {{ '列' + (ri + 1) }}
+                  </td>
+                  <td
+                    v-for="(cell, ci) in row"
+                    :key="ci"
+                    class="preview-cell"
+                  >
                     {{ cell || '-' }}
                   </td>
                 </tr>
@@ -394,9 +552,15 @@
             <span class="detail-key">理论值</span>
             <span class="detail-val">{{ currentDetail.expected_value || '-' }}</span>
           </div>
-          <div class="detail-row" v-if="currentDetail.diff !== null">
+          <div
+            v-if="currentDetail.diff !== null"
+            class="detail-row"
+          >
             <span class="detail-key">差值</span>
-            <span class="detail-val" :class="currentDetail.status === 'fail' ? 'fail-text' : ''">
+            <span
+              class="detail-val"
+              :class="currentDetail.status === 'fail' ? 'fail-text' : ''"
+            >
               {{ currentDetail.diff }}
             </span>
           </div>

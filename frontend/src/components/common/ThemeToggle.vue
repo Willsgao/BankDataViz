@@ -2,40 +2,81 @@
   <el-dropdown 
     trigger="click" 
     placement="bottom-start"
-    @command="handleThemeChange"
     class="theme-toggle-dropdown"
+    @command="handleThemeChange"
   >
     <div class="theme-toggle-button">
-      <el-icon v-if="currentTheme === 'light'" :size="18"><Sunny /></el-icon>
-      <el-icon v-else-if="currentTheme === 'dark'" :size="18"><Moon /></el-icon>
-      <el-icon v-else :size="18"><Sunrise /></el-icon>
+      <el-icon
+        v-if="currentTheme === 'light'"
+        :size="18"
+      >
+        <Sunny />
+      </el-icon>
+      <el-icon
+        v-else-if="currentTheme === 'dark'"
+        :size="18"
+      >
+        <Moon />
+      </el-icon>
+      <el-icon
+        v-else
+        :size="18"
+      >
+        <Sunrise />
+      </el-icon>
       <span class="theme-label">{{ themeLabel }}</span>
-      <el-icon class="arrow"><ArrowDown /></el-icon>
+      <el-icon class="arrow">
+        <ArrowDown />
+      </el-icon>
     </div>
     
     <template #dropdown>
       <el-dropdown-menu>
-        <el-dropdown-item command="light" :class="{ active: currentTheme === 'light' }">
+        <el-dropdown-item
+          command="light"
+          :class="{ active: currentTheme === 'light' }"
+        >
           <div class="theme-option">
             <el-icon><Sunny /></el-icon>
             <span>亮色主题</span>
-            <el-icon v-if="currentTheme === 'light'" class="checkmark"><CircleCheck /></el-icon>
+            <el-icon
+              v-if="currentTheme === 'light'"
+              class="checkmark"
+            >
+              <CircleCheck />
+            </el-icon>
           </div>
         </el-dropdown-item>
         
-        <el-dropdown-item command="dark" :class="{ active: currentTheme === 'dark' }">
+        <el-dropdown-item
+          command="dark"
+          :class="{ active: currentTheme === 'dark' }"
+        >
           <div class="theme-option">
             <el-icon><Moon /></el-icon>
             <span>暗色主题</span>
-            <el-icon v-if="currentTheme === 'dark'" class="checkmark"><CircleCheck /></el-icon>
+            <el-icon
+              v-if="currentTheme === 'dark'"
+              class="checkmark"
+            >
+              <CircleCheck />
+            </el-icon>
           </div>
         </el-dropdown-item>
         
-        <el-dropdown-item command="system" :class="{ active: currentTheme === 'system' }">
+        <el-dropdown-item
+          command="system"
+          :class="{ active: currentTheme === 'system' }"
+        >
           <div class="theme-option">
             <el-icon><Sunrise /></el-icon>
             <span>跟随系统</span>
-            <el-icon v-if="currentTheme === 'system'" class="checkmark"><CircleCheck /></el-icon>
+            <el-icon
+              v-if="currentTheme === 'system'"
+              class="checkmark"
+            >
+              <CircleCheck />
+            </el-icon>
           </div>
         </el-dropdown-item>
       </el-dropdown-menu>

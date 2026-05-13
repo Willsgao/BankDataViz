@@ -5,80 +5,343 @@
     <div class="brand-panel">
       <!-- 背景层 -->
       <div class="bg-layer">
-        <div class="bg-grid"></div>
-        <div class="bg-glow bg-glow--top"></div>
-        <div class="bg-glow bg-glow--mid"></div>
-        <div class="bg-glow bg-glow--bottom"></div>
-        <div class="bg-line bg-line--1"></div>
-        <div class="bg-line bg-line--2"></div>
+        <div class="bg-grid" />
+        <div class="bg-glow bg-glow--top" />
+        <div class="bg-glow bg-glow--mid" />
+        <div class="bg-glow bg-glow--bottom" />
+        <div class="bg-line bg-line--1" />
+        <div class="bg-line bg-line--2" />
 
         <!-- 数据可视化装饰 SVG -->
-        <svg class="data-viz data-viz--chart1" viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          class="data-viz data-viz--chart1"
+          viewBox="0 0 320 180"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <!-- 折线图 -->
-          <polyline points="0,140 40,120 80,130 120,80 160,90 200,50 240,60 280,30 320,20" stroke="rgba(64,169,255,0.22)" stroke-width="2" fill="none"/>
-          <polyline points="0,160 50,140 100,150 150,110 200,120 250,80 300,70 320,60" stroke="rgba(212,169,64,0.14)" stroke-width="1.5" fill="none"/>
+          <polyline
+            points="0,140 40,120 80,130 120,80 160,90 200,50 240,60 280,30 320,20"
+            stroke="rgba(64,169,255,0.22)"
+            stroke-width="2"
+            fill="none"
+          />
+          <polyline
+            points="0,160 50,140 100,150 150,110 200,120 250,80 300,70 320,60"
+            stroke="rgba(212,169,64,0.14)"
+            stroke-width="1.5"
+            fill="none"
+          />
           <!-- 数据点 -->
-          <circle cx="120" cy="80" r="3" fill="rgba(64,169,255,0.35)"/>
-          <circle cx="200" cy="50" r="3.5" fill="rgba(64,169,255,0.4)"/>
-          <circle cx="280" cy="30" r="3.5" fill="rgba(64,169,255,0.45)"/>
+          <circle
+            cx="120"
+            cy="80"
+            r="3"
+            fill="rgba(64,169,255,0.35)"
+          />
+          <circle
+            cx="200"
+            cy="50"
+            r="3.5"
+            fill="rgba(64,169,255,0.4)"
+          />
+          <circle
+            cx="280"
+            cy="30"
+            r="3.5"
+            fill="rgba(64,169,255,0.45)"
+          />
           <!-- 填充区域 -->
-          <path d="M0,140 L40,120 L80,130 L120,80 L160,90 L200,50 L240,60 L280,30 L320,20 L320,180 L0,180 Z" fill="url(#chartGrad1)" opacity="0.2"/>
+          <path
+            d="M0,140 L40,120 L80,130 L120,80 L160,90 L200,50 L240,60 L280,30 L320,20 L320,180 L0,180 Z"
+            fill="url(#chartGrad1)"
+            opacity="0.2"
+          />
           <defs>
-            <linearGradient id="chartGrad1" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="rgba(64,169,255,0.7)"/>
-              <stop offset="100%" stop-color="rgba(64,169,255,0)"/>
+            <linearGradient
+              id="chartGrad1"
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop
+                offset="0%"
+                stop-color="rgba(64,169,255,0.7)"
+              />
+              <stop
+                offset="100%"
+                stop-color="rgba(64,169,255,0)"
+              />
             </linearGradient>
           </defs>
         </svg>
 
-        <svg class="data-viz data-viz--bars" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          class="data-viz data-viz--bars"
+          viewBox="0 0 200 160"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <!-- 柱状图 -->
-          <rect x="10" y="90" width="18" height="70" rx="3" fill="rgba(64,169,255,0.14)"/>
-          <rect x="38" y="60" width="18" height="100" rx="3" fill="rgba(64,169,255,0.18)"/>
-          <rect x="66" y="40" width="18" height="120" rx="3" fill="rgba(64,169,255,0.22)"/>
-          <rect x="94" y="70" width="18" height="90" rx="3" fill="rgba(64,169,255,0.16)"/>
-          <rect x="122" y="30" width="18" height="130" rx="3" fill="rgba(64,169,255,0.25)"/>
-          <rect x="150" y="50" width="18" height="110" rx="3" fill="rgba(64,169,255,0.2)"/>
+          <rect
+            x="10"
+            y="90"
+            width="18"
+            height="70"
+            rx="3"
+            fill="rgba(64,169,255,0.14)"
+          />
+          <rect
+            x="38"
+            y="60"
+            width="18"
+            height="100"
+            rx="3"
+            fill="rgba(64,169,255,0.18)"
+          />
+          <rect
+            x="66"
+            y="40"
+            width="18"
+            height="120"
+            rx="3"
+            fill="rgba(64,169,255,0.22)"
+          />
+          <rect
+            x="94"
+            y="70"
+            width="18"
+            height="90"
+            rx="3"
+            fill="rgba(64,169,255,0.16)"
+          />
+          <rect
+            x="122"
+            y="30"
+            width="18"
+            height="130"
+            rx="3"
+            fill="rgba(64,169,255,0.25)"
+          />
+          <rect
+            x="150"
+            y="50"
+            width="18"
+            height="110"
+            rx="3"
+            fill="rgba(64,169,255,0.2)"
+          />
           <!-- 柱顶高亮 -->
-          <rect x="122" y="30" width="18" height="4" rx="2" fill="rgba(212,169,64,0.45)"/>
-          <rect x="66" y="40" width="18" height="4" rx="2" fill="rgba(212,169,64,0.35)"/>
+          <rect
+            x="122"
+            y="30"
+            width="18"
+            height="4"
+            rx="2"
+            fill="rgba(212,169,64,0.45)"
+          />
+          <rect
+            x="66"
+            y="40"
+            width="18"
+            height="4"
+            rx="2"
+            fill="rgba(212,169,64,0.35)"
+          />
         </svg>
 
-        <svg class="data-viz data-viz--particles" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          class="data-viz data-viz--particles"
+          viewBox="0 0 300 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <!-- 浮动数据点 -->
-          <circle cx="50" cy="40" r="2.5" fill="rgba(64,169,255,0.4)"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="3s" repeatCount="indefinite"/></circle>
-          <circle cx="120" cy="80" r="2" fill="rgba(212,169,64,0.5)"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/></circle>
-          <circle cx="200" cy="50" r="3" fill="rgba(64,169,255,0.35)"><animate attributeName="opacity" values="0.35;0.85;0.35" dur="4s" repeatCount="indefinite"/></circle>
-          <circle cx="80" cy="130" r="2" fill="rgba(64,169,255,0.45)"><animate attributeName="opacity" values="0.45;0.9;0.45" dur="3.5s" repeatCount="indefinite"/></circle>
-          <circle cx="250" cy="100" r="2.5" fill="rgba(212,169,64,0.4)"><animate attributeName="opacity" values="0.4;0.85;0.4" dur="2.8s" repeatCount="indefinite"/></circle>
-          <circle cx="170" cy="150" r="2" fill="rgba(64,169,255,0.4)"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="3.2s" repeatCount="indefinite"/></circle>
-          <circle cx="30" cy="170" r="2.5" fill="rgba(212,169,64,0.35)"><animate attributeName="opacity" values="0.35;0.8;0.35" dur="2.2s" repeatCount="indefinite"/></circle>
-          <circle cx="280" cy="170" r="2" fill="rgba(64,169,255,0.38)"><animate attributeName="opacity" values="0.38;0.82;0.38" dur="3.8s" repeatCount="indefinite"/></circle>
+          <circle
+            cx="50"
+            cy="40"
+            r="2.5"
+            fill="rgba(64,169,255,0.4)"
+          ><animate
+            attributeName="opacity"
+            values="0.4;0.9;0.4"
+            dur="3s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="120"
+            cy="80"
+            r="2"
+            fill="rgba(212,169,64,0.5)"
+          ><animate
+            attributeName="opacity"
+            values="0.5;1;0.5"
+            dur="2.5s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="200"
+            cy="50"
+            r="3"
+            fill="rgba(64,169,255,0.35)"
+          ><animate
+            attributeName="opacity"
+            values="0.35;0.85;0.35"
+            dur="4s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="80"
+            cy="130"
+            r="2"
+            fill="rgba(64,169,255,0.45)"
+          ><animate
+            attributeName="opacity"
+            values="0.45;0.9;0.45"
+            dur="3.5s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="250"
+            cy="100"
+            r="2.5"
+            fill="rgba(212,169,64,0.4)"
+          ><animate
+            attributeName="opacity"
+            values="0.4;0.85;0.4"
+            dur="2.8s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="170"
+            cy="150"
+            r="2"
+            fill="rgba(64,169,255,0.4)"
+          ><animate
+            attributeName="opacity"
+            values="0.4;0.9;0.4"
+            dur="3.2s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="30"
+            cy="170"
+            r="2.5"
+            fill="rgba(212,169,64,0.35)"
+          ><animate
+            attributeName="opacity"
+            values="0.35;0.8;0.35"
+            dur="2.2s"
+            repeatCount="indefinite"
+          /></circle>
+          <circle
+            cx="280"
+            cy="170"
+            r="2"
+            fill="rgba(64,169,255,0.38)"
+          ><animate
+            attributeName="opacity"
+            values="0.38;0.82;0.38"
+            dur="3.8s"
+            repeatCount="indefinite"
+          /></circle>
           <!-- 连线 -->
-          <line x1="50" y1="40" x2="120" y2="80" stroke="rgba(64,169,255,0.1)" stroke-width="1"/>
-          <line x1="120" y1="80" x2="200" y2="50" stroke="rgba(64,169,255,0.1)" stroke-width="1"/>
-          <line x1="200" y1="50" x2="250" y2="100" stroke="rgba(64,169,255,0.08)" stroke-width="1"/>
+          <line
+            x1="50"
+            y1="40"
+            x2="120"
+            y2="80"
+            stroke="rgba(64,169,255,0.1)"
+            stroke-width="1"
+          />
+          <line
+            x1="120"
+            y1="80"
+            x2="200"
+            y2="50"
+            stroke="rgba(64,169,255,0.1)"
+            stroke-width="1"
+          />
+          <line
+            x1="200"
+            y1="50"
+            x2="250"
+            y2="100"
+            stroke="rgba(64,169,255,0.08)"
+            stroke-width="1"
+          />
         </svg>
 
-        <svg class="data-viz data-viz--donut" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          class="data-viz data-viz--donut"
+          viewBox="0 0 120 120"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <!-- 环形图 -->
-          <circle cx="60" cy="60" r="45" stroke="rgba(64,169,255,0.12)" stroke-width="12" fill="none"/>
-          <circle cx="60" cy="60" r="45" stroke="rgba(64,169,255,0.22)" stroke-width="12" fill="none" stroke-dasharray="180 283" stroke-linecap="round" transform="rotate(-90 60 60)"/>
-          <circle cx="60" cy="60" r="45" stroke="rgba(212,169,64,0.18)" stroke-width="12" fill="none" stroke-dasharray="60 283" stroke-dashoffset="-180" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          <circle
+            cx="60"
+            cy="60"
+            r="45"
+            stroke="rgba(64,169,255,0.12)"
+            stroke-width="12"
+            fill="none"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="45"
+            stroke="rgba(64,169,255,0.22)"
+            stroke-width="12"
+            fill="none"
+            stroke-dasharray="180 283"
+            stroke-linecap="round"
+            transform="rotate(-90 60 60)"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="45"
+            stroke="rgba(212,169,64,0.18)"
+            stroke-width="12"
+            fill="none"
+            stroke-dasharray="60 283"
+            stroke-dashoffset="-180"
+            stroke-linecap="round"
+            transform="rotate(-90 60 60)"
+          />
           <!-- 中心点 -->
-          <circle cx="60" cy="60" r="4" fill="rgba(64,169,255,0.25)"/>
+          <circle
+            cx="60"
+            cy="60"
+            r="4"
+            fill="rgba(64,169,255,0.25)"
+          />
         </svg>
 
         <!-- 浮动数字装饰 -->
-        <div class="data-float data-float--1">98.6</div>
-        <div class="data-float data-float--2">▲ 12.4%</div>
-        <div class="data-float data-float--3">2,847</div>
-        <div class="data-float data-float--4">¥3.2T</div>
+        <div class="data-float data-float--1">
+          98.6
+        </div>
+        <div class="data-float data-float--2">
+          ▲ 12.4%
+        </div>
+        <div class="data-float data-float--3">
+          2,847
+        </div>
+        <div class="data-float data-float--4">
+          ¥3.2T
+        </div>
       </div>
 
       <!-- 二维码区域 -->
       <div class="qrcode-corner">
-        <img src="/qrcode.jpg" alt="研究公众号二维码" class="qrcode-img" />
+        <img
+          src="/qrcode.jpg"
+          alt="研究公众号二维码"
+          class="qrcode-img"
+        >
         <span class="qrcode-label">研究公众号 二维码</span>
       </div>
 
@@ -86,35 +349,71 @@
         <!-- Logo + 标题 -->
         <div class="brand-header">
           <div class="logo-box">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="40" height="40" rx="10" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-              <path d="M10 30V16L20 11L30 16V30L20 25L10 30Z" fill="rgba(184,134,11,0.7)" stroke="rgba(212,175,55,0.8)" stroke-width="1" stroke-linejoin="round"/>
-              <path d="M20 11V25" stroke="rgba(10,22,40,0.5)" stroke-width="1"/>
-              <path d="M10 16L20 21L30 16" stroke="rgba(212,175,55,0.8)" stroke-width="1" stroke-linejoin="round"/>
+            <svg
+              viewBox="0 0 40 40"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                width="40"
+                height="40"
+                rx="10"
+                fill="rgba(255,255,255,0.08)"
+                stroke="rgba(255,255,255,0.12)"
+                stroke-width="1"
+              />
+              <path
+                d="M10 30V16L20 11L30 16V30L20 25L10 30Z"
+                fill="rgba(184,134,11,0.7)"
+                stroke="rgba(212,175,55,0.8)"
+                stroke-width="1"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M20 11V25"
+                stroke="rgba(10,22,40,0.5)"
+                stroke-width="1"
+              />
+              <path
+                d="M10 16L20 21L30 16"
+                stroke="rgba(212,175,55,0.8)"
+                stroke-width="1"
+                stroke-linejoin="round"
+              />
             </svg>
           </div>
           <div class="header-text">
-            <h1 class="system-title">BankData</h1>
-            <p class="system-desc">银行与货币金融数据系统</p>
+            <h1 class="system-title">
+              BankData
+            </h1>
+            <p class="system-desc">
+              银行与货币金融数据系统
+            </p>
           </div>
         </div>
 
         <!-- 团队标识 -->
         <div class="team-section">
           <div class="team-tag">
-            <span class="tag-dot"></span>
+            <span class="tag-dot" />
             专属研究平台
           </div>
-          <div class="team-title">银行与货币金融研究</div>
-          <div class="team-name">王先爽团队</div>
+          <div class="team-title">
+            银行与货币金融研究
+          </div>
+          <div class="team-name">
+            王先爽团队
+          </div>
         </div>
 
         <!-- 分割线 -->
-        <div class="divider"></div>
+        <div class="divider" />
 
         <!-- 数据库模块列表 -->
         <div class="modules-section">
-          <div class="modules-label">覆盖数据库（部分展示）</div>
+          <div class="modules-label">
+            覆盖数据库（部分展示）
+          </div>
           <div class="modules-grid">
             <div
               v-for="(db, i) in databases"
@@ -133,12 +432,12 @@
             <span class="stats-value">50+</span>
             <span class="stats-key">专业数据库</span>
           </div>
-          <div class="stats-sep"></div>
+          <div class="stats-sep" />
           <div class="stats-group">
             <span class="stats-value">AI</span>
             <span class="stats-key">智能解析引擎</span>
           </div>
-          <div class="stats-sep"></div>
+          <div class="stats-sep" />
           <div class="stats-group">
             <span class="stats-value">100%</span>
             <span class="stats-key">上市银行覆盖</span>
@@ -151,18 +450,28 @@
     <div class="form-panel">
       <div class="form-wrapper">
         <!-- 顶部装饰 -->
-        <div class="form-accent"></div>
+        <div class="form-accent" />
 
         <!-- 表单卡片 -->
         <div class="form-card">
           <div class="form-header">
-            <h2 class="form-title">欢迎访问</h2>
-            <p class="form-subtitle">请登录以使用数据库系统</p>
+            <h2 class="form-title">
+              欢迎访问
+            </h2>
+            <p class="form-subtitle">
+              请登录以使用数据库系统
+            </p>
           </div>
 
-          <el-tabs v-model="activeTab" class="auth-tabs">
+          <el-tabs
+            v-model="activeTab"
+            class="auth-tabs"
+          >
             <!-- ===== 登录 Tab ===== -->
-            <el-tab-pane label="账号登录" name="login">
+            <el-tab-pane
+              label="账号登录"
+              name="login"
+            >
               <el-form
                 ref="loginForm"
                 :model="form"
@@ -192,10 +501,10 @@
                 <el-form-item>
                   <el-button
                     type="primary"
-                    @click="handleLogin"
                     :loading="loading"
                     class="submit-btn"
                     size="large"
+                    @click="handleLogin"
                   >
                     登 录
                   </el-button>
@@ -204,7 +513,10 @@
             </el-tab-pane>
 
             <!-- ===== 注册 Tab ===== -->
-            <el-tab-pane label="申请注册" name="register">
+            <el-tab-pane
+              label="申请注册"
+              name="register"
+            >
               <el-form
                 ref="registerForm"
                 :model="regForm"
@@ -213,7 +525,10 @@
                 label-position="top"
               >
                 <div class="reg-row">
-                  <el-form-item prop="username" class="reg-half">
+                  <el-form-item
+                    prop="username"
+                    class="reg-half"
+                  >
                     <el-input
                       v-model="regForm.username"
                       placeholder="用户名（3-20个字符）"
@@ -221,7 +536,10 @@
                       size="large"
                     />
                   </el-form-item>
-                  <el-form-item prop="password" class="reg-half">
+                  <el-form-item
+                    prop="password"
+                    class="reg-half"
+                  >
                     <el-input
                       v-model="regForm.password"
                       type="password"
@@ -245,7 +563,10 @@
                 </el-form-item>
 
                 <div class="reg-row">
-                  <el-form-item prop="realName" class="reg-half">
+                  <el-form-item
+                    prop="realName"
+                    class="reg-half"
+                  >
                     <el-input
                       v-model="regForm.realName"
                       placeholder="姓名"
@@ -253,7 +574,10 @@
                       size="large"
                     />
                   </el-form-item>
-                  <el-form-item prop="phone" class="reg-half">
+                  <el-form-item
+                    prop="phone"
+                    class="reg-half"
+                  >
                     <el-input
                       v-model="regForm.phone"
                       placeholder="手机号"
@@ -274,22 +598,41 @@
 
                 <!-- 名片上传（可选） -->
                 <el-form-item class="business-card-upload">
-                  <div class="upload-area" @click="triggerCardUpload">
+                  <div
+                    class="upload-area"
+                    @click="triggerCardUpload"
+                  >
                     <input
                       ref="cardInput"
                       type="file"
                       accept="image/*"
                       style="display:none"
                       @change="handleCardChange"
-                    />
+                    >
                     <template v-if="!regForm.cardPreview">
-                      <el-icon size="28" color="#bfbfbf"><Plus /></el-icon>
+                      <el-icon
+                        size="28"
+                        color="#bfbfbf"
+                      >
+                        <Plus />
+                      </el-icon>
                       <span class="upload-text">上传名片（可选，图片格式）</span>
                     </template>
                     <template v-else>
-                      <img :src="regForm.cardPreview" class="card-preview-img" />
-                      <div class="card-preview-mask" @click.stop="removeCard">
-                        <el-icon size="18" color="#fff"><Delete /></el-icon>
+                      <img
+                        :src="regForm.cardPreview"
+                        class="card-preview-img"
+                      >
+                      <div
+                        class="card-preview-mask"
+                        @click.stop="removeCard"
+                      >
+                        <el-icon
+                          size="18"
+                          color="#fff"
+                        >
+                          <Delete />
+                        </el-icon>
                       </div>
                     </template>
                   </div>
@@ -309,10 +652,10 @@
                 <el-form-item>
                   <el-button
                     type="primary"
-                    @click="handleRegister"
                     :loading="regLoading"
                     class="submit-btn"
                     size="large"
+                    @click="handleRegister"
                   >
                     提交注册申请
                   </el-button>
@@ -329,7 +672,9 @@
 
         <!-- 底部微信+版权 -->
         <div class="form-footer">
-          <div class="wechat-line">联系微信：yinhangxianshuang</div>
+          <div class="wechat-line">
+            联系微信：yinhangxianshuang
+          </div>
           <div>&copy; {{ new Date().getFullYear() }} BankData &middot; 银行与货币金融研究</div>
         </div>
       </div>

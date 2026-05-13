@@ -2,107 +2,124 @@
   <div class="handsontable-excel-viewer">
     <!-- 第一行：主控栏（保持不变） @click="exportFinalFile" -->
     <div class="main-toolbar">
-
-
       <div class="toolbar-section left-section">
-          <!-- 撤销/重做按钮 -->
-          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
-            <el-button
-              size="small"
-              @click="handleUndo"
-            >
-              <el-icon><RefreshLeft /></el-icon>撤销
-            </el-button>
-          </el-tooltip>
-
-          <el-tooltip content="重做 (Ctrl+Y)" placement="bottom">
-            <el-button
-              size="small"
-              @click="handleRedo"
-            >
-              <el-icon><RefreshRight /></el-icon>重做
-            </el-button>
-          </el-tooltip>
-
-          <el-divider direction="vertical" />
-
-          <!-- 相反数按钮 -->
-          <el-tooltip content="将选中区域的数值变为相反数（正数变负数，负数变正数）" placement="bottom">
-            <el-button
-              size="small"
-              @click="handleNegate"
-            >
-              <el-icon><Switch /></el-icon>相反数
-            </el-button>
-          </el-tooltip>
-
-          <el-divider direction="vertical" />
-
-          <!-- 向下填充按钮 -->
-          <el-tooltip content="向下填充 (将选中单元格的值填充到下方所有选中区域)" placement="bottom">
-            <el-button
-              size="small"
-              @click="handleFillDown"
-              :disabled="!canFillDown"
-            >
-              <el-icon><Bottom /></el-icon>向下填充
-            </el-button>
-          </el-tooltip>
-
-          <el-divider direction="vertical" />
-
+        <!-- 撤销/重做按钮 -->
+        <el-tooltip
+          content="撤销 (Ctrl+Z)"
+          placement="bottom"
+        >
           <el-button
-            type="primary"
             size="small"
-            @click="handleExport"
-            :loading="exportFinalLoading"
+            @click="handleUndo"
           >
-            <el-icon><Download /></el-icon>导出
+            <el-icon><RefreshLeft /></el-icon>撤销
           </el-button>
+        </el-tooltip>
 
-
-          <!-- 将原来的"高亮空格"按钮改为"高亮数值" -->
-            <el-button
-              v-if="hasNumericCells"
-              :type="showNumericCellsHighlight ? 'primary' : ''"
-              size="small"
-              @click="toggleNumericCellsHighlight"
-            >
-              <el-icon><View /></el-icon>{{ showNumericCellsHighlight ? '隐藏数据' : '高亮数据' }}
-            </el-button>
-
-
-
-          <!-- 保存按钮 -->
+        <el-tooltip
+          content="重做 (Ctrl+Y)"
+          placement="bottom"
+        >
           <el-button
-            type="success"
             size="small"
-            :disabled="!enableSaveButtons || saving"
-            @click="triggerSave"
-            :loading="saving"
+            @click="handleRedo"
           >
-            <el-icon><Check /></el-icon>保存
+            <el-icon><RefreshRight /></el-icon>重做
           </el-button>
+        </el-tooltip>
 
-          <!-- 🔥🔥🔥 新增：将编辑状态标签移动到这里（保存按钮后面） -->
-          <el-tooltip
-            :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
-            placement="bottom"
+        <el-divider direction="vertical" />
+
+        <!-- 相反数按钮 -->
+        <el-tooltip
+          content="将选中区域的数值变为相反数（正数变负数，负数变正数）"
+          placement="bottom"
+        >
+          <el-button
+            size="small"
+            @click="handleNegate"
           >
-            <el-tag
-              :type="hasChanges ? 'warning' : 'success'"
-              size="small"
-              class="status-tag edit-status-highlight"
-              :class="{ 'has-changes': hasChanges }"
-            >
-              <el-icon><Edit /></el-icon>
-              {{ hasChanges ? `已修改(${modifiedCellsCount})` : '编辑中' }}
-            </el-tag>
-          </el-tooltip>
-        </div>
+            <el-icon><Switch /></el-icon>相反数
+          </el-button>
+        </el-tooltip>
 
-      <div class="toolbar-section center-section" v-if="tableData.length > 0">
-        <el-tag size="small" type="info" class="data-summary">
+        <el-divider direction="vertical" />
+
+        <!-- 向下填充按钮 -->
+        <el-tooltip
+          content="向下填充 (将选中单元格的值填充到下方所有选中区域)"
+          placement="bottom"
+        >
+          <el-button
+            size="small"
+            :disabled="!canFillDown"
+            @click="handleFillDown"
+          >
+            <el-icon><Bottom /></el-icon>向下填充
+          </el-button>
+        </el-tooltip>
+
+        <el-divider direction="vertical" />
+
+        <el-button
+          type="primary"
+          size="small"
+          :loading="exportFinalLoading"
+          @click="handleExport"
+        >
+          <el-icon><Download /></el-icon>导出
+        </el-button>
+
+
+        <!-- 将原来的"高亮空格"按钮改为"高亮数值" -->
+        <el-button
+          v-if="hasNumericCells"
+          :type="showNumericCellsHighlight ? 'primary' : ''"
+          size="small"
+          @click="toggleNumericCellsHighlight"
+        >
+          <el-icon><View /></el-icon>{{ showNumericCellsHighlight ? '隐藏数据' : '高亮数据' }}
+        </el-button>
+
+
+
+        <!-- 保存按钮 -->
+        <el-button
+          type="success"
+          size="small"
+          :disabled="!enableSaveButtons || saving"
+          :loading="saving"
+          @click="triggerSave"
+        >
+          <el-icon><Check /></el-icon>保存
+        </el-button>
+
+        <!-- 🔥🔥🔥 新增：将编辑状态标签移动到这里（保存按钮后面） -->
+        <el-tooltip
+          :content="`编辑模式${hasChanges ? ` (已修改 ${modifiedCellsCount} 个单元格)` : ''}`"
+          placement="bottom"
+        >
+          <el-tag
+            :type="hasChanges ? 'warning' : 'success'"
+            size="small"
+            class="status-tag edit-status-highlight"
+            :class="{ 'has-changes': hasChanges }"
+          >
+            <el-icon><Edit /></el-icon>
+            {{ hasChanges ? `已修改(${modifiedCellsCount})` : '编辑中' }}
+          </el-tag>
+        </el-tooltip>
+      </div>
+
+      <div
+        v-if="tableData.length > 0"
+        class="toolbar-section center-section"
+      >
+        <el-tag
+          size="small"
+          type="info"
+          class="data-summary"
+        >
           <el-icon><Grid /></el-icon>
           {{ tableData.length - 1 }}行 × {{ columns.length }}列
         </el-tag>
@@ -113,8 +130,14 @@
           style="margin: 0 8px;"
         />
 
-        <div v-if="hasDualHeaders && tableInfo" class="dual-header-info">
-          <el-tag type="success" size="small">
+        <div
+          v-if="hasDualHeaders && tableInfo"
+          class="dual-header-info"
+        >
+          <el-tag
+            type="success"
+            size="small"
+          >
             <el-icon><Menu /></el-icon>双表头
           </el-tag>
           <span class="structure-info">
@@ -129,85 +152,123 @@
           type="primary"
           size="small"
           :disabled="!globalFlattenEnabled"
-          @click="handleGlobalFlatten"
           :loading="globalFlattenLoading"
           class="global-flatten-btn"
+          @click="handleGlobalFlatten"
         >
           <el-icon><DataBoard /></el-icon>
           整体扁平化
         </el-button>
-
       </div>
     </div>
 
     <!-- 第三行：功能操作栏（原有逻辑保持不变） -->
-    <div class="action-toolbar compact-line" v-if="tableData.length > 0 && (showStatsPanel || selectedCell.position)">
+    <div
+      v-if="tableData.length > 0 && (showStatsPanel || selectedCell.position)"
+      class="action-toolbar compact-line"
+    >
       <!-- 左侧：选中统计（原有） -->
-      <div v-if="showStatsPanel" class="action-group selection-stats-group">
+      <div
+        v-if="showStatsPanel"
+        class="action-group selection-stats-group"
+      >
         <div class="group-header">
           <el-icon><DataAnalysis /></el-icon>
           <span class="group-title">选中区域统计</span>
-          <el-tag size="small" :type="stats.selectionType === 'column' ? 'info' : 'success'">
+          <el-tag
+            size="small"
+            :type="stats.selectionType === 'column' ? 'info' : 'success'"
+          >
             {{ stats.selectionType === 'column' ? '整列' : '区域' }}
           </el-tag>
         </div>
         <div class="stats-content">
           <div class="stats-grid">
-            <div class="stat-item"><span class="stat-label">单元格数:</span><span class="stat-value">{{ stats.rowCount }}</span></div>
-            <div class="stat-item"><span class="stat-label">数值:</span><span class="stat-value">{{ stats.numericCount }}</span></div>
-            <div class="stat-item"><span class="stat-label">总和:</span><span class="stat-value">{{ stats.sum }}</span></div>
-            <div class="stat-item"><span class="stat-label">平均值:</span><span class="stat-value">{{ stats.average }}</span></div>
-            <div class="stat-item"><span class="stat-label">最大值:</span><span class="stat-value">{{ stats.max }}</span></div>
-            <div class="stat-item"><span class="stat-label">最小值:</span><span class="stat-value">{{ stats.min }}</span></div>
+            <div class="stat-item">
+              <span class="stat-label">单元格数:</span><span class="stat-value">{{ stats.rowCount }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">数值:</span><span class="stat-value">{{ stats.numericCount }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">总和:</span><span class="stat-value">{{ stats.sum }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">平均值:</span><span class="stat-value">{{ stats.average }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最大值:</span><span class="stat-value">{{ stats.max }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最小值:</span><span class="stat-value">{{ stats.min }}</span>
+            </div>
           </div>
-          <el-button size="small" type="info" link @click="clearSelection" title="清除选择" class="clear-btn"><el-icon><Close /></el-icon></el-button>
+          <el-button
+            size="small"
+            type="info"
+            link
+            title="清除选择"
+            class="clear-btn"
+            @click="clearSelection"
+          >
+            <el-icon><Close /></el-icon>
+          </el-button>
         </div>
       </div>
     </div>
 
     <!-- 表格区域（完全不动） :contextMenu="getContextMenuConfig" -->
-    <div class="excel-container" ref="excelContainer">
-        <HotTable
-          ref="hotTable"
-          :data="tableData"
-          :columns="computedColumns"
-          :colWidths="colWidths"
-          :colHeaders="true"
-          :rowHeaders="true"
-          :width="'100%'"
-          :height="tableHeight"
-          licenseKey="non-commercial-and-evaluation"
-          :language="currentLanguage"
-          :filters="true"
-          :dropdownMenu="['filter_by_condition', 'filter_by_value', 'filter_action_bar']"
-          :contextMenu="true"
-          :manualColumnResize="true"
-          :manualRowResize="true"
-          :wordWrap="true"
-          :columnSorting="true"
-          :multiColumnSorting="false"
-          :autoRowSize="false"
-          :autoColumnSize="true"
-          :renderAllRows="true"
-          :fixedRowsTop="fixedRowsTop"
-          :fixedColumnsLeft="fixedColumnsLeft"
-          :key="langKey"
-          :allowInsertColumn="true"
-          :allowRemoveColumn="true"
-          :undo="true"
-          :redo="true"
-          @afterFilter="onFilter"
-          @after-change="onDataChange"
-          @after-init="onHotInit"
-          @afterSelection="handleSelection"
-          @afterDeselect="clearSelection"
-        />
+    <div
+      ref="excelContainer"
+      class="excel-container"
+    >
+      <HotTable
+        ref="hotTable"
+        :data="tableData"
+        :columns="computedColumns"
+        :col-widths="colWidths"
+        :col-headers="true"
+        :row-headers="true"
+        :width="'100%'"
+        :height="tableHeight"
+        license-key="non-commercial-and-evaluation"
+        :language="currentLanguage"
+        :filters="true"
+        :dropdown-menu="['filter_by_condition', 'filter_by_value', 'filter_action_bar']"
+        :context-menu="true"
+        :manual-column-resize="true"
+        :manual-row-resize="true"
+        :key="langKey"
+        :word-wrap="true"
+        :column-sorting="true"
+        :multi-column-sorting="false"
+        :auto-row-size="false"
+        :auto-column-size="true"
+        :render-all-rows="true"
+        :fixed-rows-top="fixedRowsTop"
+        :fixed-columns-left="fixedColumnsLeft"
+        :allow-insert-column="true"
+        :allow-remove-column="true"
+        :undo="true"
+        :redo="true"
+        @afterFilter="onFilter"
+        @after-change="onDataChange"
+        @after-init="onHotInit"
+        @afterSelection="handleSelection"
+        @afterDeselect="clearSelection"
+      />
 
-      <div v-if="tableData.length === 0" class="empty-state">
+      <div
+        v-if="tableData.length === 0"
+        class="empty-state"
+      >
         <el-empty description="暂无表格数据" />
       </div>
 
-      <div v-if="showScrollHint" class="horizontal-scroll-hint">
+      <div
+        v-if="showScrollHint"
+        class="horizontal-scroll-hint"
+      >
         ← → 可左右滚动查看完整表格
       </div>
     </div>

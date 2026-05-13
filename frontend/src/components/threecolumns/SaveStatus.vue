@@ -1,12 +1,21 @@
 <template>
-  <div v-if="selectedSheet" class="save-status-bar">
+  <div
+    v-if="selectedSheet"
+    class="save-status-bar"
+  >
     <div class="save-info">
-      <el-tag :type="status.type" size="small">
+      <el-tag
+        :type="status.type"
+        size="small"
+      >
         <el-icon><Timer /></el-icon>
         {{ status.text }}
       </el-tag>
 
-      <span class="change-count" v-if="modifiedCellsCount > 0">
+      <span
+        v-if="modifiedCellsCount > 0"
+        class="change-count"
+      >
         已修改 {{ modifiedCellsCount }} 个单元格
       </span>
 

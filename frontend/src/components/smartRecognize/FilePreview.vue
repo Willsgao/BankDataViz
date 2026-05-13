@@ -1,31 +1,66 @@
 <template>
   <div class="file-preview">
     <!-- 上传区（无文件时） -->
-    <div v-if="!currentFile && !imageSrc" class="upload-zone" @click="triggerUpload">
-      <el-icon class="upload-icon"><UploadFilled /></el-icon>
-      <div class="upload-text">点击上传文件</div>
-      <div class="upload-hint">支持 PDF、Excel、图片（上传后自动检测表格区域）</div>
+    <div
+      v-if="!currentFile && !imageSrc"
+      class="upload-zone"
+      @click="triggerUpload"
+    >
+      <el-icon class="upload-icon">
+        <UploadFilled />
+      </el-icon>
+      <div class="upload-text">
+        点击上传文件
+      </div>
+      <div class="upload-hint">
+        支持 PDF、Excel、图片（上传后自动检测表格区域）
+      </div>
       <input
         ref="fileInputRef"
         type="file"
         accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.gif,.bmp"
         style="display:none"
         @change="onFileSelected"
-      />
+      >
     </div>
 
     <!-- 预览区（有文件时） -->
-    <div v-else class="preview-container">
+    <div
+      v-else
+      class="preview-container"
+    >
       <!-- 文件信息栏 -->
       <div class="file-info-bar">
         <span class="file-name">{{ currentFile?.name || '检测结果' }}</span>
-        <el-tag size="small" :type="fileTypeTag" effect="plain">{{ fileTypeLabel }}</el-tag>
-        <span v-if="detectionInfo" class="detection-info">
+        <el-tag
+          size="small"
+          :type="fileTypeTag"
+          effect="plain"
+        >
+          {{ fileTypeLabel }}
+        </el-tag>
+        <span
+          v-if="detectionInfo"
+          class="detection-info"
+        >
           <el-icon color="#67c23a"><SuccessFilled /></el-icon>
           检测到 {{ detectionInfo.total_tables }} 个表格
         </span>
-        <el-button size="small" text type="primary" @click="triggerUpload">更换文件</el-button>
-        <el-button v-if="imageSrc" size="small" text type="primary" @click="autoScrollPreview">
+        <el-button
+          size="small"
+          text
+          type="primary"
+          @click="triggerUpload"
+        >
+          更换文件
+        </el-button>
+        <el-button
+          v-if="imageSrc"
+          size="small"
+          text
+          type="primary"
+          @click="autoScrollPreview"
+        >
           <el-icon><Rank /></el-icon>自动滚动预览
         </el-button>
         <input
@@ -34,11 +69,14 @@
           accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.gif,.bmp"
           style="display:none"
           @change="onFileSelected"
-        />
+        >
       </div>
 
       <!-- 预览内容（AreaSelector 会覆盖在这里） -->
-      <div class="preview-area" ref="previewAreaRef">
+      <div
+        ref="previewAreaRef"
+        class="preview-area"
+      >
         <AreaSelector
           ref="areaSelectorRef"
           :enabled="!processing"
@@ -56,28 +94,45 @@
         <button
           v-show="currentPage > 0"
           class="page-flip-btn page-flip-prev"
-          @click="switchPage(-1)"
           title="上一页"
-        >‹</button>
+          @click="switchPage(-1)"
+        >
+          ‹
+        </button>
 
         <!-- 右侧下一页 -->
         <button
           v-show="currentPage < totalPages - 1"
           class="page-flip-btn page-flip-next"
-          @click="switchPage(1)"
           title="下一页"
-        >›</button>
+          @click="switchPage(1)"
+        >
+          ›
+        </button>
 
         <!-- 页码指示器 -->
-        <div class="page-indicator-overlay">{{ currentPage + 1 }} / {{ totalPages }}</div>
+        <div class="page-indicator-overlay">
+          {{ currentPage + 1 }} / {{ totalPages }}
+        </div>
       </template>
     </div>
 
     <!-- 错误提示 -->
-    <div v-if="errorMsg" class="error-bar">
-      <el-icon color="#f56c6c"><WarningFilled /></el-icon>
+    <div
+      v-if="errorMsg"
+      class="error-bar"
+    >
+      <el-icon color="#f56c6c">
+        <WarningFilled />
+      </el-icon>
       <span>{{ errorMsg }}</span>
-      <el-button size="small" text @click="errorMsg = ''">关闭</el-button>
+      <el-button
+        size="small"
+        text
+        @click="errorMsg = ''"
+      >
+        关闭
+      </el-button>
     </div>
   </div>
 </template>

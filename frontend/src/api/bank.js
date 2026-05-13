@@ -23,17 +23,20 @@ export const getReportTables = (reportId) => {
 
 // 获取表格指标数据
 export const getTableIndicators = (reportId, tableName) => {
-  return http.get(`/api/bank/report/${reportId}/table/${tableName}/indicators`)
+  // 使用查询参数传递表格名称，避免URL路径中的中文编码问题
+  return http.get(`/api/bank/report/${reportId}/table/indicators`, {
+    params: { table_name: tableName }
+  })
 }
 
 // 获取指标趋势
 export const getIndicatorTrend = (bankId, indicator) => {
-  return http.get('/api/bank/analysis/trend', { params: { bank_id: bankId, indicator } })
+  return http.get('/api/bank/analysis/trend', { params: { bank_id: bankId, indicator_name: indicator } })
 }
 
 // 多银行横向对比
 export const compareMultipleBanks = (bankIds, indicator, year) => {
-  return http.get('/api/bank/analysis/compare', { params: { bank_ids: bankIds, indicator, year } })
+  return http.get('/api/bank/analysis/compare', { params: { bank_ids: bankIds, indicator_name: indicator, year } })
 }
 
 // 写入演示数据

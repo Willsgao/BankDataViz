@@ -1,8 +1,19 @@
 <template>
-  <div class="area-selector" ref="containerRef">
+  <div
+    ref="containerRef"
+    class="area-selector"
+  >
     <!-- 工具栏 -->
-    <div v-if="enabled && imageLoaded" class="toolbar">
-      <el-button size="small" type="primary" plain @click="addManualBox">
+    <div
+      v-if="enabled && imageLoaded"
+      class="toolbar"
+    >
+      <el-button
+        size="small"
+        type="primary"
+        plain
+        @click="addManualBox"
+      >
         <el-icon><Plus /></el-icon> 添加选区
       </el-button>
       <el-button
@@ -14,7 +25,10 @@
       </el-button>
       <span class="box-count">
         共 {{ boxes.length }} 个选区
-        <span v-if="confirmedIds.size < boxes.length" class="unconfirmed-tip">
+        <span
+          v-if="confirmedIds.size < boxes.length"
+          class="unconfirmed-tip"
+        >
           （{{ boxes.length - confirmedIds.size }} 个待确认）
         </span>
       </span>
@@ -26,25 +40,34 @@
       >
         <el-icon><Check /></el-icon> 确认本页
       </el-button>
-      <el-button size="small" @click="clearAll">清空全部</el-button>
+      <el-button
+        size="small"
+        @click="clearAll"
+      >
+        清空全部
+      </el-button>
     </div>
 
     <!-- 图片预览区域 -->
-    <div class="preview-wrapper" ref="previewWrapperRef" @scroll="onPreviewScroll">
+    <div
+      ref="previewWrapperRef"
+      class="preview-wrapper"
+      @scroll="onPreviewScroll"
+    >
       <img
         v-if="imageSrc"
+        ref="imageRef"
         :src="imageSrc"
         class="preview-image"
-        ref="imageRef"
-        @load="onImageLoad"
         draggable="false"
-      />
+        @load="onImageLoad"
+      >
 
       <!-- 框选遮罩层 -->
       <div
         v-if="enabled && imageLoaded"
-        class="selector-overlay"
         ref="overlayRef"
+        class="selector-overlay"
         @mousedown.prevent="onOverlayClick"
       >
         <!-- 已有框 -->
@@ -72,8 +95,20 @@
             @mousedown.prevent.stop="editMode && onBoxLabelDown($event, idx)"
           >
             {{ box.label }}
-            <el-icon class="action-icon confirm-icon" title="确认选区" @click.stop="confirmBox(idx)"><Check /></el-icon>
-            <el-icon class="action-icon delete-icon" title="删除" @click.stop="deleteBox(idx)"><Close /></el-icon>
+            <el-icon
+              class="action-icon confirm-icon"
+              title="确认选区"
+              @click.stop="confirmBox(idx)"
+            >
+              <Check />
+            </el-icon>
+            <el-icon
+              class="action-icon delete-icon"
+              title="删除"
+              @click.stop="deleteBox(idx)"
+            >
+              <Close />
+            </el-icon>
           </div>
 
           <!-- 框标签（已确认） -->
@@ -85,7 +120,13 @@
           >
             <el-icon><Lock /></el-icon>
             {{ box.label }}
-            <el-icon class="action-icon edit-icon" title="解锁编辑" @click.stop="editBox(idx)"><Edit /></el-icon>
+            <el-icon
+              class="action-icon edit-icon"
+              title="解锁编辑"
+              @click.stop="editBox(idx)"
+            >
+              <Edit />
+            </el-icon>
           </div>
 
           <!-- 八个缩放柄（仅编辑模式 + 未确认时显示） -->
@@ -120,31 +161,53 @@
         />
 
         <!-- 提示 -->
-        <div v-if="boxes.length === 0 && !drawing" class="hint-text">
+        <div
+          v-if="boxes.length === 0 && !drawing"
+          class="hint-text"
+        >
           点击「添加选区」手动框选，上传文件后系统会自动检测表格区域
         </div>
-        <div v-if="showScrollTip" class="scroll-tip">
+        <div
+          v-if="showScrollTip"
+          class="scroll-tip"
+        >
           ⚠️ 表格较长，请滚动预览区域，确保选区包含完整表格
         </div>
       </div>
 
       <!-- 加载中遮罩 -->
-      <div v-if="loading" class="loading-mask">
-        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+      <div
+        v-if="loading"
+        class="loading-mask"
+      >
+        <el-icon
+          class="is-loading"
+          :size="32"
+        >
+          <Loading />
+        </el-icon>
         <span>{{ loadingText }}</span>
       </div>
     </div>
 
     <!-- 已确认区域缩略图列表 -->
-    <div v-if="confirmedItems.length > 0" class="confirmed-list">
-      <div class="confirmed-header">已确认的选区（共 {{ confirmedItems.length }} 个）</div>
+    <div
+      v-if="confirmedItems.length > 0"
+      class="confirmed-list"
+    >
+      <div class="confirmed-header">
+        已确认的选区（共 {{ confirmedItems.length }} 个）
+      </div>
       <div class="confirmed-items">
         <div
           v-for="item in confirmedItems"
           :key="item.id"
           class="confirmed-item"
         >
-          <img :src="item.thumbnail" class="confirmed-thumb" />
+          <img
+            :src="item.thumbnail"
+            class="confirmed-thumb"
+          >
           <span class="confirmed-label">{{ item.label }}</span>
         </div>
       </div>

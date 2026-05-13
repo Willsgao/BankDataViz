@@ -1,7 +1,10 @@
 <template>
   <div id="app">
     <!-- 顶部导航栏（登录页隐藏） -->
-    <div class="top-nav" v-show="route.path !== '/login'">
+    <div
+      v-show="route.path !== '/login'"
+      class="top-nav"
+    >
       <!-- 左侧区域：布局切换 + PDF 搜索 -->
       <div class="left-section">
         <!-- 布局切换按钮 -->
@@ -10,48 +13,54 @@
             <el-button
               v-if="hasPermission('parse')"
               :type="$route.name === 'TwoColumn' ? 'primary' : ''"
-              @click="goToTwoColumn"
               size="small"
+              @click="goToTwoColumn"
             >
               数据解析
             </el-button>
             <el-button
               v-if="hasPermission('review')"
               :type="$route.name === 'ThreeColumn' ? 'primary' : ''"
-              @click="$router.push('/three-column')"
               size="small"
+              @click="$router.push('/three-column')"
             >
               数据审核
             </el-button>
             <el-button
               type="warning"
-              @click="$router.push('/audit')"
               size="small"
+              @click="$router.push('/audit')"
             >
               会计勾稽
             </el-button>
             <el-button
               type="success"
-              @click="$router.push('/smart-recognize')"
               size="small"
+              @click="$router.push('/smart-recognize')"
             >
               智能识别
             </el-button>
-            <el-dropdown v-if="hasPermission('data')" @command="handleBankDashboardCommand" trigger="hover">
+            <el-dropdown
+              v-if="hasPermission('data')"
+              trigger="hover"
+              @command="handleBankDashboardCommand"
+            >
               <el-button
                 :type="['BankDashboard', 'BankData'].includes($route.name) ? 'primary' : ''"
                 size="small"
-                @click="router.push('/bank-data')"
+                @click="handleBankDashboardClick"
               >
                 数据看板
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                <el-icon class="el-icon--right">
+                  <ArrowDown />
+                </el-icon>
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <!-- <el-dropdown-item command="dashboard">
+                  <el-dropdown-item command="dashboard">
                     <el-icon><DataBoard /></el-icon>
                     数据看板-图表
-                  </el-dropdown-item> -->
+                  </el-dropdown-item>
                   <el-dropdown-item command="data">
                     <el-icon><FolderOpened /></el-icon>
                     数据看板-文档
@@ -105,8 +114,8 @@
             plain
             style="margin-left: 2px; flex-shrink: 0;"
             :disabled="excelContentSearchState.matchCount <= 1"
-            @click="goToPrevMatch"
             title="上一个匹配Sheet"
+            @click="goToPrevMatch"
           >
             <el-icon><ArrowLeft /></el-icon>
           </el-button>
@@ -124,8 +133,8 @@
             plain
             style="flex-shrink: 0;"
             :disabled="excelContentSearchState.matchCount <= 1"
-            @click="goToNextMatch"
             title="下一个匹配Sheet"
+            @click="goToNextMatch"
           >
             <el-icon><ArrowRight /></el-icon>
           </el-button>
@@ -135,7 +144,10 @@
         <ThemeToggle v-if="isLoggedIn" />
 
         <!-- 用户信息 -->
-        <div class="user-info" v-if="isLoggedIn">
+        <div
+          v-if="isLoggedIn"
+          class="user-info"
+        >
           <el-dropdown @command="handleUserCommand">
             <div class="user-avatar">
               <el-avatar size="small">
@@ -159,15 +171,25 @@
                   <el-icon><Setting /></el-icon>
                   子管理员管理
                 </el-dropdown-item>
-                <el-dropdown-item divided command="logout">
+                <el-dropdown-item
+                  divided
+                  command="logout"
+                >
                   退出登录
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
-        <div class="login-prompt" v-else>
-          <el-button type="text" @click="$router.push('/login')" size="small">
+        <div
+          v-else
+          class="login-prompt"
+        >
+          <el-button
+            type="text"
+            size="small"
+            @click="$router.push('/login')"
+          >
             请先登录
           </el-button>
         </div>
@@ -301,9 +323,16 @@ const handleBankDashboardCommand = (command) => {
   }
 }
 
-// 数据看板按钮点击直接跳转文档页面
-const goToBankData = () => {
-  router.push('/bank-data')
+// 数据看板按钮点击显示下拉菜单
+const handleBankDashboardClick = (event) => {
+  // 触发下拉菜单显示
+  const target = event.currentTarget
+  if (target && target.parentElement) {
+    const dropdown = target.parentElement.querySelector('.el-dropdown')
+    if (dropdown && dropdown.__vue__) {
+      dropdown.__vue__.handleClick()
+    }
+  }
 }
 
 // 用户命令处理

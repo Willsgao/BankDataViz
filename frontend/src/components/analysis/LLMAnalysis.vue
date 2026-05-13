@@ -9,18 +9,27 @@
       />
       <el-button
         type="primary"
-        @click="performLLMAnalysis"
         :loading="loading"
         class="analyze-btn"
+        @click="performLLMAnalysis"
       >
         开始分析
       </el-button>
     </div>
-    <div v-if="analysisResult" class="llm-result">
+    <div
+      v-if="analysisResult"
+      class="llm-result"
+    >
       <h4>AI分析结果</h4>
-      <div class="result-content" v-html="analysisResult"></div>
+      <div
+        class="result-content"
+        v-html="analysisResult"
+      />
     </div>
-    <div v-else-if="!loading" class="analysis-tips">
+    <div
+      v-else-if="!loading"
+      class="analysis-tips"
+    >
       <el-alert
         title="分析提示"
         type="info"

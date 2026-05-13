@@ -5,8 +5,13 @@
       <div class="header-main">
         <div class="header-left">
           <h3>表格</h3>
-          <div v-if="selectedSheet?.name" class="header-info">
-            <el-tag type="primary">{{ selectedSheet?.name }}</el-tag>
+          <div
+            v-if="selectedSheet?.name"
+            class="header-info"
+          >
+            <el-tag type="primary">
+              {{ selectedSheet?.name }}
+            </el-tag>
           </div>
         </div>
 
@@ -17,8 +22,8 @@
               <el-button
                 size="small"
                 :disabled="!hasPreviousSheet"
-                @click="goToPreviousSheet"
                 title="上一页"
+                @click="goToPreviousSheet"
               >
                 <el-icon><ArrowLeft /></el-icon>
                 上一页
@@ -27,8 +32,8 @@
               <el-button
                 size="small"
                 :disabled="!hasNextSheet"
-                @click="goToNextSheet"
                 title="下一页"
+                @click="goToNextSheet"
               >
                 下一页
                 <el-icon><ArrowRight /></el-icon>
@@ -39,15 +44,18 @@
                 size="small"
                 type="warning"
                 :disabled="!canMergeData"
-                @click="handleMergeData"
                 title="将当前页数据合并到前一个_T_表"
                 :loading="mergingData"
+                @click="handleMergeData"
               >
                 <el-icon><Connection /></el-icon>
                 合并数据
               </el-button>
 
-              <span v-if="currentPageInfo" class="page-indicator">
+              <span
+                v-if="currentPageInfo"
+                class="page-indicator"
+              >
                 第{{ currentPageInfo.pageNumber }}页
                 (表{{ currentPageInfo.currentTablePosition }}/{{ currentPageInfo.totalTablesInPage }})
               </span>
@@ -55,9 +63,11 @@
 
             <!-- 主功能：大按钮 -->
             <el-button
+              :key="`flat-button-${showFlatMode}`"
               type="primary"
               size="default"
               :disabled="!props.selectedSheet || excelData.length === 0"
+              :loading="loadingFlat"
               @click="handleSmartToggle(
                 props.selectedSheet,
                 props.selectedPdf,
@@ -67,8 +77,6 @@
                 flatData,
                 () => $emit('toggle-flat-mode')
               )"
-              :loading="loadingFlat"
-              :key="`flat-button-${showFlatMode}`"
             >
               <el-icon><DataAnalysis /></el-icon>
               {{ showFlatMode ? '二维化' : '扁平化' }}
@@ -79,7 +87,10 @@
     </div>
 
     <!-- 🔥 新增：选中区域统计信息 -->
-    <div v-if="selectionSumData.visible" class="selection-summary-bar">
+    <div
+      v-if="selectionSumData.visible"
+      class="selection-summary-bar"
+    >
       <div class="sum-info">
         <el-icon><DataAnalysis /></el-icon>
         <span class="sum-label">选中区域求和:</span>
@@ -87,7 +98,10 @@
         <span class="sum-details">
           ({{ selectionSumData.numericCount }}/{{ selectionSumData.totalCells }} 个数值)
         </span>
-        <span v-if="selectionSumData.numericCount > 1" class="sum-stats">
+        <span
+          v-if="selectionSumData.numericCount > 1"
+          class="sum-stats"
+        >
           平均值: {{ selectionSumData.average }} | 最大: {{ selectionSumData.max }} | 最小: {{ selectionSumData.min }}
         </span>
       </div>
@@ -95,8 +109,8 @@
         size="small"
         type="info"
         link
-        @click="clearSelectionSum"
         title="清除求和显示"
+        @click="clearSelectionSum"
       >
         <el-icon><Close /></el-icon>
       </el-button>
@@ -104,23 +118,38 @@
 
     <!-- 表格区域：自动撑满剩余高度 -->
     <div class="excel-content">
-      <div v-if="!selectedSheet" class="placeholder">
+      <div
+        v-if="!selectedSheet"
+        class="placeholder"
+      >
         <el-icon><Grid /></el-icon>
         <p>请选择表格查看内容</p>
       </div>
-      <div v-else-if="loadingExcel" class="loading-state">
-        <el-icon class="is-loading"><Loading /></el-icon>
+      <div
+        v-else-if="loadingExcel"
+        class="loading-state"
+      >
+        <el-icon class="is-loading">
+          <Loading />
+        </el-icon>
         加载表格数据中...
       </div>
-      <div v-else-if="excelData.length === 0" class="empty-state">
+      <div
+        v-else-if="excelData.length === 0"
+        class="empty-state"
+      >
         <p>表格为空</p>
       </div>
 
       <!-- 表格显示 -->
-      <div v-else class="handsontable-container">
+      <div
+        v-else
+        class="handsontable-container"
+      >
         <div v-show="!showFlatMode">
           <HandsontableExcelViewer
             ref="originalViewer"
+            :key="`original-${selectedSheet?.name}-${excelData.length}`"
             :excel-data="excelData"
             :sheet-name="selectedSheet?.name || ''"
             :pdf-id="String(selectedPdf?.id)"
@@ -128,7 +157,6 @@
             :flat-data="flatData"
             :enable-save-buttons="enableSaveButtons"
             :saving="saving"
-            :key="`original-${selectedSheet?.name}-${excelData.length}`"
             @cell-changed="handleCellChanged"
             @data-changed="handleDataChanged"
             @cell-change="handleSheetCellChange"
@@ -143,11 +171,11 @@
         <div v-show="showFlatMode">
           <HandsontableExcelViewer
             ref="flatViewer"
+            :key="`flat-${selectedSheet?.name}-${flatData.length}`"
             :excel-data="flatData"
             :sheet-name="`扁平化_${selectedSheet?.name || ''}`"
             :pdf-id="String(selectedPdf?.id)"
             :excel-file-name="selectedExcelFile"
-            :key="`flat-${selectedSheet?.name}-${flatData.length}`"
             :enable-save-buttons="enableSaveButtons"
             :saving="saving"
             @cell-changed="handleCellChanged"
@@ -161,15 +189,25 @@
           />
         </div>
 
-        <div v-if="showFlatMode && flatData.length === 0 && loadingFlat" class="loading-state">
-          <el-icon class="is-loading"><Loading /></el-icon>
+        <div
+          v-if="showFlatMode && flatData.length === 0 && loadingFlat"
+          class="loading-state"
+        >
+          <el-icon class="is-loading">
+            <Loading />
+          </el-icon>
           正在扁平化数据...
         </div>
 
-        <div v-if="showFlatMode && flatData.length === 0 && !loadingFlat" class="empty-state">
+        <div
+          v-if="showFlatMode && flatData.length === 0 && !loadingFlat"
+          class="empty-state"
+        >
           <el-icon><Grid /></el-icon>
           <p>暂无扁平化数据</p>
-          <p class="tip">点击"数据扁平化"按钮生成数据</p>
+          <p class="tip">
+            点击"数据扁平化"按钮生成数据
+          </p>
         </div>
       </div>
     </div>

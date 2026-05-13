@@ -10,21 +10,36 @@
         <template #header>
           <div class="card-header">
             <span>基础配置</span>
-            <el-button type="primary" @click="testConnection" :loading="testing">
+            <el-button
+              type="primary"
+              :loading="testing"
+              @click="testConnection"
+            >
               测试连接
             </el-button>
           </div>
         </template>
 
-        <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-          <el-form-item label="基础URL" prop="base_url">
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-width="120px"
+        >
+          <el-form-item
+            label="基础URL"
+            prop="base_url"
+          >
             <el-input
               v-model="form.base_url"
               placeholder="例如: https://ark.cn-beijing.volces.com/api/v3"
             />
           </el-form-item>
 
-          <el-form-item label="API密钥" prop="api_key">
+          <el-form-item
+            label="API密钥"
+            prop="api_key"
+          >
             <el-input
               v-model="form.api_key"
               type="password"
@@ -33,8 +48,15 @@
             />
           </el-form-item>
 
-          <el-form-item label="模型" prop="model_id">
-            <el-select v-model="form.model_id" placeholder="请选择模型" style="width: 100%">
+          <el-form-item
+            label="模型"
+            prop="model_id"
+          >
+            <el-select
+              v-model="form.model_id"
+              placeholder="请选择模型"
+              style="width: 100%"
+            >
               <el-option
                 v-for="model in availableModels"
                 :key="model.id"
@@ -42,24 +64,38 @@
                 :value="model.id"
               >
                 <div class="model-option">
-                  <div class="model-name">{{ model.name }}</div>
-                  <div class="model-desc">{{ model.description }}</div>
+                  <div class="model-name">
+                    {{ model.name }}
+                  </div>
+                  <div class="model-desc">
+                    {{ model.description }}
+                  </div>
                 </div>
               </el-option>
             </el-select>
           </el-form-item>
 
           <el-form-item>
-            <el-button type="primary" @click="saveConfig" :loading="saving" size="large">
+            <el-button
+              type="primary"
+              :loading="saving"
+              size="large"
+              @click="saveConfig"
+            >
               保存配置
             </el-button>
-            <el-button @click="goBack">返回</el-button>
+            <el-button @click="goBack">
+              返回
+            </el-button>
           </el-form-item>
         </el-form>
       </el-card>
 
       <!-- 状态显示 -->
-      <el-card class="status-card" v-if="currentStatus">
+      <el-card
+        v-if="currentStatus"
+        class="status-card"
+      >
         <template #header>
           <span>当前状态</span>
         </template>
@@ -70,11 +106,17 @@
               {{ currentStatus.client_configured ? '已配置' : '未配置' }}
             </el-tag>
           </div>
-          <div class="status-item" v-if="currentStatus.model_id">
+          <div
+            v-if="currentStatus.model_id"
+            class="status-item"
+          >
             <span class="label">当前模型:</span>
             <span>{{ currentStatus.model_id }}</span>
           </div>
-          <div class="status-item" v-if="currentStatus.base_url">
+          <div
+            v-if="currentStatus.base_url"
+            class="status-item"
+          >
             <span class="label">服务地址:</span>
             <span>{{ currentStatus.base_url }}</span>
           </div>

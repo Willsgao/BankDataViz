@@ -1,11 +1,20 @@
 <template>
   <div class="excel-upload">
     <!-- 上传提示 -->
-    <div class="upload-hint" v-if="!hasFile">
-      <el-icon class="hint-icon"><Document /></el-icon>
+    <div
+      v-if="!hasFile"
+      class="upload-hint"
+    >
+      <el-icon class="hint-icon">
+        <Document />
+      </el-icon>
       <div class="hint-text">
-        <div class="hint-title">将成品文件拖到此处，或<em>点击上传</em></div>
-        <div class="hint-tip">支持 Excel (.xlsx/.xls)、Word (.docx)、PDF 格式，文件大小不超过 50MB</div>
+        <div class="hint-title">
+          将成品文件拖到此处，或<em>点击上传</em>
+        </div>
+        <div class="hint-tip">
+          支持 Excel (.xlsx/.xls)、Word (.docx)、PDF 格式，文件大小不超过 50MB
+        </div>
       </div>
     </div>
 
@@ -29,13 +38,17 @@
       drag
     >
       <template v-if="!hasFile">
-        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <el-icon class="el-icon--upload">
+          <upload-filled />
+        </el-icon>
         <div class="el-upload__text">
           拖拽文件或<em>点击上传</em>
         </div>
       </template>
       <template v-else>
-        <el-icon class="file-icon"><Document /></el-icon>
+        <el-icon class="file-icon">
+          <Document />
+        </el-icon>
         <div class="file-info">
           <span class="file-name">{{ currentFile?.name }}</span>
           <span class="file-size">{{ formatFileSize(currentFile?.size) }}</span>
@@ -44,7 +57,10 @@
     </el-upload>
 
     <!-- 文件描述输入 -->
-    <div class="description-input" v-if="hasFile">
+    <div
+      v-if="hasFile"
+      class="description-input"
+    >
       <el-input
         v-model="description"
         placeholder="添加文件描述（可选）"
@@ -90,7 +106,10 @@
     />
 
     <!-- 上传历史列表 -->
-    <div class="upload-history" v-if="uploadHistory.length > 0">
+    <div
+      v-if="uploadHistory.length > 0"
+      class="upload-history"
+    >
       <div class="history-header">
         <span class="history-title">上传历史</span>
         <el-button
@@ -110,7 +129,12 @@
           <div class="history-info">
             <el-icon><Document /></el-icon>
             <span class="history-name">{{ item.filename }}</span>
-            <el-tag size="small" type="success">成功</el-tag>
+            <el-tag
+              size="small"
+              type="success"
+            >
+              成功
+            </el-tag>
           </div>
           <div class="history-meta">
             {{ item.file_size_display }} · {{ item.created_at }}

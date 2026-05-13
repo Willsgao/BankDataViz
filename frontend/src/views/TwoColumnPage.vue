@@ -1,114 +1,126 @@
 <!-- frontend/src/views/TwoColumnPage.vue -->
 <template>
   <TwoColumnLayout
-      :files="files"
-      :current-pdf-index="currentPdfIndex"
-      :crop-loading="cropLoading"
-      :cut-results="cutResults"
-      :converting-obj="convertingObj"
-      :convert-cache="convertCache"
-      :batch-crop-loading="batchCropLoading"
-      :joined-results="joinedResults"
-      :current-excel-data="currentExcelData"
-      :has-screened-images="hasScreenedImages"
-      :screening-result-map="screeningResultMap"
-      :current-pdf="currentPdf"
-      :other-pdfs="otherPdfs"
-      :is-screening="isScreening"
-      :is-parsing="isParsing"
-      :has-results="hasResults"
-      :has-batch-results="hasBatchResults"
-      :llm-loading="llmLoading"
-      :table-type="tableType"
-      :step-completion-time="stepCompletionTime"
-      :step-statuses="stepStatuses"
-      :parsing-progress-map="parsingProgressMap"
-      :persistent-file-status="persistentFileStatus"
-      @load-files="loadFiles"
-      @delete-file="deleteFile"
-      @cut-table="cutTable"
-      @convert-and-preview="convertAndPreview"
-      @handle-screen-images="handleScreenImages"
-      @handle-open-classification="handleOpenClassification"
-      @switch-pdf="switchToPdf"
-      @clear-cache="handleClearCache"
-      @parse-tables="handleParseTables"
-      @table-type-change="handleTableTypeChange"
-      @screen-images-completed="handleScreenImagesCompleted"
-      @parse-tables-completed="handleParseTablesCompleted"
-      @show-progress-dialog="showProgressDialog"
-      @search-tasks="showProgressDialogWithSearch"
-      @clear-task-search="progressSearchKeyword = ''"
-    />
+    :files="files"
+    :current-pdf-index="currentPdfIndex"
+    :crop-loading="cropLoading"
+    :cut-results="cutResults"
+    :converting-obj="convertingObj"
+    :convert-cache="convertCache"
+    :batch-crop-loading="batchCropLoading"
+    :joined-results="joinedResults"
+    :current-excel-data="currentExcelData"
+    :has-screened-images="hasScreenedImages"
+    :screening-result-map="screeningResultMap"
+    :current-pdf="currentPdf"
+    :other-pdfs="otherPdfs"
+    :is-screening="isScreening"
+    :is-parsing="isParsing"
+    :has-results="hasResults"
+    :has-batch-results="hasBatchResults"
+    :llm-loading="llmLoading"
+    :table-type="tableType"
+    :step-completion-time="stepCompletionTime"
+    :step-statuses="stepStatuses"
+    :parsing-progress-map="parsingProgressMap"
+    :persistent-file-status="persistentFileStatus"
+    @load-files="loadFiles"
+    @delete-file="deleteFile"
+    @cut-table="cutTable"
+    @convert-and-preview="convertAndPreview"
+    @handle-screen-images="handleScreenImages"
+    @handle-open-classification="handleOpenClassification"
+    @switch-pdf="switchToPdf"
+    @clear-cache="handleClearCache"
+    @parse-tables="handleParseTables"
+    @table-type-change="handleTableTypeChange"
+    @screen-images-completed="handleScreenImagesCompleted"
+    @parse-tables-completed="handleParseTablesCompleted"
+    @show-progress-dialog="showProgressDialog"
+    @search-tasks="showProgressDialogWithSearch"
+    @clear-task-search="progressSearchKeyword = ''"
+  />
 
   <!-- 确保全局组件在正确的位置 -->
-    <ProgressDialog v-model="progressVisible" :percent="progressPercent" :status="progressStatus" :msg="progressMsg"/>
-    <PdfPagePreview
-      v-model:visible="previewVisible"
-      :folder="previewFolder"
-      :pngs="previewPngs"
+  <ProgressDialog
+    v-model="progressVisible"
+    :percent="progressPercent"
+    :status="progressStatus"
+    :msg="progressMsg"
+  />
+  <PdfPagePreview
+    v-model:visible="previewVisible"
+    :folder="previewFolder"
+    :pngs="previewPngs"
+  />
+  <LLMConfig
+    ref="llmConfigRef"
+    @configured="onLLMConfigured"
+  />
+
+
+  <!-- 图片分类管理器对话框 -->
+  <el-dialog
+    v-model="screeningVisible"
+    title="图片分类管理"
+    width="95%"
+    top="2vh"
+    destroy-on-close
+    class="screening-manager-dialog"
+    :close-on-click-modal="false"
+  >
+    <!-- ⭐⭐ 简化条件：只要对话框可见且有当前PDF就显示 -->
+    <ImageScreeningManager
+      v-if="screeningVisible && currentScreeningPdf"
+      :pdf-disk-name="currentScreeningPdf"
+      :classified-images="screeningData[currentScreeningPdf] || { tables: [], no_tables: [], uncertain: [] }"
+      :stats="screeningStats[currentScreeningPdf] || {}"
+      :get-image-url-fn="getImageUrl"
+      @close="closeImageClassification"
+      @refresh="handleRefreshClassification"
+      @move-image="handleMoveImage"
+      @redetect-image="handleRedetectImage"
+      @finish="handleFinishClassification"
+      @image-error="handleImageError"
     />
-    <LLMConfig ref="llmConfigRef" @configured="onLLMConfigured" />
 
-
-    <!-- 图片分类管理器对话框 -->
-    <el-dialog
-      v-model="screeningVisible"
-      title="图片分类管理"
-      width="95%"
-      top="2vh"
-      destroy-on-close
-      class="screening-manager-dialog"
-      :close-on-click-modal="false"
+    <!-- 加载状态 -->
+    <div
+      v-else
+      class="loading-container"
     >
-      <!-- ⭐⭐ 简化条件：只要对话框可见且有当前PDF就显示 -->
-      <ImageScreeningManager
-        v-if="screeningVisible && currentScreeningPdf"
-        :pdf-disk-name="currentScreeningPdf"
-        :classified-images="screeningData[currentScreeningPdf] || { tables: [], no_tables: [], uncertain: [] }"
-        :stats="screeningStats[currentScreeningPdf] || {}"
-        :get-image-url-fn="getImageUrl"
-        @close="closeImageClassification"
-        @refresh="handleRefreshClassification"
-        @move-image="handleMoveImage"
-        @redetect-image="handleRedetectImage"
-        @finish="handleFinishClassification"
-        @image-error="handleImageError"
+      <el-skeleton
+        :rows="10"
+        animated
       />
+    </div>
+  </el-dialog>
 
-      <!-- 加载状态 -->
-      <div v-else class="loading-container">
-        <el-skeleton :rows="10" animated />
-      </div>
-    </el-dialog>
-
-    <!-- 表格解析进度监控弹窗 -->
-    <el-dialog
-      v-model="progressDialogVisible"
-      title="PDF解析进度监控"
-      width="90%"
-      top="2vh"
-      destroy-on-close
-      :close-on-click-modal="false"
-      class="progress-monitor-dialog"
-    >
-      <ProgressMonitorDialog
-        v-if="progressDialogVisible"
-        :tasks="allParsingTasks"
-        :summary="tasksSummary"
-        :loading="false"
-        :search-keyword="progressSearchKeyword"
-        @refresh="refreshTasks"
-        @cancel="cancelTask"
-        @view-result="handleViewResult"
-        @retry="handleRetryTask"
-        @view-detail="handleViewTaskDetail"
-        @clear-completed="handleClearCompletedTasks"
-        @close="closeProgressDialog"
-      />
-    </el-dialog>
-
-
+  <!-- 表格解析进度监控弹窗 -->
+  <el-dialog
+    v-model="progressDialogVisible"
+    title="PDF解析进度监控"
+    width="90%"
+    top="2vh"
+    destroy-on-close
+    :close-on-click-modal="false"
+    class="progress-monitor-dialog"
+  >
+    <ProgressMonitorDialog
+      v-if="progressDialogVisible"
+      :tasks="allParsingTasks"
+      :summary="tasksSummary"
+      :loading="false"
+      :search-keyword="progressSearchKeyword"
+      @refresh="refreshTasks"
+      @cancel="cancelTask"
+      @view-result="handleViewResult"
+      @retry="handleRetryTask"
+      @view-detail="handleViewTaskDetail"
+      @clear-completed="handleClearCompletedTasks"
+      @close="closeProgressDialog"
+    />
+  </el-dialog>
 </template>
 
 <script setup>
@@ -2589,7 +2601,7 @@ const connectToTasksSSE = () => {
 
   try {
     // 建立新的SSE连接
-    tasksSSE.value = new EventSource('/api/all-tasks-progress')
+    tasksSSE.value = new EventSource(getBackendUrl('/api/all-tasks-progress'))
 
     tasksSSE.value.onmessage = (event) => {
       try {

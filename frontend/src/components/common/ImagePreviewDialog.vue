@@ -12,15 +12,19 @@
     <div class="preview-content">
       <!-- 图片显示 -->
       <div class="image-container">
-        <img :src="image" :alt="`预览图片 ${index + 1}`" class="preview-image" />
+        <img
+          :src="image"
+          :alt="`预览图片 ${index + 1}`"
+          class="preview-image"
+        >
       </div>
 
       <!-- 导航控制 -->
       <div class="navigation-controls">
         <el-button
           :disabled="index <= 0"
-          @click="handlePrev"
           icon="el-icon-arrow-left"
+          @click="handlePrev"
         >
           上一张
         </el-button>
@@ -31,8 +35,8 @@
 
         <el-button
           :disabled="index >= total - 1"
-          @click="handleNext"
           icon="el-icon-arrow-right"
+          @click="handleNext"
         >
           下一张
         </el-button>
@@ -40,7 +44,9 @@
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
+      <el-button @click="handleClose">
+        关闭
+      </el-button>
     </template>
   </el-dialog>
 </template>

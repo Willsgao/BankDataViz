@@ -1,24 +1,52 @@
 <template>
   <div class="non-pdf-files">
-    <div class="non-pdf-title" v-if="hasPDF">图片文件</div>
-    <div v-for="file in files" :key="file.id" class="file-item">
+    <div
+      v-if="hasPDF"
+      class="non-pdf-title"
+    >
+      图片文件
+    </div>
+    <div
+      v-for="file in files"
+      :key="file.id"
+      class="file-item"
+    >
       <ImageViewer :file="file" />
 
       <div class="file-meta">
-        <div class="file-name">{{ file.filename }}</div>
-        <div class="file-date">上传于: {{ formatDate(file.created_at) }}</div>
+        <div class="file-name">
+          {{ file.filename }}
+        </div>
+        <div class="file-date">
+          上传于: {{ formatDate(file.created_at) }}
+        </div>
 
         <div class="actions">
           <!-- 修改这里：传递完整的文件对象 -->
-          <el-button type="danger" size="small" icon="el-icon-delete"
-                     @click="$emit('delete', file)">删除</el-button>
+          <el-button
+            type="danger"
+            size="small"
+            icon="el-icon-delete"
+            @click="$emit('delete', file)"
+          >
+            删除
+          </el-button>
 
-          <el-button type="primary" size="small" icon="el-icon-crop"
-                     @click="$emit('crop', file.filename)"
-                     :loading="!!cropLoading[file.filename]">图表切割</el-button>
+          <el-button
+            type="primary"
+            size="small"
+            icon="el-icon-crop"
+            :loading="!!cropLoading[file.filename]"
+            @click="$emit('crop', file.filename)"
+          >
+            图表切割
+          </el-button>
         </div>
 
-        <CropResult v-if="cropResults[file.filename]" :images="cropResults[file.filename]" />
+        <CropResult
+          v-if="cropResults[file.filename]"
+          :images="cropResults[file.filename]"
+        />
       </div>
     </div>
   </div>

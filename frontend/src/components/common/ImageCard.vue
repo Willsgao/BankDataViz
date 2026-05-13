@@ -7,14 +7,17 @@
         type="primary"
         size="small"
         :loading="ocrLoading"
-        @click="handleOcrRecognize"
         class="process-btn"
+        @click="handleOcrRecognize"
       >
         {{ ocrLoading ? '识别中' : '识别' }}
       </el-button>
     </div>
 
-    <div class="image-container" @click="$emit('preview', image)">
+    <div
+      class="image-container"
+      @click="$emit('preview', image)"
+    >
       <el-image
         :src="image"
         :preview-src-list="[image]"

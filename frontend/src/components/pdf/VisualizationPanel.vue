@@ -2,18 +2,28 @@
 <template>
   <el-dialog
     :model-value="visible"
-    @update:model-value="$emit('update:visible', $event)"
     title="表格数据可视化分析"
     width="90%"
     top="5vh"
     class="visualization-dialog"
     :close-on-click-modal="false"
+    @update:model-value="$emit('update:visible', $event)"
     @closed="handleClose"
   >
-    <div class="visualization-container" v-loading="loading">
+    <div
+      v-loading="loading"
+      class="visualization-container"
+    >
       <!-- 工作表选择 -->
-      <div class="sheet-selector" v-if="excelData.sheets && excelData.sheets.length > 1">
-        <el-radio-group v-model="activeSheet" size="small" @change="onSheetChange">
+      <div
+        v-if="excelData.sheets && excelData.sheets.length > 1"
+        class="sheet-selector"
+      >
+        <el-radio-group
+          v-model="activeSheet"
+          size="small"
+          @change="onSheetChange"
+        >
           <el-radio-button
             v-for="sheet in excelData.sheets"
             :key="sheet.sheetName"
@@ -26,40 +36,81 @@
 
       <!-- 可视化类型选择 -->
       <div class="viz-type-selector">
-        <el-radio-group v-model="activeVizType" size="small">
-          <el-radio-button label="overview">数据概览</el-radio-button>
-          <el-radio-button label="distribution">分布分析</el-radio-button>
-          <el-radio-button label="correlation">相关性分析</el-radio-button>
-          <el-radio-button label="categorical">分类分析</el-radio-button>
+        <el-radio-group
+          v-model="activeVizType"
+          size="small"
+        >
+          <el-radio-button label="overview">
+            数据概览
+          </el-radio-button>
+          <el-radio-button label="distribution">
+            分布分析
+          </el-radio-button>
+          <el-radio-button label="correlation">
+            相关性分析
+          </el-radio-button>
+          <el-radio-button label="categorical">
+            分类分析
+          </el-radio-button>
         </el-radio-group>
       </div>
 
       <!-- 数据概览 -->
-      <div v-if="activeVizType === 'overview'" class="viz-content">
+      <div
+        v-if="activeVizType === 'overview'"
+        class="viz-content"
+      >
         <div class="overview-cards">
-          <el-card v-for="stat in overviewStats" :key="stat.title" class="stat-card">
+          <el-card
+            v-for="stat in overviewStats"
+            :key="stat.title"
+            class="stat-card"
+          >
             <div class="stat-content">
-              <div class="stat-value">{{ stat.value }}</div>
-              <div class="stat-title">{{ stat.title }}</div>
+              <div class="stat-value">
+                {{ stat.value }}
+              </div>
+              <div class="stat-title">
+                {{ stat.title }}
+              </div>
             </div>
           </el-card>
         </div>
 
         <div class="charts-grid">
-          <el-card class="chart-card" header="数据类型分布">
-            <div ref="dataTypeChart" class="chart-container"></div>
+          <el-card
+            class="chart-card"
+            header="数据类型分布"
+          >
+            <div
+              ref="dataTypeChart"
+              class="chart-container"
+            />
           </el-card>
 
-          <el-card class="chart-card" header="缺失值统计">
-            <div ref="missingValueChart" class="chart-container"></div>
+          <el-card
+            class="chart-card"
+            header="缺失值统计"
+          >
+            <div
+              ref="missingValueChart"
+              class="chart-container"
+            />
           </el-card>
         </div>
       </div>
 
       <!-- 分布分析 -->
-      <div v-if="activeVizType === 'distribution'" class="viz-content">
+      <div
+        v-if="activeVizType === 'distribution'"
+        class="viz-content"
+      >
         <div class="distribution-controls">
-          <el-select v-model="selectedNumericColumn" placeholder="选择数值列" size="small">
+          <el-select
+            v-model="selectedNumericColumn"
+            placeholder="选择数值列"
+            size="small"
+          >
             <el-option
               v-for="col in numericColumns"
               :key="col"
@@ -69,38 +120,75 @@
           </el-select>
         </div>
 
-        <div class="charts-grid" v-if="selectedNumericColumn">
-          <el-card class="chart-card" header="分布直方图">
-            <div :ref="el => setChartRef('histogram', el)" class="chart-container"></div>
+        <div
+          v-if="selectedNumericColumn"
+          class="charts-grid"
+        >
+          <el-card
+            class="chart-card"
+            header="分布直方图"
+          >
+            <div
+              :ref="el => setChartRef('histogram', el)"
+              class="chart-container"
+            />
           </el-card>
 
-          <el-card class="chart-card" header="箱线图">
-            <div :ref="el => setChartRef('boxplot', el)" class="chart-container"></div>
+          <el-card
+            class="chart-card"
+            header="箱线图"
+          >
+            <div
+              :ref="el => setChartRef('boxplot', el)"
+              class="chart-container"
+            />
           </el-card>
         </div>
 
-        <div v-else class="no-data-hint">
+        <div
+          v-else
+          class="no-data-hint"
+        >
           <el-empty description="请选择一个数值列进行分析" />
         </div>
       </div>
 
       <!-- 相关性分析 -->
-      <div v-if="activeVizType === 'correlation'" class="viz-content">
+      <div
+        v-if="activeVizType === 'correlation'"
+        class="viz-content"
+      >
         <div v-if="numericColumns.length > 1">
-          <el-card class="chart-card full-width" header="相关性热力图">
-            <div ref="correlationChart" class="chart-container"></div>
+          <el-card
+            class="chart-card full-width"
+            header="相关性热力图"
+          >
+            <div
+              ref="correlationChart"
+              class="chart-container"
+            />
           </el-card>
         </div>
 
-        <div v-else class="no-data-hint">
+        <div
+          v-else
+          class="no-data-hint"
+        >
           <el-empty description="需要至少两个数值列才能进行相关性分析" />
         </div>
       </div>
 
       <!-- 分类分析 -->
-      <div v-if="activeVizType === 'categorical'" class="viz-content">
+      <div
+        v-if="activeVizType === 'categorical'"
+        class="viz-content"
+      >
         <div class="categorical-controls">
-          <el-select v-model="selectedCategoricalColumn" placeholder="选择分类列" size="small">
+          <el-select
+            v-model="selectedCategoricalColumn"
+            placeholder="选择分类列"
+            size="small"
+          >
             <el-option
               v-for="col in categoricalColumns"
               :key="col"
@@ -110,17 +198,35 @@
           </el-select>
         </div>
 
-        <div class="charts-grid" v-if="selectedCategoricalColumn">
-          <el-card class="chart-card" header="分类分布">
-            <div :ref="el => setChartRef('barChart', el)" class="chart-container"></div>
+        <div
+          v-if="selectedCategoricalColumn"
+          class="charts-grid"
+        >
+          <el-card
+            class="chart-card"
+            header="分类分布"
+          >
+            <div
+              :ref="el => setChartRef('barChart', el)"
+              class="chart-container"
+            />
           </el-card>
 
-          <el-card class="chart-card" header="饼图">
-            <div :ref="el => setChartRef('pieChart', el)" class="chart-container"></div>
+          <el-card
+            class="chart-card"
+            header="饼图"
+          >
+            <div
+              :ref="el => setChartRef('pieChart', el)"
+              class="chart-container"
+            />
           </el-card>
         </div>
 
-        <div v-else class="no-data-hint">
+        <div
+          v-else
+          class="no-data-hint"
+        >
           <el-empty description="请选择一个分类列进行分析" />
         </div>
       </div>
@@ -129,7 +235,11 @@
       <div class="analysis-report">
         <el-card header="数据分析报告">
           <div class="report-content">
-            <div v-for="item in analysisReport" :key="item.type" class="report-item">
+            <div
+              v-for="item in analysisReport"
+              :key="item.type"
+              class="report-item"
+            >
               <h4>{{ item.title }}</h4>
               <p>{{ item.content }}</p>
             </div>
@@ -139,9 +249,21 @@
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭</el-button>
-      <el-button type="primary" @click="exportReport">导出报告</el-button>
-      <el-button type="success" @click="refreshAnalysis">刷新分析</el-button>
+      <el-button @click="handleClose">
+        关闭
+      </el-button>
+      <el-button
+        type="primary"
+        @click="exportReport"
+      >
+        导出报告
+      </el-button>
+      <el-button
+        type="success"
+        @click="refreshAnalysis"
+      >
+        刷新分析
+      </el-button>
     </template>
   </el-dialog>
 </template>

@@ -1,14 +1,17 @@
 <template>
   <div class="pdf-container">
     <!-- 折叠控制头部 -->
-    <div class="section-header" v-if="currentPDF">
+    <div
+      v-if="currentPDF"
+      class="section-header"
+    >
       <div class="header-left">
         <el-button
           type="text"
-          @click="toggleCollapse"
           :icon="isCollapsed ? 'el-icon-arrow-down' : 'el-icon-arrow-up'"
           class="collapse-btn"
           size="small"
+          @click="toggleCollapse"
         >
           {{ isCollapsed ? '展开PDF预览' : '折叠PDF预览' }}
         </el-button>
@@ -18,8 +21,8 @@
         <el-button
           v-if="isCollapsed"
           type="text"
-          @click="toggleCollapse"
           size="small"
+          @click="toggleCollapse"
         >
           展开查看
         </el-button>
@@ -27,9 +30,15 @@
     </div>
 
     <!-- PDF预览内容 -->
-    <div v-show="!isCollapsed" class="pdf-content">
+    <div
+      v-show="!isCollapsed"
+      class="pdf-content"
+    >
       <!-- 当前PDF预览 -->
-      <div class="pdf-preview-section" v-if="currentPDF">
+      <div
+        v-if="currentPDF"
+        class="pdf-preview-section"
+      >
         <PdfViewer
           :file="currentPDF"
           @close="$emit('close-pdf')"
@@ -65,13 +74,25 @@
     </div>
 
     <!-- 折叠状态提示 -->
-    <div v-show="isCollapsed && currentPDF" class="collapsed-hint">
-      <el-text type="info">PDF预览已折叠</el-text>
+    <div
+      v-show="isCollapsed && currentPDF"
+      class="collapsed-hint"
+    >
+      <el-text type="info">
+        PDF预览已折叠
+      </el-text>
       <div class="hint-actions">
-        <el-button type="text" @click="toggleCollapse" size="small">
+        <el-button
+          type="text"
+          size="small"
+          @click="toggleCollapse"
+        >
           点击展开查看PDF
         </el-button>
-        <el-text type="info" size="small">
+        <el-text
+          type="info"
+          size="small"
+        >
           当前PDF: {{ currentPDF.filename }}
         </el-text>
       </div>

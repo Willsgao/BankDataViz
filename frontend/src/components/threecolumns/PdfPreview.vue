@@ -1,14 +1,17 @@
 <template>
   <div class="pdf-preview-container">
-    <div v-if="selectedPdf" class="pdf-viewer">
+    <div
+      v-if="selectedPdf"
+      class="pdf-viewer"
+    >
       <div class="pdf-header">
         <h3>{{ selectedPdf.name }}</h3>
         <div class="header-actions">
           <el-button
             type="primary"
             size="small"
-            @click="$emit('download-pdf', selectedPdf)"
             :loading="downloadLoading"
+            @click="$emit('download-pdf', selectedPdf)"
           >
             <el-icon><Download /></el-icon>
             下载PDF
@@ -18,21 +21,27 @@
       <div class="pdf-content">
         <iframe
           v-if="pdfUrl"
+          ref="pdfIframe"
+          :key="pdfUrl + currentPage"
           :src="pdfUrl + '#page=' + currentPage"
           width="100%"
           height="100%"
           frameborder="0"
           @load="$emit('pdf-loaded')"
-          ref="pdfIframe"
-          :key="pdfUrl + currentPage"
-        ></iframe>
-        <div v-else class="no-preview">
+        />
+        <div
+          v-else
+          class="no-preview"
+        >
           <el-icon><Document /></el-icon>
           <p>无法加载PDF预览</p>
         </div>
       </div>
     </div>
-    <div v-else class="pdf-placeholder">
+    <div
+      v-else
+      class="pdf-placeholder"
+    >
       <el-icon><Document /></el-icon>
       <p>请从右侧选择PDF文件进行预览</p>
     </div>

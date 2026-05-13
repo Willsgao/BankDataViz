@@ -2,18 +2,33 @@
   <div class="table-list-container">
     <div class="section-header">
       <span class="section-title">表格名称列表</span>
-      <el-tag type="info">{{ tableCount }} 个表格</el-tag>
+      <el-tag type="info">
+        {{ tableCount }} 个表格
+      </el-tag>
     </div>
     <div class="table-content">
-      <div v-if="loadingSheets" class="loading-state">
-        <el-icon class="is-loading"><Loading /></el-icon>
+      <div
+        v-if="loadingSheets"
+        class="loading-state"
+      >
+        <el-icon class="is-loading">
+          <Loading />
+        </el-icon>
         加载表格列表中...
       </div>
-      <div v-else-if="excelFiles.length === 0" class="empty-state">
+      <div
+        v-else-if="excelFiles.length === 0"
+        class="empty-state"
+      >
         <p>暂无表格数据</p>
-        <p class="tip">选中的PDF没有对应的Excel文件</p>
+        <p class="tip">
+          选中的PDF没有对应的Excel文件
+        </p>
       </div>
-      <div v-else class="excel-files-container">
+      <div
+        v-else
+        class="excel-files-container"
+      >
         <div
           v-for="excelFile in excelFiles"
           :key="excelFile.excel_file"
@@ -22,7 +37,10 @@
           <div class="excel-file-header">
             <el-icon><Document /></el-icon>
             <span class="excel-file-name">{{ excelFile.excel_file }}</span>
-            <el-tag size="small" type="info">
+            <el-tag
+              size="small"
+              type="info"
+            >
               {{ excelFile.total_sheets }} 个表
             </el-tag>
           </div>
@@ -33,8 +51,8 @@
               class="sheet-item"
               :class="{
                 'active': selectedSheet &&
-                         selectedSheet.name === sheet.name &&
-                         selectedSheet.excel_file === excelFile.excel_file
+                  selectedSheet.name === sheet.name &&
+                  selectedSheet.excel_file === excelFile.excel_file
               }"
               @click="$emit('select-sheet', sheet, excelFile.excel_file)"
             >

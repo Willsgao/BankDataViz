@@ -141,6 +141,7 @@ class Config:
         # OCR
         ocr_cfg = table_config.get("ocr", {})
         self.OCR_PROVIDER = ocr_cfg.get("provider", "tencent")
+        print("self.OCR_PROVIDER:", self.OCR_PROVIDER)
         self.OCR_TIMEOUT = ocr_cfg.get("timeout", 30)
         self.OCR_MAX_RETRIES = ocr_cfg.get("max_retries", 3)
 
@@ -153,6 +154,7 @@ class Config:
         tencent_cfg = table_config.get("tencent_ocr", {})
         self.TENCENT_SECRET_ID = tencent_cfg.get("secret_id", "")
         self.TENCENT_SECRET_KEY = tencent_cfg.get("secret_key", "")
+        print("tencent_cfg:", tencent_cfg, self.TENCENT_SECRET_ID)
         self.TENCENT_REGION = tencent_cfg.get("region", "ap-shanghai")
 
         # 处理参数

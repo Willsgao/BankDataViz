@@ -38,7 +38,11 @@
     </div>
 
     <!-- 保存对话框 -->
-    <el-dialog v-model="saveDialogVisible" title="保存 Excel" width="450px">
+    <el-dialog
+      v-model="saveDialogVisible"
+      title="保存 Excel"
+      width="450px"
+    >
       <el-form label-width="80px">
         <el-form-item label="文件名">
           <el-input
@@ -48,8 +52,14 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="saveDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingExcel" @click="doSaveExcel">
+        <el-button @click="saveDialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="savingExcel"
+          @click="doSaveExcel"
+        >
           确认保存
         </el-button>
       </template>

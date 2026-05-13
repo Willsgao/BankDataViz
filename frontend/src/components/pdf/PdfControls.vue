@@ -1,16 +1,28 @@
 <!-- 在现有的"图片筛选"按钮旁边添加"分类管理"按钮 -->
 <template>
-  <div class="pdf-controls" v-if="pdf">
+  <div
+    v-if="pdf"
+    class="pdf-controls"
+  >
     <div class="file-info">
-      <div class="file-name">{{ pdf.filename }}</div>
-      <div class="file-date">上传于: {{ formatDate(pdf.created_at) }}</div>
+      <div class="file-name">
+        {{ pdf.filename }}
+      </div>
+      <div class="file-date">
+        上传于: {{ formatDate(pdf.created_at) }}
+      </div>
     </div>
 
     <div class="pdf-actions">
-
-      <el-button type="success" size="small" icon="el-icon-picture"
-                 @click="$emit('convert', pdf.disk_name)"
-                 :loading="!!converting[pdf.filename]">开始转图</el-button>
+      <el-button
+        type="success"
+        size="small"
+        icon="el-icon-picture"
+        :loading="!!converting[pdf.filename]"
+        @click="$emit('convert', pdf.disk_name)"
+      >
+        开始转图
+      </el-button>
 
 
       <!-- 分类管理按钮：仅在已筛选图片后显示 -->
@@ -19,8 +31,9 @@
         type="warning"
         size="small"
         icon="el-icon-folder-checked"
+        :title="'管理分类图片（有表格: ' + (screeningResult?.has_table_count || 0) + '张, 无表格: ' + (screeningResult?.no_table_count || 0) + '张）'"
         @click="$emit('open-classification', pdf.disk_name)"
-        :title="'管理分类图片（有表格: ' + (screeningResult?.has_table_count || 0) + '张, 无表格: ' + (screeningResult?.no_table_count || 0) + '张）'">
+      >
         分类管理
         <el-badge
           v-if="screeningResult"
@@ -31,30 +44,47 @@
       </el-button>
 
       <!-- 表格解析按钮：只要已转图就显示 -->
-        <el-button
-          v-if="shouldShowParseButton"
-          type="primary"
-          size="small"
-          icon="el-icon-document"
-          @click="$emit('parse-tables', pdf.disk_name)"
-          :loading="isParsing"
-          :title="hasScreenedImages ? '基于筛选结果解析表格' : '解析所有图片中的表格'">
-          {{ hasResults ? '重新解析' : '表格解析' }}
-        </el-button>
+      <el-button
+        v-if="shouldShowParseButton"
+        type="primary"
+        size="small"
+        icon="el-icon-document"
+        :loading="isParsing"
+        :title="hasScreenedImages ? '基于筛选结果解析表格' : '解析所有图片中的表格'"
+        @click="$emit('parse-tables', pdf.disk_name)"
+      >
+        {{ hasResults ? '重新解析' : '表格解析' }}
+      </el-button>
 
       <!-- 筛选结果信息 -->
-      <div v-if="screeningResult" class="screening-info">
-        <el-tag size="small" type="success" v-if="screeningResult.has_table_count > 0">
+      <div
+        v-if="screeningResult"
+        class="screening-info"
+      >
+        <el-tag
+          v-if="screeningResult.has_table_count > 0"
+          size="small"
+          type="success"
+        >
           有表格: {{ screeningResult.has_table_count }}张
         </el-tag>
-        <el-tag size="small" type="info" v-if="screeningResult.no_table_count > 0">
+        <el-tag
+          v-if="screeningResult.no_table_count > 0"
+          size="small"
+          type="info"
+        >
           无表格: {{ screeningResult.no_table_count }}张
         </el-tag>
       </div>
 
       <!-- 解析进度显示 -->
-      <div v-if="parsingProgress" class="parsing-progress">
-        <div class="progress-text">表格解析中...</div>
+      <div
+        v-if="parsingProgress"
+        class="parsing-progress"
+      >
+        <div class="progress-text">
+          表格解析中...
+        </div>
         <el-progress
           :percentage="parsingProgress.percentage"
           :status="parsingProgress.status"
@@ -70,8 +100,9 @@
         type="info"
         size="small"
         icon="el-icon-delete"
+        title="清除裁切缓存"
         @click="$emit('clear-cache', pdf.disk_name)"
-        title="清除裁切缓存">
+      >
         清除缓存
       </el-button>
     </div>

@@ -4,20 +4,30 @@
     <div class="manager-toolbar">
       <div class="toolbar-left">
         <h2 class="manager-title">
-          <i class="el-icon-folder-checked"></i>
+          <i class="el-icon-folder-checked" />
           图片分类管理 - {{ pdfNameDisplay }}
         </h2>
         <div class="toolbar-info">
-          <el-tag size="small" type="success">
-            <i class="el-icon-picture"></i>
+          <el-tag
+            size="small"
+            type="success"
+          >
+            <i class="el-icon-picture" />
             有表格: {{ stats.tables_count || 0 }}张
           </el-tag>
-          <el-tag size="small" type="info">
-            <i class="el-icon-picture-outline"></i>
+          <el-tag
+            size="small"
+            type="info"
+          >
+            <i class="el-icon-picture-outline" />
             无表格: {{ stats.no_tables_count || 0 }}张
           </el-tag>
-          <el-tag size="small" type="warning" v-if="stats.uncertain_count">
-            <i class="el-icon-question"></i>
+          <el-tag
+            v-if="stats.uncertain_count"
+            size="small"
+            type="warning"
+          >
+            <i class="el-icon-question" />
             不确定: {{ stats.uncertain_count }}张
           </el-tag>
         </div>
@@ -25,15 +35,24 @@
 
       <div class="toolbar-right">
         <!-- 多选状态显示 -->
-        <div v-if="isMultiSelectMode && selectedCount > 0" class="selection-info">
-          <el-tag type="primary" size="small">
-            <i class="el-icon-check"></i>
+        <div
+          v-if="isMultiSelectMode && selectedCount > 0"
+          class="selection-info"
+        >
+          <el-tag
+            type="primary"
+            size="small"
+          >
+            <i class="el-icon-check" />
             已选择 {{ selectedCount }} 张图片
           </el-tag>
         </div>
 
         <!-- 批量操作按钮组 -->
-        <div v-if="isMultiSelectMode && selectedCount > 0" class="batch-actions">
+        <div
+          v-if="isMultiSelectMode && selectedCount > 0"
+          class="batch-actions"
+        >
           <!-- 当前在有表格分类：只显示移动到无表格 -->
           <el-button
             v-if="activeCategory === 'tables'"
@@ -91,8 +110,8 @@
           :type="isMultiSelectMode ? 'primary' : 'default'"
           size="small"
           :icon="isMultiSelectMode ? 'el-icon-finished' : 'el-icon-select'"
-          @click="toggleMultiSelectMode"
           style="margin-right: 8px;"
+          @click="toggleMultiSelectMode"
         >
           {{ isMultiSelectMode ? '退出多选' : '多选模式' }}
         </el-button>
@@ -101,8 +120,8 @@
           type="primary"
           size="small"
           icon="el-icon-refresh"
-          @click="refreshData"
           :loading="refreshing"
+          @click="refreshData"
         >
           刷新数据
         </el-button>
@@ -118,24 +137,48 @@
     </div>
 
     <!-- 主内容区：分屏布局 -->
-    <div class="split-layout" :class="{ 'multi-select-mode': isMultiSelectMode }">
+    <div
+      class="split-layout"
+      :class="{ 'multi-select-mode': isMultiSelectMode }"
+    >
       <!-- 左侧：分类缩略图面板 -->
-      <div class="left-panel" :class="{ 'full-width': isMultiSelectMode }">
+      <div
+        class="left-panel"
+        :class="{ 'full-width': isMultiSelectMode }"
+      >
         <div class="category-tabs">
-          <el-tabs v-model="activeCategory" type="card" @tab-click="handleTabChange">
-            <el-tab-pane label="有表格" name="tables">
+          <el-tabs
+            v-model="activeCategory"
+            type="card"
+            @tab-click="handleTabChange"
+          >
+            <el-tab-pane
+              label="有表格"
+              name="tables"
+            >
               <span slot="label">
-                <i class="el-icon-check"></i>
+                <i class="el-icon-check" />
                 有表格
-                <el-badge :value="stats.tables_count" :max="99" class="tab-badge" />
+                <el-badge
+                  :value="stats.tables_count"
+                  :max="99"
+                  class="tab-badge"
+                />
               </span>
             </el-tab-pane>
 
-            <el-tab-pane label="无表格" name="no_tables">
+            <el-tab-pane
+              label="无表格"
+              name="no_tables"
+            >
               <span slot="label">
-                <i class="el-icon-close"></i>
+                <i class="el-icon-close" />
                 无表格
-                <el-badge :value="stats.no_tables_count" :max="99" class="tab-badge" />
+                <el-badge
+                  :value="stats.no_tables_count"
+                  :max="99"
+                  class="tab-badge"
+                />
               </span>
             </el-tab-pane>
 
@@ -145,9 +188,13 @@
               name="uncertain"
             >
               <span slot="label">
-                <i class="el-icon-question"></i>
+                <i class="el-icon-question" />
                 不确定
-                <el-badge :value="stats.uncertain_count" :max="99" class="tab-badge" />
+                <el-badge
+                  :value="stats.uncertain_count"
+                  :max="99"
+                  class="tab-badge"
+                />
               </span>
             </el-tab-pane>
           </el-tabs>
@@ -159,7 +206,10 @@
             <div class="header-left">
               <span class="image-count">
                 共 {{ currentImages.length }} 张图片
-                <span v-if="isMultiSelectMode && selectedCount > 0" class="selected-count">
+                <span
+                  v-if="isMultiSelectMode && selectedCount > 0"
+                  class="selected-count"
+                >
                   (已选择 {{ selectedCount }} 张)
                 </span>
               </span>
@@ -187,7 +237,10 @@
           </div>
 
           <!-- 网格视图 -->
-          <div v-if="viewMode === 'grid'" class="thumbnail-grid">
+          <div
+            v-if="viewMode === 'grid'"
+            class="thumbnail-grid"
+          >
             <div
               v-for="(image, index) in currentImages"
               :key="image.name"
@@ -198,52 +251,57 @@
               }"
               @click="selectImage(image, $event)"
             >
-
               <!-- 修改后的正确代码 -->
-                <el-popover
-                  placement="right"
-                  :width="500"
-                  trigger="hover"
-                  popper-class="image-preview-popover"
-                >
-                  <template #reference>
-                    <div class="thumbnail-wrapper">
-                      <!-- 图片元素 -->
-                      <img
-                        :src="getImageUrl(image)"
-                        class="thumbnail-img"
-                        loading="lazy"
-                        @error="handleImageError(image, $event)"
-                      />
-
-                      <div class="thumbnail-overlay">
-                        <el-tag
-                          size="mini"
-                          :type="getCategoryType(image.type)"
-                          class="category-tag"
-                        >
-                          {{ getCategoryLabel(image.type) }}
-                        </el-tag>
-                      </div>
-                      <!-- 多选模式下的选中标记 -->
-                      <div v-if="isMultiSelectMode && selectedImages.has(image.name)" class="multi-select-checkmark">
-                        <i class="el-icon-check"></i>
-                      </div>
-                    </div>
-                  </template>
-                  <!-- 悬停时显示完整大图 -->
-                  <div class="preview-image-container">
+              <el-popover
+                placement="right"
+                :width="500"
+                trigger="hover"
+                popper-class="image-preview-popover"
+              >
+                <template #reference>
+                  <div class="thumbnail-wrapper">
+                    <!-- 图片元素 -->
                     <img
                       :src="getImageUrl(image)"
-                      class="preview-full-image"
+                      class="thumbnail-img"
                       loading="lazy"
-                    />
+                      @error="handleImageError(image, $event)"
+                    >
+
+                    <div class="thumbnail-overlay">
+                      <el-tag
+                        size="mini"
+                        :type="getCategoryType(image.type)"
+                        class="category-tag"
+                      >
+                        {{ getCategoryLabel(image.type) }}
+                      </el-tag>
+                    </div>
+                    <!-- 多选模式下的选中标记 -->
+                    <div
+                      v-if="isMultiSelectMode && selectedImages.has(image.name)"
+                      class="multi-select-checkmark"
+                    >
+                      <i class="el-icon-check" />
+                    </div>
                   </div>
-                </el-popover>
+                </template>
+                <!-- 悬停时显示完整大图 -->
+                <div class="preview-image-container">
+                  <img
+                    :src="getImageUrl(image)"
+                    class="preview-full-image"
+                    loading="lazy"
+                  >
+                </div>
+              </el-popover>
 
 
               <div class="thumbnail-info">
-                <span class="image-name" :title="image.name">
+                <span
+                  class="image-name"
+                  :title="image.name"
+                >
                   {{ image.name }}
                 </span>
                 <div class="thumbnail-actions">
@@ -251,15 +309,15 @@
                     type="text"
                     size="mini"
                     icon="el-icon-view"
-                    @click.stop="selectImage(image)"
                     title="预览"
+                    @click.stop="selectImage(image)"
                   />
                   <el-button
                     type="text"
                     size="mini"
                     icon="el-icon-right"
-                    @click.stop="showMoveOptions(image)"
                     title="移动到..."
+                    @click.stop="showMoveOptions(image)"
                   />
                 </div>
               </div>
@@ -267,32 +325,42 @@
           </div>
 
           <!-- 列表视图 -->
-          <div v-else class="thumbnail-list">
+          <div
+            v-else
+            class="thumbnail-list"
+          >
             <el-table
               :data="currentImages"
               size="small"
               highlight-current-row
-              @row-click="selectImage"
               style="width: 100%"
+              @row-click="selectImage"
             >
-
               <el-table-column width="50">
                 <template #default="scope">
                   <img
                     :src="getImageUrl(scope.row)"
                     class="list-thumbnail"
                     loading="lazy"
-                  />
+                  >
                 </template>
               </el-table-column>
 
-              <el-table-column prop="name" label="图片名称" min-width="150">
+              <el-table-column
+                prop="name"
+                label="图片名称"
+                min-width="150"
+              >
                 <template #default="scope">
                   <span class="list-image-name">{{ scope.row.name }}</span>
                 </template>
               </el-table-column>
 
-              <el-table-column prop="type" label="分类" width="100">
+              <el-table-column
+                prop="type"
+                label="分类"
+                width="100"
+              >
                 <template #default="scope">
                   <el-tag
                     size="small"
@@ -303,21 +371,24 @@
                 </template>
               </el-table-column>
 
-              <el-table-column label="操作" width="120">
+              <el-table-column
+                label="操作"
+                width="120"
+              >
                 <template #default="scope">
                   <el-button
                     type="text"
                     size="small"
                     icon="el-icon-view"
-                    @click.stop="selectImage(scope.row)"
                     title="预览"
+                    @click.stop="selectImage(scope.row)"
                   />
                   <el-button
                     type="text"
                     size="small"
                     icon="el-icon-right"
-                    @click.stop="showMoveOptions(scope.row)"
                     title="移动到..."
+                    @click.stop="showMoveOptions(scope.row)"
                   />
                 </template>
               </el-table-column>
@@ -325,27 +396,44 @@
           </div>
 
           <!-- 空状态 -->
-          <div v-if="currentImages.length === 0 && !props.classifiedImages[activeCategory]?.length" class="empty-thumbnails">
+          <div
+            v-if="currentImages.length === 0 && !props.classifiedImages[activeCategory]?.length"
+            class="empty-thumbnails"
+          >
             <el-empty description="暂无图片">
-              <p class="empty-tips">当前分类没有图片</p>
+              <p class="empty-tips">
+                当前分类没有图片
+              </p>
             </el-empty>
           </div>
         </div>
       </div>
 
       <!-- 右侧：大图预览和操作面板（多选模式下隐藏） -->
-      <div class="right-panel" v-if="!isMultiSelectMode">
+      <div
+        v-if="!isMultiSelectMode"
+        class="right-panel"
+      >
         <div class="preview-header">
-          <h3 v-if="selectedImage" class="preview-title">
-            <i class="el-icon-picture-outline-round"></i>
+          <h3
+            v-if="selectedImage"
+            class="preview-title"
+          >
+            <i class="el-icon-picture-outline-round" />
             {{ selectedImage.name }}
           </h3>
-          <h3 v-else class="preview-title">
-            <i class="el-icon-picture-outline"></i>
+          <h3
+            v-else
+            class="preview-title"
+          >
+            <i class="el-icon-picture-outline" />
             图片预览
           </h3>
 
-          <div class="preview-nav" v-if="selectedImage">
+          <div
+            v-if="selectedImage"
+            class="preview-nav"
+          >
             <el-button
               size="small"
               icon="el-icon-arrow-left"
@@ -370,16 +458,27 @@
 
         <!-- 大图预览区域 -->
         <div class="preview-container">
-          <div v-if="!selectedImage" class="empty-preview">
+          <div
+            v-if="!selectedImage"
+            class="empty-preview"
+          >
             <el-empty description="请选择一张图片进行预览">
-              <i class="el-icon-picture-outline" style="font-size: 80px; color: #dcdfe6;"></i>
+              <i
+                class="el-icon-picture-outline"
+                style="font-size: 80px; color: #dcdfe6;"
+              />
             </el-empty>
           </div>
 
-          <div v-else class="image-preview">
-
+          <div
+            v-else
+            class="image-preview"
+          >
             <div class="image-wrapper">
-              <div v-if="previewLoading" class="image-loading">
+              <div
+                v-if="previewLoading"
+                class="image-loading"
+              >
                 <el-icon class="is-loading">
                   <Loading />
                 </el-icon>
@@ -394,7 +493,7 @@
                 :class="{ loading: previewLoading }"
                 @load="previewLoading = false"
                 @error="handlePreviewError"
-              />
+              >
             </div>
 
             <div class="image-info">
@@ -411,13 +510,19 @@
                   {{ getCategoryLabel(selectedImage.type) }}
                 </el-tag>
               </div>
-              <div class="info-row" v-if="selectedImage.confidence">
+              <div
+                v-if="selectedImage.confidence"
+                class="info-row"
+              >
                 <span class="info-label">置信度：</span>
                 <span class="info-value">
                   {{ (selectedImage.confidence * 100).toFixed(1) }}%
                 </span>
               </div>
-              <div class="info-row" v-if="selectedImage.moved_at">
+              <div
+                v-if="selectedImage.moved_at"
+                class="info-row"
+              >
                 <span class="info-label">移动时间：</span>
                 <span class="info-value">
                   {{ formatDate(selectedImage.moved_at) }}
@@ -431,17 +536,20 @@
         <div class="action-panel">
           <div class="action-section">
             <h4 class="action-title">
-              <i class="el-icon-s-operation"></i>
+              <i class="el-icon-s-operation" />
               分类操作
             </h4>
 
-            <div class="move-actions" v-if="selectedImage">
+            <div
+              v-if="selectedImage"
+              class="move-actions"
+            >
               <el-button
                 type="success"
                 :disabled="selectedImage.type === 'tables'"
                 @click="moveImage(selectedImage, 'tables')"
               >
-                <i class="el-icon-check"></i>
+                <i class="el-icon-check" />
                 移动到有表格
               </el-button>
 
@@ -450,7 +558,7 @@
                 :disabled="selectedImage.type === 'no_tables'"
                 @click="moveImage(selectedImage, 'no_tables')"
               >
-                <i class="el-icon-close"></i>
+                <i class="el-icon-close" />
                 移动到无表格
               </el-button>
 
@@ -460,19 +568,24 @@
                 :disabled="selectedImage.type === 'uncertain'"
                 @click="moveImage(selectedImage, 'uncertain')"
               >
-                <i class="el-icon-question"></i>
+                <i class="el-icon-question" />
                 移动到不确定
               </el-button>
             </div>
 
-            <div v-else class="no-selection">
-              <p class="hint-text">请先选择一张图片</p>
+            <div
+              v-else
+              class="no-selection"
+            >
+              <p class="hint-text">
+                请先选择一张图片
+              </p>
             </div>
           </div>
 
           <div class="action-section">
             <h4 class="action-title">
-              <i class="el-icon-magic-stick"></i>
+              <i class="el-icon-magic-stick" />
               其他操作
             </h4>
 
@@ -482,7 +595,7 @@
                 :disabled="!selectedImage"
                 @click="redetectImage(selectedImage)"
               >
-                <i class="el-icon-refresh"></i>
+                <i class="el-icon-refresh" />
                 重新检测
               </el-button>
 
@@ -491,7 +604,7 @@
                 :disabled="!selectedImage"
                 @click="downloadImage(selectedImage)"
               >
-                <i class="el-icon-download"></i>
+                <i class="el-icon-download" />
                 下载图片
               </el-button>
             </div>
@@ -507,21 +620,27 @@
       width="400px"
       destroy-on-close
     >
-      <div class="move-dialog-content" v-if="imageToMove">
+      <div
+        v-if="imageToMove"
+        class="move-dialog-content"
+      >
         <p>将图片 <strong>{{ imageToMove.name }}</strong> 移动到：</p>
 
         <div class="move-options">
           <el-radio-group v-model="moveTargetType">
             <el-radio label="tables">
-              <i class="el-icon-check"></i>
+              <i class="el-icon-check" />
               有表格
             </el-radio>
             <el-radio label="no_tables">
-              <i class="el-icon-close"></i>
+              <i class="el-icon-close" />
               无表格
             </el-radio>
-            <el-radio label="uncertain" v-if="stats.uncertain_count">
-              <i class="el-icon-question"></i>
+            <el-radio
+              v-if="stats.uncertain_count"
+              label="uncertain"
+            >
+              <i class="el-icon-question" />
               不确定
             </el-radio>
           </el-radio-group>
@@ -529,7 +648,9 @@
       </div>
 
       <template #footer>
-        <el-button @click="showMoveDialog = false">取消</el-button>
+        <el-button @click="showMoveDialog = false">
+          取消
+        </el-button>
         <el-button
           type="primary"
           :disabled="!moveTargetType || imageToMove?.type === moveTargetType"
