@@ -53,3 +53,6 @@ test_codes/
 test_data/.workbuddy/
 .workbuddy/
 test_data/
+project-config.json
+backend/configs/
+.env
