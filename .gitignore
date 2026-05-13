@@ -46,6 +46,10 @@ dist/
 frontend/.env.*
 frontend/vue.config.js
 
+# 敏感文件（含本地开发手机号/密码，不上传）
+frontend/src/views/LoginPage.vue
+frontend/src/views/AdminManagement.vue
+
 # 系统文件
 .DS_Store
 Thumbs.db
