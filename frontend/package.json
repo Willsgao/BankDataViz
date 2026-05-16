@@ -18,6 +18,7 @@
     "element-plus": "^2.10.4",
     "handsontable": "^16.1.1",
     "idb": "^8.0.3",
+    "marked": "^9.1.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.25",
     "vue-router": "^4.6.3",

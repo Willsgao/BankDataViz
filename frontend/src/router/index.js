@@ -9,6 +9,7 @@ import BankDataPage from '@/views/BankDataPage.vue'
 import AdminManagement from '@/views/AdminManagement.vue'
 import AuditPage from '@/views/AuditPage.vue'
 import SmartRecognizePage from '@/views/SmartRecognizePage.vue'
+import RagChatPage from '@/views/RagChatPage.vue'
 
 const routes = [
   {
@@ -61,6 +62,12 @@ const routes = [
     name: 'AdminManagement',
     component: AdminManagement,
     meta: { requiredPermission: 'super_admin', title: '子管理员管理' }
+  },
+  {
+    path: '/rag-chat',
+    name: 'RagChat',
+    component: RagChatPage,
+    meta: { title: '智能问答' }
   },
   {
     path: '/',

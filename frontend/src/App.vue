@@ -40,6 +40,14 @@
             >
               智能识别
             </el-button>
+            <el-button
+              :type="$route.name === 'RagChat' ? 'primary' : ''"
+              size="small"
+              class="rag-btn"
+              @click="$router.push('/rag-chat')"
+            >
+              智能问答
+            </el-button>
             <el-dropdown
               v-if="hasPermission('data')"
               trigger="hover"
