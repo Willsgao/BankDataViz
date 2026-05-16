@@ -58,6 +58,7 @@ Thumbs.db
 test_codes/
 test_data/.workbuddy/
 .workbuddy/
+.codebuddy/plans/
 test_data/
 project-config.json
 backend/configs/
