@@ -90,23 +90,21 @@ const router = createRouter({
 // 注意：此处直接读取 localStorage 而非使用 useAuthStore()，原因是：
 // router.beforeEach 在 Pinia 初始化之前注册，此时 useAuthStore() 不可用
 router.beforeEach((to, from, next) => {
-  // 从localStorage获取用户信息和token
-  const userRole = localStorage.getItem('user_role') || 'guest'
+  // 演示模式：无需登录，自动注入超级管理员会话
   const token = localStorage.getItem('token')
-  const permissions = JSON.parse(localStorage.getItem('permissions') || '[]')
-
-  // 不需要登录的页面（公开页面）
-  const publicPages = ['/login']
-  const authRequired = !publicPages.includes(to.path)
-
-  // 如果需要登录但未登录，重定向到登录页
-  if (authRequired && !token) {
-    next('/login')
-    return
+  if (!token) {
+    localStorage.setItem('token', 'demo-token-' + Date.now())
+    localStorage.setItem('user_role', 'super_admin')
+    localStorage.setItem('username', 'demo')
+    localStorage.setItem('permissions', JSON.stringify(['parse', 'review', 'data']))
   }
 
+  // 重新读取（演示模式注入后 userRole 可能已更新）
+  const effectiveRole = localStorage.getItem('user_role') || 'guest'
+  const permissions = JSON.parse(localStorage.getItem('permissions') || '[]')
+
   // 超级管理员可以访问所有页面
-  if (userRole === 'super_admin') {
+  if (effectiveRole === 'super_admin') {
     next()
     return
   }
@@ -116,8 +114,7 @@ router.beforeEach((to, from, next) => {
     const requiredPermission = to.meta.requiredPermission
 
     // 管理员拥有所有权限（除了 super_admin 专属页面）
-    if (userRole === 'admin') {
-      // 检查具体权限
+    if (effectiveRole === 'admin') {
       if (requiredPermission === 'parse' && !permissions.includes('parse')) {
         next('/bank-data')
         return
@@ -127,7 +124,7 @@ router.beforeEach((to, from, next) => {
         return
       }
       if (requiredPermission === 'data' && !permissions.includes('data')) {
-        next('/login')
+        next('/rag-chat')
         return
       }
       next()
@@ -135,31 +132,27 @@ router.beforeEach((to, from, next) => {
     }
 
     // 普通用户只能访问 data 权限的页面
-    if (userRole === 'user') {
+    if (effectiveRole === 'user') {
       if (requiredPermission === 'data') {
         next()
         return
       }
-      // 尝试访问其他页面时重定向到数据看板
       next('/bank-data')
       return
     }
 
-    // 其他情况重定向到登录页
-    next('/login')
+    next('/rag-chat')
     return
   }
 
-  // 没有特定权限要求的页面，根据角色默认跳转
-  if (userRole === 'user') {
-    // 普通用户只能看到数据看板
+  // 没有特定权限要求的页面，根据角色限制
+  if (effectiveRole === 'user') {
     if (to.path === '/two-column' || to.path === '/three-column') {
       next('/bank-data')
       return
     }
   }
 
-  // 直接放行
   next()
 })
 

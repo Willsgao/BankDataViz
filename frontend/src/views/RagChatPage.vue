@@ -94,6 +94,24 @@
           </div>
           <h2>智能文档问答</h2>
           <p>选择一个 PDF 文档，然后输入你的问题</p>
+          <!-- 功能引导卡片 -->
+          <div class="guide-cards">
+            <div class="guide-card">
+              <el-icon :size="24" color="#409EFF"><Upload /></el-icon>
+              <span class="guide-title">上传 PDF</span>
+              <span class="guide-desc">在「数据解析」页面上传你的 PDF 文档</span>
+            </div>
+            <div class="guide-card">
+              <el-icon :size="24" color="#67C23A"><Connection /></el-icon>
+              <span class="guide-title">构建索引</span>
+              <span class="guide-desc">选中左侧文档，点击「构建索引」按钮</span>
+            </div>
+            <div class="guide-card">
+              <el-icon :size="24" color="#E6A23C"><ChatDotRound /></el-icon>
+              <span class="guide-title">开始提问</span>
+              <span class="guide-desc">在输入框输入问题，获取 AI 驱动的精准回答</span>
+            </div>
+          </div>
           <div class="suggest-questions" v-if="currentDocument">
             <span class="suggest-label">试试这些问题：</span>
             <el-button
@@ -243,7 +261,8 @@ import { ref, reactive, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Document, ChatRound, Message, Loading, DArrowLeft, DArrowRight,
-  Monitor, User, Link, ArrowDown, ArrowUp, Close, Position
+  Monitor, User, Link, ArrowDown, ArrowUp, Close, Position,
+  Upload, Connection, ChatDotRound
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import { queryRag, queryRagStream, clearHistory, getRagStats, getDocuments, buildIndex } from '@/api/rag'
@@ -277,11 +296,11 @@ const indexedDocs = reactive(new Set())
 
 // 推荐问题
 const suggestQuestions = [
-  '请总结这份报告的核心内容',
-  '这份年报中提到了哪些主要财务指标？',
-  '公司的资本充足率是多少？',
-  '报告中提到了哪些风险因素？',
-  '近三年的净利润变化趋势如何？'
+  '请总结这份文档的核心内容',
+  '文档中提到了哪些关键数据和指标？',
+  '帮我提取文档中的表格信息',
+  '这篇文章的主要观点是什么？',
+  '文档中涉及了哪些关键数据项？'
 ]
 
 // --- 初始化 ---
@@ -676,6 +695,39 @@ const formatSize = (bytes) => {
   margin: 0;
   color: #909399;
   font-size: 14px;
+}
+
+.guide-cards {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+.guide-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ecf0f5 100%);
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
+  min-width: 140px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.guide-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.guide-card .guide-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+.guide-card .guide-desc {
+  font-size: 11px;
+  color: #909399;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .suggest-questions {

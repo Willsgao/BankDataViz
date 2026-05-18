@@ -117,10 +117,10 @@
       <div class="data-float data-float--4">¥3.2T</div>
     </div>
 
-    <!-- 二维码区域 -->
+
+    <!-- 演示项目标识 -->
     <div class="qrcode-corner">
-      <img src="/qrcode.jpg" alt="研究公众号二维码" class="qrcode-img">
-      <span class="qrcode-label">研究公众号 二维码</span>
+      <span class="qrcode-label">Open Source</span>
     </div>
 
     <div class="brand-content">
@@ -138,27 +138,27 @@
           </svg>
         </div>
         <div class="header-text">
-          <h1 class="system-title">BankData</h1>
-          <p class="system-desc">银行与货币金融数据系统</p>
+          <h1 class="system-title">DocBrain</h1>
+          <p class="system-desc">智能文档解析与数据洞察平台</p>
         </div>
       </div>
 
-      <!-- 团队标识 -->
+      <!-- 作者标识 -->
       <div class="team-section">
         <div class="team-tag">
           <span class="tag-dot" />
-          专属研究平台
+          全栈项目作品
         </div>
-        <div class="team-title">银行与货币金融研究</div>
-        <div class="team-name">王先爽团队</div>
+        <div class="team-title">文档智能 + 数据分析</div>
+        <div class="team-name">高玉伟</div>
       </div>
 
       <!-- 分割线 -->
       <div class="divider" />
 
-      <!-- 数据库模块列表 -->
+      <!-- 功能模块列表 -->
       <div class="modules-section">
-        <div class="modules-label">覆盖数据库（部分展示）</div>
+        <div class="modules-label">系统功能</div>
         <div class="modules-grid">
           <div v-for="(db, i) in databases" :key="i" class="module-item">
             <span class="module-num">{{ String(i + 1).padStart(2, '0') }}</span>
@@ -170,18 +170,18 @@
       <!-- 底部统计 -->
       <div class="brand-stats">
         <div class="stats-group">
-          <span class="stats-value">50+</span>
-          <span class="stats-key">专业数据库</span>
+          <span class="stats-value">140+</span>
+          <span class="stats-key">Python 模块</span>
         </div>
         <div class="stats-sep" />
         <div class="stats-group">
-          <span class="stats-value">AI</span>
-          <span class="stats-key">智能解析引擎</span>
+          <span class="stats-value">48+</span>
+          <span class="stats-key">Vue 组件</span>
         </div>
         <div class="stats-sep" />
         <div class="stats-group">
-          <span class="stats-value">100%</span>
-          <span class="stats-key">上市银行覆盖</span>
+          <span class="stats-value">14</span>
+          <span class="stats-key">API 蓝图</span>
         </div>
       </div>
     </div>

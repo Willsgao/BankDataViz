@@ -1,6 +1,8 @@
-# BankDataViz · 金融文档智能解析引擎
+# DocBrain · 智能文档解析与数据分析平台
 
-> 面向银行/金融机构的文档智能处理平台。从年报/募集说明书中自动提取财务表格，经 OCR→LLM→重构 管线转换为结构化 Excel，支持会计勾稽自动化校验。
+> 从 PDF/图片中自动提取表格数据，支持结构化导出、规则校验、可视化分析及 RAG 智能问答。以银行年报数据为行业应用案例，底层引擎可适配任意行业文档。
+
+> **演示模式**：启动后无需登录，系统自动注入管理员权限，可直接体验全部功能。
 
 ---
 
@@ -12,13 +14,39 @@ PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重
           三通道召回+NMS                         动态列匹配降级              三类规则引擎
 ```
 
-**代码规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，15+ 设计模式实例
+**代码规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，48+ Vue 组件，15+ 设计模式实例
+
+---
+
+## 项目结构
+
+```
+BankDataViz/
+├── backend/                    # Python 后端
+│   ├── api/                    # 14 个 API 蓝图（文件上传/转换/审核/LLM/RAG...）
+│   ├── core/                   # 核心管线（表格检测→OCR→LLM→重构）
+│   │   └── table_processor/    # 8 步表格重构引擎（~2400 行）
+│   ├── services/               # 服务层（勾稽引擎、检测器、缓存管理）
+│   ├── database/               # 数据库层（适配器模式、迁移管理）
+│   └── models/                 # SQLAlchemy 数据模型
+├── frontend/                   # Vue 3 前端
+│   ├── src/
+│   │   ├── views/              # 9 个页面（解析/审核/看板/勾稽/问答/Prompt...）
+│   │   ├── components/         # 48+ 组件（excel/common/threecolumns/layout）
+│   │   ├── stores/             # 7 个 Pinia Store（auth/search/bankData/...）
+│   │   ├── composables/        # 可组合函数库
+│   │   ├── api/                # API 调用封装
+│   │   └── router/             # 路由与权限守卫
+│   └── package.json
+├── docs/screenshots/           # 功能截图（9 张，全流程覆盖）
+└── scripts/                    # 辅助脚本
+```
 
 ---
 
 ## 功能演示
 
-> 基于建设银行 2024 年报的真实数据展示，完整覆盖「上传→检测→解析→审核→校验→识别→看板」全流程。
+> 基于建设银行 2024 年报的真实数据展示，完整覆盖「上传→检测→解析→审核→校验→识别→看板→问答」全流程。
 
 ### 1. PDF 上传与分类
 
@@ -50,7 +78,7 @@ PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重
 配置银行财务指标校验规则，系统自动定位报表数据、执行公式计算、输出校验结果。
 
 ![勾稽规则配置](docs/screenshots/6_会计勾稽规则.png)
-<!-- ![勾稽校验结果](docs/screenshots/7_会计勾稽结果.png) -->
+![勾稽校验结果](docs/screenshots/7_会计勾稽结果.png)
 
 ### 6. LLM 智能解析
 
@@ -252,18 +280,20 @@ TraditionalTableDetector
 
 ---
 
-## 技术栈
+## 技术栈全景
 
 | 层 | 技术 | 用途 |
 |------|------|------|
-| **前端** | Vue 3 + Element Plus + Vue Router | 数据解析/审核/勾稽 UI |
-| **后端** | Python 3 + Flask + SQLAlchemy | REST API + WebSocket |
-| **PDF解析** | PyMuPDF + pdfplumber | 文字型 PDF 坐标提取 |
+| **前端框架** | Vue 3 + Pinia + Vue Router | SPA + 状态管理 + 路由守卫 |
+| **UI 组件** | Element Plus + ECharts 6 | 界面组件 + 数据可视化 |
+| **表格编辑** | Handsontable | 类 Excel 在线编辑 |
+| **后端框架** | Python 3 + Flask + SQLAlchemy | REST API + WebSocket |
+| **PDF 解析** | PyMuPDF + pdfplumber | 文字型 PDF 坐标提取 |
 | **OCR** | 百度 OCR / PaddleOCR | 扫描件文字识别 |
-| **LLM** | 火山引擎 DeepSeek | 表头结构分析、表格重构 |
+| **LLM** | 火山引擎 DeepSeek | 表头结构分析、表格重构、RAG |
 | **视觉检测** | YOLOv8 + OpenCV | 表格区域检测 |
 | **任务队列** | Redis | 异步任务队列 |
-| **数据库** | SQLite | 持久化存储 |
+| **数据库** | SQLite + Redis | 持久化 + 缓存 |
 | **桌面端** | PyQt5 | 独立桌面版本 |
 
 ---
@@ -306,21 +336,22 @@ error_num → 错误数值（逗号在%前、多负号等）
 # 后端
 cd backend
 pip install -r requirements.txt
-python app.py
+python app.py                # 默认 http://localhost:5000
 
 # 前端
 cd frontend
 npm install
-npm run serve
+npm run serve                # 默认 http://localhost:8080
 ```
+
+**演示模式**：前端已内置演示模式，启动后无需登录即可自动进入系统，拥有完整管理权限。可直接上传 PDF 测试解析流程，或通过 Dashboard 的「写入演示数据」按钮一键加载 12 家银行 2020-2024 年的示例数据。
 
 ---
 
-## 项目背景
+## License & Author
 
-独立开发，全栈交付。由真实银行数据分析需求驱动，从桌面原型到 Web 服务两阶段演进。
+独立开发，全栈交付。由真实银行数据处理需求驱动，从桌面原型（PyQt5）到 Web 服务（Vue 3 + Flask）两阶段演进。
 
-- **场景**：银行年报 / 募集说明书 / 监管问询函等资本市场文档的智能解析
 - **作者**：高玉伟
 - **7 年 NLP/AI 全栈研发** | 5 项授权发明专利 (4 项第一发明人)
 - **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、PDF 表格提取
