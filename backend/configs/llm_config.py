@@ -7,7 +7,12 @@ ARK_API_KEY = os.environ.get("LLM_API_KEY", "")
 ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
 # 模型配置
-DEFAULT_MODEL_ID = "doubao-1-5-vision-pro-250328"
+DEFAULT_MODEL_ID = "doubao-1-5-vision-pro-250328"        # 视觉模型（表格识别等）
+
+# RAG 独立配置（支持 DeepSeek / OpenAI 兼容 API）
+RAG_API_KEY = os.environ.get("DEEPSEEK_API_KEY", ARK_API_KEY)
+RAG_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+RAG_MODEL_ID = os.environ.get("DEEPSEEK_MODEL_ID", "deepseek-chat")
 
 # 处理配置
 MAX_TOKENS_CONFIG = {

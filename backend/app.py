@@ -16,6 +16,9 @@ DocuVista 应用构建入口
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()  # 加载项目根目录的 .env  → LLM_API_KEY 等环境变量
+
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 
@@ -72,14 +75,20 @@ CORS(
     },
 )
 
-# 兜底：确保所有响应（含错误响应）都带 CORS 头
+# 兜底：确保所有响应（含预检和错误响应）都带 CORS 头
 @app.after_request
 def add_cors_headers(response):
-    origin = response.headers.get('Access-Control-Allow-Origin', '')
-    if not origin:
-        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    response.headers.setdefault('Access-Control-Allow-Origin', 'http://localhost:8080')
     response.headers.setdefault('Access-Control-Allow-Credentials', 'true')
+    response.headers.setdefault('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+    response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
     return response
+
+# 显式处理所有 /api/* 的 OPTIONS 预检请求
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_preflight(path):
+    resp = app.make_default_options_response()
+    return resp
 
 # =============================================================================
 # 数据库初始化

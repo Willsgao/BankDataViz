@@ -391,13 +391,17 @@ const handleGuideBuildIndex = async () => {
 
 const focusInput = () => {
   if (!currentDocument.value) {
-    ElMessage.info('请先在左侧选择一个 PDF 文档')
+    ElMessage.warning('请先在左侧选择一个 PDF 文档')
     return
   }
   nextTick(() => {
     const el = inputRef.value?.$el || inputRef.value
     const textarea = el?.querySelector?.('textarea') || el
-    textarea?.focus?.()
+    if (textarea) {
+      textarea.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      textarea.focus?.()
+      ElMessage.success('请在下方输入框输入问题')
+    }
   })
 }
 

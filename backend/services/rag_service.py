@@ -25,7 +25,7 @@ from typing import List, Dict, Any, Optional, Tuple, Generator
 import fitz  # PyMuPDF
 import numpy as np
 
-from backend.configs.llm_config import ARK_API_KEY, ARK_BASE_URL, DEFAULT_MODEL_ID
+from backend.configs.llm_config import RAG_API_KEY, RAG_BASE_URL, RAG_MODEL_ID
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,19 @@ INDEX_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "rag_indice
 
 INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
-# BGE-large-zh 模型名称
-BGE_MODEL_NAME = "BAAI/bge-large-zh"
+# HuggingFace 模型缓存放到项目目录下，避免占用C盘
+HF_CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "models" / "huggingface"
+HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["HF_HOME"] = str(HF_CACHE_DIR)
+
+# BGE-large-zh 模型路径（优先本地，自动回退到HF下载）
+_BGE_LOCAL_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "models" / "bge-large-zh"
+if _BGE_LOCAL_PATH.exists() and (_BGE_LOCAL_PATH / "config.json").exists():
+    BGE_MODEL_NAME = str(_BGE_LOCAL_PATH)
+    logger.info(f"使用本地 Embedding 模型: {BGE_MODEL_NAME}")
+else:
+    BGE_MODEL_NAME = "BAAI/bge-large-zh"
+    logger.info("本地模型未找到，将从 HuggingFace 自动下载")
 
 
 # =============================================================================
@@ -127,7 +138,7 @@ class EmbeddingService:
         from sentence_transformers import SentenceTransformer
         logger.info(f"正在加载 Embedding 模型: {BGE_MODEL_NAME}")
         self._model = SentenceTransformer(BGE_MODEL_NAME)
-        logger.info(f"Embedding 模型加载完成，维度: {self._model.get_sentence_embedding_dimension()}")
+        logger.info(f"Embedding 模型加载完成，维度: {self._model.get_embedding_dimension()}")
 
     def encode(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
         """将文本列表编码为向量数组 (N, 768)"""
@@ -359,8 +370,8 @@ class RagPipeline:
         # 2. Embedding
         vectors = self.embedder.encode(chunk_texts)
 
-        # 3. FAISS 索引
-        self.index_mgr = FaissIndexManager()
+        # 3. FAISS 索引（使用向量实际维度，兼容不同模型）
+        self.index_mgr = FaissIndexManager(dim=vectors.shape[1])
         self.index_mgr.train(vectors)
         self.index_mgr.add(vectors, chunks)
 
@@ -380,13 +391,29 @@ class RagPipeline:
         }
 
     def load_index(self, doc_name: str) -> bool:
-        """加载已存在的索引"""
+        """加载已存在的索引（自动处理显示名→UUID文件名映射）"""
+        # 1. 直接匹配
         index_path = INDEX_DIR / f"{doc_name}.index"
         mgr = FaissIndexManager.load(str(index_path))
         if mgr:
             self.index_mgr = mgr
             self._current_doc = doc_name
             return True
+
+        # 2. 如果直接匹配失败，尝试通过文档列表查找映射
+        #    （前端传的是显示名，索引是按UUID文件名存的）
+        docs = self.loader.get_available_documents()
+        for d in docs:
+            if d["name"] == doc_name:
+                uuid_name = Path(d["path"]).name
+                index_path = INDEX_DIR / f"{uuid_name}.index"
+                mgr = FaissIndexManager.load(str(index_path))
+                if mgr:
+                    self.index_mgr = mgr
+                    self._current_doc = uuid_name
+                    logger.info(f"通过文档名映射加载索引: {doc_name} → {uuid_name}")
+                    return True
+                break
         return False
 
     def query(self, question: str, top_k: int = TOP_K) -> Dict[str, Any]:
@@ -482,12 +509,12 @@ class RagPipeline:
         messages = self._build_messages(question, context, session_id)
 
         client = OpenAI(
-            base_url=ARK_BASE_URL,
-            api_key=ARK_API_KEY
+            base_url=RAG_BASE_URL,
+            api_key=RAG_API_KEY
         )
 
         response = client.chat.completions.create(
-            model=DEFAULT_MODEL_ID,
+            model=RAG_MODEL_ID,
             messages=messages,
             temperature=0.3,
             max_tokens=2048,
@@ -515,13 +542,13 @@ class RagPipeline:
         messages = self._build_messages(question, context, session_id)
 
         client = OpenAI(
-            base_url=ARK_BASE_URL,
-            api_key=ARK_API_KEY
+            base_url=RAG_BASE_URL,
+            api_key=RAG_API_KEY
         )
 
         try:
             stream = client.chat.completions.create(
-                model=DEFAULT_MODEL_ID,
+                model=RAG_MODEL_ID,
                 messages=messages,
                 temperature=0.3,
                 max_tokens=2048,

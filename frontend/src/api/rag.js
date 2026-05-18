@@ -8,7 +8,7 @@ import { getBackendUrl } from '@/utils/config'
  * @param {boolean} rebuild - 是否强制重建
  */
 export const buildIndex = (pdfPath, rebuild = false) => {
-  return http.post('/api/rag/build-index', { pdf_path: pdfPath, rebuild })
+  return http.post('/api/rag/build-index', { pdf_path: pdfPath, rebuild }, { timeout: 600000 })
 }
 
 /**

@@ -11,6 +11,10 @@ DocuVista 服务启动入口
   生产环境：nohup python3 backend_run.py > logs/app.log 2>&1 &
 """
 
+from dotenv import load_dotenv
+
+load_dotenv()  # 加载项目根目录的 .env 文件
+
 from backend.app import app
 from backend.app import init_existing_files
 
