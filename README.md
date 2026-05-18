@@ -1,4 +1,5 @@
-# DocBrain · 智能文档解析与数据分析平台
+# BankDataViz | DocBrain
+> 智能文档解析 · RAG 问答 · 数据分析与可视化平台
 
 > 从 PDF/图片中自动提取表格数据，支持结构化导出、规则校验、可视化分析及 RAG 智能问答。以银行年报数据为行业应用案例，底层引擎可适配任意行业文档。
 
@@ -263,6 +264,60 @@ TraditionalTableDetector
 
 ---
 
+### 9. RAG 智能问答管线
+
+完整向量检索+生成链路，支持流式输出与多轮对话记忆：
+
+```
+PDF文档 ──→ PyMuPDF提取文本 ──→ 语义分块(512字/128重叠)
+                                         │
+                                    BGE-large-zh (1024-dim)
+                                         │
+                                    FAISS IndexIVFFlat
+                                     (IVF聚类, nlist自适应)
+                                         │
+  用户提问 ──→ 查询向量化 ──→ Top-K 检索 ──→ 拼接上下文
+                                                 │
+                                           DeepSeek 生成
+                                          (SSE 流式输出)
+                                                 │
+                                         标注引用来源 + 相似度
+```
+
+**关键配置**：
+
+| 组件 | 参数 | 说明 |
+|------|------|------|
+| 分块策略 | 512 字符 + 128 overlap | 语义边界切分，避免截断 |
+| 向量模型 | BGE-large-zh | 中文优化，支持 query/passage 双编码 |
+| 向量维度 | 1024 | native float32，归一化后内积检索 |
+| FAISS 索引 | IndexIVFFlat | IVF 聚类，nlist/2 自适应（最少 125） |
+| 检索 | nprobe=16, Top-K=5 | 搜索 16/125 个聚类，召回 5 个片段 |
+| 生成 | DeepSeek (OpenAI 兼容) | temperature=0.3, 2K tokens |
+| 流式 | SSE (Server-Sent Events) | token-level 实时推送 |
+| 对话记忆 | 最近 10 轮 | session_id 隔离，支持清除历史 |
+| 引用标注 | [片段N] + 相似度 | 每个回答附带检索来源 |
+
+```python
+# backend/services/rag_service.py
+class RagPipeline:
+    def query_with_answer(self, question, top_k=5, session_id=""):
+        # 1. 向量检索
+        query_vec = self.embedder.encode_query(question)  # BGE query prefix
+        results = self.index_mgr.search(query_vec, k=top_k)
+        
+        # 2. 构建上下文 + 来源
+        context = "\n".join(f"[片段{i+1}] {r['text']}" for i, r in enumerate(results))
+        sources = [{"index": i+1, "source": r["source"], "similarity": r["score"]}
+                   for i, r in enumerate(results)]
+        
+        # 3. LLM 生成 (流式 SSE)
+        for line in self.generate_answer_stream(question, context, sources, session_id):
+            yield line  # data: {"type":"token","content":"..."}
+```
+
+---
+
 ## 架构全景
 
 ```
@@ -299,14 +354,17 @@ TraditionalTableDetector
 | **前端框架** | Vue 3 + Pinia + Vue Router | SPA + 状态管理 + 路由守卫 |
 | **UI 组件** | Element Plus + ECharts 6 | 界面组件 + 数据可视化 |
 | **表格编辑** | Handsontable | 类 Excel 在线编辑 |
-| **后端框架** | Python 3 + Flask + SQLAlchemy | REST API + WebSocket |
+| **后端框架** | Python 3.11 + Flask 3 + SQLAlchemy 2 | REST API + WebSocket + ORM |
 | **PDF 解析** | PyMuPDF + pdfplumber | 文字型 PDF 坐标提取 |
 | **OCR** | 百度 OCR / PaddleOCR | 扫描件文字识别 |
-| **LLM** | 火山引擎 DeepSeek | 表头结构分析、表格重构、RAG |
 | **视觉检测** | YOLOv8 + OpenCV | 表格区域检测 |
+| **Embedding** | BGE-large-zh + sentence-transformers | 文本向量化（1024 维） |
+| **向量检索** | FAISS (IndexIVFFlat) | IVF 聚类索引，nprobe 自适应 |
+| **RAG 生成** | DeepSeek API (OpenAI 兼容) | 检索增强生成 + SSE 流式输出 |
+| **表格解析 LLM** | 火山引擎 ARK (豆包 Vision) | 表头结构分析、表格重构 |
 | **任务队列** | Redis | 异步任务队列 |
 | **数据库** | SQLite + Redis | 持久化 + 缓存 |
-| **桌面端** | PyQt5 | 独立桌面版本 |
+| **缓存策略** | Redis(热) → SQLite(温) → 磁盘(冷) | 三级缓存，MD5 + model 复合键 |
 
 ---
 
