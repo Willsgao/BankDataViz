@@ -1,267 +1,306 @@
-# BankDataViz · AI 驱动的金融文档智能平台
+# BankDataViz · 金融文档智能解析引擎
 
-> **面向 AI/LLM 应用开发工程师岗位的完整全栈项目**。以 RAG 流式问答、Prompt 工程、LLM 编排为核心，辅以 PDF 表格结构化解析管线，提供从文档理解到自然语言交互的端到端金融 AI 解决方案。
-
-[![Python 3](https://img.shields.io/badge/Python-3.x-blue)](https://www.python.org/)
-[![Vue 3](https://img.shields.io/badge/Vue-3.x-green)](https://vuejs.org/)
-[![Flask](https://img.shields.io/badge/Flask-2.x-lightgrey)](https://flask.palletsprojects.com/)
-[![FAISS](https://img.shields.io/badge/FAISS-IVFFlat-orange)](https://github.com/facebookresearch/faiss)
-[![LLM](https://img.shields.io/badge/LLM-DeepSeek-purple)](https://www.deepseek.com/)
+> 面向银行/金融机构的文档智能处理平台。从年报/募集说明书中自动提取财务表格，经 OCR→LLM→重构 管线转换为结构化 Excel，支持会计勾稽自动化校验。
 
 ---
 
-## 🎯 AI/LLM 能力总览
+## Overview
 
-本项目围绕现代 LLM 应用开发的核心能力栈设计，是面向 **RAG、Prompt 工程、LLM 编排** 三大方向的实战型全栈项目。
-
-| 能力域 | 实现要点 | 技术价值 |
-|--------|----------|----------|
-| **RAG 检索增强生成** | FAISS IndexIVFFlat (1024 聚类) + BGE-large-zh Embedding | 展示向量检索系统的工程落地能力 |
-| **流式输出 (SSE)** | Flask SSE + ReadableStream + 逐 token 渲染 | **对标 ChatGPT 的打字机体验**，理解 LLM 实时响应的完整链路 |
-| **多轮对话记忆** | 服务端内存会话管理 + 10 轮自动截断 + session 隔离 | 展示对话状态管理与上下文窗口控制 |
-| **Prompt 工程** | 5 级复杂度自适应评估 + 4 类结构化模板 + 4 种 JSON 容错策略 | **系统化的提示词设计方法论**，非简单 prompt 拼接 |
-| **LLM 编排** | 指数退避重试 + 多级缓存 + 并发限流 | 展示 LLM 调用工程化的可靠性设计 |
-
-### 流式 RAG 问答架构
-
-```mermaid
-sequenceDiagram
-    participant U as 用户
-    participant FE as Vue 3 前端
-    participant API as Flask SSE 端点
-    participant RAG as RagPipeline
-    participant FAISS as FAISS 向量索引
-    participant LLM as DeepSeek
-
-    U->>FE: 输入问题
-    FE->>API: POST /api/rag/query-stream
-    API->>RAG: 检索 + 构建上下文
-    RAG->>FAISS: Top-K 语义检索 (<10ms)
-    FAISS-->>RAG: 相关文档片段
-    RAG->>LLM: 流式生成请求 (stream=True)
-    loop 逐 token
-        LLM-->>RAG: token
-        RAG-->>API: yield SSE event
-        API-->>FE: data: {"type":"token","content":"..."}
-        FE->>U: 打字机逐字显示
-    end
-    API-->>FE: data: {"type":"done","sources":[...],"timing":{...}}
+```
+PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重构] → [结构化Excel] → [会计勾稽校验]
+                 ↓                                    ↑                    ↓
+          三通道召回+NMS                         动态列匹配降级              三类规则引擎
 ```
 
-### AI/LLM 技术栈对比
-
-| 维度 | 本项目 | LangChain 方案 | 纯 Prompt 方案 |
-|------|--------|---------------|---------------|
-| RAG 检索 | **FAISS IVFFlat**（自研索引管理） | FAISS wrapper | ❌ 无检索 |
-| 流式输出 | **SSE 原生**，无框架依赖 | Callback 回调 | ❌ 一次性返回 |
-| 多轮对话 | **内存会话管理**，O(1) 存取 | Memory 模块（耦合度高） | ❌ 无状态 |
-| Prompt 管理 | **5 级自适应**，按复杂度路由 | PromptTemplate 字符串拼接 | 固定模板 |
-| LLM 容错 | **4 种 JSON fallback** + 指数退避 | Output Parser（2 种容错） | 仅 retry |
-| 依赖复杂度 | **零 AI 框架**，纯 Python + Flask | 依赖 langchain 全家桶 | 零依赖 |
+**代码规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，15+ 设计模式实例
 
 ---
 
-## 🚀 核心功能
+## 功能演示
 
-### RAG 智能问答（带流式输出）
+> 基于建设银行 2024 年报的真实数据展示，完整覆盖「上传→检测→解析→审核→校验→识别→看板」全流程。
 
-通过自然语言提问，系统自动检索文档库中的相关内容，并由 LLM 生成带来源引用的流式回答。
+### 1. PDF 上传与分类
 
-- **流式打字机效果**：SSE 推送 + 前端 ReadableStream，逐 token 渲染，支持中途取消
-- **多轮对话记忆**：自动管理会话上下文，支持连续追问，上限 10 轮自动截断
-- **来源追溯**：每个回答附带 Top-K 文档片段及相似度分数
-- **性能指标透明**：展示检索耗时、生成耗时、首 token 延迟等关键指标
+上传 PDF 后，系统自动识别页面类型（文本型/扫描件），并对扫描件进行三通道表格检测（YOLOv8 + 线条分析 + 文本聚类）。
 
-### Prompt 工程能力展示（独立专页）
+![PDF上传](docs/screenshots/1_上传PDF.png)
+![PDF分类](docs/screenshots/2_PDF分类.png)
 
-[`/prompt-engineering`](http://localhost:8080/prompt-engineering) — 系统化展示提示词设计方法论：
+### 2. 表格数据提取
 
-- **5 级复杂度自适应评估体系**：从四维度（横向表头/纵向指标/结构复杂度/数据量）评估输入，自动路由到最优 Prompt 模板
-- **4 类结构化 Prompt 模板**：ASSESSMENT / STANDARD / COMPLEX / NON_FINANCIAL，职责分离
-- **4 种 JSON 容错 fallback 策略**：数组→对象→嵌套→深度搜索，逐级兜底，确保 LLM 输出健壮解析
-- **关键指标展示**：Prompt 设计亮点、适用场景、典型响应结构
+对文本型 PDF 使用 PyMuPDF 坐标提取，对扫描件使用豆包 API 视觉识别，提取表格内容并展示在界面中。
 
-### 金融文档表格解析管线（工程深度证明）
+![数据提取](docs/screenshots/3_数据提取.png)
 
-端到端的 PDF 表格结构化提取管线，证明大规模复杂工程的驾驭能力：
+### 3. 数据审核与校对
 
-```
-PDF → 表格检测(三通道+NMS) → OCR → LLM表头分析 → 8步重构 → Excel → 会计勾稽校验
-```
+支持在界面中直接编辑表格数据，自动保存修改，支持 undo/redo。
 
-- **三通道表格检测**：YOLOv8 + 线条分析 + 文本聚类 → NMS 融合
-- **LLM 驱动表头分析**：智能推断列名/币种/单位/表头层级路径
-- **8 步表格重构**：2400+ 行核心代码，含三级列数匹配降级策略
-- **会计勾稽引擎**：1317 行纯 Python 校验引擎，3 类规则覆盖银行核心指标
+![数据校对](docs/screenshots/4_数据校对.png)
 
----
+### 4. 数据导出与转换
 
-## 📊 RAG 技术细节
+一键将解析结果导出为结构化 Excel，支持多 sheet 打包下载。
 
-### FAISS 索引配置
+![数据转换](docs/screenshots/5_数据转换.png)
 
-```python
-# backend/services/rag_service.py
-import faiss
+### 5. 会计勾稽自动化校验
 
-dim = 768                        # BGE-large-zh 向量维度
-nlist = 1024                     # 聚类中心数
-quantizer = faiss.IndexFlatIP(dim)
-index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
+配置银行财务指标校验规则，系统自动定位报表数据、执行公式计算、输出校验结果。
 
-index.train(training_vectors)    # K-Means 训练聚类中心
-index.add(database_vectors)      # 批量添加文档向量
+![勾稽规则配置](docs/screenshots/6_会计勾稽规则.png)
+<!-- ![勾稽校验结果](docs/screenshots/7_会计勾稽结果.png) -->
 
-# 检索参数
-index.nprobe = 16                # 搜索 16 个最近聚类
-distances, indices = index.search(query_vector, k=5)  # Top-5 召回
-```
+### 6. LLM 智能解析
 
-### 检索性能
+对扫描件中的复杂表格区域进行框选，由 LLM 智能分析表头结构，辅助人工校正。
 
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 召回率 (Recall@5) | 97% | 在约 500-2000 文档块规模下 |
-| 平均检索延迟 | <10ms | IndexIVFFlat，nprobe=16 |
-| 端到端问答延迟 | 1-3s | 含 LLM 生成，受 API 响应影响 |
-| 流式首 token 延迟 | 0.5-1.5s | SSE 连接 + 检索 + LLM 首个 token |
-| Embedding 维度 | 768 | BGE-large-zh，内积相似度 |
-| 内存占用 | ~1.5GB | 含 BGE 模型 + FAISS 索引 |
+![LLM智能解析](docs/screenshots/8_LLM智能解析.png)
+
+### 7. 数据可视化看板
+
+财务指标趋势分析，原始数据与图表联动，支持穿透查看明细。
+
+![数据可视化](docs/screenshots/9_数据可视化.png)
 
 ---
 
-## 🏗️ 系统架构
+## 核心技术
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Vue 3 + Element Plus                     │
-│  智能问答 │ Prompt工程 │ 数据解析 │ 会计勾稽 │ 数据审核  │
-│  (流式SSE)│ (展示页)  │          │         │          │
-└──────────────────────┬──────────────────────────────────┘
-                       │ REST API / WebSocket / SSE
-┌──────────────────────┴──────────────────────────────────┐
-│                    Flask Backend                          │
-│                                                           │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │  15 API Blueprints                                   │ │
-│  │  rag (SSE流式)  upload  file  convert  audit  llm    │ │
-│  └─────────────────────────────────────────────────────┘ │
-│                                                           │
-│  ┌────────────┐  ┌──────────────┐  ┌──────────────────┐ │
-│  │ RagPipeline │  │ Table Pipeline│  │ Database Facade  │ │
-│  │ 检索+生成   │  │ 检测→重构    │  │ Old/New/File     │ │
-│  │ 对话记忆   │  │ 8步管线      │  │ Adapter Pattern  │ │
-│  └────────────┘  └──────────────┘  └──────────────────┘ │
-│                                                           │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │  基础设施: Redis Queue  │  SQLite  │  多级缓存      │ │
-│  └─────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
-```
-
-### 多级缓存设计
-
-```
-┌──────────┐   ┌──────────┐   ┌──────────┐
-│ 内存会话  │ ← │  Redis   │ ← │  SQLite  │
-│ (对话)    │   │ (热缓存)  │   │ (持久化)  │
-└──────────┘   └──────────┘   └──────────┘
-                    ↑              ↑
-                    └── MD5 复合键 ──┘
-```
-
-- OCR 结果：Redis → DB → 磁盘，MD5 去重
-- LLM 结果：MD5 + model_name 复合键，压缩存储
-- 对话历史：内存 dict，O(1) 存取，自动截断
-
-### LLM 调用可靠性设计
-
-```python
-# 指数退避重试
-for attempt in range(3):
-    try:
-        response = client.chat.completions.create(
-            model="deepseek-v3",
-            messages=messages,
-            stream=True,
-            temperature=0.1
-        )
-        break
-    except Exception:
-        if attempt < 2:
-            time.sleep(2 ** attempt)  # 2s → 4s
-```
-
----
-
-## 🔧 表格解析管线（工程深度）
-
-> 以下为项目工程深度的核心体现——端到端的 PDF 表格结构化提取系统。
-
-### 三通道表格检测 + NMS 融合
+### 1. PDF 表格检测 —— 三通道召回 + NMS 融合
 
 ```python
 # backend/services/table_page_detector.py
 bboxes  = []
-bboxes += _ch1_yolo(pdf_path, dpi)       # YOLOv8 视觉检测
-bboxes += _ch2_lines(pdf_path)            # 横/竖线外接矩形
-bboxes += _ch3_text_cluster(pdf_path)     # 文本聚行聚列
+bboxes += _ch1_yolo(pdf_path, dpi)       # YOLOv8 视觉检测 (cls=0: table)
+bboxes += _ch2_lines(pdf_path)            # pdfplumber 横/竖线外接矩形
+bboxes += _ch3_text_cluster(pdf_path)     # 文本块 y 中心聚行 + x 中心聚列
 # → NMS (IoU=0.2) → 并集合并 (召回优先)
 ```
 
 | 通道 | 技术 | 场景 | 特点 |
 |------|------|------|------|
-| YOLOv8 | 目标检测 | 有线框表格 | 视觉特征 |
-| 线条检测 | pdfplumber | 规则表格 | 高精度矩形 |
-| 文本聚类 | 字符坐标 | 无框线表格 | 启发式 |
+| **YOLOv8** | 目标检测 | 有线框表格 | 视觉特征 |
+| **线条检测** | pdfplumber | 规则表格 | 高精度矩形 |
+| **文本聚类** | 字符坐标统计 | 无框线表格 | 启发式 heuristic |
 
-### 8 步表格重构流程
+---
+
+### 2. OCR → LLM → 重构 端到端管线
+
+**TableReconstructionPipeline** (backend/core/table_processor/)
+
+```mermaid
+flowchart LR
+  A[输入图片] --> B[OCR识别]
+  B --> C[LLM表头分析]
+  C --> D[8步表格重构]
+  D --> E[输出Excel]
+```
+
+**LLM 提示词工程亮点**：
+- 多级表头路径生成：`"2024年>>12月31日"` 支持任意层级
+- 币种/单位自动推断：从表格上下文提取 default_currency / default_unit
+- 响应格式容错：4种 JSON 格式自动探测（数组/对象/嵌套/深度搜索）
+- 限流重试：指数退避 (2s→4s)，3次重试
+
+**8 步重构流程** (table_rebuilder.py, ~2400 行)：
 
 | 步骤 | 名称 | 核心算法 |
 |------|------|----------|
-| 0 | 引用修正 | LLM 引用的 OCR 表验证 |
+| 0 | 引用修正 | 确保 LLM 引用的 OCR 表格存在有效数据 |
 | 1 | 数据准备 | 直通 |
-| 2 | 表格提取 | OCR 单元格 + LLM 结构分离 |
-| 3 | OCR 合并 | 多子表合并 + 边界记录 |
+| 2 | 表格提取 | 分离 OCR 单元格和 LLM 结构 |
+| 3 | OCR 合并 | 多子表合并 + 表格边界记录 |
 | 4 | 基础表格 | 行列一致性检查 |
-| 5 | **列标题匹配** | **三级降级策略**（空列检测→Span分析→全None列） |
-| 6 | 行标题匹配 | 智能相似度 + 层级推理 |
-| 7 | 行表头合并 | 左侧空表头列合并 |
+| 5 | **列标题 + 列数匹配** | **三级降级策略**（见下文）|
+| 6 | 行标题匹配 | 智能相似度 + 层级关系推理 |
+| 7 | 行表头合并 | 左侧连续空表头列合并 |
 | 8 | 数据标记 | 5 类单元格类型分析 |
 
-### 会计勾稽引擎
+---
 
-**1317 行纯 Python 无外部依赖**，3 类规则：
+### 3. 列数匹配 —— 三级降级策略
 
-| 规则类型 | 校验逻辑 | 典型场景 |
-|----------|---------|----------|
-| formula | 计算值 = (分子/分母) × multiplier | 资本充足率 |
-| sum_check | 分项求和 vs 合计值 | 风险加权资产 |
-| periodicity | 跨期差值校验 | 跨期一致性 |
+当 OCR 列数 > LLM 列数时，逐步尝试：
+
+```
+Primary: 空列检测
+  └── 遍历 20 行，标记"None + 无中文 + 无数字"的列
+  └── 优先删除右侧空列
+
+Fallback 1: OCR Span 分析
+  └── 统计每列被不同 OCR cell 的 span 覆盖次数
+  └── 覆盖次数最多 + 独立值最少的列 → 冗余列
+
+Fallback 2: 全 None 列 / 完全重复列对
+  └── 兜底策略，保证至少能定位一列
+
+LLM 列数 > OCR 列数: 左侧补充 None 列
+```
 
 ---
 
-## 🛠️ 技术栈
+### 4. 会计勾稽引擎 (backend/services/audit_engine.py)
 
-| 层级 | 技术 | 用途 |
+**1317 行无外部依赖的纯 Python 校验引擎**，3 类规则规则所有银行财务指标：
+
+| 规则类型 | 校验方法 | 容差 | 典型场景 |
+|----------|---------|------|----------|
+| **formula** | 计算值 = (分子/分母) × multiplier | 百分比/绝对值 | 资本充足率、杠杆率 |
+| **sum_check** | 分项求和 vs 合计值 | 绝对值 (默认1000) | 流动覆盖率、风险加权资产 |
+| **periodicity** | 跨期差值 vs 容差 | 绝对值 (默认0.5) | 跨期一致性校验 |
+
+**智能行列定位**：
+- 行匹配：评分制（精确=100分，包含=10分），从 B 列开始防误匹配
+- 列匹配：日期列用 `_find_period_date_col` 智能判断 Row3 偏移
+- 数据提取：向下回退 5 行 + 向右偏移 5 列双重容错
+- 数值解析：千分位逗号、括号负数 `(123)→-123`、百分比
+
+---
+
+### 5. 多级缓存架构
+
+```
+┌──────────┐   ┌──────────┐   ┌──────────┐
+│ Redis    │ ← │ SQLite   │ ← │ 磁盘文件  │
+│ (热)     │   │ (温)     │   │ (冷)     │
+└──────────┘   └──────────┘   └──────────┘
+     ↑              ↑              ↑
+     └────── MD5 哈希键 ────────┘
+```
+
+- OCR 结果：三级缓存（Redis → DB → 磁盘），MD5 去重
+- LLM 结果：MD5 + model_name 复合主键，压缩存储，过期清理
+- 进度状态：内存 + DB + Redis 三同步，WebSocket 实时推送
+
+---
+
+### 6. 数据审核 —— 三策略更新
+
+```python
+# backend/api/file_handlers/excel_data_handler.py
+Strategy 1: diff-based 精确更新
+  └── 前端发送 [{row, col, oldValue, newValue}, ...]
+  └── 逐条应用到 Excel，自动 0-based → 1-based 转换
+
+Strategy 2: 完整数据覆盖
+  └── 前端发送完整二维数组
+  └── 清空目标 Sheet → 写入新数据
+  └── 自动列数不匹配修复 (fill_column_mismatch)
+
+Strategy 3: 回退保护
+  └── 两种策略都失败时返回错误，不破坏原文件
+  └── 编辑前自动保存 JSON 快照
+```
+
+---
+
+### 7. 数据库 —— 适配器模式 + 统一入口
+
+```
+UnifiedDatabaseManager (Facade)
+  ├── OldDatabaseManagerAdapter    ← 旧版 SQLite 兼容
+  ├── NewDatabaseManagerAdapter    ← 新版表格处理表
+  ├── FileUploadServiceAdapter     ← 文件上传
+  └── FileManagementServiceAdapter ← 文件管理
+```
+
+设计目标：多版本数据库共存，迁移期间不中断服务。
+
+---
+
+### 8. 表格检测筛选 —— 传统 CV + 可配置阈值
+
+```
+TraditionalTableDetector
+  ├── Hough 变换提取横/竖线
+  ├── 轮廓文字密度分析
+  ├── 三分类: HAS_TABLE / NO_TABLE / UNCERTAIN
+  └── 可配置置信度阈值 (high=0.7, low=0.3)
+```
+
+---
+
+## 架构全景
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   Vue 3 + Element Plus               │
+│    数据解析  │  数据审核  │  会计勾稽  │  智能识别   │
+└──────────────────────┬──────────────────────────────┘
+                       │ REST API / WebSocket
+┌──────────────────────┴──────────────────────────────┐
+│                   Flask Backend                      │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │           14 API Blueprints                     │  │
+│  │  upload  file  convert  audit  llm  smart  ...  │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
+│  │  Service  │ │  Core    │ │  Database (Facade)   │ │
+│  │  Layer    │ │ Pipeline │ │  Old / New / File    │ │
+│  └──────────┘ └──────────┘ └──────────────────────┘ │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  Queue: Redis + Worker (多进程并行PDF转换)     │  │
+│  └────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## 技术栈
+
+| 层 | 技术 | 用途 |
 |------|------|------|
-| **前端** | Vue 3 + Element Plus + Vue Router | 全功能管理界面 |
-| **后端** | Python 3 + Flask + SQLAlchemy | REST API + WebSocket + SSE |
-| **向量检索** | **FAISS (IndexIVFFlat)** | 文档语义检索 |
-| **Embedding** | BGE-large-zh (768维) | 中文文本向量化 |
-| **LLM** | 火山引擎 DeepSeek | RAG 生成 + 表头分析 |
-| **流式协议** | **SSE (Server-Sent Events)** | 实时 token 推送 |
-| **PDF 解析** | PyMuPDF + pdfplumber | 坐标提取 |
-| **OCR** | 百度 OCR / PaddleOCR | 扫描件识别 |
+| **前端** | Vue 3 + Element Plus + Vue Router | 数据解析/审核/勾稽 UI |
+| **后端** | Python 3 + Flask + SQLAlchemy | REST API + WebSocket |
+| **PDF解析** | PyMuPDF + pdfplumber | 文字型 PDF 坐标提取 |
+| **OCR** | 百度 OCR / PaddleOCR | 扫描件文字识别 |
+| **LLM** | 火山引擎 DeepSeek | 表头结构分析、表格重构 |
 | **视觉检测** | YOLOv8 + OpenCV | 表格区域检测 |
-| **缓存** | Redis + SQLite + Disk | 三级缓存 |
+| **任务队列** | Redis | 异步任务队列 |
+| **数据库** | SQLite | 持久化存储 |
 | **桌面端** | PyQt5 | 独立桌面版本 |
 
-**代码规模**：442+ 次提交，140+ Python 模块，15 个 API 蓝图，15+ 设计模式实例
+---
+
+## 🔬 算法细节
+
+### 表头相似度计算
+
+```
+calculate_similarity_v2(text1, text2):
+  完全相等 → 1.0
+  包含关系且覆盖率 > 80% → 0.9
+  包含关系且覆盖率 ≤ 80% → 0.2  ← 防过匹配
+  Jaccard 相似度 (字符集合) → 0~1
+```
+
+### 动态匹配阈值
+
+```
+短文本 (≤3字符):  阈值 = 0.9
+中等文本 (≤10):   阈值 = 0.7
+长文本 (>10):     阈值 = 0.6
+```
+
+### 单元格类型 5 类分类
+
+```
+blank     → 无内容
+text      → 纯文本（不含数字）
+std_num   → 标准数值格式（千分位正确）
+minor_num → 小问题数值
+error_num → 错误数值（逗号在%前、多负号等）
+```
 
 ---
 
-## ⚡ 快速启动
+## 快速启动
 
 ```bash
 # 后端
@@ -275,38 +314,14 @@ npm install
 npm run serve
 ```
 
-启动后访问：
-- 智能问答：`http://localhost:8080/rag-chat`（默认首页）
-- Prompt 工程：`http://localhost:8080/prompt-engineering`
-- 数据解析：`http://localhost:8080/bank-data`
-
 ---
 
-## 👤 项目背景
+## 项目背景
 
 独立开发，全栈交付。由真实银行数据分析需求驱动，从桌面原型到 Web 服务两阶段演进。
 
 - **场景**：银行年报 / 募集说明书 / 监管问询函等资本市场文档的智能解析
 - **作者**：高玉伟
 - **7 年 NLP/AI 全栈研发** | 5 项授权发明专利 (4 项第一发明人)
-- **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、RAG 系统设计
+- **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、PDF 表格提取
 
-### 求职方向
-
-**AI/LLM 应用开发工程师** — 本项目体现的核心竞争力：
-
-1. **RAG 系统设计**：从向量索引到流式输出的完整链路
-2. **Prompt 工程方法论**：5 级复杂度评估 + 自适应模板路由 + 多层容错
-3. **LLM 应用工程化**：流式协议、对话管理、缓存策略、可靠性保障
-4. **全栈交付能力**：Vue 3 + Flask + FAISS 端到端独立开发
-5. **复杂工程驾驭**：140+ 模块的大型项目架构与设计模式
-
----
-
-## 📄 相关专利
-
-- 一种基于企业信息语义检索的多模态数据分块方法及系统（ZL202410552139.0，第二发明人）
-
----
-
-*Built with ❤️ for financial AI — showcasing what modern LLM applications can achieve.*
