@@ -38,7 +38,7 @@ BankDataViz/
 │   │   ├── api/                # API 调用封装
 │   │   └── router/             # 路由与权限守卫
 │   └── package.json
-├── docs/screenshots/           # 功能截图（10 张，全流程覆盖）
+├── docs/screenshots/           # 功能截图（11 张，全流程覆盖）
 └── scripts/                    # 辅助脚本
 ```
 
@@ -97,6 +97,12 @@ BankDataViz/
 上传银行年报 PDF → 构建 FAISS 向量索引 → 自然语言提问 → 检索召回相关片段 → LLM 生成答案并标注引用来源。
 
 ![RAG智能问答](docs/screenshots/10_RAG问题检索.png)
+
+### 9. Prompt 工程设计
+
+针对银行财务表格的复杂性，设计了 5 级评估体系 + 4 种专用 Prompt 模板 + 4 级 JSON 容错策略，确保 LLM 输出的稳定性与准确度。
+
+![Prompt工程设计](docs/screenshots/11_prompt设置标准.png)
 
 ---
 
