@@ -38,7 +38,7 @@ BankDataViz/
 │   │   ├── api/                # API 调用封装
 │   │   └── router/             # 路由与权限守卫
 │   └── package.json
-├── docs/screenshots/           # 功能截图（9 张，全流程覆盖）
+├── docs/screenshots/           # 功能截图（10 张，全流程覆盖）
 └── scripts/                    # 辅助脚本
 ```
 
@@ -91,6 +91,12 @@ BankDataViz/
 财务指标趋势分析，原始数据与图表联动，支持穿透查看明细。
 
 ![数据可视化](docs/screenshots/9_数据可视化.png)
+
+### 8. RAG 智能问答
+
+上传银行年报 PDF → 构建 FAISS 向量索引 → 自然语言提问 → 检索召回相关片段 → LLM 生成答案并标注引用来源。
+
+![RAG智能问答](docs/screenshots/10_RAG问题检索.png)
 
 ---
 
