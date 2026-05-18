@@ -72,6 +72,15 @@ CORS(
     },
 )
 
+# 兜底：确保所有响应（含错误响应）都带 CORS 头
+@app.after_request
+def add_cors_headers(response):
+    origin = response.headers.get('Access-Control-Allow-Origin', '')
+    if not origin:
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    response.headers.setdefault('Access-Control-Allow-Credentials', 'true')
+    return response
+
 # =============================================================================
 # 数据库初始化
 # =============================================================================

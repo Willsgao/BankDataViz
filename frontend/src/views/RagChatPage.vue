@@ -3,8 +3,8 @@
     <!-- 左侧面板：文档选择 -->
     <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
-        <h3>文档列表</h3>
-        <el-button size="small" text @click="sidebarCollapsed = !sidebarCollapsed">
+        <h3 v-show="!sidebarCollapsed">文档列表</h3>
+        <el-button size="small" text @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开文档列表' : '收起文档列表'">
           <el-icon><DArrowLeft v-if="!sidebarCollapsed" /><DArrowRight v-else /></el-icon>
         </el-button>
       </div>
@@ -96,20 +96,20 @@
           <p>选择一个 PDF 文档，然后输入你的问题</p>
           <!-- 功能引导卡片 -->
           <div class="guide-cards">
-            <div class="guide-card">
+            <div class="guide-card" @click="goToUpload">
               <el-icon :size="24" color="#409EFF"><Upload /></el-icon>
               <span class="guide-title">上传 PDF</span>
-              <span class="guide-desc">在「数据解析」页面上传你的 PDF 文档</span>
+              <span class="guide-desc">前往「数据解析」页面上传文档</span>
             </div>
-            <div class="guide-card">
+            <div class="guide-card" @click="handleGuideBuildIndex">
               <el-icon :size="24" color="#67C23A"><Connection /></el-icon>
               <span class="guide-title">构建索引</span>
-              <span class="guide-desc">选中左侧文档，点击「构建索引」按钮</span>
+              <span class="guide-desc">{{ currentDocument && !indexedDocs.has(currentDocument) ? '为当前文档构建向量索引' : '选中左侧未索引的文档后点击' }}</span>
             </div>
-            <div class="guide-card">
+            <div class="guide-card" @click="focusInput">
               <el-icon :size="24" color="#E6A23C"><ChatDotRound /></el-icon>
               <span class="guide-title">开始提问</span>
-              <span class="guide-desc">在输入框输入问题，获取 AI 驱动的精准回答</span>
+              <span class="guide-desc">在下方输入框输入问题开始对话</span>
             </div>
           </div>
           <div class="suggest-questions" v-if="currentDocument">
@@ -186,6 +186,7 @@
       <!-- 输入区域 -->
       <div class="input-area">
         <el-input
+          ref="inputRef"
           v-model="inputQuestion"
           type="textarea"
           :rows="2"
@@ -258,6 +259,7 @@
 
 <script setup>
 import { ref, reactive, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Document, ChatRound, Message, Loading, DArrowLeft, DArrowRight,
@@ -274,6 +276,7 @@ const currentDocument = ref('')
 const indexBuilding = ref(false)
 const queryLoading = ref(false)
 const inputQuestion = ref('')
+const inputRef = ref(null)
 const messages = ref([])
 const sidebarCollapsed = ref(false)
 const showDetailPanel = ref(false)
@@ -282,6 +285,8 @@ const messageListRef = ref(null)
 const sessionId = ref('')
 const streamAbortController = ref(null)
 const streamingMessageId = ref(-1)  // 正在流式渲染的消息索引
+
+const router = useRouter()
 
 const indexStats = reactive({
   total_vectors: 0,
@@ -365,6 +370,35 @@ const buildIndexForCurrent = async () => {
     ElMessage.error(res.error || '索引构建失败')
   }
   indexBuilding.value = false
+}
+
+// --- 引导卡片点击处理 ---
+const goToUpload = () => {
+  router.push('/two-column')
+}
+
+const handleGuideBuildIndex = async () => {
+  if (!currentDocument.value) {
+    ElMessage.info('请先在左侧选择一个 PDF 文档')
+    return
+  }
+  if (indexedDocs.has(currentDocument.value)) {
+    ElMessage.info('该文档已构建索引，可以直接提问')
+    return
+  }
+  await buildIndexForCurrent()
+}
+
+const focusInput = () => {
+  if (!currentDocument.value) {
+    ElMessage.info('请先在左侧选择一个 PDF 文档')
+    return
+  }
+  nextTick(() => {
+    const el = inputRef.value?.$el || inputRef.value
+    const textarea = el?.querySelector?.('textarea') || el
+    textarea?.focus?.()
+  })
 }
 
 // --- 消息发送（流式） ---
@@ -523,6 +557,10 @@ const formatSize = (bytes) => {
   justify-content: space-between;
   padding: 14px 12px;
   border-bottom: 1px solid #ebeef5;
+}
+.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 14px 0;
 }
 .sidebar-header h3 {
   margin: 0;
@@ -712,11 +750,13 @@ const formatSize = (bytes) => {
   border-radius: 12px;
   border: 1px solid #e4e7ed;
   min-width: 140px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 .guide-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  border-color: #c0c4cc;
 }
 .guide-card .guide-title {
   font-size: 13px;

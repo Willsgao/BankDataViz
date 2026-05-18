@@ -290,20 +290,39 @@ class RagDocumentLoader:
         return chunks
 
     def get_available_documents(self) -> List[Dict]:
-        """扫描 data 目录获取可用 PDF"""
-        from backend.utils.constants import MAIN_ROOT
+        """扫描 data 目录获取可用 PDF，并查找原始文件名"""
+        from backend.utils.constants import MAIN_ROOT, UPLOAD_FOLDER, DATABASE
+        import sqlite3
         pdf_files = []
         search_dirs = [
             Path(MAIN_ROOT) / "data" / "backend" / "static" / "excel_data",
             Path(MAIN_ROOT) / "data" / "backend" / "static" / "excel_output",
-            Path(MAIN_ROOT) / "data" / "backend" / "uploads",
+            Path(MAIN_ROOT) / UPLOAD_FOLDER,
         ]
+
+        # 从数据库读取文件名映射 (disk_filename → raw_filename)
+        filename_map = {}
+        try:
+            db_path = Path(MAIN_ROOT) / DATABASE
+            if db_path.exists():
+                conn = sqlite3.connect(str(db_path))
+                cur = conn.cursor()
+                cur.execute("SELECT filename, raw_filename FROM files WHERE COALESCE(deleted, 0) = 0")
+                for row in cur.fetchall():
+                    filename_map[row[0]] = row[1]
+                conn.close()
+        except Exception:
+            pass  # 数据库不可用时降级为磁盘文件名
+
         for search_dir in search_dirs:
             if not search_dir.exists():
                 continue
             for pdf_path in search_dir.rglob("*.pdf"):
+                disk_name = pdf_path.name
+                # 优先使用原始文件名，回退到磁盘文件名
+                display_name = filename_map.get(disk_name, disk_name)
                 pdf_files.append({
-                    "name": pdf_path.name,
+                    "name": display_name,
                     "path": str(pdf_path.absolute()),
                     "size": pdf_path.stat().st_size
                 })
