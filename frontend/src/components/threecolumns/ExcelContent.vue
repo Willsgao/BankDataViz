@@ -225,9 +225,11 @@ import {
 import { defineProps, defineEmits, ref, computed, watch, nextTick, onMounted, onUnmounted, inject } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSheetOperations  } from './useSheetOperations.js'
+import { useSearch } from '@/composables/useSearch'
 
 // 在setup函数开始处添加
 const excelContentSearchState = inject('excelContentSearchState')
+const searchStore = useSearch()  // 替代 window.performExcelSearch
 const sheetOperations = useSheetOperations()
 const { handleSmartToggle, checkIfFlattenedData  } = sheetOperations
 
@@ -1675,17 +1677,18 @@ onMounted(() => {
   })
 })
 
-// 在组件挂载后设置全局搜索函数
+// 注册搜索函数到 Search Store（替代 window.performExcelSearch）
 onMounted(() => {
   if (performExcelContentSearch) {
-    // 设置全局函数供 App.vue 调用
-    window.performExcelSearch = performExcelContentSearch
+    searchStore.registerViewerSearch(performExcelContentSearch, {
+      componentName: 'ExcelContent'
+    })
   }
 })
 
 // 在组件卸载时清理
 onUnmounted(() => {
-  delete window.performExcelSearch
+  searchStore.unregisterViewerSearch('ExcelContent')
 })
 
 

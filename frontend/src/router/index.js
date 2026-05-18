@@ -87,6 +87,8 @@ const router = createRouter({
 })
 
 // 添加路由守卫进行权限控制
+// 注意：此处直接读取 localStorage 而非使用 useAuthStore()，原因是：
+// router.beforeEach 在 Pinia 初始化之前注册，此时 useAuthStore() 不可用
 router.beforeEach((to, from, next) => {
   // 从localStorage获取用户信息和token
   const userRole = localStorage.getItem('user_role') || 'guest'

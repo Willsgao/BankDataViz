@@ -45,6 +45,11 @@ export function useSearch() {
     goToNextMatch: () => searchStore.goToNextMatch(),
     goToPrevMatch: () => searchStore.goToPrevMatch(),
     clearExcelSearch: () => searchStore.clearExcelSearch(),
-    clearAll: () => searchStore.clearAll()
+    clearAll: () => searchStore.clearAll(),
+
+    // 查看器搜索（替代 window.performExcelSearch）
+    registerViewerSearch: (fn, meta) => searchStore.registerViewerSearch(fn, meta),
+    unregisterViewerSearch: (name) => searchStore.unregisterViewerSearch(name),
+    performViewerSearch: (kw) => searchStore.performViewerSearch(kw)
   }
 }

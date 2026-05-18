@@ -29,7 +29,12 @@ export const useSearchStore = defineStore('search', {
       keyword: '',
       matchedSheets: [],
       isHighlighting: false
-    }
+    },
+
+    // 当前活跃的 Excel 查看器搜索函数（替代 window.performExcelSearch）
+    // 由 HandsontableExcelViewer / ExcelContent 注册，App.vue 调用
+    _activeViewerSearchFn: null,
+    _activeViewerMeta: null  // { componentName, dataLength, setTime }
   }),
 
   getters: {
@@ -135,6 +140,31 @@ export const useSearchStore = defineStore('search', {
       this.sheetHighlight.keyword = ''
       this.sheetHighlight.matchedSheets = []
       this.sheetHighlight.isHighlighting = false
+    },
+
+    // ===== 查看器搜索注册（替代 window.performExcelSearch） =====
+
+    /** 注册当前活跃的 Excel 查看器搜索函数 */
+    registerViewerSearch(fn, meta = {}) {
+      this._activeViewerSearchFn = fn
+      this._activeViewerMeta = meta
+    },
+
+    /** 取消注册（仅当 fn 匹配时） */
+    unregisterViewerSearch(componentName) {
+      if (this._activeViewerMeta?.componentName === componentName) {
+        this._activeViewerSearchFn = null
+        this._activeViewerMeta = null
+      }
+    },
+
+    /** 调用当前查看器的搜索函数 */
+    performViewerSearch(keyword) {
+      if (this._activeViewerSearchFn) {
+        this._activeViewerSearchFn(keyword)
+        return true
+      }
+      return false
     }
   }
 })

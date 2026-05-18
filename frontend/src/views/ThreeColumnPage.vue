@@ -282,6 +282,8 @@ import { rebuildTwoDimensionalTable, extractTableInfoFromData } from '@/componen
 import { useThreeColumnPage } from '@/components/threecolumns/useThreeColumnPage'
 import { useDataManager } from '@/components/threecolumns/useDataManager'
 import { useSheetOperations } from '@/components/threecolumns/useSheetOperations'
+import { useSearch } from '@/composables/useSearch'
+import { useSheetHighlight } from '@/composables/useSheetHighlight'
 
 // 导入图标
 import { Download, Close, Document, Grid, Loading, Timer, ArrowLeft, ArrowRight, DataBoard, WarnTriangleFilled } from '@element-plus/icons-vue'
@@ -4000,49 +4002,30 @@ const handleSearch = inject('handleSearch', null)
 const searchResults = inject('searchResults', [])
 const isSearching = inject('isSearching', false)
 
-// 注入 Excel 内容搜索状态（来自 App.vue）
-const injectedSearchState = inject('excelContentSearchState', null)
+// 使用 Search Store 统一管理 Excel 内容搜索状态（替代 inject + window fallback）
+const search = useSearch()
 
-// 确保 excelContentSearchState 始终是一个有效对象
-const excelContentSearchState = injectedSearchState || window.excelContentSearchState || reactive({
-  keyword: '',
-  matchCount: 0,
-  matchIndex: 0,
-  matchedSheetsList: []
-})
+// 激活 Sheet 名称高亮监听（watch sheetHighlight.keyword → 自动高亮/清除 DOM）
+useSheetHighlight()
+
+// 模板向后兼容：computed 代理，读操作自动从 Store 取值
+const excelContentSearchState = computed(() => ({
+  keyword: search.excelKeyword.value,
+  matchCount: search.excelMatchCount.value,
+  matchIndex: search.excelMatchIndex.value,
+  matchedSheetsList: search.excelMatchedSheetsList.value
+}))
 
 // 跨 Sheet 后端搜索进行中状态（控制 loading 显示）
 const isSheetSearchLoading = ref(false)
 
-// 翻页函数
+// 翻页函数（使用 Store Actions 统一管理索引 + watch(matchIndex) 自动导航）
 const goToPrevMatch = () => {
-  if (!excelContentSearchState.matchedSheetsList || excelContentSearchState.matchedSheetsList.length === 0) return
-  const prevIndex = (excelContentSearchState.matchIndex - 1 + excelContentSearchState.matchedSheetsList.length) % excelContentSearchState.matchedSheetsList.length
-  excelContentSearchState.matchIndex = prevIndex
-  const match = excelContentSearchState.matchedSheetsList[prevIndex]
-  window.dispatchEvent(new CustomEvent('excel-search-goto', {
-    detail: {
-      excel_file: match.excel_file,
-      sheet_name: match.sheet_name,
-      matchIndex: prevIndex,
-      total: excelContentSearchState.matchedSheetsList.length
-    }
-  }))
+  search.goToPrevMatch()
 }
 
 const goToNextMatch = () => {
-  if (!excelContentSearchState.matchedSheetsList || excelContentSearchState.matchedSheetsList.length === 0) return
-  const nextIndex = (excelContentSearchState.matchIndex + 1) % excelContentSearchState.matchedSheetsList.length
-  excelContentSearchState.matchIndex = nextIndex
-  const match = excelContentSearchState.matchedSheetsList[nextIndex]
-  window.dispatchEvent(new CustomEvent('excel-search-goto', {
-    detail: {
-      excel_file: match.excel_file,
-      sheet_name: match.sheet_name,
-      matchIndex: nextIndex,
-      total: excelContentSearchState.matchedSheetsList.length
-    }
-  }))
+  search.goToNextMatch()
 }
 
 watch(searchResults, (newVal) => {
@@ -4664,18 +4647,11 @@ onMounted(() => {
     console.warn('⚠️ 未找到匹配的 Sheet:', { excel_file, sheet_name })
   }
 
-  // ============ 2. 跨Sheet内容搜索：调用后端批量接口并导航 ============
+  // ============ 2. 跨Sheet内容搜索：watch Store keyword → 调用后端批量接口并导航 ============
   let _crossSheetSearchTimer = null
-  let _isNavigatingFromSearch = false  // 防止导航后重发事件导致递归
-  const _handleCrossSheetSearch = (event) => {
-    console.log('🔔🔔🔔 ThreeColumnPage 收到 excel-content-search 事件:', event?.detail, '_isNavigatingFromSearch:', _isNavigatingFromSearch)
+  let _isNavigatingFromSearch = false  // 防止导航后高亮事件触发重复搜索
 
-    // 防止递归：如果是导航后的延迟高亮事件，跳过
-    if (_isNavigatingFromSearch) {
-      console.log('⏭️ _isNavigatingFromSearch=true, 跳过搜索，仅用于高亮')
-      return
-    }
-    const keyword = event?.detail?.keyword
+  const _performCrossSheetSearch = async (keyword) => {
     if (!keyword) return
 
     clearTimeout(_crossSheetSearchTimer)
@@ -4698,19 +4674,16 @@ onMounted(() => {
 
         if (result.success && result.matches && result.matches.length > 0) {
           console.log('✅ 搜索成功! total=', result.total, '设置 matchCount')
-          // 更新 App.vue 的搜索状态
-          if (window.excelContentSearchState) {
-            window.excelContentSearchState.matchCount = result.total
-            window.excelContentSearchState.matchedSheetsList = result.matches
-            window.excelContentSearchState.matchIndex = 0
-            console.log('✅✅✅ matchCount 已设置为:', window.excelContentSearchState.matchCount)
-          }
+          // 更新 Store 搜索状态
+          search.setExcelMatchCount(result.total)
+          search.setExcelMatchedSheets(result.matches) // 同时设置 matchIndex=0
 
           // 导航到第一个匹配 Sheet
           const firstMatch = result.matches[0]
           await _navigateToMatchedSheet(firstMatch)
 
           // 导航完成后，延迟重新触发高亮（确保数据已加载到 DOM）
+          // 注：dispatchEvent 保留用于 ExcelContent 子组件的高亮功能（Phase 5 将统一迁移到 Store watch）
           _isNavigatingFromSearch = true
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('excel-content-search', {
@@ -4721,10 +4694,8 @@ onMounted(() => {
           }, 500)
         } else {
           console.log('❌ 搜索无结果: result.success=', result.success, 'matches=', result.matches)
-          if (window.excelContentSearchState) {
-            window.excelContentSearchState.matchCount = 0
-            window.excelContentSearchState.matchedSheetsList = []
-          }
+          search.setExcelMatchCount(0)
+          search.setExcelMatchedSheets([])
           isSheetSearchLoading.value = false
         }
       } catch (error) {
@@ -4733,16 +4704,28 @@ onMounted(() => {
       }
     }, 200)
   }
-  window.addEventListener('excel-content-search', _handleCrossSheetSearch)
 
-  // ============ 3. 搜索导航「下一个」按钮 ============
-  const _handleSearchGoto = async (event) => {
-    const { excel_file, sheet_name } = event?.detail || {}
-    if (!excel_file || !sheet_name) return
-    await _navigateToMatchedSheet({ excel_file, sheet_name })
+  // 用 watch 替换 window.addEventListener('excel-content-search', ...)
+  watch(() => search.excelKeyword.value, (newKeyword) => {
+    if (_isNavigatingFromSearch) return  // 防止导航后高亮事件触发重复搜索
+    _performCrossSheetSearch(newKeyword)
+  })
 
-    // 导航完成后，延迟重新触发高亮（仅高亮，不触发搜索）
-    const currentKeyword = window.excelContentSearchState?.keyword || ''
+  // ============ 3. 搜索导航：watch Store matchIndex → 自动导航到匹配 Sheet ============
+  let _lastNavigatedMatchIndex = -1
+
+  watch(() => search.excelMatchIndex.value, async (newIndex) => {
+    const list = search.excelMatchedSheetsList.value
+    if (!list || list.length === 0) return
+    if (newIndex === _lastNavigatedMatchIndex) return  // 防止重复导航（setExcelMatchedSheets 也会触发 matchIndex=0）
+    _lastNavigatedMatchIndex = newIndex
+
+    const match = list[newIndex]
+    if (!match) return
+    await _navigateToMatchedSheet({ excel_file: match.excel_file, sheet_name: match.sheet_name })
+
+    // 导航完成后，延迟重新触发高亮（dispatchEvent 保留给 ExcelContent 子组件使用）
+    const currentKeyword = search.excelKeyword.value
     if (currentKeyword) {
       _isNavigatingFromSearch = true
       setTimeout(() => {
@@ -4752,8 +4735,7 @@ onMounted(() => {
         _isNavigatingFromSearch = false
       }, 500)
     }
-  }
-  window.addEventListener('excel-search-goto', _handleSearchGoto)
+  })
 
   // ============ 4. 强制修复 window.unsavedCells 结构 ============
   console.log('🔧 检查 window.unsavedCells 结构...')
@@ -5055,15 +5037,7 @@ window.triggerGlobalAutoSave = async (saveDataFromEdit) => {
       console.log('✅ 清除自动保存定时器')
     }
     clearTimeout(_crossSheetSearchTimer)
-
-    // 移除跨Sheet搜索事件监听器
-    try {
-      window.removeEventListener('excel-content-search', _handleCrossSheetSearch)
-      window.removeEventListener('excel-search-goto', _handleSearchGoto)
-      console.log('✅ 跨Sheet搜索事件监听器已移除')
-    } catch (error) {
-      console.warn('⚠️ 移除搜索事件监听器失败:', error)
-    }
+    // 跨Sheet搜索事件监听器已迁移到 watch（Store 响应式），无需手动移除 window listener
 
     // 删除全局函数
     delete window.triggerGlobalAutoSave

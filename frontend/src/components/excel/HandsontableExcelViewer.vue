@@ -304,6 +304,7 @@ import useExcelViewerLogic from './useExcelViewerLogic.js'
 import useExcelViewerExpose from './useExcelViewerExpose.js'
 import { useSelectionSum } from './useSelectionSum.js'
 import { getApiUrl } from '@/utils/config'
+import { useSearch } from '@/composables/useSearch'
 
 
 // 在现有的import语句后添加
@@ -353,6 +354,7 @@ const computedColHeaders = computed(() => {
 const selectedRange = ref(null)
 const selectedCellsCount = ref(0)
 const excelContentSearchState = inject('excelContentSearchState')
+const searchStore = useSearch()  // 替代 window.performExcelSearch
 
 
 // 添加选区事件处理
@@ -2786,46 +2788,41 @@ onMounted(() => {
   // 监听 Excel 内容搜索事件
   window.addEventListener('excel-content-search', handleExcelSearchEvent)
 
-  // 🔥 修复3：改进全局函数设置逻辑
+  // 注册当前查看器的搜索函数到 Search Store（替代 window.performExcelSearch）
   if (props.excelData && props.excelData.length > 0) {
-
-    // 先检查是否已有有效的搜索函数
-    const existingSearchFunc = window.performExcelSearch
-    const shouldSetNewFunc = !existingSearchFunc ||
-                           (existingSearchFunc._componentDataLength === 0) ||
-                           (props.excelData.length > existingSearchFunc._componentDataLength)
-
-    if (shouldSetNewFunc) {
-      window.performExcelSearch = (keyword) => {
-
-        if (typeof highlightCurrentSheetContent === 'function') {
-          highlightCurrentSheetContent(keyword)
-        } else {
-          console.error('❌ highlightCurrentSheetContent 函数未定义')
-          // 降级处理：发射事件
-          window.dispatchEvent(new CustomEvent('excel-content-search', {
-            detail: { keyword }
-          }))
+    const registerFn = () => {
+      searchStore.registerViewerSearch(
+        (keyword) => {
+          if (typeof highlightCurrentSheetContent === 'function') {
+            highlightCurrentSheetContent(keyword)
+          } else {
+            console.error('❌ highlightCurrentSheetContent 函数未定义')
+            window.dispatchEvent(new CustomEvent('excel-content-search', {
+              detail: { keyword }
+            }))
+          }
+        },
+        {
+          componentName: props.sheetName,
+          dataLength: props.excelData.length,
+          setTime: Date.now()
         }
-      }
+      )
+    }
 
-      // 标记函数来源和数据信息
-      window.performExcelSearch._componentName = props.sheetName
-      window.performExcelSearch._componentDataLength = props.excelData.length
-      window.performExcelSearch._setTime = Date.now()
+    // 检查是否已有注册的查看器，优先选择数据更多的
+    const needRegister = !searchStore._activeViewerMeta ||
+      !searchStore._activeViewerMeta.dataLength ||
+      (props.excelData.length > (searchStore._activeViewerMeta.dataLength || 0))
 
+    if (needRegister) {
+      registerFn()
     } else {
-      console.log('⏭️ 已有更优的搜索函数，跳过设置', {
-        当前组件数据长度: props.excelData.length,
-        现有函数数据长度: existingSearchFunc._componentDataLength
-      })
+      console.log('⏭️ 已有更优的搜索函数注册，跳过')
     }
   } else {
-
-    // 只有当前组件设置了全局函数时才清理
-    if (window.performExcelSearch?._componentName === props.sheetName) {
-      delete window.performExcelSearch
-    }
+    // 只有当前组件注册时才取消注册
+    searchStore.unregisterViewerSearch(props.sheetName)
   }
 })
 
@@ -2855,10 +2852,8 @@ onUnmounted(() => {
     }
   }
 
-  // 4. 清理全局函数（只清理本组件设置的）
-  if (typeof window !== 'undefined' && window.performExcelSearch?._componentName === props.sheetName) {
-    delete window.performExcelSearch
-  }
+  // 4. 清理 Store 中注册的搜索函数（替代 window.performExcelSearch）
+  searchStore.unregisterViewerSearch(props.sheetName)
 
   // 5. 清理其他资源（原有逻辑保持不变）
   if (logic && logic.cleanupAutoSave) {

@@ -12,11 +12,8 @@ import { initConfig, getApiUrl } from '@/utils/config'
 import { updateApiBaseUrl } from '@/api/index'
 
 
-// 设置为全局函数
+// 设置为全局函数（多处 fetch 调用依赖，保留）
 window.getApiUrl = getApiUrl
-
-// ✅ 全局历史修改池（最先初始化）
-window.historyCells = new Set()
 
 // 初始化配置并启动应用
 const initApp = async () => {
