@@ -48,6 +48,14 @@
             >
               智能问答
             </el-button>
+            <el-button
+              :type="$route.name === 'PromptShowcase' ? 'primary' : ''"
+              size="small"
+              class="prompt-btn"
+              @click="$router.push('/prompt-engineering')"
+            >
+              Prompt 工程
+            </el-button>
             <el-dropdown
               v-if="hasPermission('data')"
               trigger="hover"
@@ -218,37 +226,26 @@ import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } fro
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import { useAuth } from '@/composables/useAuth'
+import { useSearchStore } from '@/stores/search'
 
 const route = useRoute()
 const router = useRouter()
 
-// 用户信息
-const username = ref('')
-const userRole = ref('')
-const permissions = ref([])
+// ===== 使用 Auth Store 管理认证状态 =====
+const auth = useAuth()
+const searchStore = useSearchStore()
 
-// 超级管理员判断（拥有所有权限）
-const isSuperAdmin = computed(() => userRole.value === 'super_admin')
-
-// 管理员判断（admin 或 super_admin）
-const hasAdminPermission = computed(() => {
-  return userRole.value === 'admin' || userRole.value === 'super_admin'
-})
-
-// 权限检查函数
-const hasPermission = (perm) => {
-  // 超级管理员拥有所有权限
-  if (isSuperAdmin.value) return true
-  // 检查权限列表
-  return permissions.value.includes(perm)
-}
-
-// 根据权限获取角色名称
-const userRoleName = computed(() => {
-  if (userRole.value === 'super_admin') return '超级管理员'
-  if (userRole.value === 'admin') return '管理员'
-  return '普通用户'
-})
+// 模板中使用这些别名保持兼容
+const username = auth.username
+const userRole = auth.userRole
+const permissions = auth.permissions
+const isSuperAdmin = auth.isSuperAdmin
+const hasAdminPermission = auth.hasAdminPermission
+const userRoleName = auth.userRoleName
+const isLoggedIn = auth.isLoggedIn
+const userInitial = auth.userInitial
+const hasPermission = (perm) => auth.hasPermission(perm)
 
 // PDF搜索状态
 const searchState = reactive({
@@ -273,24 +270,9 @@ if (typeof window !== 'undefined') {
   window.excelContentSearchState = excelContentSearchState
 }
 
-
-
-// 计算属性
-const isLoggedIn = computed(() => {
-  return !!username.value && !!localStorage.getItem('token')
-})
-
-const userInitial = computed(() => {
-  return username.value ? username.value.charAt(0).toUpperCase() : 'U'
-})
-
-// 初始化用户信息
+// 初始化用户信息（从 localStorage 加载到 Auth Store）
 const updateUserInfo = () => {
-  username.value = localStorage.getItem('username') || ''
-  userRole.value = localStorage.getItem('user_role') || ''
-  // 从 localStorage 解析权限列表
-  const perms = localStorage.getItem('permissions')
-  permissions.value = perms ? JSON.parse(perms) : []
+  auth.loadUserInfo()
 }
 
 onMounted(() => {
@@ -359,20 +341,19 @@ const handleLogout = () => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    // 清除用户信息
-    localStorage.removeItem('token')
-    localStorage.removeItem('user_role')
-    localStorage.removeItem('username')
+    // 使用 Auth Store 清除用户信息
+    auth.logout()
 
     // 更新用户信息
     updateUserInfo()
 
-    // 清除搜索状态
+    // 清除搜索状态（包括 Store）
     searchState.results = []
     searchState.keyword = ''
     excelContentSearchState.keyword = ''
     excelContentSearchState.matchCount = 0
     excelContentSearchState.active = false
+    searchStore.clearAll()
 
     ElMessage.success('已退出登录')
 
@@ -394,6 +375,8 @@ const handleExcelContentSearch = () => {
     excelContentSearchState.lastSearchTime = Date.now()
     excelContentSearchState.matchIndex = 0
     excelContentSearchState.matchedSheetsList = []
+    // 同步清除 Search Store
+    searchStore.clearExcelSearch()
     console.log('🔍 Excel内容搜索：清空搜索条件')
     return
   }
@@ -402,6 +385,8 @@ const handleExcelContentSearch = () => {
   excelContentSearchState.isSearching = true
   excelContentSearchState.active = true
   excelContentSearchState.lastSearchTime = Date.now()
+  // 同步关键词到 Search Store
+  searchStore.setExcelKeyword(keyword)
 
   // 增强的路由逻辑
   const enhancedRouteSearch = () => {
@@ -485,6 +470,9 @@ const goToMatchByIndex = (index) => {
   if (!matchedSheetsList || matchedSheetsList.length === 0) return
 
   excelContentSearchState.matchIndex = index
+  // 同步到 Search Store
+  excelContentSearchState.matchedSheetsList && searchStore.setExcelMatchedSheets(excelContentSearchState.matchedSheetsList)
+  searchStore.goToMatchByIndex(index)
 
   const match = matchedSheetsList[index]
   window.dispatchEvent(new CustomEvent('excel-search-goto', {
@@ -760,6 +748,9 @@ const handleExcelContentSearchClear = () => {
   excelContentSearchState.lastSearchTime = Date.now()
   excelContentSearchState.matchIndex = 0
   excelContentSearchState.matchedSheetsList = []
+
+  // 同步清除 Search Store
+  searchStore.clearExcelSearch()
 
   // 清除Sheet高亮
   clearSheetHighlights()

@@ -1,3 +1,4 @@
+import { computed } from 'vue'
 import { usePdfStore } from '@/stores/pdf'
 
 export function usePdfState() {

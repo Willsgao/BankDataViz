@@ -1,3 +1,4 @@
+import { computed } from 'vue'
 import { useTableStore } from '@/stores/tables'
 
 export function useTableState() {

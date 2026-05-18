@@ -4,12 +4,12 @@ RAG (Retrieval-Augmented Generation) 智能检索服务
 
 核心管线：
   PDF文档 → PyMuPDF提取文本 → 语义分块 → BGE-large-zh Embedding
-  → FAISS IndexIVFFlat → 用户提问 → 向量检索 → LLM生成答案
+  → FAISS IndexIVFFlat → 用户提问 → 向量检索 → LLM生成答案（支持流式SSE）
 
 技术选型：
   - Embedding: BGE-large-zh (768维, sentence-transformers)
   - 向量检索: FAISS IndexIVFFlat (IVF1024聚类, nprobe=16)
-  - LLM: 火山引擎 DeepSeek (复用现有 Ark API)
+  - LLM: 火山引擎 DeepSeek (复用现有 Ark API，支持 stream=True)
 """
 
 import os
@@ -18,8 +18,9 @@ import json
 import time
 import logging
 import hashlib
+import uuid
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Generator
 
 import fitz  # PyMuPDF
 import numpy as np
@@ -313,13 +314,16 @@ class RagDocumentLoader:
 # RAG 管线编排
 # =============================================================================
 class RagPipeline:
-    """RAG 主管线：加载 → 分块 → 向量化 → 索引 → 检索 → 生成"""
+    """RAG 主管线：加载 → 分块 → 向量化 → 索引 → 检索 → 生成（支持流式 SSE + 多轮对话记忆）"""
+
+    MAX_HISTORY_ROUNDS = 10  # 最多保留最近10轮对话
 
     def __init__(self):
         self.loader = RagDocumentLoader()
         self.embedder = EmbeddingService()
         self.index_mgr: Optional[FaissIndexManager] = None
         self._current_doc: Optional[str] = None
+        self.conversations: Dict[str, List[Dict[str, str]]] = {}  # session_id → messages
 
     def build_index(self, pdf_path: str) -> Dict[str, Any]:
         """为指定 PDF 构建 FAISS 索引"""
@@ -402,11 +406,11 @@ class RagPipeline:
             "result_count": len(results)
         }
 
-    def generate_answer(self, question: str, context: str, sources: List[Dict]) -> str:
-        """使用 LLM 基于检索结果生成答案（同步版本，适配现有基础设施）"""
-        from openai import OpenAI
+    def _build_messages(self, question: str, context: str, session_id: str = "") -> List[Dict[str, str]]:
+        """构建包含对话历史的 messages 列表"""
+        system_msg = {"role": "system", "content": "你是一个专业的金融文档分析助手。"}
 
-        prompt = f"""你是一个金融文档分析助手。请基于以下从银行年报/募集说明书中检索到的文档片段，回答用户的问题。
+        user_prompt = f"""你是一个金融文档分析助手。请基于以下从银行年报/募集说明书中检索到的文档片段，回答用户的问题。
 
 要求：
 1. 只使用提供的文档片段信息回答，不要编造
@@ -420,6 +424,44 @@ class RagPipeline:
 
 请回答："""
 
+        messages = [system_msg]
+
+        # 拼接历史对话
+        history = self.conversations.get(session_id, [])
+        if history:
+            messages.extend(history)
+
+        messages.append({"role": "user", "content": user_prompt})
+        return messages
+
+    def _append_history(self, session_id: str, question: str, answer: str) -> None:
+        """将本轮问答追加到对话历史，超出上限自动截断"""
+        if not session_id:
+            return
+        if session_id not in self.conversations:
+            self.conversations[session_id] = []
+        history = self.conversations[session_id]
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": answer})
+        # 截断：保留最近 N 轮（每轮2条消息）
+        max_messages = self.MAX_HISTORY_ROUNDS * 2
+        if len(history) > max_messages:
+            self.conversations[session_id] = history[-max_messages:]
+
+    def clear_history(self, session_id: str) -> bool:
+        """清除指定 session 的对话历史"""
+        if session_id in self.conversations:
+            del self.conversations[session_id]
+            return True
+        return False
+
+    def generate_answer(self, question: str, context: str, sources: List[Dict],
+                        session_id: str = "") -> str:
+        """使用 LLM 基于检索结果生成答案（同步版本）"""
+        from openai import OpenAI
+
+        messages = self._build_messages(question, context, session_id)
+
         client = OpenAI(
             base_url=ARK_BASE_URL,
             api_key=ARK_API_KEY
@@ -427,19 +469,77 @@ class RagPipeline:
 
         response = client.chat.completions.create(
             model=DEFAULT_MODEL_ID,
-            messages=[
-                {"role": "system", "content": "你是一个专业的金融文档分析助手。"},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.3,
             max_tokens=2048,
             stream=False
         )
 
         answer = response.choices[0].message.content
+
+        # 追加到对话历史
+        self._append_history(session_id, question, answer)
+
         return answer
 
-    def query_with_answer(self, question: str, top_k: int = TOP_K) -> Dict[str, Any]:
+    def generate_answer_stream(self, question: str, context: str,
+                               sources: List[Dict],
+                               session_id: str = "") -> Generator[str, None, None]:
+        """使用 LLM 流式生成答案，逐 token yield（SSE 数据行）
+
+        用法：
+            for sse_line in pipeline.generate_answer_stream(question, context, sources):
+                yield sse_line  →  Flask SSE response
+        """
+        from openai import OpenAI
+
+        messages = self._build_messages(question, context, session_id)
+
+        client = OpenAI(
+            base_url=ARK_BASE_URL,
+            api_key=ARK_API_KEY
+        )
+
+        try:
+            stream = client.chat.completions.create(
+                model=DEFAULT_MODEL_ID,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2048,
+                stream=True
+            )
+
+            full_answer = ""
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    token = chunk.choices[0].delta.content
+                    full_answer += token
+                    yield f"data: {json.dumps({'type': 'token', 'content': token}, ensure_ascii=False)}\n\n"
+
+            # 追加到对话历史
+            self._append_history(session_id, question, full_answer)
+
+            # 完成信号
+            done_data = {
+                "type": "done",
+                "sources": [
+                    {"index": s.get("index", i+1),
+                     "text": (s.get("text", "")[:200] + "..." if len(s.get("text", "")) > 200 else s.get("text", "")),
+                     "score": round(s.get("score", 0), 4),
+                     "source": s.get("source", "")}
+                    for i, s in enumerate(sources)
+                ]
+            }
+            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            logger.error(f"LLM 流式生成失败: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'答案生成失败: {str(e)}'}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+
+    def query_with_answer(self, question: str, top_k: int = TOP_K,
+                          session_id: str = "") -> Dict[str, Any]:
         """完整 RAG 流程：检索 + 生成"""
         result = self.query(question, top_k)
         if not result["success"]:
@@ -447,7 +547,9 @@ class RagPipeline:
 
         answer_start = time.time()
         try:
-            answer = self.generate_answer(question, result["context"], result["sources"])
+            answer = self.generate_answer(
+                question, result["context"], result["sources"], session_id
+            )
             result["answer"] = answer
             result["answer_time_ms"] = round((time.time() - answer_start) * 1000, 2)
             result["total_time_ms"] = round(result["retrieval_time_ms"] + result["answer_time_ms"], 2)

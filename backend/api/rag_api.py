@@ -5,12 +5,15 @@ RAG API Blueprint
 端点：
   POST /api/rag/build-index    - 为指定文档构建 FAISS 索引
   POST /api/rag/query          - 提交自然语言问题并获取答案
+  POST /api/rag/query-stream   - 提交问题，SSE 流式返回答案（支持多轮对话）
+  POST /api/rag/clear-history  - 清除指定会话的对话历史
   GET  /api/rag/stats          - 获取索引统计信息
   GET  /api/rag/documents      - 获取可用文档列表
 """
 
+import json
 import logging
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response, stream_with_context
 
 from backend.services.rag_service import get_rag_pipeline
 
@@ -69,6 +72,7 @@ def query():
         question: str        - 用户问题（必填）
         document: str        - 指定文档名（可选，默认使用当前索引）
         top_k: int           - 召回数量（可选，默认5）
+        session_id: str      - 会话ID（可选，用于多轮对话记忆）
 
     Returns:
         { success, question, answer, sources, retrieval_time_ms, answer_time_ms, total_time_ms }
@@ -77,6 +81,7 @@ def query():
     question = data.get("question", "").strip()
     document = data.get("document", "").strip()
     top_k = int(data.get("top_k", 5))
+    session_id = data.get("session_id", "").strip()
 
     if not question:
         return jsonify({"success": False, "error": "缺少 question 参数"}), 400
@@ -97,10 +102,138 @@ def query():
             "error": "未加载任何索引，请先构建索引"
         }), 400
 
-    result = pipeline.query_with_answer(question, top_k=top_k)
+    result = pipeline.query_with_answer(question, top_k=top_k, session_id=session_id)
     if result["success"]:
         return jsonify(result)
     return jsonify(result), 500
+
+
+@rag_bp.route("/query-stream", methods=["POST"])
+def query_stream():
+    """提交自然语言问题，SSE 流式返回 RAG 检索 + LLM 生成结果
+
+    Body (JSON):
+        question: str        - 用户问题（必填）
+        document: str        - 指定文档名（可选，默认使用当前索引）
+        top_k: int           - 召回数量（可选，默认5）
+        session_id: str      - 会话ID（可选，用于多轮对话记忆，不传自动生成）
+
+    SSE 事件格式：
+        data: {"type":"token","content":"..."}    — 逐 token 推送
+        data: {"type":"done","sources":[...]}      — 生成完成 + 来源引用
+        data: {"type":"error","message":"..."}     — 错误信息
+        data: [DONE]                               — 流结束
+    """
+    data = request.get_json(silent=True) or {}
+    question = data.get("question", "").strip()
+    document = data.get("document", "").strip()
+    top_k = int(data.get("top_k", 5))
+    session_id = data.get("session_id", "").strip()
+
+    if not question:
+        def _error_stream(msg):
+            yield f"data: {json.dumps({'type': 'error', 'message': msg}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(
+            stream_with_context(_error_stream("缺少 question 参数")),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive"
+            }
+        )
+
+    pipeline = get_rag_pipeline()
+
+    if document:
+        if not pipeline.load_index(document):
+            def _err_no_doc():
+                err_msg = "文档 '{}' 的索引不存在，请先构建索引".format(document)
+                yield f"data: {json.dumps({'type': 'error', 'message': err_msg}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(
+                stream_with_context(_err_no_doc()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+
+    if pipeline.index_mgr is None or pipeline.index_mgr.index is None:
+        def _err_no_index():
+            yield f"data: {json.dumps({'type': 'error', 'message': '未加载任何索引，请先构建索引'}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(
+            stream_with_context(_err_no_index()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    # 1. 检索（一次性完成）
+    import time
+    search_result = pipeline.query(question, top_k)
+    if not search_result["success"]:
+        def _err_search():
+            yield f"data: {json.dumps({'type': 'error', 'message': search_result.get('error', '检索失败')}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(
+            stream_with_context(_err_search()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    # 先发送检索统计
+    retrieval_info = {
+        "type": "retrieval",
+        "retrieval_time_ms": search_result.get("retrieval_time_ms", 0),
+        "result_count": search_result.get("result_count", 0)
+    }
+
+    def generate():
+        """SSE 生成器"""
+        yield f"data: {json.dumps(retrieval_info, ensure_ascii=False)}\n\n"
+
+        # 2. 流式生成
+        for sse_line in pipeline.generate_answer_stream(
+            question=question,
+            context=search_result["context"],
+            sources=search_result["sources"],
+            session_id=session_id
+        ):
+            yield sse_line
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        }
+    )
+
+
+@rag_bp.route("/clear-history", methods=["POST"])
+def clear_history():
+    """清除指定会话的对话历史
+
+    Body (JSON):
+        session_id: str  - 会话ID（必填）
+
+    Returns:
+        { success, message }
+    """
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("session_id", "").strip()
+
+    if not session_id:
+        return jsonify({"success": False, "error": "缺少 session_id 参数"}), 400
+
+    pipeline = get_rag_pipeline()
+    cleared = pipeline.clear_history(session_id)
+    return jsonify({
+        "success": True,
+        "message": "对话历史已清除" if cleared else "未找到该会话的历史记录"
+    })
 
 
 @rag_bp.route("/documents", methods=["GET"])

@@ -1,3 +1,4 @@
+import { computed } from 'vue'
 import { useFileStore } from '@/stores/files'
 
 export function useFileState() {

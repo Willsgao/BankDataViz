@@ -1,3 +1,4 @@
+import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 
 export function useAppState() {

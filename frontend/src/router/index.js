@@ -3,13 +3,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 import TwoColumnPage from '@/views/TwoColumnPage.vue'
 import ThreeColumnPage from '@/views/ThreeColumnPage.vue'
 import LoginPage from '@/views/LoginPage.vue'
-import BankWarehousePage from '@/views/BankWarehousePage.vue'
 import BankDashboardPage from '@/views/BankDashboardPage.vue'
 import BankDataPage from '@/views/BankDataPage.vue'
 import AdminManagement from '@/views/AdminManagement.vue'
 import AuditPage from '@/views/AuditPage.vue'
 import SmartRecognizePage from '@/views/SmartRecognizePage.vue'
 import RagChatPage from '@/views/RagChatPage.vue'
+import PromptShowcasePage from '@/views/PromptShowcasePage.vue'
 
 const routes = [
   {
@@ -70,8 +70,14 @@ const routes = [
     meta: { title: '智能问答' }
   },
   {
+    path: '/prompt-engineering',
+    name: 'PromptShowcase',
+    component: PromptShowcasePage,
+    meta: { title: 'Prompt 工程' }
+  },
+  {
     path: '/',
-    redirect: '/bank-data'
+    redirect: '/rag-chat'
   }
 ]
 

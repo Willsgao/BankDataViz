@@ -117,7 +117,7 @@
             <el-icon v-else :size="18"><Monitor /></el-icon>
           </div>
           <div class="message-body">
-            <div class="message-content" v-html="renderMarkdown(msg.content)" />
+            <div class="message-content" :class="{ streaming: msg.streaming }" v-html="renderMessageContent(msg)" />
             <!-- 来源引用 -->
             <div v-if="msg.sources && msg.sources.length > 0" class="message-sources">
               <div
@@ -150,8 +150,8 @@
           </div>
         </div>
 
-        <!-- 加载动画 -->
-        <div v-if="queryLoading" class="message-item assistant">
+        <!-- 流式等待动画：尚未收到首个 token 时显示 -->
+        <div v-if="queryLoading && streamingMessageId < 0" class="message-item assistant">
           <div class="message-avatar">
             <el-icon :size="18"><Monitor /></el-icon>
           </div>
@@ -239,16 +239,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, onMounted, watch } from 'vue'
+import { ref, reactive, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   Document, ChatRound, Message, Loading, DArrowLeft, DArrowRight,
   Monitor, User, Link, ArrowDown, ArrowUp, Close, Position
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
-import { queryRag, getRagStats, getDocuments, buildIndex } from '@/api/rag'
+import { queryRag, queryRagStream, clearHistory, getRagStats, getDocuments, buildIndex } from '@/api/rag'
 
-// 状态
+// --- 状态 ---
 const documents = ref([])
 const documentsLoading = ref(false)
 const currentDocument = ref('')
@@ -260,6 +260,9 @@ const sidebarCollapsed = ref(false)
 const showDetailPanel = ref(false)
 const expandedSources = reactive(new Set())
 const messageListRef = ref(null)
+const sessionId = ref('')
+const streamAbortController = ref(null)
+const streamingMessageId = ref(-1)  // 正在流式渲染的消息索引
 
 const indexStats = reactive({
   total_vectors: 0,
@@ -281,10 +284,21 @@ const suggestQuestions = [
   '近三年的净利润变化趋势如何？'
 ]
 
-// 初始化
+// --- 初始化 ---
+const initSession = () => {
+  sessionId.value = 'rag-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9)
+}
+
 onMounted(async () => {
+  initSession()
   await refreshDocuments()
   await loadStats()
+})
+
+onUnmounted(() => {
+  if (streamAbortController.value) {
+    streamAbortController.value.abort()
+  }
 })
 
 const refreshDocuments = async () => {
@@ -300,7 +314,6 @@ const loadStats = async () => {
   const res = await getRagStats()
   if (res.success && res.stats) {
     Object.assign(indexStats, res.stats)
-    // 标记已索引的文档
     indexedDocs.clear()
     if (res.stats.saved_indices) {
       res.stats.saved_indices.forEach(idx => indexedDocs.add(idx.name))
@@ -310,7 +323,6 @@ const loadStats = async () => {
 
 const selectDocument = async (doc) => {
   currentDocument.value = doc.name
-  // 确保加载对应索引
   if (indexedDocs.has(doc.name)) {
     const res = await getRagStats()
     if (res.success) {
@@ -336,33 +348,68 @@ const buildIndexForCurrent = async () => {
   indexBuilding.value = false
 }
 
+// --- 消息发送（流式） ---
 const sendMessage = async () => {
   const question = inputQuestion.value.trim()
   if (!question || !currentDocument.value || queryLoading.value) return
 
   inputQuestion.value = ''
+
+  // 添加用户消息
   messages.value.push({ role: 'user', content: question })
+
+  // 添加空的 assistant 占位消息（流式追加内容）
+  const assistantIdx = messages.value.length
+  messages.value.push({
+    role: 'assistant',
+    content: '',
+    streaming: true,
+    sources: [],
+    retrieval_time_ms: 0,
+    total_time_ms: 0
+  })
+  streamingMessageId.value = assistantIdx
   await scrollToBottom()
 
   queryLoading.value = true
-  const res = await queryRag(question, currentDocument.value)
-  if (res.success) {
-    messages.value.push({
-      role: 'assistant',
-      content: res.answer,
-      sources: res.sources || [],
-      retrieval_time_ms: res.retrieval_time_ms,
-      answer_time_ms: res.answer_time_ms,
-      total_time_ms: res.total_time_ms
-    })
-  } else {
-    messages.value.push({
-      role: 'assistant',
-      content: `抱歉，查询失败：${res.error || '未知错误'}`
-    })
-  }
-  queryLoading.value = false
-  await scrollToBottom()
+
+  // 发起流式请求
+  streamAbortController.value = queryRagStream(
+    question,
+    currentDocument.value,
+    5,
+    sessionId.value,
+    {
+      onRetrieval: (data) => {
+        if (messages.value[assistantIdx]) {
+          messages.value[assistantIdx].retrieval_time_ms = data.retrieval_time_ms || 0
+        }
+      },
+      onToken: (token) => {
+        if (messages.value[assistantIdx]) {
+          messages.value[assistantIdx].content += token
+        }
+      },
+      onDone: (data) => {
+        if (messages.value[assistantIdx]) {
+          messages.value[assistantIdx].streaming = false
+          messages.value[assistantIdx].sources = data.sources || []
+        }
+        streamingMessageId.value = -1
+        queryLoading.value = false
+        scrollToBottom()
+      },
+      onError: (errMsg) => {
+        if (messages.value[assistantIdx]) {
+          messages.value[assistantIdx].content = `抱歉，查询失败：${errMsg || '未知错误'}`
+          messages.value[assistantIdx].streaming = false
+        }
+        streamingMessageId.value = -1
+        queryLoading.value = false
+        scrollToBottom()
+      }
+    }
+  )
 }
 
 const askQuestion = (q) => {
@@ -378,9 +425,25 @@ const toggleSources = (idx) => {
   }
 }
 
-const clearMessages = () => {
+const clearMessages = async () => {
+  // 中止正在进行的流式请求
+  if (streamAbortController.value) {
+    streamAbortController.value.abort()
+    streamAbortController.value = null
+  }
   messages.value = []
   expandedSources.clear()
+  streamingMessageId.value = -1
+  queryLoading.value = false
+
+  // 清除后端对话历史
+  if (sessionId.value) {
+    try {
+      await clearHistory(sessionId.value)
+    } catch (e) {
+      // 静默失败
+    }
+  }
 }
 
 const scrollToBottom = async () => {
@@ -393,6 +456,14 @@ const scrollToBottom = async () => {
 const renderMarkdown = (text) => {
   if (!text) return ''
   return marked.parse(text, { breaks: true, gfm: true })
+}
+
+const renderMessageContent = (msg) => {
+  const md = renderMarkdown(msg.content)
+  if (msg.streaming) {
+    return md + '<span class="typing-cursor">|</span>'
+  }
+  return md
 }
 
 const formatSize = (bytes) => {
@@ -820,6 +891,21 @@ const formatSize = (bytes) => {
 @keyframes bounce {
   0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
   40% { transform: scale(1); opacity: 1; }
+}
+
+.message-content.streaming {
+  position: relative;
+}
+.typing-cursor {
+  display: inline-block;
+  color: #409eff;
+  font-weight: 700;
+  animation: cursorBlink 0.8s infinite;
+  margin-left: 1px;
+}
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* ========== 输入区域 ========== */
