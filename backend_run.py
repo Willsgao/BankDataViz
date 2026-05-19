@@ -11,6 +11,14 @@ DocuVista 服务启动入口
   生产环境：nohup python3 backend_run.py > logs/app.log 2>&1 &
 """
 
+import sys
+import io
+
+# 修复 Windows 控制台 GBK 编码导致的 emoji UnicodeEncodeError
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 from dotenv import load_dotenv
 
 load_dotenv()  # 加载项目根目录的 .env 文件

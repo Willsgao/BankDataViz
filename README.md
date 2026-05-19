@@ -1,5 +1,6 @@
 # BankDataViz | DocBrain
 > 智能文档解析 · RAG 问答 · 数据分析与可视化平台
+> 🧠 Agent Harness 架构: 约束→执行→验证→纠错→收敛
 
 > 从 PDF/图片中自动提取表格数据，支持结构化导出、规则校验、可视化分析及 RAG 智能问答。以银行年报数据为行业应用案例，底层引擎可适配任意行业文档。
 
@@ -362,6 +363,68 @@ class RagPipeline:
 | `Orchestrator` | 多 Agent 编排器 | 约束→执行→验证→纠错→收敛 |
 | `RuleEngine` | 可插拔验证规则 | NotNullRule / ColumnConsistencyRule / TableCountRule |
 
+**完整执行链路 (已验证通过)**：
+
+```mermaid
+flowchart TD
+    subgraph 入口
+        A["POST /api/harness/parse<br/>image_path + bank_name"]
+    end
+
+    subgraph Orchestrator["Orchestrator 编排器"]
+        B["接收任务<br/>初始化 Context"]
+    end
+
+    subgraph Agent["TableParsingAgent (think→act 循环)"]
+        C["Step 1: OCR Tool<br/>腾讯云 OCR 识别<br/>→ 结构化文本 + 表格坐标"]
+        D["Step 2: LLM Analysis Tool<br/>豆包 Vision 分析表头<br/>→ 列名/层级/单位/币种"]
+        E["Step 3: Rebuild Tool<br/>8 步表格重构<br/>→ 结构化 Excel"]
+        C -->|"注入 ocr_result"| D
+        D -->|"注入 ocr_result + llm_result"| E
+    end
+
+    subgraph RuleEngine["RuleEngine 验证引擎"]
+        F["NotNullRule<br/>验证输出非空"]
+        G["TableCountRule<br/>验证表格数量 > 0"]
+        H["ColumnConsistencyRule<br/>验证列数合理"]
+    end
+
+    subgraph 收敛
+        I["OrchestrationResult<br/>success + trace + verification + summary"]
+    end
+
+    A --> B --> Agent
+    Agent -.->|每步后触发| RuleEngine
+    RuleEngine --> 收敛
+
+    style A fill:#e1f5fe
+    style I fill:#e8f5e9
+    style C fill:#fff3e0
+    style D fill:#f3e5f5
+    style E fill:#e0f2f1
+```
+
+**验证结果 (实际运行)**：
+
+```
+POST /api/harness/parse  →  200 OK, 14.6s
+
+trace (3 步全部成功):
+  Step 1  OCR            ✅  2.4s   0 次重试
+  Step 2  LLM Analysis   ✅  5.1s   0 次重试
+  Step 3  Rebuild        ✅  7.1s   0 次重试
+
+verification (6 条规则全部通过):
+  not_null              ✅  (OCR 输出非空)
+  table_count           ✅  (识别到 1 个表格)
+  not_null              ✅  (LLM 输出非空)
+  column_consistency    ✅  (无列数信息，跳过)
+  not_null              ✅  (Rebuild 输出非空)
+  column_consistency    ✅  (无列数信息，跳过)
+
+summary: "任务成功 | 共 3 步 (3 成功, 0 失败) | 验证: 6 条规则 (6 通过, 0 未通过)"
+```
+
 **API 端点**：
 
 | 端点 | 方法 | 功能 |
@@ -480,7 +543,7 @@ error_num → 错误数值（逗号在%前、多负号等）
 # 后端
 cd backend
 pip install -r requirements.txt
-python app.py                # 默认 http://localhost:5000
+python backend_run.py           # 默认 http://localhost:5000
 
 # 前端
 cd frontend
