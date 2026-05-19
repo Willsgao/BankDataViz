@@ -460,11 +460,139 @@ class TencentOCRProvider(BaseOCRProvider):
         except Exception as e:
             raise Exception(f"初始化腾讯云客户端失败: {e}")
 
+    # 腾讯云 RecognizeTableOCR Base64 限制 ≤ 7MB，留 1MB 余量
+    _TENCENT_OCR_MAX_BASE64_SIZE = 6 * 1024 * 1024
+
     def _generate_image_id(self, file_path: str) -> str:
         """生成图片ID - 独立实现"""
         import hashlib
         file_hash = hashlib.md5(file_path.encode()).hexdigest()[:12]
         return f"img_{file_hash}"
+
+    def _prepare_image(self, image_path: str) -> str:
+        """
+        准备图片：读取 → PDF则渲染首页 → 检查大小 → 超限自动压缩 → 返回 base64。
+        腾讯云 RecognizeTableOCR 要求 Base64 编码后 ≤ 7MB。
+        """
+        import base64
+        import os
+
+        raw_size = os.path.getsize(image_path)
+        print(f"[TencentOCR] 原始文件大小: {raw_size / (1024*1024):.2f}MB ({raw_size} bytes)")
+
+        if raw_size == 0:
+            raise ValueError(f"图片文件为空: {image_path}")
+
+        with open(image_path, "rb") as f:
+            raw_bytes = f.read()
+
+        # ---- PDF 处理：渲染首页为图片 ----
+        is_pdf = image_path.lower().endswith('.pdf')
+        if is_pdf:
+            image_bytes = self._pdf_to_image_bytes(image_path, raw_bytes)
+            if image_bytes is not None:
+                print(f"[TencentOCR] PDF 首页已渲染为图片: {len(image_bytes) / (1024*1024):.2f}MB")
+                raw_bytes = image_bytes
+            else:
+                # 降级：无法渲染则保留原始 PDF 字节（可能 fitz 未安装，或 PDF 损坏）
+                print(f"[TencentOCR] ⚠️ PDF 渲染失败，将发送原始 PDF（可能因超限失败）")
+
+        image_base64 = base64.b64encode(raw_bytes).decode('utf-8')
+        base64_size_mb = len(image_base64) / (1024 * 1024)
+        print(f"[TencentOCR] Base64编码后: {base64_size_mb:.2f}MB")
+
+        if len(image_base64) <= self._TENCENT_OCR_MAX_BASE64_SIZE:
+            print(f"[TencentOCR] 图片大小正常，无需压缩")
+            return image_base64
+
+        # PDF 渲染已经试过了，如果仍超限就用图片压缩流程
+        print(f"[TencentOCR] ⚠️ 超限，开始压缩...")
+        return self._compress_image(image_path, raw_bytes, len(image_base64))
+
+    @staticmethod
+    def _pdf_to_image_bytes(pdf_path: str, pdf_bytes: bytes = None) -> bytes:
+        """
+        用 PyMuPDF 渲染 PDF 首页为 PNG，返回图片字节。
+        渲染失败返回 None。
+        """
+        import io
+        try:
+            import fitz  # PyMuPDF
+        except ImportError:
+            print("[TencentOCR] PyMuPDF(fitz) 未安装，无法渲染PDF。安装: pip install PyMuPDF")
+            return None
+
+        try:
+            if pdf_bytes:
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            else:
+                doc = fitz.open(pdf_path)
+
+            if len(doc) == 0:
+                print("[TencentOCR] PDF 为空，无页面可渲染")
+                doc.close()
+                return None
+
+            # 渲染首页，150 DPI
+            page = doc[0]
+            pix = page.get_pixmap(dpi=150)
+            img_bytes = pix.tobytes("png")
+            doc.close()
+            return img_bytes
+
+        except Exception as e:
+            print(f"[TencentOCR] PDF 渲染异常: {e}")
+            return None
+
+    def _compress_image(self, image_path: str, raw_bytes: bytes, original_b64_size: int) -> str:
+        """PIL 逐级压缩：保持尺寸转JPEG → 缩放2000px → 缩放1500px"""
+        import base64
+        import io
+        from PIL import Image
+
+        strategies = [
+            ("保持尺寸+JPEG(q=85)", None, 85),
+            ("缩放2000px+JPEG(q=80)", 2000, 80),
+            ("缩放1500px+JPEG(q=75)", 1500, 75),
+        ]
+
+        for desc, max_width, quality in strategies:
+            try:
+                img = Image.open(io.BytesIO(raw_bytes))
+                ow, oh = img.size
+
+                if max_width and ow > max_width:
+                    ratio = max_width / ow
+                    nw, nh = max_width, int(oh * ratio)
+                    img = img.resize((nw, nh), Image.LANCZOS)
+                    print(f"[TencentOCR] {desc}: {ow}x{oh} → {nw}x{nh}")
+                else:
+                    nw, nh = ow, oh
+
+                if img.mode in ("RGBA", "P", "LA"):
+                    img = img.convert("RGB")
+
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=quality, optimize=True)
+                compressed_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                csize = len(compressed_b64) / (1024 * 1024)
+                fsize = len(buf.getvalue()) / (1024 * 1024)
+
+                print(f"[TencentOCR] {desc}: 文件={fsize:.2f}MB, Base64={csize:.2f}MB")
+
+                if len(compressed_b64) <= self._TENCENT_OCR_MAX_BASE64_SIZE:
+                    print(f"[TencentOCR] ✅ 压缩成功! 压缩比 {original_b64_size / len(compressed_b64):.1f}x")
+                    return compressed_b64
+
+                print(f"[TencentOCR] 仍超限，尝试下一策略...")
+            except Exception as e:
+                print(f"[TencentOCR] 策略[{desc}]失败: {e}")
+                continue
+
+        raise ValueError(
+            f"无法压缩至 {self._TENCENT_OCR_MAX_BASE64_SIZE // (1024*1024)}MB 以内。"
+            f"原始 {len(raw_bytes) / (1024*1024):.2f}MB, 路径: {image_path}"
+        )
 
     def recognize(self, image_path: str) -> Dict[str, Any]:
         """腾讯OCR识别实现"""
@@ -476,9 +604,8 @@ class TencentOCRProvider(BaseOCRProvider):
         print(f"[TencentOCR] 开始识别表格: {image_path}")
 
         try:
-            # 将图片转换为base64
-            with open(image_path, "rb") as f:
-                image_base64 = base64.b64encode(f.read()).decode('utf-8')
+            # 将图片转换为base64（含自动压缩）
+            image_base64 = self._prepare_image(image_path)
 
             # 构建请求参数
             req_params = {
