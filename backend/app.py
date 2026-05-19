@@ -38,6 +38,7 @@ from backend.api.progress_sse import progress_sse_bp
 from backend.api.audit import audit_bp
 from backend.api.smart_recognize import smart_recognize_bp
 from backend.api.rag_api import rag_bp
+from backend.api.harness_routes import harness_bp
 
 # ----------- 导入工具 -----------
 from backend.models.safe_unified_db import SafeDatabaseManager
@@ -142,6 +143,7 @@ app.register_blueprint(progress_sse_bp)
 app.register_blueprint(audit_bp)
 app.register_blueprint(smart_recognize_bp)
 app.register_blueprint(rag_bp)
+app.register_blueprint(harness_bp)
 
 # =============================================================================
 # 静态文件路由
