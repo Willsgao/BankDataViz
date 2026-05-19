@@ -35,7 +35,7 @@ const routes = [
     path: '/bank-data',
     name: 'BankData',
     component: BankDataPage,
-    meta: { requiredPermission: 'data', title: '数据看板-文档' }
+    meta: { requiredPermission: 'data', title: '文档仓库' }
   },
   {
     path: '/bank-warehouse',

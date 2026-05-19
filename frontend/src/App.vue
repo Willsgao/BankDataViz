@@ -7,9 +7,11 @@
     >
       <!-- 左侧区域：布局切换 + PDF 搜索 -->
       <div class="left-section">
-        <!-- 布局切换按钮 -->
+        <!-- 布局切换按钮：三组功能域 -->
         <div class="layout-switcher">
-          <el-button-group>
+          <!-- 数据管道 -->
+          <div class="nav-group">
+            <span class="nav-group-label pipeline">数据管道</span>
             <el-button
               v-if="hasPermission('parse')"
               :type="$route.name === 'TwoColumn' ? 'primary' : ''"
@@ -26,75 +28,76 @@
             >
               数据审核
             </el-button>
-            <span class="nav-separator" />
             <el-button
-              type="warning"
-              size="small"
-              @click="$router.push('/audit')"
-            >
-              会计勾稽
-            </el-button>
-            <el-button
-              type="success"
+              :type="$route.name === 'SmartRecognize' ? 'success' : ''"
               size="small"
               @click="$router.push('/smart-recognize')"
             >
               智能识别
             </el-button>
             <el-button
+              :type="$route.name === 'Audit' ? 'warning' : ''"
+              size="small"
+              @click="$router.push('/audit')"
+            >
+              会计勾稽
+            </el-button>
+          </div>
+
+          <span class="nav-section-divider" />
+
+          <!-- 数据应用 -->
+          <div class="nav-group">
+            <span class="nav-group-label apps">数据应用</span>
+            <el-button
+              v-if="hasPermission('data')"
+              :type="$route.name === 'BankDashboard' ? 'primary' : ''"
+              size="small"
+              @click="$router.push('/bank-dashboard')"
+            >
+              数据看板
+            </el-button>
+            <el-button
+              v-if="hasPermission('data')"
+              :type="$route.name === 'BankData' ? 'primary' : ''"
+              size="small"
+              @click="$router.push('/bank-data')"
+            >
+              文档仓库
+            </el-button>
+          </div>
+
+          <span class="nav-section-divider" />
+
+          <!-- AI 引擎 -->
+          <div class="nav-group">
+            <span class="nav-group-label ai">🤖 AI 引擎</span>
+            <el-button
               :type="$route.name === 'RagChat' ? 'primary' : ''"
               size="small"
-              class="rag-btn"
+              class="ai-btn"
               @click="$router.push('/rag-chat')"
             >
               智能问答
+              <span class="ai-badge rag">RAG</span>
+            </el-button>
+            <el-button
+              :type="$route.name === 'AgentWorkflow' ? 'primary' : ''"
+              size="small"
+              class="ai-btn"
+              @click="$router.push('/agent-workflow')"
+            >
+              Agent 工作流
+              <span class="ai-badge agent">Multi-Agent</span>
             </el-button>
             <el-button
               :type="$route.name === 'PromptShowcase' ? 'primary' : ''"
               size="small"
-              class="prompt-btn"
               @click="$router.push('/prompt-engineering')"
             >
               Prompt 工程
             </el-button>
-            <el-button
-              :type="$route.name === 'AgentWorkflow' ? 'primary' : 'success'"
-              size="small"
-              class="agent-btn"
-              @click="$router.push('/agent-workflow')"
-            >
-              Agent 工作流
-            </el-button>
-            <span class="nav-separator" />
-            <el-dropdown
-              v-if="hasPermission('data')"
-              trigger="hover"
-              @command="handleBankDashboardCommand"
-            >
-              <el-button
-                :type="['BankDashboard', 'BankData'].includes($route.name) ? 'primary' : ''"
-                size="small"
-                @click="handleBankDashboardClick"
-              >
-                数据看板
-                <el-icon class="el-icon--right">
-                  <ArrowDown />
-                </el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="dashboard">
-                    <el-icon><DataBoard /></el-icon>
-                    数据看板-图表
-                  </el-dropdown-item>
-                  <el-dropdown-item command="data">
-                    <el-icon><FolderOpened /></el-icon>
-                    数据看板-文档
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </el-button-group>
+          </div>
         </div>
 
         <!-- PDF 文件搜索框（左侧） -->
@@ -231,7 +234,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, ArrowLeft, ArrowRight, DataBoard, FolderOpened, Setting } from '@element-plus/icons-vue'
+import { Search, ArrowDown, ArrowLeft, ArrowRight, Setting } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -304,27 +307,6 @@ const goToTwoColumn = () => {
     router.push('/two-column')
   } else {
     ElMessage.warning('权限不足，您没有数据解析权限')
-  }
-}
-
-// 数据看板下拉菜单命令处理
-const handleBankDashboardCommand = (command) => {
-  if (command === 'dashboard') {
-    router.push('/bank-dashboard')
-  } else if (command === 'data') {
-    router.push('/bank-data')
-  }
-}
-
-// 数据看板按钮点击显示下拉菜单
-const handleBankDashboardClick = (event) => {
-  // 触发下拉菜单显示
-  const target = event.currentTarget
-  if (target && target.parentElement) {
-    const dropdown = target.parentElement.querySelector('.el-dropdown')
-    if (dropdown && dropdown.__vue__) {
-      dropdown.__vue__.handleClick()
-    }
   }
 }
 
@@ -652,18 +634,84 @@ window.addEventListener('storage', (e) => {
 .layout-switcher {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;
 }
 
-/* 导航栏分组分隔符（数据处理 | 工具 | 数据消费） */
-.nav-separator {
-  display: inline-block;
-  width: 1px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 0 4px;
-  vertical-align: middle;
+/* 导航分组容器 */
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 分组标签 */
+.nav-group-label {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-weight: 600;
+  margin-right: 4px;
+  line-height: 1.6;
   flex-shrink: 0;
+}
+.nav-group-label.pipeline {
+  border: 1px solid #409eff;
+  color: #409eff;
+  background: #ecf5ff;
+}
+.nav-group-label.apps {
+  border: 1px solid #67c23a;
+  color: #67c23a;
+  background: #f0f9eb;
+}
+.nav-group-label.ai {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border: none;
+}
+
+/* 组间分隔竖线 */
+.nav-section-divider {
+  width: 1px;
+  height: 28px;
+  background: #dcdfe6;
+  margin: 0 10px;
+  flex-shrink: 0;
+}
+
+/* AI 引擎按钮特殊样式 */
+.ai-btn {
+  border-color: #c4b5fd !important;
+  background: #f5f3ff !important;
+  position: relative;
+  overflow: visible !important;
+}
+.ai-btn:hover {
+  border-color: #a78bfa !important;
+  background: #ede9fe !important;
+}
+
+/* RAG / Multi-Agent 技术徽章 */
+.ai-badge {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  color: #fff;
+  line-height: 1.5;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 1;
+  pointer-events: none;
+}
+.ai-badge.rag {
+  background: #409eff;
+}
+.ai-badge.agent {
+  background: #7c3aed;
 }
 
 /* 右侧区域：Excel 搜索 + 用户信息 */
