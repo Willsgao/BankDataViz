@@ -11,60 +11,54 @@
         <div class="layout-switcher">
           <!-- 数据管道 -->
           <div class="nav-group">
-            <span class="nav-group-label pipeline">数据管道</span>
-            <el-button
-              v-if="hasPermission('parse')"
-              :type="$route.name === 'TwoColumn' ? 'primary' : ''"
-              size="small"
-              @click="goToTwoColumn"
-            >
-              数据解析
-            </el-button>
-            <el-button
-              v-if="hasPermission('review')"
-              :type="$route.name === 'ThreeColumn' ? 'primary' : ''"
-              size="small"
-              @click="$router.push('/three-column')"
-            >
-              数据审核
-            </el-button>
-            <el-button
-              :type="$route.name === 'SmartRecognize' ? 'success' : ''"
-              size="small"
-              @click="$router.push('/smart-recognize')"
-            >
-              智能识别
-            </el-button>
-            <el-button
-              :type="$route.name === 'Audit' ? 'warning' : ''"
-              size="small"
-              @click="$router.push('/audit')"
-            >
-              会计勾稽
-            </el-button>
+            <el-dropdown trigger="hover" @command="handlePipelineCommand">
+              <span class="nav-group-label pipeline dropdown-label">
+                数据管道
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="hasPermission('parse')" command="parse">
+                    <el-icon><Document /></el-icon> 数据解析
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="hasPermission('review')" command="review">
+                    <el-icon><Checked /></el-icon> 数据审核
+                  </el-dropdown-item>
+                  <el-dropdown-item command="smart-recognize">
+                    <el-icon><Picture /></el-icon> 智能识别
+                  </el-dropdown-item>
+                  <el-dropdown-item command="audit">
+                    <el-icon><Connection /></el-icon> 会计勾稽
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
 
           <span class="nav-section-divider" />
 
           <!-- 数据应用 -->
           <div class="nav-group">
-            <span class="nav-group-label apps">数据应用</span>
-            <el-button
+            <el-dropdown
               v-if="hasPermission('data')"
-              :type="$route.name === 'BankDashboard' ? 'primary' : ''"
-              size="small"
-              @click="$router.push('/bank-dashboard')"
+              trigger="hover"
+              @command="handleAppsCommand"
             >
-              数据看板
-            </el-button>
-            <el-button
-              v-if="hasPermission('data')"
-              :type="$route.name === 'BankData' ? 'primary' : ''"
-              size="small"
-              @click="$router.push('/bank-data')"
-            >
-              文档仓库
-            </el-button>
+              <span class="nav-group-label apps dropdown-label">
+                数据应用
+                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="dashboard">
+                    <el-icon><DataBoard /></el-icon> 数据看板
+                  </el-dropdown-item>
+                  <el-dropdown-item command="data">
+                    <el-icon><FolderOpened /></el-icon> 文档仓库
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
 
           <span class="nav-section-divider" />
@@ -234,7 +228,7 @@
 
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { Search, ArrowDown, ArrowLeft, ArrowRight, Setting } from '@element-plus/icons-vue'
+import { Search, ArrowDown, ArrowLeft, ArrowRight, Setting, Document, Checked, Picture, Connection, DataBoard, FolderOpened } from '@element-plus/icons-vue'
 import { ref, computed, provide, onMounted, watch, reactive, toRefs, toRef } from 'vue'
 import { getApiUrl } from '@/utils/config'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -307,6 +301,34 @@ const goToTwoColumn = () => {
     router.push('/two-column')
   } else {
     ElMessage.warning('权限不足，您没有数据解析权限')
+  }
+}
+
+// 数据管道下拉菜单命令处理
+const handlePipelineCommand = (command) => {
+  const routeMap = {
+    parse: '/two-column',
+    review: '/three-column',
+    'smart-recognize': '/smart-recognize',
+    audit: '/audit'
+  }
+  if (command === 'parse' && !hasPermission('parse')) {
+    ElMessage.warning('权限不足')
+    return
+  }
+  if (command === 'review' && !hasPermission('review')) {
+    ElMessage.warning('权限不足')
+    return
+  }
+  router.push(routeMap[command])
+}
+
+// 数据应用下拉菜单命令处理
+const handleAppsCommand = (command) => {
+  if (command === 'dashboard') {
+    router.push('/bank-dashboard')
+  } else if (command === 'data') {
+    router.push('/bank-data')
   }
 }
 
@@ -669,6 +691,18 @@ window.addEventListener('storage', (e) => {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
   border: none;
+}
+
+/* 下拉菜单触发标签 */
+.dropdown-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+.dropdown-label .el-icon--right {
+  margin-left: 2px;
+  font-size: 10px;
 }
 
 /* 组间分隔竖线 */
