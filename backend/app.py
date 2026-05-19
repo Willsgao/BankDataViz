@@ -77,18 +77,27 @@ CORS(
 )
 
 # 兜底：确保所有响应（含预检和错误响应）都带 CORS 头
+# 注意：用直接赋值而非 setdefault，因为 Flask-CORS 可能已把
+# Access-Control-Allow-Credentials 设为空字符串，setdefault 不会覆盖已有键
 @app.after_request
 def add_cors_headers(response):
-    response.headers.setdefault('Access-Control-Allow-Origin', 'http://localhost:8080')
-    response.headers.setdefault('Access-Control-Allow-Credentials', 'true')
-    response.headers.setdefault('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
-    response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
+    origin = response.headers.get('Access-Control-Allow-Origin')
+    if not origin:
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
     return response
 
 # 显式处理所有 /api/* 的 OPTIONS 预检请求
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def handle_preflight(path):
     resp = app.make_default_options_response()
+    resp.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    resp.headers['Access-Control-Allow-Credentials'] = 'true'
+    resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+    resp.headers['Access-Control-Max-Age'] = '86400'
     return resp
 
 # =============================================================================
@@ -180,6 +189,27 @@ app.add_url_rule(
 
 print("✅ 所有蓝图和路由注册完成")
 print("=" * 60)
+
+
+# =============================================================================
+# 预热 RAG Embedding 模型（后台线程，避免阻塞启动）
+# bge-large-zh 约 1.3GB，首次加载需 40-60s，提前加载可避免首次查询卡顿
+# =============================================================================
+def _preload_rag_embedding():
+    """后台预热 RAG Embedding 模型"""
+    import threading
+    def _load():
+        try:
+            from backend.services.rag_service import get_rag_pipeline
+            get_rag_pipeline()
+            print("🧠 RAG Embedding 模型预热完成")
+        except Exception as e:
+            print(f"⚠️ RAG 模型预热跳过（不影响服务）: {e}")
+    t = threading.Thread(target=_load, daemon=True)
+    t.start()
+
+
+_preload_rag_embedding()
 
 
 # =============================================================================

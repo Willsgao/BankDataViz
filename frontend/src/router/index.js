@@ -10,6 +10,7 @@ import AuditPage from '@/views/AuditPage.vue'
 import SmartRecognizePage from '@/views/SmartRecognizePage.vue'
 import RagChatPage from '@/views/RagChatPage.vue'
 import PromptShowcasePage from '@/views/PromptShowcasePage.vue'
+import AgentWorkflowPage from '@/views/AgentWorkflowPage.vue'
 
 const routes = [
   {
@@ -74,6 +75,12 @@ const routes = [
     name: 'PromptShowcase',
     component: PromptShowcasePage,
     meta: { title: 'Prompt 工程' }
+  },
+  {
+    path: '/agent-workflow',
+    name: 'AgentWorkflow',
+    component: AgentWorkflowPage,
+    meta: { title: 'Agent 工作流' }
   },
   {
     path: '/',

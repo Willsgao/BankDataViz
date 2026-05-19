@@ -122,10 +122,11 @@ class SemanticChunker:
 # Embedding 服务
 # =============================================================================
 class EmbeddingService:
-    """BGE-large-zh 向量化服务（单例 + 懒加载）"""
+    """BGE-large-zh 向量化服务（单例 + 懒加载 + 线程安全）"""
 
     _instance = None
     _model = None
+    _model_lock = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -133,12 +134,23 @@ class EmbeddingService:
         return cls._instance
 
     def _load_model(self):
+        import threading
+        if self._model_lock is None:
+            self._model_lock = threading.Lock()
+
+        # 快速路径：已加载直接返回
         if self._model is not None:
             return
-        from sentence_transformers import SentenceTransformer
-        logger.info(f"正在加载 Embedding 模型: {BGE_MODEL_NAME}")
-        self._model = SentenceTransformer(BGE_MODEL_NAME)
-        logger.info(f"Embedding 模型加载完成，维度: {self._model.get_embedding_dimension()}")
+
+        with self._model_lock:
+            # 双重检查：锁内再确认一次，避免重复加载
+            if self._model is not None:
+                return
+            from sentence_transformers import SentenceTransformer
+            logger.info(f"正在加载 Embedding 模型: {BGE_MODEL_NAME}")
+            load_start = time.time()
+            self._model = SentenceTransformer(BGE_MODEL_NAME)
+            logger.info(f"Embedding 模型加载完成，耗时 {time.time() - load_start:.1f}s，维度: {self._model.get_embedding_dimension()}")
 
     def encode(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
         """将文本列表编码为向量数组 (N, 768)"""
@@ -355,6 +367,19 @@ class RagPipeline:
         self._current_doc: Optional[str] = None
         self.conversations: Dict[str, List[Dict[str, str]]] = {}  # session_id → messages
 
+    def preload_embedding_model(self) -> float:
+        """预热：强制加载 Embedding 模型，避免首次查询时冷启动（bge-large-zh ~1.3GB, CPU加载需40-60s）
+
+        Returns:
+            加载耗时（秒）
+        """
+        start = time.time()
+        logger.info("预热 Embedding 模型...")
+        self.embedder._load_model()
+        elapsed = time.time() - start
+        logger.info(f"Embedding 模型预热完成，耗时 {elapsed:.1f}s")
+        return elapsed
+
     def build_index(self, pdf_path: str) -> Dict[str, Any]:
         """为指定 PDF 构建 FAISS 索引"""
         start_time = time.time()
@@ -421,13 +446,20 @@ class RagPipeline:
         if self.index_mgr is None or self.index_mgr.index is None:
             return {"success": False, "error": "请先构建索引"}
 
-        start_time = time.time()
+        t0 = time.time()
 
-        # 1. 向量检索
+        # 1. 向量化查询
+        t1 = time.time()
         query_vec = self.embedder.encode_query(question)
-        results = self.index_mgr.search(query_vec, k=top_k)
+        encode_ms = (time.time() - t1) * 1000
 
-        retrieval_time = (time.time() - start_time) * 1000
+        # 2. FAISS 检索
+        t2 = time.time()
+        results = self.index_mgr.search(query_vec, k=top_k)
+        search_ms = (time.time() - t2) * 1000
+
+        retrieval_time = (time.time() - t0) * 1000
+        logger.info(f"RAG 检索: encode={encode_ms:.0f}ms, faiss={search_ms:.0f}ms, total={retrieval_time:.0f}ms")
 
         # 2. 构建上下文
         context_parts = []
@@ -538,12 +570,21 @@ class RagPipeline:
                 yield sse_line  →  Flask SSE response
         """
         from openai import OpenAI
+        import httpx
 
         messages = self._build_messages(question, context, session_id)
 
+        # 流式 SSE 连接不能经过 HTTP 代理（代理会缓冲/中断长连接）
+        # trust_env=False 跳过 HTTP_PROXY/HTTPS_PROXY 环境变量，直连 DeepSeek API
+        _stream_http_client = httpx.Client(
+            http2=False,
+            timeout=httpx.Timeout(120.0, connect=15.0),
+            trust_env=False
+        )
         client = OpenAI(
             base_url=RAG_BASE_URL,
-            api_key=RAG_API_KEY
+            api_key=RAG_API_KEY,
+            http_client=_stream_http_client
         )
 
         try:
@@ -643,8 +684,10 @@ _rag_pipeline: Optional[RagPipeline] = None
 
 
 def get_rag_pipeline() -> RagPipeline:
-    """获取 RAG 管线全局单例"""
+    """获取 RAG 管线全局单例（首次调用时自动预热 Embedding 模型）"""
     global _rag_pipeline
     if _rag_pipeline is None:
         _rag_pipeline = RagPipeline()
+        # 首次创建时预热 Embedding 模型，避免第一次查询卡 40-60 秒
+        _rag_pipeline.preload_embedding_model()
     return _rag_pipeline

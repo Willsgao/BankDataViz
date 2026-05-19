@@ -57,6 +57,14 @@
             >
               Prompt 工程
             </el-button>
+            <el-button
+              :type="$route.name === 'AgentWorkflow' ? 'primary' : 'success'"
+              size="small"
+              class="agent-btn"
+              @click="$router.push('/agent-workflow')"
+            >
+              Agent 工作流
+            </el-button>
             <span class="nav-separator" />
             <el-dropdown
               v-if="hasPermission('data')"
