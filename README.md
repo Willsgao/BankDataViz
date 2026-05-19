@@ -24,11 +24,15 @@ PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重
 ```
 BankDataViz/
 ├── backend/                    # Python 后端
-│   ├── api/                    # 14 个 API 蓝图（文件上传/转换/审核/LLM/RAG...）
+│   ├── api/                    # 15+ API 蓝图（文件上传/转换/审核/LLM/RAG/Harness...）
+│   ├── harness/                # Agent 编排层（Tool 包装 + Agent 定义）
+│   │   ├── tools/              # 5 个标准化 Tool（OCR/LLM分析/重建/审计/RAG）
+│   │   └── agents/             # TableParsingAgent（组合 OCR→LLM→重建）
 │   ├── core/                   # 核心管线（表格检测→OCR→LLM→重构）
 │   │   └── table_processor/    # 8 步表格重构引擎（~2400 行）
 │   ├── services/               # 服务层（勾稽引擎、检测器、缓存管理）
 │   ├── database/               # 数据库层（适配器模式、迁移管理）
+│   ├── tests/harness/          # 集成测试套件（数据仓库 CRUD + 服务层测试）
 │   └── models/                 # SQLAlchemy 数据模型
 ├── frontend/                   # Vue 3 前端
 │   ├── src/
@@ -104,6 +108,12 @@ BankDataViz/
 针对银行财务表格的复杂性，设计了 5 级评估体系 + 4 种专用 Prompt 模板 + 4 级 JSON 容错策略，确保 LLM 输出的稳定性与准确度。
 
 ![Prompt工程设计](docs/screenshots/11_prompt设置标准.png)
+
+### 10. Agent Harness 编排框架
+
+基于自研 `agent-harness` 框架 (Model + Harness = Agent)，将 OCR、LLM 分析、表格重建、审计、RAG 五大能力统一封装为标准化 Tool。Orchestrator 按 OCR → LLM 分析 → 重建 固定管线自动编排，配合 RuleEngine 验证输出质量，3 次失败自动重试。
+
+![Harness编排](docs/screenshots/12_harness编排.png)
 
 ---
 
@@ -318,6 +328,63 @@ class RagPipeline:
 
 ---
 
+### 10. Agent Harness 编排层 —— Model + Harness = Agent
+
+自研零外部依赖的轻量级 Agent 框架，将能力模块统一包装为 Tool，由 Orchestrator 编排调度：
+
+```
+                    agent-harness 框架
+          ┌─────────────────────────────────┐
+          │  ToolRegistry   ←── 5 Tools ──┐ │
+          │  Agent          ←── think→act │ │
+          │  Orchestrator   ←── 编排+验证  │ │
+          │  RuleEngine     ←── 3 Rules   │ │
+          └─────────────────────────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+     ┌─────────┐  ┌──────────┐  ┌──────────┐
+     │  OCR    │  │ LLM分析  │  │ 表格重建  │
+     │  Tool   │→ │  Tool    │→ │  Tool    │
+     └─────────┘  └──────────┘  └──────────┘
+          │              │              │
+          └── TableParsingAgent ───────┘
+              (固定管线, max_retries=3)
+```
+
+**关键设计**：
+
+| 组件 | 作用 | 说明 |
+|------|------|------|
+| `Tool` / `ToolResult` | 能力单元统一抽象 | `execute()` 接口 + `success/data/error/retry_count` |
+| `ToolRegistry` | 工具注册中心 | register / get / list_all |
+| `Agent` | Agent 基类 | think → act → observe 循环，内置重试机制 |
+| `Orchestrator` | 多 Agent 编排器 | 约束→执行→验证→纠错→收敛 |
+| `RuleEngine` | 可插拔验证规则 | NotNullRule / ColumnConsistencyRule / TableCountRule |
+
+**API 端点**：
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/api/harness/tools` | GET | 列出所有已注册 Tool |
+| `/api/harness/parse` | POST | Agent 驱动的端到端表格解析 |
+| `/api/harness/rag` | POST | RAG 智能问答（Agent 调度） |
+
+```python
+# backend/api/harness_routes.py
+@harness_bp.route("/parse", methods=["POST"])
+def agent_parse():
+    agent = TableParsingAgent()        # 持有 OCR + LLM + Rebuild 三个 Tool
+    orchestrator = Orchestrator(       # 编排器
+        agent=agent,
+        rules=[NotNullRule(), ColumnConsistencyRule(), TableCountRule()]
+    )
+    result = orchestrator.run(image_path=data["image_path"])
+    return result.to_dict()
+```
+
+---
+
 ## 架构全景
 
 ```
@@ -330,8 +397,14 @@ class RagPipeline:
 │                   Flask Backend                      │
 │                                                      │
 │  ┌────────────────────────────────────────────────┐  │
-│  │           14 API Blueprints                     │  │
-│  │  upload  file  convert  audit  llm  smart  ...  │  │
+│  │          15+ API Blueprints                     │  │
+│  │  upload  file  convert  audit  llm  smart       │  │
+│  │                harness  (Agent编排)             │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │           Agent Harness 编排层                  │  │
+│  │  Tool(5) → Agent → Orchestrator → RuleEngine  │  │
 │  └────────────────────────────────────────────────┘  │
 │                                                      │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
@@ -365,6 +438,7 @@ class RagPipeline:
 | **任务队列** | Redis | 异步任务队列 |
 | **数据库** | SQLite + Redis | 持久化 + 缓存 |
 | **缓存策略** | Redis(热) → SQLite(温) → 磁盘(冷) | 三级缓存，MD5 + model 复合键 |
+| **Agent 框架** | agent-harness (自研) | Tool 包装 + Orchestrator 编排 + RuleEngine 验证 |
 
 ---
 
