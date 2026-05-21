@@ -1,10 +1,11 @@
 # BankDataViz | DocBrain
 > 智能文档解析 · RAG 问答 · 数据分析与可视化平台
-> 🧠 Agent Harness 架构: 约束→执行→验证→纠错→收敛
-
+>
+> **三层能力**：全栈工程（Vue 3 + Flask + 140+ 模块）→ Agent 框架（自研零依赖 harness，含 ReAct 推理 + HITL 兜底）→ 行业应用（12 家银行 2020-2024 真实数据）
+>
 > 从 PDF/图片中自动提取表格数据，支持结构化导出、规则校验、可视化分析及 RAG 智能问答。以银行年报数据为行业应用案例，底层引擎可适配任意行业文档。
-
-> **演示模式**：启动后无需登录，系统自动注入管理员权限，可直接体验全部功能。
+>
+> **演示模式**：启动后无需登录，可直接体验全部功能。默认管理员账号 `admin` / `admin123321`。
 
 ---
 
@@ -25,25 +26,31 @@ PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重
 ```
 BankDataViz/
 ├── backend/                    # Python 后端
-│   ├── api/                    # 15+ API 蓝图（文件上传/转换/审核/LLM/RAG/Harness...）
-│   ├── harness/                # Agent 编排层（Tool 包装 + Agent 定义）
-│   │   ├── tools/              # 5 个标准化 Tool（OCR/LLM分析/重建/审计/RAG）
-│   │   └── agents/             # TableParsingAgent（组合 OCR→LLM→重建）
+│   ├── api/                    # 15+ API 蓝图（upload/file/convert/audit/llm/rag/harness/...）
+│   ├── harness/                # Agent 编排适配层（Tool 包装 + Agent 定义）
+│   │   ├── tools/              # 7 个标准化 Tool（OCR/LLM分析/重建/审计/RAG/数据查询/图表）
+│   │   └── agents/             # TableParsingAgent / AuditAgent / DataAnalysisAgent
 │   ├── core/                   # 核心管线（表格检测→OCR→LLM→重构）
 │   │   └── table_processor/    # 8 步表格重构引擎（~2400 行）
 │   ├── services/               # 服务层（勾稽引擎、检测器、缓存管理）
-│   ├── database/               # 数据库层（适配器模式、迁移管理）
+│   ├── database/               # 数据库层（适配器模式、迁移管理、数据仓库）
 │   ├── tests/harness/          # 集成测试套件（数据仓库 CRUD + 服务层测试）
 │   └── models/                 # SQLAlchemy 数据模型
 ├── frontend/                   # Vue 3 前端
 │   ├── src/
-│   │   ├── views/              # 9 个页面（解析/审核/看板/勾稽/问答/Prompt...）
+│   │   ├── views/              # 9 个页面（解析/审核/看板/勾稽/问答/Prompt/Agent工作流...）
 │   │   ├── components/         # 48+ 组件（excel/common/threecolumns/layout）
 │   │   ├── stores/             # 7 个 Pinia Store（auth/search/bankData/...）
 │   │   ├── composables/        # 可组合函数库
 │   │   ├── api/                # API 调用封装
 │   │   └── router/             # 路由与权限守卫
 │   └── package.json
+├── agent-harness/              # 🔧 自研零依赖 Agent 框架（独立仓库）
+│   └── harness/
+│       ├── tool_registry.py    # Tool 基类 + timeout 控制
+│       ├── agent.py            # Agent 基类 + ReActAgent 子类 + fallback 机制
+│       ├── orchestrator.py     # 多 Agent 编排器 + HITL 人工兜底回调
+│       └── verification.py     # 可插拔 RuleEngine（3 类内置规则）
 ├── docs/screenshots/           # 功能截图（11 张，全流程覆盖）
 └── scripts/                    # 辅助脚本
 ```
@@ -331,26 +338,32 @@ class RagPipeline:
 
 ### 10. Agent Harness 编排层 —— Model + Harness = Agent
 
-自研零外部依赖的轻量级 Agent 框架，将能力模块统一包装为 Tool，由 Orchestrator 编排调度：
+自研零外部依赖的轻量级 Agent 框架（独立仓库），支持 Pipeline 固定管线与 ReAct 动态推理两种模式。将能力模块统一包装为 Tool，由 Orchestrator 编排调度，配合 RuleEngine 验证 + HITL 人工兜底：
 
 ```
-                    agent-harness 框架
-          ┌─────────────────────────────────┐
-          │  ToolRegistry   ←── 5 Tools ──┐ │
-          │  Agent          ←── think→act │ │
-          │  Orchestrator   ←── 编排+验证  │ │
-          │  RuleEngine     ←── 3 Rules   │ │
-          └─────────────────────────────────┘
+                    agent-harness 框架 (独立仓库)
+          ┌─────────────────────────────────────────┐
+          │  ToolRegistry   ←── 7 Tools ──────────┐ │
+          │  Agent (Pipeline) / ReActAgent (LLM推理)│ │
+          │  Orchestrator   ←── 编排+验证+HITL    │ │
+          │  RuleEngine     ←── 3 Rules           │ │
+          └─────────────────────────────────────────┘
                          │
-          ┌──────────────┼──────────────┐
-          ▼              ▼              ▼
-     ┌─────────┐  ┌──────────┐  ┌──────────┐
-     │  OCR    │  │ LLM分析  │  │ 表格重建  │
-     │  Tool   │→ │  Tool    │→ │  Tool    │
-     └─────────┘  └──────────┘  └──────────┘
-          │              │              │
-          └── TableParsingAgent ───────┘
-              (固定管线, max_retries=3)
+          ┌──────────────┼──────────────┬──────────────┐
+          ▼              ▼              ▼              ▼
+     ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+     │  OCR    │  │ LLM分析  │  │ 表格重建  │  │ 审计     │
+     │  Tool   │→ │  Tool    │→ │  Tool    │→ │  Tool    │
+     └─────────┘  └──────────┘  └──────────┘  └──────────┘
+          │              │              │              │
+          └── TableParsingAgent (固定管线) ────────────┘
+                     └── AuditAgent (多Agent协作) ────┘
+
+                     ┌─────────── ReAct 推理 ───────────┐
+                     │  DataAnalysisAgent                │
+                     │  think→act(RAG/DataQuery/Chart)   │
+                     │  →observe→收敛→Final Answer       │
+                     └──────────────────────────────────┘
 ```
 
 **关键设计**：
@@ -430,8 +443,9 @@ summary: "任务成功 | 共 3 步 (3 成功, 0 失败) | 验证: 6 条规则 (6
 | 端点 | 方法 | 功能 |
 |------|------|------|
 | `/api/harness/tools` | GET | 列出所有已注册 Tool |
-| `/api/harness/parse` | POST | Agent 驱动的端到端表格解析 |
+| `/api/harness/parse` | POST | Pipeline 模式的端到端表格解析 |
 | `/api/harness/rag` | POST | RAG 智能问答（Agent 调度） |
+| `/api/harness/analyze` | POST | ReAct 模式的智能数据分析（自然语言驱动多 Tool 协作） |
 
 ```python
 # backend/api/harness_routes.py
@@ -466,8 +480,9 @@ def agent_parse():
 │  └────────────────────────────────────────────────┘  │
 │                                                      │
 │  ┌────────────────────────────────────────────────┐  │
-│  │           Agent Harness 编排层                  │  │
-│  │  Tool(5) → Agent → Orchestrator → RuleEngine  │  │
+│  │           Agent Harness 编排层 (独立仓库)       │  │
+│  │  Tool(7) → Agent/ReActAgent → Orchestrator     │  │
+│  │           → RuleEngine → HITL 人工兜底          │  │
 │  └────────────────────────────────────────────────┘  │
 │                                                      │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
@@ -501,7 +516,7 @@ def agent_parse():
 | **任务队列** | Redis | 异步任务队列 |
 | **数据库** | SQLite + Redis | 持久化 + 缓存 |
 | **缓存策略** | Redis(热) → SQLite(温) → 磁盘(冷) | 三级缓存，MD5 + model 复合键 |
-| **Agent 框架** | agent-harness (自研) | Tool 包装 + Orchestrator 编排 + RuleEngine 验证 |
+| **Agent 框架** | agent-harness (自研，独立仓库) | Tool 包装 + Pipeline/ReAct 双模式 + HITL 兜底 |
 
 ---
 
@@ -537,29 +552,48 @@ error_num → 错误数值（逗号在%前、多负号等）
 
 ---
 
-## 快速启动
+## 快速演示
+
+### 启动方式
 
 ```bash
-# 后端
+# 1. 安装 agent-harness 框架（自研，零外部依赖）
+pip install -e /path/to/agent-harness
+
+# 2. 后端
 cd backend
 pip install -r requirements.txt
 python backend_run.py           # 默认 http://localhost:5000
 
-# 前端
+# 3. 前端
 cd frontend
 npm install
 npm run serve                # 默认 http://localhost:8080
 ```
 
-**演示模式**：前端已内置演示模式，启动后无需登录即可自动进入系统，拥有完整管理权限。可直接上传 PDF 测试解析流程，或通过 Dashboard 的「写入演示数据」按钮一键加载 12 家银行 2020-2024 年的示例数据。
+### 演示账号
+
+| 角色 | 用户名 | 密码 | 权限 |
+|------|--------|------|------|
+| 超级管理员 | `admin` | `admin123321` | 全部功能 |
+| 普通用户 | `user1` | `123456` | 数据查看 |
+
+### 快速体验路径
+
+1. **文档解析**：登录后进入「数据解析」→ 上传银行年报 PDF → 自动完成表格检测→OCR→LLM分析→8步重构→结构化输出
+2. **Agent 工作流**：进入「Agent 工作流」→ 查看 Pipeline/ReAct/多Agent 三种模式下 Agent 的完整推理链
+3. **数据分析**：进入「数据看板」→ 点击「写入演示数据」→ 一键加载 12 家银行 2020-2024 年示例数据 → ECharts 交互式图表
+4. **RAG 问答**：进入「智能问答」→ 上传 PDF 构建索引 → 自然语言提问 → 检索增强生成
 
 ---
 
 ## License & Author
 
-独立开发，全栈交付。由真实银行数据处理需求驱动，从桌面原型（PyQt5）到 Web 服务（Vue 3 + Flask）两阶段演进。
+独立开发，全栈交付。项目由真实银行数据处理需求驱动，经历从桌面原型（PyQt5）到 Web 服务（Vue 3 + Flask）的两阶段演进，并自研了零外部依赖的 `agent-harness` Agent 编排框架。
 
 - **作者**：高玉伟
 - **7 年 NLP/AI 全栈研发** | 5 项授权发明专利 (4 项第一发明人)
-- **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、PDF 表格提取
+- **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、PDF 表格提取、AI Agent 框架设计
+- **项目规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，48+ Vue 组件，15+ 设计模式实例
+- **回滚锚点**：`git tag v1.1-pre-refactor`（改造前原始快照）
 

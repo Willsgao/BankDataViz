@@ -110,11 +110,11 @@
         <circle cx="60" cy="60" r="4" fill="rgba(64,169,255,0.25)" />
       </svg>
 
-      <!-- 浮动数字装饰 -->
-      <div class="data-float data-float--1">98.6</div>
-      <div class="data-float data-float--2">▲ 12.4%</div>
-      <div class="data-float data-float--3">2,847</div>
-      <div class="data-float data-float--4">¥3.2T</div>
+      <!-- 浮动数字装饰：系统能力指标 -->
+      <div class="data-float data-float--1">5 Tools</div>
+      <div class="data-float data-float--2">ReAct</div>
+      <div class="data-float data-float--3">3 Rules</div>
+      <div class="data-float data-float--4">zero-deps</div>
     </div>
 
 
