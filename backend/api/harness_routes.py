@@ -1,12 +1,13 @@
 """
 Harness API 路由
 
-提供 Agent 驱动的文档解析、RAG 问答等接口。
+提供 Agent 驱动的文档解析、RAG 问答、智能数据分析等接口。
 
 端点:
-  POST /api/harness/parse      Agent 驱动的文档解析
   GET  /api/harness/tools      列出所有可用工具
+  POST /api/harness/parse      Agent 驱动的端到端表格解析
   POST /api/harness/rag        RAG 智能问答
+  POST /api/harness/analyze    ReAct 智能数据分析（自然语言驱动多 Tool 协作）
 """
 
 from flask import Blueprint, request, jsonify
@@ -15,7 +16,9 @@ from harness import Orchestrator, RuleEngine
 from harness.verification import NotNullRule, ColumnConsistencyRule, TableCountRule
 
 from backend.harness.agents.table_parsing_agent import TableParsingAgent
+from backend.harness.agents.data_analysis_agent import DataAnalysisAgent
 from backend.harness.tools.rag_tool import RAGTool
+from backend.configs.llm_config import RAG_API_KEY, RAG_BASE_URL, RAG_MODEL_ID
 
 # =============================================================================
 # 蓝图
@@ -145,3 +148,71 @@ def agent_rag():
         "data": result.data,
         "error": result.error,
     })
+
+
+# =============================================================================
+# LLM 调用函数（供 ReActAgent 使用）
+# =============================================================================
+
+def _react_llm_call(prompt: str) -> str:
+    """ReActAgent 的 LLM 推理回调，复用 DeepSeek API"""
+    from openai import OpenAI
+
+    client = OpenAI(base_url=RAG_BASE_URL, api_key=RAG_API_KEY)
+    response = client.chat.completions.create(
+        model=RAG_MODEL_ID,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant. Always respond in valid JSON."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.1,
+        max_tokens=2000,
+    )
+    return response.choices[0].message.content or ""
+
+
+# =============================================================================
+# /analyze —— ReAct 智能数据分析
+# =============================================================================
+
+@harness_bp.route("/analyze", methods=["POST"])
+def agent_analyze():
+    """
+    ReAct Agent 驱动的智能数据分析
+
+    Request JSON:
+        {
+            "question": "比较工商银行和建设银行 2020-2024 的净利润趋势"
+        }
+
+    Response:
+        {
+            "success": true,
+            "data": {"answer": "...", "steps": [...]},
+            "trace": [...],
+            "react_trace": [...],     // ReAct 推理链
+            "verification": [...],
+            "summary": "..."
+        }
+    """
+    data = request.get_json(silent=True) or {}
+    question = data.get("question", "").strip()
+
+    if not question:
+        return jsonify({"success": False, "error": "缺少 question 参数"}), 400
+
+    agent = DataAnalysisAgent(llm_call=_react_llm_call, max_steps=8)
+
+    orchestrator = Orchestrator(
+        agents=[agent],
+        verifier=RuleEngine(),
+        max_loops=20,
+    )
+
+    result = orchestrator.run(
+        task=question,
+        context={},
+        verify_after_each_step=False,  # ReAct 模式不每步校验（由 LLM 自主判断）
+    )
+
+    return jsonify(result.to_dict())
