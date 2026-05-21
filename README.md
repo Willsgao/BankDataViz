@@ -25,7 +25,7 @@ PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重
           三通道召回+NMS                         动态列匹配降级              三类规则引擎
 ```
 
-**代码规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，48+ Vue 组件，15+ 设计模式实例
+**代码规模**：482+ 次提交，150+ Python 模块，16 个 API 蓝图，62+ Vue 组件，15+ 设计模式实例
 
 ---
 
@@ -34,8 +34,8 @@ PDF/图片 → [表格检测] → [OCR识别] → [LLM表头分析] → [8步重
 ```
 BankDataViz/
 ├── backend/                    # Python 后端
-│   ├── api/                    # 15+ API 蓝图（upload/file/convert/audit/llm/rag/harness/...）
-│   ├── harness/                # Agent 编排适配层（Tool 包装 + Agent 定义）
+│   ├── api/                    # 16 个 API 蓝图（upload/file/convert/audit/llm/rag/harness/...）
+│   ├── harness/                # Agent 编排适配层（针对本项目的 Tool/Agent 实现）
 │   │   ├── tools/              # 7 个标准化 Tool（OCR/LLM分析/重建/审计/RAG/数据查询/图表）
 │   │   └── agents/             # TableParsingAgent / AuditAgent / DataAnalysisAgent
 │   ├── core/                   # 核心管线（表格检测→OCR→LLM→重构）
@@ -46,20 +46,20 @@ BankDataViz/
 │   └── models/                 # SQLAlchemy 数据模型
 ├── frontend/                   # Vue 3 前端
 │   ├── src/
-│   │   ├── views/              # 9 个页面（解析/审核/看板/勾稽/问答/Prompt/Agent工作流...）
-│   │   ├── components/         # 48+ 组件（excel/common/threecolumns/layout）
+│   │   ├── views/              # 11 个页面（解析/审核/看板/勾稽/问答/Prompt/Agent工作流...）
+│   │   ├── components/         # 62+ 组件（excel/common/threecolumns/layout）
 │   │   ├── stores/             # 7 个 Pinia Store（auth/search/bankData/...）
 │   │   ├── composables/        # 可组合函数库
 │   │   ├── api/                # API 调用封装
 │   │   └── router/             # 路由与权限守卫
 │   └── package.json
-├── agent-harness/              # 🔧 自研零依赖 Agent 框架（独立仓库）
+├── agent-harness/              # 🔧 自研零依赖 Agent 框架（独立 pip 包，需单独安装）
 │   └── harness/
 │       ├── tool_registry.py    # Tool 基类 + timeout 控制
 │       ├── agent.py            # Agent 基类 + ReActAgent 子类 + fallback 机制
 │       ├── orchestrator.py     # 多 Agent 编排器 + HITL 人工兜底回调
 │       └── verification.py     # 可插拔 RuleEngine（3 类内置规则）
-├── docs/screenshots/           # 功能截图（11 张，全流程覆盖）
+├── docs/screenshots/           # 功能截图（13 张 + 1 个 GIF，全流程覆盖）
 └── scripts/                    # 辅助脚本
 ```
 
@@ -83,7 +83,7 @@ BankDataViz/
 
 ### 2. 表格数据提取
 
-对文本型 PDF 使用 PyMuPDF 坐标提取，对扫描件使用豆包 API 视觉识别，提取表格内容并展示在界面中。
+对文本型 PDF 使用 PyMuPDF 坐标提取，对扫描件通过 OCR（百度/腾讯云）识别 + 豆包 Vision LLM 进行表头分析，提取表格内容并展示在界面中。
 
 ![数据提取](docs/screenshots/3_数据提取.png)
 
@@ -487,7 +487,7 @@ def agent_parse():
 │                   Flask Backend                      │
 │                                                      │
 │  ┌────────────────────────────────────────────────┐  │
-│  │          15+ API Blueprints                     │  │
+│  │          16 API Blueprints                       │  │
 │  │  upload  file  convert  audit  llm  smart       │  │
 │  │                harness  (Agent编排)             │  │
 │  └────────────────────────────────────────────────┘  │
@@ -520,7 +520,7 @@ def agent_parse():
 | **表格编辑** | Handsontable | 类 Excel 在线编辑 |
 | **后端框架** | Python 3.11 + Flask 3 + SQLAlchemy 2 | REST API + WebSocket + ORM |
 | **PDF 解析** | PyMuPDF + pdfplumber | 文字型 PDF 坐标提取 |
-| **OCR** | 百度 OCR / PaddleOCR | 扫描件文字识别 |
+| **OCR** | 百度 OCR / 腾讯云 OCR / PaddleOCR | 扫描件文字识别（多供应商适配器模式） |
 | **视觉检测** | YOLOv8 + OpenCV | 表格区域检测 |
 | **Embedding** | BGE-large-zh + sentence-transformers | 文本向量化（1024 维） |
 | **向量检索** | FAISS (IndexIVFFlat) | IVF 聚类索引，nprobe 自适应 |
@@ -607,6 +607,6 @@ npm run serve                # 默认 http://localhost:8080
 - **作者**：wills
 - **7 年 NLP/AI 全栈研发** | 5 项授权发明专利 (4 项第一发明人)
 - **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、PDF 表格提取、AI Agent 框架设计
-- **项目规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，48+ Vue 组件，15+ 设计模式实例
+- **项目规模**：482+ 次提交，150+ Python 模块，16 个 API 蓝图，62+ Vue 组件，15+ 设计模式实例
 - **回滚锚点**：`git tag v1.1-pre-refactor`（改造前原始快照）
 

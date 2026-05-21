@@ -552,9 +552,6 @@ class EnhancedFinancialTableAnalyzer:
 
         llm_result = self._call_llm_global(base64_image, prompt)
 
-        print("XXXXXXXXXXXXXXXXllm_resultXXXXXXXXXXXXXXXXX")
-        print(llm_result)
-
         compressed = gzip.compress(json.dumps(llm_result).encode())
 
         # s3_key = f"llm/{md5}.json.gz"
