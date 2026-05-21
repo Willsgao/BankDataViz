@@ -596,7 +596,7 @@ npm run serve                # 默认 http://localhost:8080
 
 独立开发，全栈交付。项目由真实银行数据处理需求驱动，经历从桌面原型（PyQt5）到 Web 服务（Vue 3 + Flask）的两阶段演进，并自研了零外部依赖的 `agent-harness` Agent 编排框架。
 
-- **作者**：高玉伟
+- **作者**：wills
 - **7 年 NLP/AI 全栈研发** | 5 项授权发明专利 (4 项第一发明人)
 - **专长**：MoE 架构、vLLM 推理优化、Qwen 微调、自定义损失函数、PDF 表格提取、AI Agent 框架设计
 - **项目规模**：442+ 次提交，140+ Python 模块，14 个 API 蓝图，48+ Vue 组件，15+ 设计模式实例

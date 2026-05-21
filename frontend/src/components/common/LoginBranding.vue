@@ -150,7 +150,7 @@
           全栈项目作品
         </div>
         <div class="team-title">文档智能 + 数据分析</div>
-        <div class="team-name">高玉伟</div>
+        <div class="team-name">wills</div>
       </div>
 
       <!-- 分割线 -->
