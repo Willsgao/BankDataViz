@@ -122,11 +122,11 @@ BankDataViz/
 
 ![Prompt工程设计](docs/screenshots/11_prompt设置标准.png)
 
-### 10. Agent Harness 编排框架
+### 10. Agent Harness 编排框架 + ReAct 推理
 
-基于自研 `agent-harness` 框架 (Model + Harness = Agent)，将 OCR、LLM 分析、表格重建、审计、RAG 五大能力统一封装为标准化 Tool。Orchestrator 按 OCR → LLM 分析 → 重建 固定管线自动编排，配合 RuleEngine 验证输出质量，3 次失败自动重试。
+基于自研 `agent-harness` 框架 (Model + Harness = Agent)，支持 **Pipeline 固定管线** 与 **ReAct 动态推理** 双模式。将 OCR、LLM 分析、表格重建、审计、RAG、数据查询、图表生成七大能力统一封装为标准化 Tool。Orchestrator 编排 + RuleEngine 验证 + HITL 人工兜底。下图展示 ReAct 模式的完整 Think→Action→Observe 推理链：
 
-![Harness编排](docs/screenshots/12_harness编排.png)
+![ReAct推理链](docs/screenshots/12_ReAct流程.png)
 
 ---
 
