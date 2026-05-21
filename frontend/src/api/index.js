@@ -8,7 +8,10 @@ const backendBase = process.env.VUE_APP_API_BASE || getBackendUrl('')
 
 
 // ② 全局 axios 默认 baseURL（兜底：所有直接 import axios 的地方也能正确请求后端）
-axios.defaults.baseURL = backendBase
+// 开发环境不设全局 baseURL，让 /api/* 走 vue.config.js 代理（同源，无需 CORS）
+if (process.env.NODE_ENV === 'production') {
+  axios.defaults.baseURL = backendBase
+}
 
 export const http = axios.create({
   baseURL: backendBase,   // ② 不再出现 127.0.0.1

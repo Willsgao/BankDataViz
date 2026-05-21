@@ -19,7 +19,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # 加载项目根目录的 .env  → LLM_API_KEY 等环境变量
 
-from flask import Flask, send_from_directory
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
 
 # ----------- 导入蓝图 -----------
@@ -64,6 +64,7 @@ CORS(
                 "http://localhost:8080",
                 "http://127.0.0.1:8080",
                 "http://172.17.0.1:8080",
+                "http://192.168.10.111:8080",
                 "http://122.51.196.65:8080",
                 "http://122.51.196.65:5000",
             ],
@@ -83,7 +84,9 @@ CORS(
 def add_cors_headers(response):
     origin = response.headers.get('Access-Control-Allow-Origin')
     if not origin:
-        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+        # Flask-CORS 未设置时，动态回显请求的 Origin（支持任意局域网 IP）
+        request_origin = request.headers.get('Origin', '')
+        response.headers['Access-Control-Allow-Origin'] = request_origin or 'http://localhost:8080'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
@@ -93,7 +96,9 @@ def add_cors_headers(response):
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def handle_preflight(path):
     resp = app.make_default_options_response()
-    resp.headers['Access-Control-Allow-Origin'] = 'http://localhost:8080'
+    # 动态回显请求 Origin，支持任意局域网 IP 访问
+    request_origin = request.headers.get('Origin', '')
+    resp.headers['Access-Control-Allow-Origin'] = request_origin or 'http://localhost:8080'
     resp.headers['Access-Control-Allow-Credentials'] = 'true'
     resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
