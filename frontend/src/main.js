@@ -18,6 +18,14 @@ window.getApiUrl = getApiUrl
 // 初始化配置并启动应用
 const initApp = async () => {
   try {
+    // 兜底：捕获 Element Plus 等第三方库在挂载期产生的 getBoundingClientRect 空指针
+    window.addEventListener('error', (e) => {
+      if (e.message?.includes('getBoundingClientRect')) {
+        e.preventDefault()
+        console.warn('Ignored getBoundingClientRect error (third-party):', e.message)
+      }
+    })
+
     // 1. 初始化配置
     await initConfig()
     console.log('Configuration initialized')
@@ -39,11 +47,13 @@ const initApp = async () => {
 
     app.use(ElementPlus)
     app.use(router)
-    app.mount('#app')
 
+    // 全局错误处理（必须在 mount 之前注册，否则初始渲染期错误无法捕获）
     app.config.errorHandler = (err) => {
-    console.error('Vue error:', err)
-  }
+      console.error('Vue error:', err)
+    }
+
+    app.mount('#app')
 
     console.log('App mounted successfully')
   } catch (error) {
