@@ -64,7 +64,7 @@ BankDataViz/
 ### 0. 登录与品牌
 深色科技风品牌页，展示系统定位与技术能力指标。访问 `/login` 可查看完整视觉效果。
 
-![登录页](docs/screenshots/0_登录页.png)
+![登录页](docs/screenshots/0_登录页.png?v=2)
 
 ### 1. PDF 上传与分类
 
