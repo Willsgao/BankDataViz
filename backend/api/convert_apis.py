@@ -1491,7 +1491,8 @@ def api_smart_process_pdf(pdf_disk_name: str):
                     "step": "pdf_conversion"
                 }), 500
 
-            if not result_data.get('success', False):
+            # convert_pdf_async 成功时返回 jobId/hitCache，失败时返回 error
+            if result_data.get('error') or (not result_data.get('jobId') and not result_data.get('hitCache')):
                 error_msg = result_data.get('error', result_data.get('message', '未知错误'))
                 print(f"❌ 转图失败: {error_msg}")
                 return jsonify({

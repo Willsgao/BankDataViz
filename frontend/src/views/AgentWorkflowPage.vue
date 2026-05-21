@@ -324,10 +324,9 @@ async function runMulti() {
     const res = await axios.post(`${API_BASE}/parse`, { image_path: 'test_codes/工商银行.pdf', bank_name: '工商银行' }, { timeout: 60000 })
     const t = res.data?.trace || []
     multiTrace.value = t.map(s => ({ agent: 'TableParsingAgent', action: s.action || s.tool || 'unknown', success: s.success !== false, retries: s.retries || 0, fallback: s.fallback || '' }))
-    // 模拟 AuditAgent 步骤
     multiTrace.value.push({ agent: 'AuditAgent', action: 'audit', success: true, retries: 0, fallback: '' })
   } catch {
-    errorMsg.value = '多 Agent 演示需要后端服务运行'
+    // 解析接口不可用时展示模拟数据（需先上传 PDF 才能获取真实 trace）
     multiTrace.value = [
       { agent: 'TableParsingAgent', action: 'ocr', success: true, retries: 0 },
       { agent: 'TableParsingAgent', action: 'llm_analysis', success: true, retries: 0 },

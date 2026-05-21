@@ -10,6 +10,7 @@ import sqlite3
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify
+from backend.utils.constants import MAIN_ROOT
 
 # =============================================================================
 # 蓝图与常量
@@ -17,9 +18,9 @@ from flask import Blueprint, request, jsonify
 audit_bp = Blueprint('audit', __name__, url_prefix='/api/audit')
 
 # 数据库路径（与现有系统保持一致）
-DATABASE_PATH = r'F:\wills\codes\DocuVista\data\database.db'
-EXCEL_DATA_ROOT = r'F:\wills\codes\DocuVista\data\backend\static\excel_data'
-RULES_CONFIG_PATH = r'F:\wills\codes\DocuVista\data\backend\config\audit_rules.json'
+DATABASE_PATH = os.path.join(MAIN_ROOT, 'data', 'database.db')
+EXCEL_DATA_ROOT = os.path.join(MAIN_ROOT, 'data', 'backend', 'static', 'excel_data')
+RULES_CONFIG_PATH = os.path.join(MAIN_ROOT, 'data', 'backend', 'config', 'audit_rules.json')
 
 
 # =============================================================================

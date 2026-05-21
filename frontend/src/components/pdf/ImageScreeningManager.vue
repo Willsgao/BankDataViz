@@ -395,6 +395,13 @@
             </el-table>
           </div>
 
+          <!-- 加载更多 -->
+          <div v-if="hasMore" style="text-align:center;padding:12px;">
+            <el-button @click="loadMore" size="small">
+              加载更多 (已显示 {{ currentImages.length }} / {{ totalImages.length }})
+            </el-button>
+          </div>
+
           <!-- 空状态 -->
           <div
             v-if="currentImages.length === 0 && !props.classifiedImages[activeCategory]?.length"
@@ -716,6 +723,8 @@ const selectedImage = ref(null)
 const currentImageIndex = ref(-1)
 const previewLoading = ref(false)
 const refreshing = ref(false)
+const pageSize = 50
+const displayLimit = ref(pageSize)  // 分批渲染，避免大量图片拖慢 DOM
 
 
 // === 第一步：添加多选状态管理（在 refreshing 之后添加）===
@@ -890,9 +899,19 @@ const pdfNameDisplay = computed(() => {
   return props.pdfDiskName.replace('.pdf', '')
 })
 
-const currentImages = computed(() => {
+const totalImages = computed(() => {
   return props.classifiedImages[activeCategory.value] || []
 })
+
+const hasMore = computed(() => displayLimit.value < totalImages.value.length)
+
+const currentImages = computed(() => {
+  return totalImages.value.slice(0, displayLimit.value)
+})
+
+const loadMore = () => {
+  displayLimit.value = Math.min(displayLimit.value + pageSize, totalImages.value.length)
+}
 
 const hasPrevImage = computed(() => {
   return selectedImage.value && currentImageIndex.value > 0
@@ -954,6 +973,13 @@ const getImageUrl = (image, size = 'thumb') => {
   }
 
   // 根据图片数据生成URL
+  // 优先用后端返回的 url，但移动分类后 url 可能过期 → 退而用 type+name 动态拼接
+  if (image.url && image.type && !image.url.includes(image.type)) {
+    // url 中的分类与当前 type 不一致（图片被移动过），动态构造
+    const baseUrl = getBackendUrl('')
+    const pdfFolder = props.pdfDiskName.replace('.pdf', '')
+    return `${baseUrl}/filtered-tables-image/${pdfFolder}/${image.type}/${image.name}`
+  }
   if (image.url) return image.url
 
   if (image.path) {
@@ -967,27 +993,14 @@ const getImageUrl = (image, size = 'thumb') => {
 
     // 检查是否是筛选后的图片
     if (image.path.includes('filtered_tables') || image.path.includes('tables/') || image.path.includes('no_tables/')) {
-      return `${baseUrl}/api/${image.path}`
+      return `${baseUrl}/filtered-tables-image/${pdfFolder}/${image.type || 'tables'}/${image.name}`
     } else {
-      // 普通PNG图片
       return `${baseUrl}/api/png/${pdfFolder}/${image.name}`
     }
   }
 
-  // 默认返回占位符或基于名称构建URL
-  const baseUrl = getBackendUrl('')
-  const pdfFolder = props.pdfDiskName.replace('.pdf', '')
-
-  // 尝试几种可能的URL模式
-  const possibleUrls = [
-    `${baseUrl}/api/png/${pdfFolder}/${image.name}`,
-    `${baseUrl}/api/filtered-tables/${pdfFolder}/tables/${image.name}`,
-    `${baseUrl}/api/filtered-tables/${pdfFolder}/no_tables/${image.name}`,
-    `${baseUrl}/static/png_output/${pdfFolder}/${image.name}`
-  ]
-
-  // 返回第一个URL，实际加载时会处理404
-  return possibleUrls[0]
+  // 默认降级
+  return `${baseUrl}/api/png/${pdfFolder}/${image.name}`
 }
 
 
@@ -1143,10 +1156,8 @@ const handleImageError = (image, event) => {
   // 备选URL列表
   const fallbackUrls = [
     `${baseUrl}/api/png/${pdfFolder}/${image.name}`,
-    `${baseUrl}/api/filtered-tables/${pdfFolder}/tables/${image.name}`,
-    `${baseUrl}/api/filtered-tables/${pdfFolder}/no_tables/${image.name}`,
-    `${baseUrl}/static/png_output/${pdfFolder}/${image.name}`,
-    // 占位符图片
+    `${baseUrl}/filtered-tables-image/${pdfFolder}/tables/${image.name}`,
+    `${baseUrl}/filtered-tables-image/${pdfFolder}/no_tables/${image.name}`,
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f5f5f5"/><text x="50" y="50" font-family="Arial" font-size="12" text-anchor="middle" fill="%23999">图片加载失败</text></svg>'
   ]
 
@@ -1174,9 +1185,10 @@ const handleTabChange = () => {
 
   // 清除多选选择
   selectedImages.value.clear()
-
-  // 如果需要，可以更新Set的响应式
   selectedImages.value = new Set(selectedImages.value)
+
+  // 重置分批加载
+  displayLimit.value = pageSize
 
   console.log('已清空所有选择状态')
 }

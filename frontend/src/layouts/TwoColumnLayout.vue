@@ -521,7 +521,7 @@ const props = defineProps({
 
 
 // 定义emit事件
-defineEmits([
+const emit = defineEmits([
   'load-files',
   'load-excel-files',
   'delete-file',

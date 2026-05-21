@@ -45,13 +45,13 @@ class DataQueryTool(Tool):
     def execute(self, query_type: str = "list_banks", **kwargs) -> ToolResult:
         try:
             if query_type == "list_banks":
-                banks = self.service.get_all_banks(status="active", limit=50)
+                banks = self.service.get_all_banks(status="active")
                 names = [{"id": b["id"], "name": b["bank_name"], "code": b.get("bank_code", ""), "type": b.get("bank_type", "")} for b in banks]
                 return ToolResult(success=True, data={"banks": names, "count": len(names)})
 
             elif query_type == "search_banks":
                 keyword = kwargs.get("keyword", "")
-                banks = self.service.search_banks(keyword, limit=20)
+                banks = self.service.search_banks(keyword)
                 names = [{"id": b["id"], "name": b["bank_name"], "code": b.get("bank_code", "")} for b in banks]
                 return ToolResult(success=True, data={"banks": names, "count": len(names)})
 

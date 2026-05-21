@@ -22,8 +22,11 @@ def convert_pdf_async(pdf_name, upload_dir, output_dir, db_manager, progress_tra
     out_dir = output_dir / pdf_path.stem
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 4. 检查缓存
-    existing = sorted(p.name for p in out_dir.glob("*.png"))
+    # 4. 检查缓存（排除 0 字节文件）
+    existing = sorted(
+        p.name for p in out_dir.glob("*.png")
+        if p.stat().st_size > 0
+    )
     if existing:
         return jsonify({
             "hitCache": True,

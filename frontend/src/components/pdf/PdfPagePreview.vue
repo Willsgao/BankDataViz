@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { getStaticUrl, getFullUrl } from '@/utils/config'
+import { getBackendUrl } from '@/utils/config'
 
 const props = defineProps({
   visible: Boolean,
@@ -22,23 +22,18 @@ const pdfName = computed(() => {
   return props.folder.replace ? props.folder.replace(/\.pdf$/i, '') : props.folder
 })
 
-// 构建图片 URL - 使用配置工具
+// 构建图片 URL - 使用 /api/png/ 端点
 const imageUrls = computed(() => {
   if (!props.pngs || !Array.isArray(props.pngs)) return []
 
+  const folder = (props.folder || '').replace(/\.pdf$/i, '')
+
   return props.pngs.map(png => {
     if (!png) return ''
-
-    // 使用配置工具构建 URL
-    if (png.startsWith('http')) {
-      return png  // 已经是完整 URL
-    } else if (png.startsWith('/')) {
-      return getFullUrl(png)  // 使用配置的完整路径
-    } else {
-      const folder = props.folder || ''
-      // 使用静态资源 URL 构建工具
-      return getStaticUrl(`converted/${folder}/${png}`)
-    }
+    if (png.startsWith('http')) return png
+    // 转图产生的 PNG 通过 /api/png/ 端点访问
+    const name = png.startsWith('/') ? png.split('/').pop() : png
+    return getBackendUrl(`/api/png/${folder}/${name}`)
   })
 })
 
