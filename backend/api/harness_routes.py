@@ -12,8 +12,8 @@ Harness API 路由
 
 from flask import Blueprint, request, jsonify
 
-from harness import Orchestrator, RuleEngine
-from harness.verification import NotNullRule, ColumnConsistencyRule, TableCountRule
+from backend.harness import Orchestrator, RuleEngine
+from backend.harness.verification import NotNullRule, ColumnConsistencyRule, TableCountRule
 
 from backend.harness.agents.table_parsing_agent import TableParsingAgent
 from backend.harness.agents.data_analysis_agent import DataAnalysisAgent

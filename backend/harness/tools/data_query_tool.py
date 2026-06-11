@@ -16,7 +16,7 @@ Usage:
 
 from typing import Any, Dict
 
-from harness.tool_registry import Tool, ToolResult
+from ..tool_registry import Tool, ToolResult
 
 from backend.services.bank_data_service import BankDataService
 

@@ -6,7 +6,7 @@ LLM Analysis Tool: LLM 表格结构分析
 
 from typing import Any, Dict
 
-from harness.tool_registry import Tool, ToolResult
+from ..tool_registry import Tool, ToolResult
 
 
 class LLMAnalysisTool(Tool):

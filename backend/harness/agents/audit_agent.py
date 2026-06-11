@@ -14,7 +14,7 @@ Usage:
 
 from typing import Any, Dict
 
-from harness.agent import Agent, Action
+from ..agent import Agent, Action
 
 from backend.harness.tools.audit_tool import AuditTool
 
