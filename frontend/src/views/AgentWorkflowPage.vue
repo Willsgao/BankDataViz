@@ -88,6 +88,11 @@
             <div class="verify-stats">共 {{ pipelineVerification.length }} 条规则，{{ pipelineVerification.filter(r => r.passed).length }} 通过</div>
           </div>
         </div>
+        <!-- LoopState 面板 -->
+        <div class="loopstate-section" v-if="pipelineLoopState">
+          <h3>🔁 Loop Engineering 状态</h3>
+          <LoopStatePanel :loopState="pipelineLoopState" />
+        </div>
       </el-tab-pane>
 
       <!-- ==================== Tab 2: ReAct ==================== -->
@@ -136,6 +141,10 @@
               <h4>图表</h4>
               <div ref="chartRef" style="width:100%;height:350px;"></div>
             </div>
+            <div class="loopstate-inline" v-if="reactLoopState">
+              <h4>🔁 Loop 状态</h4>
+              <LoopStatePanel :loopState="reactLoopState" />
+            </div>
           </div>
         </div>
       </el-tab-pane>
@@ -174,6 +183,77 @@
           </div>
         </div>
       </el-tab-pane>
+
+      <!-- ==================== Tab 4: Loop Engineering ==================== -->
+      <el-tab-pane label="Loop Engineering" name="loop">
+        <div class="loop-eng-layout">
+          <div class="loop-hero">
+            <div class="loop-hero-text">
+              <h3>Loop Engineering 状态总览</h3>
+              <p>展示本轮 Agent 循环的完整执行状态：终止原因、重试策略、尝试记录、错误分类</p>
+            </div>
+            <el-button type="primary" :loading="loopRunning" @click="runLoopDemo">▶ 运行演示（ReAct 模式）</el-button>
+          </div>
+
+          <!-- 状态总览卡片 -->
+          <div class="loop-summary-cards" v-if="loopSummary">
+            <div class="loop-card terminator">
+              <div class="loop-card-icon">🛑</div>
+              <div class="loop-card-body">
+                <div class="loop-card-title">Terminator 终止条件</div>
+                <div class="loop-card-value">{{ loopSummary.terminator?.reason || '—' }}</div>
+                <div class="loop-card-detail" v-if="loopSummary.terminator?.detail">{{ loopSummary.terminator.detail }}</div>
+              </div>
+            </div>
+            <div class="loop-card retry">
+              <div class="loop-card-icon">🔄</div>
+              <div class="loop-card-body">
+                <div class="loop-card-title">SmartRetry 重试策略</div>
+                <div class="loop-card-value">{{ loopSummary.retry?.totalRetries || 0 }} 次外层重试</div>
+                <div class="loop-card-detail" v-if="loopSummary.retry?.errorCategories">
+                  <span v-for="(count, cat) in loopSummary.retry.errorCategories" :key="cat" class="retry-badge" :class="cat">{{ cat }}: {{ count }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="loop-card hitl">
+              <div class="loop-card-icon">👤</div>
+              <div class="loop-card-body">
+                <div class="loop-card-title">HITL 人机协作</div>
+                <div class="loop-card-value">{{ loopSummary.hitl?.triggered ? '已触发' : '未触发' }}</div>
+                <div class="loop-card-detail" v-if="loopSummary.hitl?.decision">{{ loopSummary.hitl.decision }}</div>
+              </div>
+            </div>
+            <div class="loop-card plan">
+              <div class="loop-card-icon">📋</div>
+              <div class="loop-card-body">
+                <div class="loop-card-title">PlanAgent 规划</div>
+                <div class="loop-card-value">{{ loopSummary.plan?.enabled ? '已启用 (' + loopSummary.plan.totalSteps + ' 步)' : '未启用' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LoopState 详细记录 -->
+          <div class="loop-detail-section" v-if="loopLoopState">
+            <h3>📊 LoopState 详细记录</h3>
+            <LoopStatePanel :loopState="loopLoopState" :showAll="true" />
+          </div>
+
+          <!-- 死信队列 -->
+          <div class="loop-detail-section" v-if="loopDeadLetters && loopDeadLetters.length">
+            <h3>📬 死信队列（永久故障）</h3>
+            <div class="dead-letter-list">
+              <div v-for="(dl, i) in loopDeadLetters" :key="i" class="dead-letter-card">
+                <div class="dl-header">
+                  <span class="dl-tool">{{ dl.tool_name }}</span>
+                  <el-tag size="small" type="danger">{{ dl.error_category }}</el-tag>
+                </div>
+                <div class="dl-error">{{ dl.error?.slice(0, 200) }}</div>
+                <div class="dl-meta">尝试 {{ dl.attempts }} 次 | {{ new Date(dl.timestamp * 1000).toLocaleTimeString() }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <el-alert v-if="errorMsg" :title="errorMsg" type="error" show-icon closable @close="errorMsg = ''" />
@@ -184,6 +264,7 @@
 import { ref, nextTick, watch } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
+import LoopStatePanel from '@/components/agent/LoopStatePanel.vue'
 
 const API_BASE = '/api/harness'
 const mode = ref('pipeline')
@@ -194,6 +275,7 @@ const loadingTools = ref(false)
 const tools = ref([])
 const pipelineTrace = ref([])
 const pipelineVerification = ref([])
+const pipelineLoopState = ref(null)
 const errorMsg = ref('')
 
 // ========== ReAct Tab 状态 ==========
@@ -203,11 +285,18 @@ const reactTrace = ref([])
 const reactSummary = ref('')
 const reactAnswer = ref('')
 const reactChartOption = ref(null)
+const reactLoopState = ref(null)
 const chartRef = ref(null)
 
 // ========== 多 Agent Tab 状态 ==========
 const multiRunning = ref(false)
 const multiTrace = ref([])
+
+// ========== Loop Engineering Tab 状态 ==========
+const loopRunning = ref(false)
+const loopSummary = ref(null)
+const loopLoopState = ref(null)
+const loopDeadLetters = ref([])
 
 const suggestQuestions = [
   '列出所有可用的银行',
@@ -265,6 +354,7 @@ async function runPipeline() {
       pipelineTrace.value = realTrace.length ? realTrace.map((t, i) => ({ ...t, active: false, detail: steps[i]?.detail || '', duration_ms: t.duration_ms || Math.round(elapsed / 3) }))
         : pipelineTrace.value.map((t, i) => ({ ...t, active: false, duration_ms: Math.round(elapsed / 3) }))
       pipelineVerification.value = (res.data.verification || []).map(v => ({ rule_name: v.rule_name || v.rule || 'unknown', passed: v.passed !== false }))
+      pipelineLoopState.value = res.data.loop_state || null
     } else {
       pipelineTrace.value = pipelineTrace.value.map((t, i) => ({ ...t, active: false, success: i < pipelineTrace.value.length - 1, error: i === pipelineTrace.value.length - 1 ? (res.data?.error || '失败') : undefined }))
       errorMsg.value = res.data?.error || '解析失败'
@@ -293,6 +383,7 @@ async function runReact() {
     const res = await axios.post(`${API_BASE}/analyze`, { question: reactQuestion.value.trim() }, { timeout: 120000 })
     const data = res.data
     reactSummary.value = data.summary
+    reactLoopState.value = data.loop_state || null
     if (data.react_trace?.length) {
       reactTrace.value = data.react_trace.map(s => ({
         step: s.step, thought: s.thought || '', tool: s.tool || '', action_input: s.action_input || {},
@@ -334,6 +425,88 @@ async function runMulti() {
       { agent: 'AuditAgent', action: 'audit', success: true, retries: 0 }
     ]
   } finally { multiRunning.value = false }
+}
+
+// ========== Loop Engineering Demo ==========
+async function runLoopDemo() {
+  loopRunning.value = true; errorMsg.value = ''
+  loopSummary.value = null; loopLoopState.value = null; loopDeadLetters.value = []
+  try {
+    const res = await axios.post(`${API_BASE}/analyze`, { question: '列出所有可用的银行' }, { timeout: 120000 })
+    const data = res.data
+
+    // 构建 Loop 摘要
+    const ls = data.loop_state
+    const records = ls?.records || []
+    const strategies = {}
+    const outcomes = {}
+    records.forEach(r => {
+      strategies[r.strategy] = (strategies[r.strategy] || 0) + 1
+      outcomes[r.outcome] = (outcomes[r.outcome] || 0) + 1
+    })
+
+    // Terminator 信息：从错误信息推断
+    let termReason = ls ? (ls.consecutive_failures >= 3 ? 'CONSECUTIVE_FAILURES' :
+                     data.success ? 'TASK_COMPLETE' : 'ALL_TOOLS_EXHAUSTED') : '—'
+    let termDetail = data.success ? 'Agent 返回最终答案' : (data.error || '循环正常结束')
+
+    // SmartRetry 信息：从 trace 提取
+    const retryCount = (data.trace || []).reduce((s, t) => s + (t.retries || 0), 0)
+    const smartRetryUsed = (data.trace || []).some(t => t.smart_retry)
+    const errorCats = {}
+    ;(data.trace || []).forEach(t => {
+      if (t.error_category) errorCats[t.error_category] = (errorCats[t.error_category] || 0) + 1
+    })
+
+    loopSummary.value = {
+      terminator: { reason: termReason, detail: termDetail },
+      retry: {
+        totalRetries: retryCount,
+        smartRetryEnabled: smartRetryUsed,
+        errorCategories: Object.keys(errorCats).length ? errorCats : null,
+      },
+      hitl: {
+        triggered: data.hitl_triggered || false,
+        decision: data.hitl_decision || null,
+      },
+      plan: { enabled: false, totalSteps: 0 },
+    }
+
+    loopLoopState.value = ls || null
+
+    // 模拟死信示例（如果没有真实数据）
+    if (!loopDeadLetters.value.length) {
+      const failed = records.filter(r => r.outcome === 'permanent_failure')
+      if (failed.length) {
+        loopDeadLetters.value = failed.map(r => ({
+          tool_name: r.tool,
+          error_category: 'permanent',
+          error: r.error || '永久故障',
+          attempts: 1,
+          timestamp: Date.now() / 1000,
+        }))
+      }
+    }
+  } catch (e) {
+    errorMsg.value = 'Loop Demo 运行失败: ' + (e.response?.data?.error || e.message)
+    // 展示模拟数据
+    loopSummary.value = {
+      terminator: { reason: 'TASK_COMPLETE', detail: 'Agent 成功返回最终答案 (模拟)' },
+      retry: { totalRetries: 0, smartRetryEnabled: true, errorCategories: null },
+      hitl: { triggered: false, decision: null },
+      plan: { enabled: false, totalSteps: 0 },
+    }
+    loopLoopState.value = {
+      agent_name: 'demo_agent',
+      total_attempts: 3,
+      successful_tools: ['data_query'],
+      failed_tools: [],
+      consecutive_failures: 0,
+      records: [
+        { step: 1, tool: 'data_query', strategy: 'direct', outcome: 'success', error: null, latency_ms: 234.5 },
+      ],
+    }
+  } finally { loopRunning.value = false }
 }
 
 // 初始化加载工具列表
@@ -427,4 +600,39 @@ fetchTools()
 .multi-err { font-size: 14px; }
 .multi-retry { font-size: 11px; color: #ea580c; font-family: monospace; }
 .multi-fallback { font-size: 11px; color: #7c3aed; font-family: monospace; }
+
+/* Loop Engineering */
+.loopstate-section, .loopstate-inline { margin-top: 16px; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.loopstate-section h3, .loopstate-inline h4 { margin: 0 0 12px; font-size: 15px; color: #1e293b; }
+
+.loop-eng-layout { display: flex; flex-direction: column; gap: 16px; }
+.loop-hero { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 24px; display: flex; justify-content: space-between; align-items: center; }
+.loop-hero-text h3 { margin: 0 0 6px; color: #f1f5f9; font-size: 18px; }
+.loop-hero-text p { margin: 0; color: #94a3b8; font-size: 13px; }
+
+.loop-summary-cards { display: flex; gap: 12px; }
+.loop-card { flex: 1; background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; gap: 12px; align-items: flex-start; }
+.loop-card-icon { font-size: 28px; flex-shrink: 0; }
+.loop-card-body { flex: 1; }
+.loop-card-title { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.loop-card-value { font-size: 16px; font-weight: 700; color: #1e293b; }
+.loop-card-detail { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+.loop-card.terminator { border-top: 3px solid #ef4444; }
+.loop-card.retry { border-top: 3px solid #f59e0b; }
+.loop-card.hitl { border-top: 3px solid #3b82f6; }
+.loop-card.plan { border-top: 3px solid #8b5cf6; }
+
+.retry-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-right: 4px; background: #ffedd5; color: #c2410c; }
+.retry-badge.transient { background: #fef3c7; color: #b45309; }
+.retry-badge.permanent { background: #fee2e2; color: #dc2626; }
+
+.loop-detail-section { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.loop-detail-section h3 { margin: 0 0 12px; font-size: 15px; color: #1e293b; }
+
+.dead-letter-list { display: flex; flex-direction: column; gap: 8px; }
+.dead-letter-card { padding: 12px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444; }
+.dl-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.dl-tool { font-weight: 600; font-family: monospace; color: #1e293b; }
+.dl-error { font-size: 12px; color: #ef4444; margin-bottom: 4px; word-break: break-all; }
+.dl-meta { font-size: 11px; color: #94a3b8; }
 </style>

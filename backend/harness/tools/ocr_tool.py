@@ -6,7 +6,7 @@ OCR Tool: 表格 OCR 识别
 
 from typing import Any, Dict
 
-from ..tool_registry import Tool, ToolResult
+from backend.harness import Tool, ToolResult
 
 
 class OCRTool(Tool):

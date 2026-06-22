@@ -20,7 +20,7 @@ Usage:
 
 from typing import Any, Dict, List
 
-from ..tool_registry import Tool, ToolResult
+from backend.harness import Tool, ToolResult
 
 
 class ChartTool(Tool):

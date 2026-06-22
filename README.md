@@ -53,12 +53,7 @@ BankDataViz/
 │   │   ├── api/                # API 调用封装
 │   │   └── router/             # 路由与权限守卫
 │   └── package.json
-├── agent-harness/              # 🔧 自研零依赖 Agent 框架（独立 pip 包，需单独安装）
-│   └── harness/
-│       ├── tool_registry.py    # Tool 基类 + timeout 控制
-│       ├── agent.py            # Agent 基类 + ReActAgent 子类 + fallback 机制
-│       ├── orchestrator.py     # 多 Agent 编排器 + HITL 人工兜底回调
-│       └── verification.py     # 可插拔 RuleEngine（3 类内置规则）
+├── harnessloop/                # 自研零依赖 Agent 框架（独立仓库，pip 安装）
 ├── docs/screenshots/           # 功能截图（13 张 + 1 个 GIF，全流程覆盖）
 └── scripts/                    # 辅助脚本
 ```
@@ -132,7 +127,7 @@ BankDataViz/
 
 ### 10. Agent Harness 编排框架 + ReAct 推理
 
-基于自研 `agent-harness` 框架 (Model + Harness = Agent)，支持 **Pipeline 固定管线** 与 **ReAct 动态推理** 双模式。将 OCR、LLM 分析、表格重建、审计、RAG、数据查询、图表生成七大能力统一封装为标准化 Tool。Orchestrator 编排 + RuleEngine 验证 + HITL 人工兜底。下图展示 ReAct 模式的完整 Think→Action→Observe 推理链：
+基于自研 `harnessloop` 框架 (Model + Harness = Agent)，支持 **Pipeline 固定管线** 与 **ReAct 动态推理** 双模式。将 OCR、LLM 分析、表格重建、审计、RAG、数据查询、图表生成七大能力统一封装为标准化 Tool。Orchestrator 编排 + RuleEngine 验证 + HITL 人工兜底。下图展示 ReAct 模式的完整 Think→Action→Observe 推理链：
 
 ![ReAct推理链](docs/screenshots/12_ReAct流程.png)
 
@@ -354,7 +349,7 @@ class RagPipeline:
 自研零外部依赖的轻量级 Agent 框架（独立仓库），支持 Pipeline 固定管线与 ReAct 动态推理两种模式。将能力模块统一包装为 Tool，由 Orchestrator 编排调度，配合 RuleEngine 验证 + HITL 人工兜底：
 
 ```
-                    agent-harness 框架 (独立仓库)
+                    harnessloop 框架 (独立仓库)
           ┌─────────────────────────────────────────┐
           │  ToolRegistry   ←── 7 Tools ──────────┐ │
           │  Agent (Pipeline) / ReActAgent (LLM推理)│ │
@@ -529,7 +524,7 @@ def agent_parse():
 | **任务队列** | Redis | 异步任务队列 |
 | **数据库** | SQLite + Redis | 持久化 + 缓存 |
 | **缓存策略** | Redis(热) → SQLite(温) → 磁盘(冷) | 三级缓存，MD5 + model 复合键 |
-| **Agent 框架** | agent-harness (自研，独立仓库) | Tool 包装 + Pipeline/ReAct 双模式 + HITL 兜底 |
+| **Agent 框架** | harnessloop (自研，pip 包) | Tool 包装 + Pipeline/ReAct 双模式 + HITL 兜底 |
 
 ---
 
@@ -570,8 +565,9 @@ error_num → 错误数值（逗号在%前、多负号等）
 ### 启动方式
 
 ```bash
-# 1. 安装 agent-harness 框架（自研，零外部依赖）
-pip install -e /path/to/agent-harness
+# 1. 安装 harnessloop 框架（自研，零外部依赖）
+pip install harnessloop
+
 
 # 2. 后端
 cd backend
@@ -602,7 +598,7 @@ npm run serve                # 默认 http://localhost:8080
 
 ## License & Author
 
-独立开发，全栈交付。项目由真实银行数据处理需求驱动，经历从桌面原型（PyQt5）到 Web 服务（Vue 3 + Flask）的两阶段演进，并自研了零外部依赖的 `agent-harness` Agent 编排框架。
+独立开发，全栈交付。项目由真实银行数据处理需求驱动，经历从桌面原型（PyQt5）到 Web 服务（Vue 3 + Flask）的两阶段演进，并自研了零外部依赖的 `harnessloop` Agent 编排框架。
 
 - **作者**：wills
 - **7 年 NLP/AI 全栈研发** | 5 项授权发明专利 (4 项第一发明人)

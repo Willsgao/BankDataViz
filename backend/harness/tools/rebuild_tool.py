@@ -6,7 +6,7 @@ Rebuild Tool: 表格结构重建
 
 from typing import Any, Dict
 
-from ..tool_registry import Tool, ToolResult
+from backend.harness import Tool, ToolResult
 
 
 class RebuildTool(Tool):

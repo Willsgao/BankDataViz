@@ -28,7 +28,7 @@ Usage:
 
 from typing import Any, Dict
 
-from ..agent import ReActAgent
+from backend.harness import ReActAgent
 
 from backend.harness.tools.data_query_tool import DataQueryTool
 from backend.harness.tools.chart_tool import ChartTool

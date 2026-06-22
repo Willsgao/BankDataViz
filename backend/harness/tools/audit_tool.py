@@ -6,7 +6,7 @@ Audit Tool: 会计勾稽验证
 
 from typing import Any, Dict
 
-from ..tool_registry import Tool, ToolResult
+from backend.harness import Tool, ToolResult
 
 
 class AuditTool(Tool):

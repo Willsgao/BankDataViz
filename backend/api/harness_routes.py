@@ -13,10 +13,9 @@ Harness API 路由
 from flask import Blueprint, request, jsonify
 
 from backend.harness import Orchestrator, RuleEngine
-from backend.harness.verification import NotNullRule, ColumnConsistencyRule, TableCountRule
+from harnessloop.verification import NotNullRule, ColumnConsistencyRule, TableCountRule
 
-from backend.harness.agents.table_parsing_agent import TableParsingAgent
-from backend.harness.agents.data_analysis_agent import DataAnalysisAgent
+from backend.harness import TableParsingAgent, DataAnalysisAgent
 from backend.harness.tools.rag_tool import RAGTool
 from backend.configs.llm_config import RAG_API_KEY, RAG_BASE_URL, RAG_MODEL_ID
 

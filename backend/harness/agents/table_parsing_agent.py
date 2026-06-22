@@ -11,7 +11,7 @@
 
 from typing import Any, Dict
 
-from ..agent import Agent, Action
+from backend.harness import Agent, Action
 
 from backend.harness.tools.ocr_tool import OCRTool
 from backend.harness.tools.llm_analysis_tool import LLMAnalysisTool
