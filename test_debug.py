@@ -4,14 +4,14 @@ import sys
 sys.path.insert(0, r'F:\wills\codes\DocuVista')
 
 from backend.services.dal import ExcelDataSource
-from backend.services.audit_engine import run_rule, load_rules
+from audit_engine import run_rule, load_rules
 
 # 测试单条规则
 ds = ExcelDataSource()
 files = ds.get_file_list()
 test_file = files[0]
 
-rules = load_rules()
+rules = load_rules(r'F:\wills\codes\DocuVista\data\backend\config\audit_rules.json')
 rule = rules[0]
 
 print(f"Testing rule: {rule['id']} - {rule['name']}")

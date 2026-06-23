@@ -28,7 +28,7 @@ class AuditTool(Tool):
         **kwargs,
     ) -> ToolResult:
         try:
-            from backend.services.audit_engine import run_audit
+            from audit_engine import run_audit
 
             result = run_audit(
                 file_id=file_id,

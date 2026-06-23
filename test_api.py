@@ -67,8 +67,8 @@ def test_dal_apis():
     # 测试5: 字段分析
     print("\n[Test 5] Field analysis...")
     try:
-        from backend.services.audit_engine import load_rules
-        rules = load_rules()
+        from audit_engine import load_rules
+        rules = load_rules(r'F:\wills\codes\DocuVista\data\backend\config\audit_rules.json')
         test_rule = rules[0]
         print(f"  Testing rule: {test_rule['id']} - {test_rule['name']}")
         

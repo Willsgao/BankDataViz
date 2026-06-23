@@ -379,11 +379,12 @@ def run_audit():
         run_db_id = cur.lastrowid
 
         # 执行规则引擎（传入 sheet_mapping）
-        from backend.services.audit_engine import run_audit as engine_run
+        from audit_engine import run_audit as engine_run
         audit_result = engine_run(
             file_id, file_name, excel_path,
             rule_ids=rule_ids,
-            sheet_mapping=sheet_mapping
+            sheet_mapping=sheet_mapping,
+            config_path=RULES_CONFIG_PATH
         )
         results = audit_result['results']
         total = len(results)
@@ -477,13 +478,14 @@ def run_audit_dal():
             return jsonify({'success': False, 'error': f'File not found: {file_id}'}), 404
 
         # 执行规则引擎（DAL模式）
-        from backend.services.audit_engine import run_audit as engine_run
+        from audit_engine import run_audit as engine_run
         audit_result = engine_run(
             file_id=file_id,
             file_name=file_name,
             rule_ids=rule_ids,
             sheet_mapping=sheet_mapping,
-            data_source=ds
+            data_source=ds,
+            config_path=RULES_CONFIG_PATH
         )
         
         results = audit_result['results']

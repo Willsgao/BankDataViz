@@ -13,7 +13,7 @@ def test_audit_engine():
     print("\n[Step 1] Import modules...")
     try:
         from backend.services.dal import ExcelDataSource
-        from backend.services.audit_engine import run_audit, load_rules
+        from audit_engine import run_audit, load_rules
         print("  Import OK")
     except Exception as e:
         print(f"  Import FAILED: {e}")
@@ -48,7 +48,7 @@ def test_audit_engine():
     
     # 4. 加载规则
     print("\n[Step 3] Load rules...")
-    rules = load_rules()
+    rules = load_rules(r'F:\wills\codes\DocuVista\data\backend\config\audit_rules.json')
     print(f"  Loaded {len(rules)} rules")
     
     # 5. 执行勾稽（使用DAL模式）
@@ -58,7 +58,8 @@ def test_audit_engine():
             file_id=target_file.id,
             file_name=target_file.name,
             rule_ids=[r['id'] for r in rules],  # 测试所有规则
-            data_source=ds
+            data_source=ds,
+            config_path=r'F:\wills\codes\DocuVista\data\backend\config\audit_rules.json'
         )
         print(f"\n  Result Summary:")
         print(f"    Status: {result['status']}")
